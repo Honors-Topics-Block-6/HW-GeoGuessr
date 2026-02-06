@@ -2,12 +2,13 @@ import { useRef } from 'react';
 import './MapPicker.css';
 
 function MapPicker({ markerPosition, onMapClick }) {
-  const mapRef = useRef(null);
+  const imageRef = useRef(null);
 
   const handleClick = (event) => {
-    if (!mapRef.current) return;
+    if (!imageRef.current) return;
 
-    const rect = mapRef.current.getBoundingClientRect();
+    // Get coordinates relative to the actual image element
+    const rect = imageRef.current.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * 100;
     const y = ((event.clientY - rect.top) / rect.height) * 100;
 
@@ -24,18 +25,15 @@ function MapPicker({ markerPosition, onMapClick }) {
         <span className="map-icon">🗺️</span>
         <span>Click to place your guess</span>
       </div>
-      <div
-        className="map-picker"
-        ref={mapRef}
-        onClick={handleClick}
-      >
+      <div className="map-picker" onClick={handleClick}>
         <img
+          ref={imageRef}
           className="map-image"
           src="/map.png"
           alt="Campus Map"
         />
 
-        {/* Marker */}
+        {/* Marker - positioned relative to the container which matches image size */}
         {markerPosition && (
           <div
             className="marker"

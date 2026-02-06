@@ -20,7 +20,6 @@
 .map-picker {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
   background-color: var(--bg-secondary);
   border-radius: 12px;
   overflow: hidden;
@@ -34,9 +33,10 @@
 }
 
 .map-image {
+  position: relative;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: auto;
+  display: block;
 }
 
 /* Marker Styles */

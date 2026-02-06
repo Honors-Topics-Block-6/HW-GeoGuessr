@@ -17,6 +17,7 @@ function App() {
     currentImage,
     guessLocation,
     guessFloor,
+    availableFloors,
     currentResult,
     roundResults,
     isLoading,
@@ -72,6 +73,7 @@ function App() {
           imageUrl={currentImage.url}
           guessLocation={guessLocation}
           guessFloor={guessFloor}
+          availableFloors={availableFloors}
           onMapClick={placeMarker}
           onFloorSelect={selectFloor}
           onSubmitGuess={submitGuess}

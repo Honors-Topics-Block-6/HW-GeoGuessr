@@ -1,9 +1,7 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import './PolygonDrawer.css'
 
-const VIEWBOX_WIDTH = 800
-const VIEWBOX_HEIGHT = 600
-const CLOSE_THRESHOLD = 15 // Distance to first point to close polygon
+const CLOSE_THRESHOLD = 2 // Distance to first point to close polygon (in percentage units)
 
 function PolygonDrawer({
   regions,
@@ -15,21 +13,64 @@ function PolygonDrawer({
   onPolygonComplete,
   onPointMove
 }) {
-  const svgRef = useRef(null)
+  const containerRef = useRef(null)
+  const imageRef = useRef(null)
   const [draggingPoint, setDraggingPoint] = useState(null)
   const [hoverFirstPoint, setHoverFirstPoint] = useState(false)
+  const [svgStyle, setSvgStyle] = useState({})
 
-  // Convert screen coordinates to SVG viewBox coordinates
-  const getViewBoxCoords = useCallback((e) => {
-    if (!svgRef.current) return null
+  // Update SVG position to match the image
+  const updateSvgPosition = useCallback(() => {
+    if (!imageRef.current || !containerRef.current) return
 
-    const rect = svgRef.current.getBoundingClientRect()
-    const x = (e.clientX - rect.left) * (VIEWBOX_WIDTH / rect.width)
-    const y = (e.clientY - rect.top) * (VIEWBOX_HEIGHT / rect.height)
+    const img = imageRef.current
+    const container = containerRef.current
+    const containerRect = container.getBoundingClientRect()
+    const imgRect = img.getBoundingClientRect()
+
+    // Calculate the offset of the image within the container
+    const left = imgRect.left - containerRect.left
+    const top = imgRect.top - containerRect.top
+
+    setSvgStyle({
+      left: `${left}px`,
+      top: `${top}px`,
+      width: `${imgRect.width}px`,
+      height: `${imgRect.height}px`
+    })
+  }, [])
+
+  // Update SVG position when image loads or window resizes
+  useEffect(() => {
+    const img = imageRef.current
+    if (img) {
+      if (img.complete) {
+        updateSvgPosition()
+      }
+      img.addEventListener('load', updateSvgPosition)
+    }
+
+    window.addEventListener('resize', updateSvgPosition)
+
+    return () => {
+      if (img) {
+        img.removeEventListener('load', updateSvgPosition)
+      }
+      window.removeEventListener('resize', updateSvgPosition)
+    }
+  }, [updateSvgPosition])
+
+  // Convert screen coordinates to percentage coordinates (0-100) relative to the image
+  const getPercentCoords = useCallback((e) => {
+    if (!imageRef.current) return null
+
+    const rect = imageRef.current.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
 
     return {
-      x: Math.round(Math.max(0, Math.min(VIEWBOX_WIDTH, x))),
-      y: Math.round(Math.max(0, Math.min(VIEWBOX_HEIGHT, y)))
+      x: Math.max(0, Math.min(100, x)),
+      y: Math.max(0, Math.min(100, y))
     }
   }, [])
 
@@ -38,7 +79,7 @@ function PolygonDrawer({
     // Ignore if we're dragging or clicked on a control element
     if (draggingPoint || e.target.closest('.polygon-vertex')) return
 
-    const coords = getViewBoxCoords(e)
+    const coords = getPercentCoords(e)
     if (!coords) return
 
     if (isDrawing) {
@@ -55,11 +96,11 @@ function PolygonDrawer({
       }
       onPointAdd(coords)
     }
-  }, [isDrawing, newPolygonPoints, draggingPoint, getViewBoxCoords, onPointAdd, onPolygonComplete])
+  }, [isDrawing, newPolygonPoints, draggingPoint, getPercentCoords, onPointAdd, onPolygonComplete])
 
   // Handle mouse move for hover effects and dragging
   const handleMouseMove = useCallback((e) => {
-    const coords = getViewBoxCoords(e)
+    const coords = getPercentCoords(e)
     if (!coords) return
 
     // Update hover state for first point
@@ -77,7 +118,7 @@ function PolygonDrawer({
     if (draggingPoint) {
       onPointMove(draggingPoint.regionId, draggingPoint.pointIndex, coords)
     }
-  }, [isDrawing, newPolygonPoints, draggingPoint, getViewBoxCoords, onPointMove])
+  }, [isDrawing, newPolygonPoints, draggingPoint, getPercentCoords, onPointMove])
 
   // Start dragging a vertex
   const handleVertexMouseDown = useCallback((e, regionId, pointIndex) => {
@@ -96,32 +137,30 @@ function PolygonDrawer({
   }
 
   return (
-    <div className="polygon-drawer-container">
+    <div
+      ref={containerRef}
+      className={`polygon-drawer-container ${isDrawing ? 'drawing-mode' : ''}`}
+      onClick={handleSvgClick}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      {/* Map background image */}
+      <img
+        ref={imageRef}
+        src="/map.png"
+        alt="Map"
+        className="polygon-drawer-image"
+        draggable={false}
+      />
+
+      {/* SVG overlay for polygons - positioned exactly over the image */}
       <svg
-        ref={svgRef}
-        className={`polygon-drawer-svg ${isDrawing ? 'drawing-mode' : ''}`}
-        viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
-        preserveAspectRatio="xMidYMid meet"
-        onClick={handleSvgClick}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        className="polygon-drawer-svg"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        style={svgStyle}
       >
-        {/* Map background */}
-        <image
-          href="/map.png"
-          width={VIEWBOX_WIDTH}
-          height={VIEWBOX_HEIGHT}
-          preserveAspectRatio="xMidYMid slice"
-        />
-
-        {/* Fallback if no map image - grid pattern */}
-        <defs>
-          <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e0e0e0" strokeWidth="0.5" />
-          </pattern>
-        </defs>
-
         {/* Existing regions */}
         {regions.map(region => (
           <g key={region.id} className="region-group">
@@ -131,7 +170,7 @@ function PolygonDrawer({
               fill={region.color || '#4a90d9'}
               fillOpacity={selectedRegionId === region.id ? 0.5 : 0.3}
               stroke={selectedRegionId === region.id ? '#2c3e50' : region.color || '#4a90d9'}
-              strokeWidth={selectedRegionId === region.id ? 3 : 2}
+              strokeWidth={selectedRegionId === region.id ? 0.4 : 0.25}
               className="region-polygon"
               onClick={(e) => {
                 e.stopPropagation()
@@ -145,10 +184,10 @@ function PolygonDrawer({
                 key={i}
                 cx={point.x}
                 cy={point.y}
-                r={8}
+                r={1}
                 fill="white"
                 stroke="#2c3e50"
-                strokeWidth={2}
+                strokeWidth={0.25}
                 className="polygon-vertex"
                 style={{ cursor: 'move' }}
                 onMouseDown={(e) => handleVertexMouseDown(e, region.id, i)}
@@ -163,7 +202,7 @@ function PolygonDrawer({
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fill="#2c3e50"
-                fontSize="14"
+                fontSize="2"
                 fontWeight="bold"
                 className="region-label"
                 pointerEvents="none"
@@ -182,11 +221,9 @@ function PolygonDrawer({
               points={getPolygonPointsString(newPolygonPoints)}
               fill="none"
               stroke="#3498db"
-              strokeWidth={2}
-              strokeDasharray="8,4"
+              strokeWidth={0.25}
+              strokeDasharray="1,0.5"
             />
-
-            {/* Preview line to cursor would go here if we tracked cursor position */}
 
             {/* Vertex circles */}
             {newPolygonPoints.map((point, i) => (
@@ -194,10 +231,10 @@ function PolygonDrawer({
                 key={i}
                 cx={point.x}
                 cy={point.y}
-                r={i === 0 ? (hoverFirstPoint ? 12 : 10) : 6}
+                r={i === 0 ? (hoverFirstPoint ? 1.5 : 1.25) : 0.75}
                 fill={i === 0 ? (hoverFirstPoint ? '#27ae60' : '#2ecc71') : '#3498db'}
                 stroke="white"
-                strokeWidth={2}
+                strokeWidth={0.25}
                 className={`drawing-vertex ${i === 0 ? 'first-vertex' : ''}`}
               />
             ))}
@@ -206,10 +243,10 @@ function PolygonDrawer({
             {newPolygonPoints.length >= 3 && (
               <text
                 x={newPolygonPoints[0].x}
-                y={newPolygonPoints[0].y - 20}
+                y={newPolygonPoints[0].y - 2.5}
                 textAnchor="middle"
                 fill="#27ae60"
-                fontSize="12"
+                fontSize="1.5"
                 fontWeight="bold"
               >
                 Click to close
@@ -217,21 +254,14 @@ function PolygonDrawer({
             )}
           </g>
         )}
-
-        {/* Drawing mode hint */}
-        {isDrawing && newPolygonPoints.length === 0 && (
-          <text
-            x={VIEWBOX_WIDTH / 2}
-            y={30}
-            textAnchor="middle"
-            fill="#3498db"
-            fontSize="16"
-            fontWeight="bold"
-          >
-            Click on the map to add points. Click first point to close.
-          </text>
-        )}
       </svg>
+
+      {/* Drawing mode hint overlay */}
+      {isDrawing && newPolygonPoints.length === 0 && (
+        <div className="polygon-drawer-hint">
+          Click on the map to add points. Click first point to close.
+        </div>
+      )}
 
       {/* Instructions overlay */}
       {!isDrawing && regions.length === 0 && (

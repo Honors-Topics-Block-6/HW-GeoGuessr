@@ -8,6 +8,7 @@ function GameScreen({
   imageUrl,
   guessLocation,
   guessFloor,
+  availableFloors,
   onMapClick,
   onFloorSelect,
   onSubmitGuess,
@@ -15,7 +16,11 @@ function GameScreen({
   currentRound = 1,
   totalRounds = 5
 }) {
-  const canSubmit = guessLocation !== null && guessFloor !== null;
+  // Can submit if location is selected AND either:
+  // - not in a region (availableFloors is null), OR
+  // - in a region with floors and a floor is selected
+  const isInRegion = availableFloors !== null && availableFloors.length > 0;
+  const canSubmit = guessLocation !== null && (!isInRegion || guessFloor !== null);
 
   return (
     <div className="game-screen">
@@ -43,10 +48,13 @@ function GameScreen({
             onMapClick={onMapClick}
           />
 
-          <FloorSelector
-            selectedFloor={guessFloor}
-            onFloorSelect={onFloorSelect}
-          />
+          {isInRegion && (
+            <FloorSelector
+              selectedFloor={guessFloor}
+              onFloorSelect={onFloorSelect}
+              floors={availableFloors}
+            />
+          )}
 
           <GuessButton
             disabled={!canSubmit}
@@ -60,10 +68,12 @@ function GameScreen({
             <span className="status-icon">{guessLocation ? '✓' : '○'}</span>
             <span>Location selected</span>
           </div>
-          <div className={`status-item ${guessFloor ? 'complete' : ''}`}>
-            <span className="status-icon">{guessFloor ? '✓' : '○'}</span>
-            <span>Floor selected</span>
-          </div>
+          {isInRegion && (
+            <div className={`status-item ${guessFloor ? 'complete' : ''}`}>
+              <span className="status-icon">{guessFloor ? '✓' : '○'}</span>
+              <span>Floor selected</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

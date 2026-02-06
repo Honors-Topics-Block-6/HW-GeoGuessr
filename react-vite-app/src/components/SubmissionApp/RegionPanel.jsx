@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import './RegionPanel.css'
 
 // Floor range for toggle buttons
-const FLOOR_OPTIONS = [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+const FLOOR_OPTIONS = [1, 2, 3]
 
 // Preset colors for regions
 const COLOR_PRESETS = [

@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { getRandomImage } from '../services/imageService';
+import { getRegions, getFloorsForPoint } from '../services/regionService';
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
@@ -55,6 +56,21 @@ export function useGameState() {
   // Error state
   const [error, setError] = useState(null);
 
+  // Regions from Firestore (for floor selection)
+  const [regions, setRegions] = useState([]);
+
+  // Available floors based on selected location (null if not in a region)
+  const [availableFloors, setAvailableFloors] = useState(null);
+
+  // Load regions on mount
+  useEffect(() => {
+    async function loadRegions() {
+      const fetchedRegions = await getRegions();
+      setRegions(fetchedRegions);
+    }
+    loadRegions();
+  }, []);
+
   /**
    * Load a new image for the current round
    */
@@ -67,6 +83,7 @@ export function useGameState() {
       setCurrentImage(image);
       setGuessLocation(null);
       setGuessFloor(null);
+      setAvailableFloors(null);
     } catch (err) {
       console.error('Failed to load image:', err);
       setError('Failed to load image. Please try again.');
@@ -91,6 +108,7 @@ export function useGameState() {
       setCurrentImage(image);
       setGuessLocation(null);
       setGuessFloor(null);
+      setAvailableFloors(null);
       setScreen('game');
     } catch (err) {
       console.error('Failed to start game:', err);
@@ -105,7 +123,16 @@ export function useGameState() {
    */
   const placeMarker = useCallback((coords) => {
     setGuessLocation(coords);
-  }, []);
+
+    // Determine available floors based on region
+    const floors = getFloorsForPoint(coords, regions);
+    setAvailableFloors(floors);
+
+    // Reset floor selection if current selection is not in available floors
+    if (floors === null || (guessFloor && !floors.includes(guessFloor))) {
+      setGuessFloor(null);
+    }
+  }, [regions, guessFloor]);
 
   /**
    * Select a floor
@@ -118,8 +145,16 @@ export function useGameState() {
    * Submit the guess and calculate score
    */
   const submitGuess = useCallback(() => {
-    if (!guessLocation || !guessFloor || !currentImage) {
-      console.warn('Cannot submit: missing location, floor, or image');
+    // Check if in a region that requires floor selection
+    const isInRegion = availableFloors !== null && availableFloors.length > 0;
+
+    if (!guessLocation || !currentImage) {
+      console.warn('Cannot submit: missing location or image');
+      return;
+    }
+
+    if (isInRegion && !guessFloor) {
+      console.warn('Cannot submit: missing floor selection for region');
       return;
     }
 
@@ -130,9 +165,16 @@ export function useGameState() {
     // Calculate scores
     const distance = calculateDistance(guessLocation, actualLocation);
     const locationScore = calculateLocationScore(distance);
-    const floorCorrect = guessFloor === actualFloor;
-    // Multiply by 0.8 for incorrect floor instead of bonus system
-    const totalScore = floorCorrect ? locationScore : Math.round(locationScore * 0.8);
+
+    // Floor scoring only applies when in a region
+    let floorCorrect = null;
+    let totalScore = locationScore;
+
+    if (isInRegion && guessFloor !== null) {
+      floorCorrect = guessFloor === actualFloor;
+      // Multiply by 0.8 for incorrect floor instead of bonus system
+      totalScore = floorCorrect ? locationScore : Math.round(locationScore * 0.8);
+    }
 
     // Create result object
     const result = {
@@ -154,7 +196,7 @@ export function useGameState() {
 
     // Show result screen
     setScreen('result');
-  }, [guessLocation, guessFloor, currentImage, currentRound]);
+  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound]);
 
   /**
    * Proceed to the next round
@@ -191,6 +233,7 @@ export function useGameState() {
     setCurrentImage(null);
     setGuessLocation(null);
     setGuessFloor(null);
+    setAvailableFloors(null);
     setCurrentResult(null);
     setRoundResults([]);
     setError(null);
@@ -204,6 +247,7 @@ export function useGameState() {
     currentImage,
     guessLocation,
     guessFloor,
+    availableFloors,
     currentResult,
     roundResults,
     isLoading,
