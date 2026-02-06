@@ -107,6 +107,56 @@
   }
 }
 
+/* Playing regions overlay */
+.playing-regions-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Click rejected feedback */
+.map-picker.click-rejected {
+  animation: rejectShake 0.4s ease-in-out;
+  border-color: #e74c3c !important;
+}
+
+@keyframes rejectShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-4px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+/* Flash overlay for rejected clicks */
+.map-picker.click-rejected::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(231, 76, 60, 0.2);
+  pointer-events: none;
+  animation: rejectFlash 0.4s ease-out forwards;
+}
+
+@keyframes rejectFlash {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .map-picker {

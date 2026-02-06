@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getRandomImage } from '../services/imageService';
-import { getRegions, getFloorsForPoint } from '../services/regionService';
+import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } from '../services/regionService';
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
@@ -59,16 +59,26 @@ export function useGameState() {
   // Regions from Firestore (for floor selection)
   const [regions, setRegions] = useState([]);
 
+  // Playing area from Firestore (for restricting click area)
+  const [playingArea, setPlayingArea] = useState(null);
+
   // Available floors based on selected location (null if not in a region)
   const [availableFloors, setAvailableFloors] = useState(null);
 
-  // Load regions on mount
+  // Track when a click is rejected (outside playing area)
+  const [clickRejected, setClickRejected] = useState(false);
+
+  // Load regions and playing area on mount
   useEffect(() => {
-    async function loadRegions() {
-      const fetchedRegions = await getRegions();
+    async function loadData() {
+      const [fetchedRegions, fetchedPlayingArea] = await Promise.all([
+        getRegions(),
+        getPlayingArea()
+      ]);
       setRegions(fetchedRegions);
+      setPlayingArea(fetchedPlayingArea);
     }
-    loadRegions();
+    loadData();
   }, []);
 
   /**
@@ -120,9 +130,20 @@ export function useGameState() {
 
   /**
    * Place a marker on the map
+   * Returns true if marker was placed, false if click was rejected
    */
   const placeMarker = useCallback((coords) => {
+    // Check if click is within the playing area
+    if (!isPointInPlayingArea(coords, playingArea)) {
+      // Click rejected - not in the playing area
+      setClickRejected(true);
+      // Auto-clear the rejection state after animation
+      setTimeout(() => setClickRejected(false), 500);
+      return false;
+    }
+
     setGuessLocation(coords);
+    setClickRejected(false);
 
     // Determine available floors based on region
     const floors = getFloorsForPoint(coords, regions);
@@ -132,7 +153,9 @@ export function useGameState() {
     if (floors === null || (guessFloor && !floors.includes(guessFloor))) {
       setGuessFloor(null);
     }
-  }, [regions, guessFloor]);
+
+    return true;
+  }, [playingArea, regions, guessFloor]);
 
   /**
    * Select a floor
@@ -252,6 +275,8 @@ export function useGameState() {
     roundResults,
     isLoading,
     error,
+    clickRejected,
+    playingArea,
 
     // Actions
     startGame,

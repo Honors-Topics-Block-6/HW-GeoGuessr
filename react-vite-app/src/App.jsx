@@ -22,6 +22,8 @@ function App() {
     roundResults,
     isLoading,
     error,
+    clickRejected,
+    playingArea,
     startGame,
     placeMarker,
     selectFloor,
@@ -80,6 +82,8 @@ function App() {
           onBackToTitle={resetGame}
           currentRound={currentRound}
           totalRounds={totalRounds}
+          clickRejected={clickRejected}
+          playingArea={playingArea}
         />
       )}
 

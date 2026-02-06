@@ -14,7 +14,9 @@ function GameScreen({
   onSubmitGuess,
   onBackToTitle,
   currentRound = 1,
-  totalRounds = 5
+  totalRounds = 5,
+  clickRejected = false,
+  playingArea = null
 }) {
   // Can submit if location is selected AND either:
   // - not in a region (availableFloors is null), OR
@@ -46,6 +48,8 @@ function GameScreen({
           <MapPicker
             markerPosition={guessLocation}
             onMapClick={onMapClick}
+            clickRejected={clickRejected}
+            playingArea={playingArea}
           />
 
           {isInRegion && (
