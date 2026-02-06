@@ -1,0 +1,147 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 30px;
+  background-color: #2c3e50;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.app-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.review-button {
+  padding: 10px 25px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.review-button:hover {
+  background-color: #2980b9;
+}
+
+.app-main {
+  flex: 1;
+  padding: 30px;
+}
+
+/* Password Modal Styles */
+.password-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.password-modal {
+  background-color: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 350px;
+}
+
+.password-modal h2 {
+  margin-bottom: 20px;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.password-modal form {
+  display: flex;
+  flex-direction: column;
+}
+
+.password-modal input {
+  padding: 12px 15px;
+  font-size: 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  transition: border-color 0.2s;
+}
+
+.password-modal input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.password-modal .error {
+  color: #e74c3c;
+  font-size: 14px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-buttons button {
+  flex: 1;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.modal-buttons button[type="submit"] {
+  background-color: #3498db;
+  color: white;
+}
+
+.modal-buttons button[type="submit"]:hover {
+  background-color: #2980b9;
+}
+
+.modal-buttons button[type="button"] {
+  background-color: #ecf0f1;
+  color: #333;
+}
+
+.modal-buttons button[type="button"]:hover {
+  background-color: #d5dbdb;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 15px 20px;
+  }
+
+  .app-header h1 {
+    font-size: 18px;
+  }
+
+  .app-main {
+    padding: 20px;
+  }
+}
