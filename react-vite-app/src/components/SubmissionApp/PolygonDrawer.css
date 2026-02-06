@@ -45,6 +45,15 @@
   pointer-events: none;
 }
 
+.polygon-drawer-hint.playing-area {
+  background-color: rgba(39, 174, 96, 0.9);
+}
+
+/* Playing area polygon styling */
+.playing-area-polygon {
+  pointer-events: none;
+}
+
 /* Polygon styling */
 .region-polygon {
   cursor: pointer;

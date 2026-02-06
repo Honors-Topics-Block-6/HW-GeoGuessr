@@ -1,4 +1,4 @@
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 /**
@@ -20,6 +20,26 @@ export async function getRegions() {
   } catch (error) {
     console.error('Error fetching regions:', error);
     return [];
+  }
+}
+
+/**
+ * Fetches the playing area from Firestore settings
+ * @returns {Object|null} - Playing area object with polygon, or null if not defined
+ */
+export async function getPlayingArea() {
+  try {
+    const playingAreaRef = doc(db, 'settings', 'playingArea');
+    const docSnap = await getDoc(playingAreaRef);
+
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching playing area:', error);
+    return null;
   }
 }
 
@@ -68,4 +88,19 @@ export function getFloorsForPoint(point, regions) {
   }
 
   return null;
+}
+
+/**
+ * Check if a point is inside the playing area
+ * @param {Object} point - {x, y} coordinates (0-100 percentage)
+ * @param {Object|null} playingArea - Playing area object with polygon property
+ * @returns {boolean} - True if point is inside the playing area (or no playing area defined)
+ */
+export function isPointInPlayingArea(point, playingArea) {
+  // If no playing area is defined, allow clicks anywhere
+  if (!playingArea || !playingArea.polygon || playingArea.polygon.length < 3) {
+    return true;
+  }
+
+  return isPointInPolygon(point, playingArea.polygon);
 }

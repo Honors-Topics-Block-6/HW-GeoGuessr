@@ -3,11 +3,20 @@ import './PolygonDrawer.css'
 
 const CLOSE_THRESHOLD = 2 // Distance to first point to close polygon (in percentage units)
 
+// Drawing modes (must match MapEditor)
+const DRAW_MODE = {
+  NONE: 'none',
+  REGION: 'region',
+  PLAYING_AREA: 'playing_area'
+}
+
 function PolygonDrawer({
   regions,
   selectedRegionId,
   isDrawing,
+  drawMode = DRAW_MODE.NONE,
   newPolygonPoints,
+  playingArea,
   onRegionSelect,
   onPointAdd,
   onPolygonComplete,
@@ -136,10 +145,12 @@ function PolygonDrawer({
     return points.map(p => `${p.x},${p.y}`).join(' ')
   }
 
+  const isDrawingPlayingArea = drawMode === DRAW_MODE.PLAYING_AREA
+
   return (
     <div
       ref={containerRef}
-      className={`polygon-drawer-container ${isDrawing ? 'drawing-mode' : ''}`}
+      className={`polygon-drawer-container ${isDrawing ? 'drawing-mode' : ''} ${isDrawingPlayingArea ? 'drawing-playing-area' : ''}`}
       onClick={handleSvgClick}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -161,6 +172,21 @@ function PolygonDrawer({
         preserveAspectRatio="none"
         style={svgStyle}
       >
+        {/* Playing area boundary (shown first, behind regions) */}
+        {playingArea && playingArea.polygon && (
+          <g className="playing-area-group">
+            <polygon
+              points={getPolygonPointsString(playingArea.polygon)}
+              fill="#27ae60"
+              fillOpacity="0.1"
+              stroke="#27ae60"
+              strokeWidth="0.5"
+              strokeDasharray="2,1"
+              className="playing-area-polygon"
+            />
+          </g>
+        )}
+
         {/* Existing regions */}
         {regions.map(region => (
           <g key={region.id} className="region-group">
@@ -220,7 +246,7 @@ function PolygonDrawer({
             <polyline
               points={getPolygonPointsString(newPolygonPoints)}
               fill="none"
-              stroke="#3498db"
+              stroke={isDrawingPlayingArea ? '#27ae60' : '#3498db'}
               strokeWidth={0.25}
               strokeDasharray="1,0.5"
             />
@@ -232,7 +258,7 @@ function PolygonDrawer({
                 cx={point.x}
                 cy={point.y}
                 r={i === 0 ? (hoverFirstPoint ? 1.5 : 1.25) : 0.75}
-                fill={i === 0 ? (hoverFirstPoint ? '#27ae60' : '#2ecc71') : '#3498db'}
+                fill={i === 0 ? (hoverFirstPoint ? '#27ae60' : '#2ecc71') : (isDrawingPlayingArea ? '#27ae60' : '#3498db')}
                 stroke="white"
                 strokeWidth={0.25}
                 className={`drawing-vertex ${i === 0 ? 'first-vertex' : ''}`}
@@ -258,16 +284,18 @@ function PolygonDrawer({
 
       {/* Drawing mode hint overlay */}
       {isDrawing && newPolygonPoints.length === 0 && (
-        <div className="polygon-drawer-hint">
-          Click on the map to add points. Click first point to close.
+        <div className={`polygon-drawer-hint ${isDrawingPlayingArea ? 'playing-area' : ''}`}>
+          {isDrawingPlayingArea
+            ? 'Click on the map to draw the playing area boundary. Click first point to close.'
+            : 'Click on the map to add points. Click first point to close.'}
         </div>
       )}
 
       {/* Instructions overlay */}
-      {!isDrawing && regions.length === 0 && (
+      {!isDrawing && regions.length === 0 && !playingArea && (
         <div className="polygon-drawer-empty">
           <p>No regions defined yet.</p>
-          <p>Click "New Region" to start drawing.</p>
+          <p>Click "Draw Playing Area" or "New Region" to start.</p>
         </div>
       )}
     </div>

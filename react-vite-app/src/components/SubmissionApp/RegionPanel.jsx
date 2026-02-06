@@ -10,6 +10,13 @@ const COLOR_PRESETS = [
   '#f39c12', '#1abc9c', '#e67e22', '#34495e'
 ]
 
+// Drawing modes (must match MapEditor)
+const DRAW_MODE = {
+  NONE: 'none',
+  REGION: 'region',
+  PLAYING_AREA: 'playing_area'
+}
+
 function RegionPanel({
   regions,
   selectedRegionId,
@@ -19,12 +26,17 @@ function RegionPanel({
   onStartDrawing,
   onCancelDrawing,
   isDrawing,
-  newPolygonPoints
+  drawMode = DRAW_MODE.NONE,
+  newPolygonPoints,
+  playingArea,
+  onStartDrawingPlayingArea,
+  onDeletePlayingArea
 }) {
   const [editName, setEditName] = useState('')
   const [editFloors, setEditFloors] = useState([])
   const [editColor, setEditColor] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showDeletePlayingAreaConfirm, setShowDeletePlayingAreaConfirm] = useState(false)
 
   const selectedRegion = regions.find(r => r.id === selectedRegionId)
 
@@ -70,6 +82,15 @@ function RegionPanel({
     }
   }
 
+  const handleDeletePlayingArea = () => {
+    if (showDeletePlayingAreaConfirm) {
+      onDeletePlayingArea()
+      setShowDeletePlayingAreaConfirm(false)
+    } else {
+      setShowDeletePlayingAreaConfirm(true)
+    }
+  }
+
   const formatFloors = (floors) => {
     if (!floors || floors.length === 0) return 'None'
     const sorted = [...floors].sort((a, b) => a - b)
@@ -79,13 +100,70 @@ function RegionPanel({
 
   return (
     <div className="region-panel">
-      {/* Toolbar */}
+      {/* Playing Area Section */}
+      <div className="playing-area-section">
+        <h3>Playing Area</h3>
+        {isDrawing && drawMode === DRAW_MODE.PLAYING_AREA ? (
+          <div className="drawing-active">
+            <div className="drawing-status playing-area">
+              <span className="drawing-indicator"></span>
+              Drawing playing area: {newPolygonPoints.length} points
+            </div>
+            <button
+              className="cancel-drawing-button"
+              onClick={onCancelDrawing}
+            >
+              Cancel (Esc)
+            </button>
+          </div>
+        ) : playingArea ? (
+          <div className="playing-area-info">
+            <div className="playing-area-status">
+              <span className="playing-area-icon">&#9654;</span>
+              <span>Playing area defined ({playingArea.polygon?.length || 0} points)</span>
+            </div>
+            <p className="playing-area-hint">
+              Players can only place markers within this boundary.
+            </p>
+            <div className="playing-area-actions">
+              <button
+                className="redraw-button"
+                onClick={onStartDrawingPlayingArea}
+                disabled={isDrawing}
+              >
+                Redraw
+              </button>
+              <button
+                className={`delete-button small ${showDeletePlayingAreaConfirm ? 'confirm' : ''}`}
+                onClick={handleDeletePlayingArea}
+                onBlur={() => setShowDeletePlayingAreaConfirm(false)}
+                disabled={isDrawing}
+              >
+                {showDeletePlayingAreaConfirm ? 'Confirm' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="no-playing-area">
+            <p>No playing area defined. Players can click anywhere on the map.</p>
+            <button
+              className="draw-playing-area-button"
+              onClick={onStartDrawingPlayingArea}
+              disabled={isDrawing}
+            >
+              + Draw Playing Area
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Toolbar for regions */}
       <div className="region-panel-toolbar">
-        {isDrawing ? (
+        {isDrawing && drawMode === DRAW_MODE.REGION ? (
           <>
             <div className="drawing-status">
               <span className="drawing-indicator"></span>
-              Drawing: {newPolygonPoints.length} points
+              Drawing region: {newPolygonPoints.length} points
             </div>
             <button
               className="cancel-drawing-button"
@@ -97,7 +175,8 @@ function RegionPanel({
         ) : (
           <button
             className="new-region-button"
-            onClick={onStartDrawing}
+            onClick={() => onStartDrawing()}
+            disabled={isDrawing}
           >
             + New Region
           </button>
@@ -106,9 +185,9 @@ function RegionPanel({
 
       {/* Region list */}
       <div className="region-list">
-        <h3>Regions ({regions.length})</h3>
+        <h3>Floor Regions ({regions.length})</h3>
         {regions.length === 0 ? (
-          <p className="no-regions">No regions yet. Create one to get started.</p>
+          <p className="no-regions">No floor regions yet. Create one to enable floor selection in specific areas.</p>
         ) : (
           <ul>
             {regions.map(region => (
@@ -122,7 +201,9 @@ function RegionPanel({
                   style={{ backgroundColor: region.color || '#4a90d9' }}
                 />
                 <div className="region-item-info">
-                  <span className="region-item-name">{region.name}</span>
+                  <span className="region-item-name">
+                    {region.name}
+                  </span>
                   <span className="region-item-floors">
                     {formatFloors(region.floors)}
                   </span>

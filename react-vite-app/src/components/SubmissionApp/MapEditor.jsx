@@ -1,15 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
-import { collection, query, orderBy, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import PolygonDrawer from './PolygonDrawer'
 import RegionPanel from './RegionPanel'
 import './MapEditor.css'
 
+// Drawing modes
+const DRAW_MODE = {
+  NONE: 'none',
+  REGION: 'region',
+  PLAYING_AREA: 'playing_area'
+}
+
 function MapEditor() {
   const [regions, setRegions] = useState([])
   const [selectedRegionId, setSelectedRegionId] = useState(null)
   const [isDrawing, setIsDrawing] = useState(false)
+  const [drawMode, setDrawMode] = useState(DRAW_MODE.NONE)
   const [newPolygonPoints, setNewPolygonPoints] = useState([])
+  const [playingArea, setPlayingArea] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -33,14 +42,37 @@ function MapEditor() {
     return () => unsubscribe()
   }, [])
 
-  const handleStartDrawing = useCallback(() => {
+  // Fetch playing area from Firestore
+  useEffect(() => {
+    const playingAreaRef = doc(db, 'settings', 'playingArea')
+
+    const unsubscribe = onSnapshot(playingAreaRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setPlayingArea(docSnap.data())
+      } else {
+        setPlayingArea(null)
+      }
+    }, (err) => {
+      console.error('Error fetching playing area:', err)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  const handleStartDrawing = useCallback((mode = DRAW_MODE.REGION) => {
     setIsDrawing(true)
+    setDrawMode(mode)
     setNewPolygonPoints([])
     setSelectedRegionId(null)
   }, [])
 
+  const handleStartDrawingPlayingArea = useCallback(() => {
+    handleStartDrawing(DRAW_MODE.PLAYING_AREA)
+  }, [handleStartDrawing])
+
   const handleCancelDrawing = useCallback(() => {
     setIsDrawing(false)
+    setDrawMode(DRAW_MODE.NONE)
     setNewPolygonPoints([])
   }, [])
 
@@ -52,24 +84,35 @@ function MapEditor() {
     if (newPolygonPoints.length < 3) return
 
     try {
-      const newRegion = {
-        name: `Region ${regions.length + 1}`,
-        polygon: newPolygonPoints,
-        floors: [1],
-        color: getRandomColor(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+      if (drawMode === DRAW_MODE.PLAYING_AREA) {
+        // Save playing area to settings collection
+        await setDoc(doc(db, 'settings', 'playingArea'), {
+          polygon: newPolygonPoints,
+          updatedAt: serverTimestamp()
+        })
+      } else {
+        // Save regular region
+        const newRegion = {
+          name: `Region ${regions.length + 1}`,
+          polygon: newPolygonPoints,
+          floors: [1],
+          color: getRandomColor(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }
+
+        const docRef = await addDoc(collection(db, 'regions'), newRegion)
+        setSelectedRegionId(docRef.id)
       }
 
-      const docRef = await addDoc(collection(db, 'regions'), newRegion)
-      setSelectedRegionId(docRef.id)
       setIsDrawing(false)
+      setDrawMode(DRAW_MODE.NONE)
       setNewPolygonPoints([])
     } catch (err) {
-      console.error('Error saving region:', err)
-      setError('Failed to save region')
+      console.error('Error saving:', err)
+      setError(drawMode === DRAW_MODE.PLAYING_AREA ? 'Failed to save playing area' : 'Failed to save region')
     }
-  }, [newPolygonPoints, regions.length])
+  }, [newPolygonPoints, regions.length, drawMode])
 
   const handleRegionSelect = useCallback((id) => {
     if (!isDrawing) {
@@ -100,6 +143,15 @@ function MapEditor() {
       setError('Failed to delete region')
     }
   }, [selectedRegionId])
+
+  const handleDeletePlayingArea = useCallback(async () => {
+    try {
+      await deleteDoc(doc(db, 'settings', 'playingArea'))
+    } catch (err) {
+      console.error('Error deleting playing area:', err)
+      setError('Failed to delete playing area')
+    }
+  }, [])
 
   const handlePointMove = useCallback(async (regionId, pointIndex, newPosition) => {
     const region = regions.find(r => r.id === regionId)
@@ -153,7 +205,9 @@ function MapEditor() {
           regions={regions}
           selectedRegionId={selectedRegionId}
           isDrawing={isDrawing}
+          drawMode={drawMode}
           newPolygonPoints={newPolygonPoints}
+          playingArea={playingArea}
           onRegionSelect={handleRegionSelect}
           onPointAdd={handlePointAdd}
           onPolygonComplete={handlePolygonComplete}
@@ -171,7 +225,11 @@ function MapEditor() {
           onStartDrawing={handleStartDrawing}
           onCancelDrawing={handleCancelDrawing}
           isDrawing={isDrawing}
+          drawMode={drawMode}
           newPolygonPoints={newPolygonPoints}
+          playingArea={playingArea}
+          onStartDrawingPlayingArea={handleStartDrawingPlayingArea}
+          onDeletePlayingArea={handleDeletePlayingArea}
         />
       </div>
     </div>
