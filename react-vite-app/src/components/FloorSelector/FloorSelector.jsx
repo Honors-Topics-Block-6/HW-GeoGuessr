@@ -1,6 +1,6 @@
 import './FloorSelector.css';
 
-function FloorSelector({ selectedFloor, onFloorSelect, floors = [1, 2, 3, 4] }) {
+function FloorSelector({ selectedFloor, onFloorSelect, floors = [1, 2, 3] }) {
   return (
     <div className="floor-selector">
       <div className="floor-header">

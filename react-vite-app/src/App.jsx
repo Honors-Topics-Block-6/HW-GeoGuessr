@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { useGameState } from './hooks/useGameState';
 import TitleScreen from './components/TitleScreen/TitleScreen';
 import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
+import SubmissionApp from './components/SubmissionApp/SubmissionApp';
 import './App.css';
 
 function App() {
+  const [showSubmissionApp, setShowSubmissionApp] = useState(false);
+
   const {
     screen,
     currentRound,
@@ -26,6 +30,19 @@ function App() {
     resetGame
   } = useGameState();
 
+  const handleOpenSubmission = () => {
+    setShowSubmissionApp(true);
+  };
+
+  const handleCloseSubmission = () => {
+    setShowSubmissionApp(false);
+  };
+
+  // Show submission app
+  if (showSubmissionApp) {
+    return <SubmissionApp onBack={handleCloseSubmission} />;
+  }
+
   // Error state
   if (error) {
     return (
@@ -45,6 +62,7 @@ function App() {
       {screen === 'title' && (
         <TitleScreen
           onStartGame={startGame}
+          onOpenSubmission={handleOpenSubmission}
           isLoading={isLoading}
         />
       )}

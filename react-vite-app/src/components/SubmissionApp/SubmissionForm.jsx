@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../firebase'
+import { db, storage } from '../../firebase'
 import MapSelector from './MapSelector'
 import PhotoUpload from './PhotoUpload'
 import './SubmissionForm.css'

@@ -1,8 +1,11 @@
 import './TitleScreen.css';
 
-function TitleScreen({ onStartGame, isLoading }) {
+function TitleScreen({ onStartGame, onOpenSubmission, isLoading }) {
   return (
     <div className="title-screen">
+      <button className="submit-photo-button" onClick={onOpenSubmission}>
+        Submit Photo
+      </button>
       <div className="title-background">
         <div className="title-overlay"></div>
       </div>

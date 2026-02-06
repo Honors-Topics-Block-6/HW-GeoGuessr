@@ -8,6 +8,29 @@
   overflow: hidden;
 }
 
+.submit-photo-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+  padding: 12px 24px;
+  background-color: rgba(52, 152, 219, 0.9);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.submit-photo-button:hover {
+  background-color: rgba(41, 128, 185, 1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
 .title-background {
   position: absolute;
   top: 0;
