@@ -3,7 +3,7 @@ import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp
 import { db } from '../firebase'
 import './AdminReview.css'
 
-function AdminReview({ onBack }) {
+function AdminReview() {
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('pending') // pending, approved, denied, all
@@ -78,13 +78,6 @@ function AdminReview({ onBack }) {
 
   return (
     <div className="admin-review">
-      <div className="admin-header">
-        <button className="back-button" onClick={onBack}>
-          ← Back to Submission
-        </button>
-        <h2>Admin Review Panel</h2>
-      </div>
-
       <div className="filter-tabs">
         <button
           className={`filter-tab ${filter === 'pending' ? 'active' : ''}`}

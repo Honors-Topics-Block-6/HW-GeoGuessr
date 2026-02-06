@@ -20,7 +20,7 @@
   margin: 0;
 }
 
-.review-button {
+.admin-button {
   padding: 10px 25px;
   background-color: #3498db;
   color: white;
@@ -32,7 +32,7 @@
   transition: background-color 0.2s;
 }
 
-.review-button:hover {
+.admin-button:hover {
   background-color: #2980b9;
 }
 

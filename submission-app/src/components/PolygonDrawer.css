@@ -1,0 +1,80 @@
+.polygon-drawer-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background-color: #f5f5f5;
+}
+
+.polygon-drawer-svg {
+  width: 100%;
+  height: 100%;
+  cursor: default;
+}
+
+.polygon-drawer-svg.drawing-mode {
+  cursor: crosshair;
+}
+
+/* Polygon styling */
+.region-polygon {
+  cursor: pointer;
+  transition: fill-opacity 0.2s, stroke-width 0.2s;
+}
+
+.region-polygon:hover {
+  fill-opacity: 0.4;
+}
+
+/* Vertex handles */
+.polygon-vertex {
+  cursor: move;
+  transition: r 0.15s, fill 0.15s;
+}
+
+.polygon-vertex:hover {
+  r: 10;
+  fill: #3498db;
+}
+
+/* Drawing vertices */
+.drawing-vertex {
+  transition: r 0.15s;
+}
+
+.first-vertex {
+  cursor: pointer;
+}
+
+.first-vertex:hover {
+  r: 12;
+}
+
+/* Region label */
+.region-label {
+  text-shadow:
+    1px 1px 2px white,
+    -1px -1px 2px white,
+    1px -1px 2px white,
+    -1px 1px 2px white;
+}
+
+/* Empty state overlay */
+.polygon-drawer-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #999;
+  pointer-events: none;
+}
+
+.polygon-drawer-empty p {
+  margin: 8px 0;
+  font-size: 16px;
+}
+
+.polygon-drawer-empty p:first-child {
+  font-size: 18px;
+  color: #666;
+}

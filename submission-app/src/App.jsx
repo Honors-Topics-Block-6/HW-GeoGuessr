@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import './App.css'
 import SubmissionForm from './components/SubmissionForm'
-import AdminReview from './components/AdminReview'
+import AdminTabs from './components/AdminTabs'
 
 function App() {
-  const [showAdmin, setShowAdmin] = useState(false)
+  const [adminScreen, setAdminScreen] = useState(null) // null | 'review' | 'mapEditor'
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false)
@@ -12,9 +12,9 @@ function App() {
 
   const ADMIN_PASSWORD = '1234'
 
-  const handleReviewClick = () => {
+  const handleAdminClick = () => {
     if (isAuthenticated) {
-      setShowAdmin(true)
+      setAdminScreen('review')
     } else {
       setShowPasswordPrompt(true)
       setPasswordError('')
@@ -25,7 +25,7 @@ function App() {
     e.preventDefault()
     if (passwordInput === ADMIN_PASSWORD) {
       setIsAuthenticated(true)
-      setShowAdmin(true)
+      setAdminScreen('review')
       setShowPasswordPrompt(false)
       setPasswordInput('')
       setPasswordError('')
@@ -36,7 +36,7 @@ function App() {
   }
 
   const handleBackToSubmission = () => {
-    setShowAdmin(false)
+    setAdminScreen(null)
   }
 
   const handleCancelPassword = () => {
@@ -50,10 +50,10 @@ function App() {
       <header className="app-header">
         <h1>Photo Submission App</h1>
         <button
-          className="review-button"
-          onClick={handleReviewClick}
+          className="admin-button"
+          onClick={handleAdminClick}
         >
-          Review
+          Admin
         </button>
       </header>
 
@@ -80,8 +80,12 @@ function App() {
       )}
 
       <main className="app-main">
-        {showAdmin ? (
-          <AdminReview onBack={handleBackToSubmission} />
+        {adminScreen ? (
+          <AdminTabs
+            activeTab={adminScreen}
+            onTabChange={setAdminScreen}
+            onBack={handleBackToSubmission}
+          />
         ) : (
           <SubmissionForm />
         )}
