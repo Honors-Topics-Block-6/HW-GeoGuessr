@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import SubmissionForm from './SubmissionForm'
-import AdminReview from './AdminReview'
+import AdminTabs from './AdminTabs'
 import './SubmissionApp.css'
 
 function SubmissionApp({ onBack }) {
-  const [showAdmin, setShowAdmin] = useState(false)
+  const [adminScreen, setAdminScreen] = useState(null) // null | 'review' | 'mapEditor'
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false)
@@ -14,7 +14,7 @@ function SubmissionApp({ onBack }) {
 
   const handleReviewClick = () => {
     if (isAuthenticated) {
-      setShowAdmin(true)
+      setAdminScreen('review')
     } else {
       setShowPasswordPrompt(true)
       setPasswordError('')
@@ -25,7 +25,7 @@ function SubmissionApp({ onBack }) {
     e.preventDefault()
     if (passwordInput === ADMIN_PASSWORD) {
       setIsAuthenticated(true)
-      setShowAdmin(true)
+      setAdminScreen('review')
       setShowPasswordPrompt(false)
       setPasswordInput('')
       setPasswordError('')
@@ -36,7 +36,7 @@ function SubmissionApp({ onBack }) {
   }
 
   const handleBackToSubmission = () => {
-    setShowAdmin(false)
+    setAdminScreen(null)
   }
 
   const handleCancelPassword = () => {
@@ -83,8 +83,12 @@ function SubmissionApp({ onBack }) {
       )}
 
       <main className="submission-app-main">
-        {showAdmin ? (
-          <AdminReview onBack={handleBackToSubmission} />
+        {adminScreen ? (
+          <AdminTabs
+            activeTab={adminScreen}
+            onTabChange={setAdminScreen}
+            onBack={handleBackToSubmission}
+          />
         ) : (
           <SubmissionForm />
         )}

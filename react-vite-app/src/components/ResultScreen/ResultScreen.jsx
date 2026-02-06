@@ -115,53 +115,26 @@ function ResultScreen({
       <div className="result-content">
         <div className="result-map-container">
           <div className="result-map" ref={mapRef}>
-            {/* Map SVG - same as MapPicker */}
-            <svg
-              className="map-svg"
-              viewBox="0 0 400 300"
-              preserveAspectRatio="xMidYMid meet"
-            >
-              {/* Background */}
-              <rect x="0" y="0" width="400" height="300" fill="#1a1a2e" />
+            {/* Map Image */}
+            <img
+              className="map-image"
+              src="/map.png"
+              alt="Campus Map"
+            />
 
-              {/* Grid lines */}
-              <g stroke="#2a2a4a" strokeWidth="0.5">
-                {[...Array(9)].map((_, i) => (
-                  <line key={`v${i}`} x1={(i + 1) * 40} y1="0" x2={(i + 1) * 40} y2="300" />
-                ))}
-                {[...Array(7)].map((_, i) => (
-                  <line key={`h${i}`} x1="0" y1={(i + 1) * 40} x2="400" y2={(i + 1) * 40} />
-                ))}
-              </g>
-
-              {/* Buildings */}
-              <g fill="#16213e" stroke="#3a3a5a" strokeWidth="1">
-                <rect x="50" y="80" width="120" height="80" rx="4" />
-                <text x="110" y="125" fill="#6b6b6b" fontSize="10" textAnchor="middle">Main</text>
-
-                <rect x="200" y="60" width="80" height="60" rx="4" />
-                <text x="240" y="95" fill="#6b6b6b" fontSize="10" textAnchor="middle">Library</text>
-
-                <rect x="300" y="100" width="70" height="100" rx="4" />
-                <text x="335" y="155" fill="#6b6b6b" fontSize="10" textAnchor="middle">Gym</text>
-
-                <rect x="100" y="190" width="100" height="70" rx="4" />
-                <text x="150" y="230" fill="#6b6b6b" fontSize="10" textAnchor="middle">Science</text>
-
-                <rect x="230" y="180" width="90" height="80" rx="4" />
-                <text x="275" y="225" fill="#6b6b6b" fontSize="10" textAnchor="middle">Arts</text>
-              </g>
-
-              {/* Paths */}
-              <g stroke="#3a3a5a" strokeWidth="2" fill="none" strokeDasharray="4,4">
-                <path d="M170 120 L200 90" />
-                <path d="M170 130 L200 200 L230 220" />
-                <path d="M280 90 L300 150" />
-                <path d="M200 230 L230 220" />
-              </g>
-
-              {/* Line between guess and actual (Phase 2+) */}
-              {animationPhase >= 2 && (
+            {/* Line between guess and actual (Phase 2+) */}
+            {animationPhase >= 2 && (
+              <svg
+                className="result-line-svg"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none'
+                }}
+              >
                 <line
                   className="result-line"
                   x1={`${guessLocation.x}%`}
@@ -172,8 +145,8 @@ function ResultScreen({
                   strokeWidth="3"
                   strokeDasharray="8,4"
                 />
-              )}
-            </svg>
+              </svg>
+            )}
 
             {/* Guess marker (always visible) */}
             <div
