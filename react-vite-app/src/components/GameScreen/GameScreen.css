@@ -1,0 +1,136 @@
+.game-screen {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--bg-dark);
+}
+
+/* Image Panel - Left side */
+.image-panel {
+  flex: 7;
+  display: flex;
+  background-color: var(--bg-dark);
+  border-right: 1px solid var(--border-color);
+}
+
+/* Guess Panel - Right side */
+.guess-panel {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-panel);
+  min-width: 320px;
+  max-width: 400px;
+}
+
+.guess-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.8rem;
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.back-button:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.panel-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.guess-controls {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+/* Guess Status */
+.guess-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border-color);
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.status-item.complete {
+  color: var(--accent-green);
+}
+
+.status-icon {
+  font-size: 0.9rem;
+  width: 1.2rem;
+  text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .game-screen {
+    flex-direction: column;
+  }
+
+  .image-panel {
+    flex: none;
+    height: 50vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .guess-panel {
+    flex: 1;
+    min-width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .image-panel {
+    height: 40vh;
+  }
+
+  .guess-panel-header {
+    padding: 0.75rem 1rem;
+  }
+
+  .guess-controls {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .guess-status {
+    flex-direction: row;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 0.75rem 1rem;
+  }
+}

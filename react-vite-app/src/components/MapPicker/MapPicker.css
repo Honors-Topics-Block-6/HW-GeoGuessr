@@ -1,0 +1,124 @@
+.map-picker-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.map-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  padding: 0 0.25rem;
+}
+
+.map-icon {
+  font-size: 1rem;
+}
+
+.map-picker {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: crosshair;
+  border: 2px solid var(--border-color);
+  transition: border-color 0.2s ease;
+}
+
+.map-picker:hover {
+  border-color: var(--accent-green);
+}
+
+.map-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Marker Styles */
+.marker {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.marker-pin {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, var(--marker-color) 0%, #ff6b81 100%);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 4px 12px rgba(255, 71, 87, 0.5);
+  border: 2px solid white;
+  animation: dropIn 0.3s ease-out;
+}
+
+.marker-pin::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background-color: white;
+  border-radius: 50%;
+}
+
+.marker-pulse {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 4px;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dropIn {
+  0% {
+    opacity: 0;
+    transform: rotate(-45deg) scale(0.5) translateY(-20px);
+  }
+  50% {
+    transform: rotate(-45deg) scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-45deg) scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateX(-50%) scale(1.5);
+    opacity: 0.1;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .map-picker {
+    border-radius: 8px;
+  }
+
+  .marker-pin {
+    width: 20px;
+    height: 20px;
+  }
+
+  .marker-pin::after {
+    width: 6px;
+    height: 6px;
+  }
+}

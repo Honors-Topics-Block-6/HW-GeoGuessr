@@ -1,0 +1,77 @@
+.floor-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.floor-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  padding: 0 0.25rem;
+}
+
+.floor-icon {
+  font-size: 1rem;
+}
+
+.floor-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.floor-button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 0.5rem;
+  background-color: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.floor-button:hover {
+  border-color: var(--accent-green);
+  background-color: rgba(108, 181, 45, 0.1);
+}
+
+.floor-button.selected {
+  border-color: var(--accent-green);
+  background-color: var(--accent-green);
+  color: var(--text-primary);
+}
+
+.floor-number {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.floor-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 0.2rem;
+  opacity: 0.8;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .floor-button {
+    padding: 0.6rem 0.4rem;
+  }
+
+  .floor-number {
+    font-size: 1rem;
+  }
+
+  .floor-label {
+    font-size: 0.6rem;
+  }
+}
