@@ -94,20 +94,40 @@ setup_environment() {
 install_dependencies() {
     log_info "Checking dependencies..."
 
+    # Install root dependencies
     if [ -f "${PROJECT_ROOT}/package.json" ]; then
         if [ -f "${PROJECT_ROOT}/yarn.lock" ]; then
-            log_info "Installing dependencies with yarn..."
+            log_info "Installing root dependencies with yarn..."
             yarn install --frozen-lockfile 2>> "${LOG_FILE}" || log_warning "yarn install had issues"
         elif [ -f "${PROJECT_ROOT}/package-lock.json" ]; then
-            log_info "Installing dependencies with npm..."
+            log_info "Installing root dependencies with npm..."
             npm ci 2>> "${LOG_FILE}" || npm install 2>> "${LOG_FILE}" || log_warning "npm install had issues"
         else
-            log_info "Installing dependencies with npm..."
+            log_info "Installing root dependencies with npm..."
             npm install 2>> "${LOG_FILE}" || log_warning "npm install had issues"
         fi
     else
-        log_info "No package.json found - skipping dependency installation"
+        log_info "No package.json found in root - skipping root dependency installation"
     fi
+
+    # Install dependencies in subdirectories that have test frameworks
+    for subdir in "${PROJECT_ROOT}"/*/; do
+        if [ -d "$subdir" ] && [ -f "${subdir}package.json" ]; then
+            # Check if this subdirectory has a test framework
+            if grep -q '"vitest"\|"jest"' "${subdir}package.json" 2>/dev/null; then
+                log_info "Installing dependencies in $(basename "$subdir")..."
+                pushd "${subdir}" > /dev/null
+                if [ -f "yarn.lock" ]; then
+                    yarn install --frozen-lockfile 2>> "${LOG_FILE}" || log_warning "yarn install had issues in $(basename "$subdir")"
+                elif [ -f "package-lock.json" ]; then
+                    npm ci 2>> "${LOG_FILE}" || npm install 2>> "${LOG_FILE}" || log_warning "npm install had issues in $(basename "$subdir")"
+                else
+                    npm install 2>> "${LOG_FILE}" || log_warning "npm install had issues in $(basename "$subdir")"
+                fi
+                popd > /dev/null
+            fi
+        fi
+    done
 }
 
 # -----------------------------------------------------------------------------
@@ -118,19 +138,36 @@ run_tests() {
 
     local test_framework_found=false
 
-    # Check for and run Jest tests
+    # Check for and run Jest tests in root
     if [ -f "${PROJECT_ROOT}/package.json" ] && grep -q '"jest"' "${PROJECT_ROOT}/package.json" 2>/dev/null; then
         test_framework_found=true
-        run_jest_tests
+        run_jest_tests "${PROJECT_ROOT}"
     fi
 
-    # Check for and run Vitest tests
+    # Check for and run Vitest tests in root
     if [ -f "${PROJECT_ROOT}/package.json" ] && grep -q '"vitest"' "${PROJECT_ROOT}/package.json" 2>/dev/null; then
         test_framework_found=true
-        run_vitest_tests
+        run_vitest_tests "${PROJECT_ROOT}"
     fi
 
-    # Check for npm test script
+    # Check for test frameworks in subdirectories (react-vite-app, submission-app, etc.)
+    for subdir in "${PROJECT_ROOT}"/*/; do
+        if [ -d "$subdir" ] && [ -f "${subdir}package.json" ]; then
+            # Check for Vitest in subdirectory
+            if grep -q '"vitest"' "${subdir}package.json" 2>/dev/null; then
+                test_framework_found=true
+                log_info "Found Vitest in $(basename "$subdir")"
+                run_vitest_tests "$subdir"
+            # Check for Jest in subdirectory
+            elif grep -q '"jest"' "${subdir}package.json" 2>/dev/null; then
+                test_framework_found=true
+                log_info "Found Jest in $(basename "$subdir")"
+                run_jest_tests "$subdir"
+            fi
+        fi
+    done
+
+    # Check for npm test script in root
     if [ -f "${PROJECT_ROOT}/package.json" ] && grep -q '"test"' "${PROJECT_ROOT}/package.json" 2>/dev/null; then
         if [ "$test_framework_found" = false ]; then
             test_framework_found=true
@@ -151,7 +188,11 @@ run_tests() {
 }
 
 run_jest_tests() {
-    log_info "Running Jest tests..."
+    local test_dir="${1:-${PROJECT_ROOT}}"
+    log_info "Running Jest tests in ${test_dir}..."
+
+    # Change to the test directory and run Jest
+    pushd "${test_dir}" > /dev/null
 
     if npx jest --json --outputFile="${TEST_OUTPUT_FILE}" 2>> "${LOG_FILE}"; then
         parse_jest_results
@@ -163,10 +204,16 @@ run_jest_tests() {
             log_error "Jest tests failed to run"
         fi
     fi
+
+    popd > /dev/null
 }
 
 run_vitest_tests() {
-    log_info "Running Vitest tests..."
+    local test_dir="${1:-${PROJECT_ROOT}}"
+    log_info "Running Vitest tests in ${test_dir}..."
+
+    # Change to the test directory and run Vitest
+    pushd "${test_dir}" > /dev/null
 
     if npx vitest run --reporter=json --outputFile="${TEST_OUTPUT_FILE}" 2>> "${LOG_FILE}"; then
         parse_vitest_results
@@ -177,6 +224,8 @@ run_vitest_tests() {
             log_error "Vitest tests failed to run"
         fi
     fi
+
+    popd > /dev/null
 }
 
 run_npm_test() {
@@ -280,9 +329,9 @@ parse_jest_results() {
 
 parse_vitest_results() {
     if [ -f "${TEST_OUTPUT_FILE}" ]; then
-        # Vitest JSON format parsing
-        local num_passed=$(cat "${TEST_OUTPUT_FILE}" | grep -o '"passed":[0-9]*' | head -1 | grep -o '[0-9]*' || echo "0")
-        local num_failed=$(cat "${TEST_OUTPUT_FILE}" | grep -o '"failed":[0-9]*' | head -1 | grep -o '[0-9]*' || echo "0")
+        # Vitest JSON format parsing (uses numPassedTests and numFailedTests)
+        local num_passed=$(cat "${TEST_OUTPUT_FILE}" | grep -o '"numPassedTests":[0-9]*' | head -1 | grep -o '[0-9]*' || echo "0")
+        local num_failed=$(cat "${TEST_OUTPUT_FILE}" | grep -o '"numFailedTests":[0-9]*' | head -1 | grep -o '[0-9]*' || echo "0")
 
         PASSED=$((PASSED + num_passed))
         FAILED=$((FAILED + num_failed))

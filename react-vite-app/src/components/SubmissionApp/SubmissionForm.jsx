@@ -36,7 +36,7 @@ function SubmissionForm() {
     setPhoto(null)
     setLocation(null)
     setFloor('')
-    setSubmitSuccess(false)
+    // Don't reset submitSuccess here - it should persist to show the success message
     setSubmitError('')
   }
 
