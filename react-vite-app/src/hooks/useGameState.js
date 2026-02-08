@@ -114,7 +114,15 @@ export function useGameState() {
     setError(null);
 
     try {
-      const image = await getRandomImage();
+      // Reload playing area and regions in case they were updated in the editor
+      const [image, fetchedPlayingArea, fetchedRegions] = await Promise.all([
+        getRandomImage(),
+        getPlayingArea(),
+        getRegions()
+      ]);
+
+      setPlayingArea(fetchedPlayingArea);
+      setRegions(fetchedRegions);
       setCurrentImage(image);
       setGuessLocation(null);
       setGuessFloor(null);
