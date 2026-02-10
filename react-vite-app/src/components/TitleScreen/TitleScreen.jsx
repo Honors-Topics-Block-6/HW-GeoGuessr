@@ -1,8 +1,23 @@
 import './TitleScreen.css';
+import { useXp } from '../../hooks/useXp';
 
 function TitleScreen({ onStartGame, onOpenSubmission, isLoading }) {
+  const { level, levelProgress } = useXp();
+
   return (
     <div className="title-screen">
+      <div className="xp-bar-container">
+        <span className="xp-level-label">Level {level}</span>
+        <div className="xp-progress-track">
+          <div
+            className="xp-progress-fill"
+            style={{ width: `${levelProgress.progressFraction * 100}%` }}
+          />
+        </div>
+        <span className="xp-count-label">
+          {levelProgress.xpInCurrentLevel} / {levelProgress.xpToNextLevel} XP
+        </span>
+      </div>
       <button className="submit-photo-button" onClick={onOpenSubmission}>
         Submit Photo
       </button>

@@ -262,6 +262,17 @@ GameDocument
 
 ⸻
 
+7.1 XP & Leveling
+
+XP is earned from: completing rounds (round_complete), finishing a game (game_complete), and later PvP wins (pvp_win). Placeholder constants (e.g. XP_PER_ROUND, XP_GAME_COMPLETE_BONUS) and formulas can be tuned later.
+
+User progress is stored in users/{uid} (or userProgress/{uid}) with at least:
+    •    xp: number
+
+Level is derived from total XP on read via xpToLevel(xp); getLevelProgress(xp) provides level, xpInCurrentLevel, xpToNextLevel, and progressFraction for the UI progress bar. Current implementation uses placeholder linear formulas (e.g. 100 XP per level).
+
+⸻
+
 8. Difficulty Classification System
 
 DifficultyAnalyzer (Cloud Function)

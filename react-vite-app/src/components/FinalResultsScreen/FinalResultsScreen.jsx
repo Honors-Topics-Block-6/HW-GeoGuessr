@@ -1,5 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import './FinalResultsScreen.css';
+import { useXp } from '../../hooks/useXp';
+import { XP_GAME_COMPLETE_BONUS } from '../../utils/xp';
 
 /**
  * Calculate performance rating based on total score
@@ -31,10 +33,24 @@ function generateConfettiData(count) {
 function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
   const [animationComplete, setAnimationComplete] = useState(false);
   const [displayedTotal, setDisplayedTotal] = useState(0);
+  const { awardXp } = useXp();
+  const awardedRef = useRef(false);
 
   const totalScore = rounds.reduce((sum, round) => sum + round.score, 0);
   const maxPossible = rounds.length * 5000;
   const performance = getPerformanceRating(totalScore, maxPossible);
+
+  // Placeholder XP from game: score-based + completion bonus
+  const xpEarned = useMemo(() => {
+    const scoreBased = Math.floor(totalScore / 100);
+    return scoreBased + XP_GAME_COMPLETE_BONUS;
+  }, [totalScore]);
+
+  useEffect(() => {
+    if (awardedRef.current || rounds.length === 0) return;
+    awardedRef.current = true;
+    awardXp('game_complete', xpEarned);
+  }, [awardXp, xpEarned, rounds.length]);
 
   // Generate confetti data once and memoize it
   const confettiPieces = useMemo(() => generateConfettiData(30), []);
@@ -99,6 +115,7 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
             <span className="total-value">{displayedTotal.toLocaleString()}</span>
             <span className="total-max">/ {maxPossible.toLocaleString()} points</span>
           </div>
+          <p className="xp-earned">+{xpEarned} XP</p>
         </div>
 
         {/* Round by Round Breakdown */}

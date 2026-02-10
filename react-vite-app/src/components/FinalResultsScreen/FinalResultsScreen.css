@@ -161,7 +161,16 @@
 /* Total Score */
 .total-score-container {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.xp-earned {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent-green);
+  margin: 0;
 }
 
 .total-score-box {
