@@ -38,10 +38,27 @@
   font-size: 18px;
 }
 
+.filter-section {
+  margin-bottom: 30px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.filter-label {
+  font-weight: bold;
+  font-size: 14px;
+  color: #2c3e50;
+  min-width: 60px;
+}
+
 .filter-tabs {
   display: flex;
   gap: 10px;
-  margin-bottom: 30px;
   flex-wrap: wrap;
 }
 
@@ -129,6 +146,37 @@
 
 .badge-denied {
   background-color: #e74c3c;
+  color: white;
+}
+
+.badge-testing {
+  background-color: #9b59b6;
+  color: white;
+}
+
+.source-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.source-submission {
+  background-color: #3498db;
+  color: white;
+}
+
+.source-image {
+  background-color: #1abc9c;
+  color: white;
+}
+
+.source-testing {
+  background-color: #9b59b6;
   color: white;
 }
 
