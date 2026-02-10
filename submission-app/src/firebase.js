@@ -3,13 +3,13 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAP-WcJoYaym3OMJ4vx-oW5FQ7c1mtq7bo",
-  authDomain: "geogessr-a4adc.firebaseapp.com",
-  projectId: "geogessr-a4adc",
-  storageBucket: "geogessr-a4adc.firebasestorage.app",
-  messagingSenderId: "410750999117",
-  appId: "1:410750999117:web:10ad7eb001e3bc2d3c9a04",
-  measurementId: "G-E43H8NN3TH"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
