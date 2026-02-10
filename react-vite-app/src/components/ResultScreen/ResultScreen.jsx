@@ -118,7 +118,7 @@ function ResultScreen({
             {/* Map Image */}
             <img
               className="map-image"
-              src="/map.png"
+              src="/FINAL_MAP.png"
               alt="Campus Map"
             />
 

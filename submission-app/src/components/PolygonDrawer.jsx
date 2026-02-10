@@ -109,7 +109,7 @@ function PolygonDrawer({
       >
         {/* Map background */}
         <image
-          href="/map.png"
+          href="/FINAL_MAP.png"
           width={VIEWBOX_WIDTH}
           height={VIEWBOX_HEIGHT}
           preserveAspectRatio="xMidYMid slice"

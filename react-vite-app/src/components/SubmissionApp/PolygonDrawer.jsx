@@ -159,7 +159,7 @@ function PolygonDrawer({
       {/* Map background image */}
       <img
         ref={imageRef}
-        src="/map.png"
+        src="/FINAL_MAP.png"
         alt="Map"
         className="polygon-drawer-image"
         draggable={false}

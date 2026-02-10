@@ -32,7 +32,7 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
         <img
           ref={imageRef}
           className="map-image"
-          src="/map.png"
+          src="/FINAL_MAP.png"
           alt="Campus Map"
         />
 
