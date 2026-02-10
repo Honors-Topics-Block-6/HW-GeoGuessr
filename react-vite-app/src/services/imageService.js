@@ -1,7 +1,7 @@
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// Sample images for development (used when Firestore has no data)
+// Sample images for development/testing
 const SAMPLE_IMAGES = [
   {
     id: 'sample-1',
@@ -41,39 +41,79 @@ const SAMPLE_IMAGES = [
 ];
 
 /**
- * Fetches a random image from Firestore
- * Falls back to sample images if Firestore is empty or unavailable
+ * Fetches a random image from all approved sources:
+ * - Firestore 'images' collection (all are considered approved)
+ * - Firestore 'submissions' collection with status 'approved'
  */
 export async function getRandomImage() {
   try {
-    const imagesRef = collection(db, 'images');
-    const snapshot = await getDocs(imagesRef);
+    const approvedImages = await getAllApprovedImages();
 
-    if (snapshot.empty) {
-      console.log('No images in Firestore, using sample images');
-      return getRandomSampleImage();
+    if (approvedImages.length === 0) {
+      console.warn('No approved images found in any source');
+      return null;
     }
 
-    const images = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
-    const randomIndex = Math.floor(Math.random() * images.length);
-    return images[randomIndex];
+    const randomIndex = Math.floor(Math.random() * approvedImages.length);
+    return approvedImages[randomIndex];
   } catch (error) {
-    console.error('Error fetching from Firestore:', error);
-    console.log('Falling back to sample images');
-    return getRandomSampleImage();
+    console.error('Error fetching random image:', error);
+    return null;
   }
 }
 
 /**
- * Returns a random sample image for development
+ * Fetches all approved images from both the images collection
+ * and approved submissions.
  */
-export function getRandomSampleImage() {
-  const randomIndex = Math.floor(Math.random() * SAMPLE_IMAGES.length);
-  return SAMPLE_IMAGES[randomIndex];
+export async function getAllApprovedImages() {
+  try {
+    // Fetch from both sources in parallel
+    const [imagesSnapshot, submissionsSnapshot] = await Promise.all([
+      getDocs(collection(db, 'images')),
+      getDocs(query(collection(db, 'submissions'), where('status', '==', 'approved')))
+    ]);
+
+    // Map images collection docs to the standard format
+    const images = imagesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Map approved submissions to the same format the game expects
+    const approvedSubmissions = submissionsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        url: data.photoURL,
+        correctLocation: data.location,
+        correctFloor: data.floor,
+        description: data.photoName || null
+      };
+    });
+
+    return [...images, ...approvedSubmissions];
+  } catch (error) {
+    console.error('Error fetching approved images:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetches all images from Firestore's images collection
+ */
+export async function getAllImages() {
+  try {
+    const imagesRef = collection(db, 'images');
+    const snapshot = await getDocs(imagesRef);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('Error fetching all images from Firestore:', error);
+    return [];
+  }
 }
 
 /**

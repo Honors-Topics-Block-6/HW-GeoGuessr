@@ -73,9 +73,7 @@ function SubmissionForm() {
           y: location.y
         },
         floor: parseInt(floor),
-        status: 'pending', // pending, approved, denied
-        createdAt: serverTimestamp(),
-        reviewedAt: null
+        createdAt: serverTimestamp()
       })
 
       setSubmitSuccess(true)
@@ -94,7 +92,7 @@ function SubmissionForm() {
 
       {submitSuccess && (
         <div className="success-message">
-          Photo submitted successfully! It will be reviewed by an admin.
+          Photo submitted successfully!
         </div>
       )}
 
