@@ -34,7 +34,11 @@ describe('RegionPanel', () => {
     onStartDrawing: mockOnStartDrawing,
     onCancelDrawing: mockOnCancelDrawing,
     isDrawing: false,
-    newPolygonPoints: []
+    drawMode: 'none',
+    newPolygonPoints: [],
+    playingArea: null,
+    onStartDrawingPlayingArea: vi.fn(),
+    onDeletePlayingArea: vi.fn()
   };
 
   beforeEach(() => {
@@ -57,13 +61,13 @@ describe('RegionPanel', () => {
     });
 
     it('should show drawing status when in drawing mode', () => {
-      render(<RegionPanel {...defaultProps} isDrawing={true} newPolygonPoints={[{ x: 0, y: 0 }]} />);
+      render(<RegionPanel {...defaultProps} isDrawing={true} drawMode="region" newPolygonPoints={[{ x: 0, y: 0 }]} />);
 
-      expect(screen.getByText(/Drawing: 1 points/)).toBeInTheDocument();
+      expect(screen.getByText(/Drawing region: 1 points/)).toBeInTheDocument();
     });
 
     it('should show Cancel button when drawing', () => {
-      render(<RegionPanel {...defaultProps} isDrawing={true} />);
+      render(<RegionPanel {...defaultProps} isDrawing={true} drawMode="region" />);
 
       expect(screen.getByText('Cancel (Esc)')).toBeInTheDocument();
       expect(screen.queryByText('+ New Region')).not.toBeInTheDocument();
@@ -71,7 +75,7 @@ describe('RegionPanel', () => {
 
     it('should call onCancelDrawing when Cancel is clicked', async () => {
       const user = userEvent.setup();
-      render(<RegionPanel {...defaultProps} isDrawing={true} />);
+      render(<RegionPanel {...defaultProps} isDrawing={true} drawMode="region" />);
 
       await user.click(screen.getByText('Cancel (Esc)'));
 
@@ -79,20 +83,20 @@ describe('RegionPanel', () => {
     });
 
     it('should update point count as points are added', () => {
-      const { rerender } = render(<RegionPanel {...defaultProps} isDrawing={true} newPolygonPoints={[]} />);
+      const { rerender } = render(<RegionPanel {...defaultProps} isDrawing={true} drawMode="region" newPolygonPoints={[]} />);
 
-      expect(screen.getByText(/Drawing: 0 points/)).toBeInTheDocument();
+      expect(screen.getByText(/Drawing region: 0 points/)).toBeInTheDocument();
 
-      rerender(<RegionPanel {...defaultProps} isDrawing={true} newPolygonPoints={[{ x: 0, y: 0 }, { x: 100, y: 100 }]} />);
+      rerender(<RegionPanel {...defaultProps} isDrawing={true} drawMode="region" newPolygonPoints={[{ x: 0, y: 0 }, { x: 100, y: 100 }]} />);
 
-      expect(screen.getByText(/Drawing: 2 points/)).toBeInTheDocument();
+      expect(screen.getByText(/Drawing region: 2 points/)).toBeInTheDocument();
     });
   });
 
   describe('region list', () => {
     it('should show regions count in header', () => {
       render(<RegionPanel {...defaultProps} />);
-      expect(screen.getByText('Regions (2)')).toBeInTheDocument();
+      expect(screen.getByText('Floor Regions (2)')).toBeInTheDocument();
     });
 
     it('should render all regions', () => {
@@ -133,7 +137,7 @@ describe('RegionPanel', () => {
     it('should show empty message when no regions', () => {
       render(<RegionPanel {...defaultProps} regions={[]} />);
 
-      expect(screen.getByText('No regions yet. Create one to get started.')).toBeInTheDocument();
+      expect(screen.getByText('No floor regions yet. Create one to enable floor selection in specific areas.')).toBeInTheDocument();
     });
   });
 
@@ -354,12 +358,13 @@ describe('RegionPanel', () => {
       expect(screen.getByText('Floors 1, 2')).toBeInTheDocument();
     });
 
-    it('should handle basement floors', () => {
+    it('should show floor toggle buttons', () => {
       render(<RegionPanel {...defaultProps} selectedRegionId="region-1" />);
 
-      // Check for basement floor buttons
-      expect(screen.getByTitle('Basement 1')).toBeInTheDocument();
-      expect(screen.getByTitle('Basement 2')).toBeInTheDocument();
+      // Check for floor toggle buttons (1, 2, 3)
+      expect(screen.getByTitle('Floor 1')).toBeInTheDocument();
+      expect(screen.getByTitle('Floor 2')).toBeInTheDocument();
+      expect(screen.getByTitle('Floor 3')).toBeInTheDocument();
     });
   });
 

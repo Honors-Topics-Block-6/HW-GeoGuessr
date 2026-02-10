@@ -27,11 +27,12 @@ vi.mock('firebase/firestore', () => ({
 
 // Mock child components
 vi.mock('./PolygonDrawer', () => ({
-  default: ({ regions, selectedRegionId, isDrawing, onRegionSelect, onPointAdd, onPolygonComplete, onPointMove }) => (
+  default: ({ regions, selectedRegionId, isDrawing, drawMode, playingArea, onRegionSelect, onPointAdd, onPolygonComplete, onPointMove }) => (
     <div data-testid="polygon-drawer">
       <span data-testid="regions-count">{regions.length}</span>
       <span data-testid="selected-region">{selectedRegionId || 'none'}</span>
       <span data-testid="is-drawing">{isDrawing ? 'true' : 'false'}</span>
+      <span data-testid="draw-mode">{drawMode || 'none'}</span>
       <button onClick={() => onRegionSelect('region-1')}>Select Region 1</button>
       <button onClick={() => onPointAdd({ x: 100, y: 100 })}>Add Point</button>
       <button onClick={onPolygonComplete}>Complete Polygon</button>
@@ -51,14 +52,19 @@ vi.mock('./RegionPanel', () => ({
     onStartDrawing,
     onCancelDrawing,
     isDrawing,
-    newPolygonPoints
+    drawMode,
+    newPolygonPoints,
+    playingArea,
+    onStartDrawingPlayingArea,
+    onDeletePlayingArea
   }) => (
     <div data-testid="region-panel">
       <span data-testid="panel-regions-count">{regions.length}</span>
       <span data-testid="panel-selected">{selectedRegionId || 'none'}</span>
       <span data-testid="panel-drawing">{isDrawing ? 'true' : 'false'}</span>
+      <span data-testid="panel-draw-mode">{drawMode || 'none'}</span>
       <span data-testid="panel-points">{newPolygonPoints.length}</span>
-      <button onClick={onStartDrawing}>Start Drawing</button>
+      <button onClick={() => onStartDrawing()}>Start Drawing</button>
       <button onClick={onCancelDrawing}>Cancel Drawing</button>
       <button onClick={() => onRegionSelect('region-2')}>Select Region 2</button>
       <button onClick={() => onRegionUpdate('region-1', { name: 'Updated Region' })}>Update Region</button>
@@ -91,16 +97,32 @@ describe('MapEditor', () => {
     }
   ];
 
+  let onSnapshotCallCount = 0;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    onSnapshotCallCount = 0;
 
-    mockOnSnapshot.mockImplementation((query, callback) => {
-      callback({
-        docs: mockRegions.map(r => ({
-          id: r.id,
-          data: () => r
-        }))
-      });
+    // The component calls onSnapshot twice:
+    // 1. First for regions collection (expects snapshot.docs)
+    // 2. Second for playingArea document (expects docSnap.exists())
+    mockOnSnapshot.mockImplementation((queryOrRef, callback) => {
+      onSnapshotCallCount++;
+      if (onSnapshotCallCount === 1) {
+        // First call is for regions collection
+        callback({
+          docs: mockRegions.map(r => ({
+            id: r.id,
+            data: () => r
+          }))
+        });
+      } else {
+        // Second call is for playingArea document
+        callback({
+          exists: () => false,
+          data: () => null
+        });
+      }
       return mockUnsubscribe;
     });
 

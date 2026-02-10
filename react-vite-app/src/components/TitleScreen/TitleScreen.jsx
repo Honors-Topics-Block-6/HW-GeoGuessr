@@ -28,7 +28,7 @@ function TitleScreen({ onStartGame, onOpenSubmission, isLoading }) {
         <div className="logo-container">
           <span className="logo-icon">🌍</span>
         </div>
-        <h1 className="game-title">HW Geogessr</h1>
+        <h1 className="game-title">HW Geoguessr</h1>
         <p className="tagline">Can you guess the location on campus?</p>
         <button
           className="start-button"

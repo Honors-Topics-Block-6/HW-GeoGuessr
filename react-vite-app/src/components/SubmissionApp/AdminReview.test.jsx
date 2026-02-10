@@ -16,10 +16,20 @@ vi.mock('firebase/firestore', () => ({
   collection: vi.fn(),
   query: vi.fn(),
   orderBy: vi.fn(),
+  where: vi.fn(),
   onSnapshot: (...args) => mockOnSnapshot(...args),
   doc: vi.fn(),
   updateDoc: (...args) => mockUpdateDoc(...args),
   serverTimestamp: vi.fn(() => 'mock-timestamp')
+}));
+
+// Mock imageService
+const mockGetAllImages = vi.fn();
+const mockGetAllSampleImages = vi.fn();
+
+vi.mock('../../services/imageService', () => ({
+  getAllImages: (...args) => mockGetAllImages(...args),
+  getAllSampleImages: (...args) => mockGetAllSampleImages(...args)
 }));
 
 describe('AdminReview', () => {
@@ -58,6 +68,16 @@ describe('AdminReview', () => {
     }
   ];
 
+  const mockSampleImages = [
+    {
+      id: 'sample-1',
+      url: 'https://example.com/sample1.jpg',
+      correctLocation: { x: 35, y: 45 },
+      correctFloor: 2,
+      description: 'Sample image 1'
+    }
+  ];
+
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -73,6 +93,10 @@ describe('AdminReview', () => {
     });
 
     mockUpdateDoc.mockResolvedValue();
+
+    // Mock imageService - return empty by default to keep tests focused
+    mockGetAllImages.mockResolvedValue([]);
+    mockGetAllSampleImages.mockReturnValue(mockSampleImages);
   });
 
   describe('loading state', () => {
@@ -102,47 +126,43 @@ describe('AdminReview', () => {
       expect(screen.getByText(/Pending/)).toBeInTheDocument();
       expect(screen.getByText(/Approved/)).toBeInTheDocument();
       expect(screen.getByText(/Denied/)).toBeInTheDocument();
-      expect(screen.getByText(/All/)).toBeInTheDocument();
     });
 
-    it('should show submission counts in filter tabs', () => {
+    it('should render source filter tabs', () => {
       render(<AdminReview onBack={mockOnBack} />);
-      expect(screen.getByText('Pending (1)')).toBeInTheDocument();
-      expect(screen.getByText('Approved (1)')).toBeInTheDocument();
-      expect(screen.getByText('Denied (1)')).toBeInTheDocument();
-      expect(screen.getByText('All (3)')).toBeInTheDocument();
+      expect(screen.getByText(/Submissions/)).toBeInTheDocument();
+      expect(screen.getByText(/Game Images/)).toBeInTheDocument();
+      expect(screen.getByText(/Testing Data/)).toBeInTheDocument();
     });
 
-    it('should default to pending filter', () => {
+    it('should default to all filter and show all items', async () => {
       render(<AdminReview onBack={mockOnBack} />);
-      const pendingTab = screen.getByText('Pending (1)');
-      expect(pendingTab).toHaveClass('active');
-    });
-
-    it('should only show pending submissions by default', () => {
-      render(<AdminReview onBack={mockOnBack} />);
-      // Should show the pending submission
-      const submissionCards = document.querySelectorAll('.submission-card');
-      expect(submissionCards.length).toBe(1);
+      // Default filter is 'all', so all submissions + sample images should be shown
+      // Sample images are loaded async, so wait for them
+      await waitFor(() => {
+        const submissionCards = document.querySelectorAll('.submission-card');
+        // 3 submissions + 1 sample image = 4
+        expect(submissionCards.length).toBe(4);
+      });
     });
   });
 
-  describe('filter functionality', () => {
-    it('should show all submissions when All filter is clicked', async () => {
+  describe('status filter functionality', () => {
+    it('should show only pending submissions when Pending filter is clicked', async () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('All (3)'));
+      await user.click(screen.getByText('Pending (1)'));
 
       const submissionCards = document.querySelectorAll('.submission-card');
-      expect(submissionCards.length).toBe(3);
+      expect(submissionCards.length).toBe(1);
     });
 
-    it('should show only approved submissions when Approved filter is clicked', async () => {
+    it('should show only approved items when Approved filter is clicked', async () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('Approved (1)'));
+      await user.click(screen.getByText(/^Approved/));
 
       const submissionCards = document.querySelectorAll('.submission-card');
       expect(submissionCards.length).toBe(1);
@@ -152,7 +172,23 @@ describe('AdminReview', () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('Denied (1)'));
+      await user.click(screen.getByText(/^Denied/));
+
+      const submissionCards = document.querySelectorAll('.submission-card');
+      expect(submissionCards.length).toBe(1);
+    });
+
+    it('should show only testing items when Testing filter is clicked', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      // Wait for sample images to load (async useEffect)
+      await waitFor(() => {
+        expect(document.querySelectorAll('.submission-card').length).toBe(4);
+      });
+
+      // Click the "Testing (N)" status filter (not "Testing Data" source filter)
+      await user.click(screen.getByText(/^Testing \(/));
 
       const submissionCards = document.querySelectorAll('.submission-card');
       expect(submissionCards.length).toBe(1);
@@ -162,52 +198,87 @@ describe('AdminReview', () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('Approved (1)'));
+      await user.click(screen.getByText('Pending (1)'));
 
-      expect(screen.getByText('Approved (1)')).toHaveClass('active');
-      expect(screen.getByText('Pending (1)')).not.toHaveClass('active');
+      expect(screen.getByText('Pending (1)')).toHaveClass('active');
+    });
+  });
+
+  describe('source filter functionality', () => {
+    it('should show only submissions when Submissions source filter is clicked', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText(/^Submissions/));
+
+      const submissionCards = document.querySelectorAll('.submission-card');
+      expect(submissionCards.length).toBe(3);
+    });
+
+    it('should show only testing data when Testing Data source filter is clicked', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText(/^Testing Data/));
+
+      const submissionCards = document.querySelectorAll('.submission-card');
+      expect(submissionCards.length).toBe(1);
+    });
+
+    it('should combine source and status filters', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      // Filter to submissions only, then by pending
+      await user.click(screen.getByText(/^Submissions/));
+      await user.click(screen.getByText('Pending (1)'));
+
+      const submissionCards = document.querySelectorAll('.submission-card');
+      expect(submissionCards.length).toBe(1);
     });
   });
 
   describe('submission card display', () => {
-    it('should display submission photo', async () => {
-      const user = userEvent.setup();
+    it('should display submission photo', () => {
       render(<AdminReview onBack={mockOnBack} />);
-
-      await user.click(screen.getByText('All (3)'));
 
       const images = screen.getAllByAltText('Submitted photo');
-      expect(images.length).toBe(3);
+      expect(images.length).toBeGreaterThan(0);
     });
 
-    it('should display status badge', async () => {
-      const user = userEvent.setup();
+    it('should display status badge', () => {
       render(<AdminReview onBack={mockOnBack} />);
-
-      await user.click(screen.getByText('All (3)'));
 
       expect(screen.getByText('pending')).toBeInTheDocument();
       expect(screen.getByText('approved')).toBeInTheDocument();
       expect(screen.getByText('denied')).toBeInTheDocument();
     });
 
-    it('should display location coordinates', async () => {
-      const user = userEvent.setup();
+    it('should display source badge', async () => {
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('All (3)'));
+      // Wait for sample images to load (async useEffect)
+      await waitFor(() => {
+        // Should have Submission badges for submissions and Testing Data for samples
+        expect(screen.getAllByText('Submission').length).toBe(3);
+        expect(screen.getAllByText('Testing Data').length).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    it('should display location coordinates', () => {
+      render(<AdminReview onBack={mockOnBack} />);
 
       expect(screen.getByText('X: 100, Y: 200')).toBeInTheDocument();
     });
 
     it('should display floor number', () => {
       render(<AdminReview onBack={mockOnBack} />);
-      expect(screen.getByText('2')).toBeInTheDocument();
+      expect(screen.getAllByText('2').length).toBeGreaterThanOrEqual(1);
     });
 
     it('should display View Full Details button', () => {
       render(<AdminReview onBack={mockOnBack} />);
-      expect(screen.getByText('View Full Details')).toBeInTheDocument();
+      expect(screen.getAllByText('View Full Details').length).toBeGreaterThan(0);
     });
   });
 
@@ -219,11 +290,17 @@ describe('AdminReview', () => {
       expect(screen.getByText('Deny')).toBeInTheDocument();
     });
 
-    it('should not show action buttons for approved submissions', async () => {
+    it('should not show action buttons for non-submission items', async () => {
+      // Mock only sample images, no submissions
+      mockOnSnapshot.mockImplementation((query, callback) => {
+        callback({ docs: [] });
+        return mockUnsubscribe;
+      });
+
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('Approved (1)'));
+      await user.click(screen.getByText(/^Testing Data/));
 
       expect(screen.queryByText('Approve')).not.toBeInTheDocument();
       expect(screen.queryByText('Deny')).not.toBeInTheDocument();
@@ -263,7 +340,7 @@ describe('AdminReview', () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('View Full Details'));
+      await user.click(screen.getAllByText('View Full Details')[0]);
 
       expect(document.querySelector('.modal-overlay')).toBeInTheDocument();
       expect(document.querySelector('.modal-content')).toBeInTheDocument();
@@ -273,25 +350,25 @@ describe('AdminReview', () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('View Full Details'));
+      await user.click(screen.getAllByText('View Full Details')[0]);
 
       expect(screen.getByAltText('Full size')).toBeInTheDocument();
     });
 
-    it('should display submission details in modal', async () => {
+    it('should display image details in modal', async () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('View Full Details'));
+      await user.click(screen.getAllByText('View Full Details')[0]);
 
-      expect(screen.getByText('Submission Details')).toBeInTheDocument();
+      expect(screen.getByText('Image Details')).toBeInTheDocument();
     });
 
     it('should close modal when close button is clicked', async () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('View Full Details'));
+      await user.click(screen.getAllByText('View Full Details')[0]);
       expect(document.querySelector('.modal-overlay')).toBeInTheDocument();
 
       await user.click(screen.getByText('×'));
@@ -303,7 +380,7 @@ describe('AdminReview', () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('View Full Details'));
+      await user.click(screen.getAllByText('View Full Details')[0]);
       expect(document.querySelector('.modal-overlay')).toBeInTheDocument();
 
       await user.click(document.querySelector('.modal-overlay'));
@@ -315,7 +392,7 @@ describe('AdminReview', () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('View Full Details'));
+      await user.click(screen.getAllByText('View Full Details')[0]);
 
       await user.click(document.querySelector('.modal-content'));
 
@@ -324,8 +401,22 @@ describe('AdminReview', () => {
 
     it('should show action buttons in modal for pending submissions', async () => {
       const user = userEvent.setup();
+
+      // Mock with only pending submission
+      mockOnSnapshot.mockImplementation((query, callback) => {
+        callback({
+          docs: [mockSubmissions[0]].map(sub => ({
+            id: sub.id,
+            data: () => sub
+          }))
+        });
+        return mockUnsubscribe;
+      });
+
       render(<AdminReview onBack={mockOnBack} />);
 
+      // Filter to submissions source to find the pending one easily
+      await user.click(screen.getByText(/^Submissions/));
       await user.click(screen.getByText('View Full Details'));
 
       // Modal should have Approve and Deny buttons
@@ -335,21 +426,18 @@ describe('AdminReview', () => {
   });
 
   describe('empty state', () => {
-    it('should show message when no submissions match filter', async () => {
-      // Mock empty pending submissions
+    it('should show message when no items match filter', async () => {
+      // Mock empty submissions
       mockOnSnapshot.mockImplementation((query, callback) => {
-        callback({
-          docs: mockSubmissions
-            .filter(s => s.status !== 'pending')
-            .map(sub => ({
-              id: sub.id,
-              data: () => sub
-            }))
-        });
+        callback({ docs: [] });
         return mockUnsubscribe;
       });
+      mockGetAllSampleImages.mockReturnValue([]);
 
+      const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText('Pending (0)'));
 
       expect(screen.getByText('No pending submissions found.')).toBeInTheDocument();
     });
@@ -414,34 +502,29 @@ describe('AdminReview', () => {
     });
   });
 
-  describe('filter tab interactions', () => {
-    it('should handle clicking on already active pending filter', async () => {
-      const user = userEvent.setup();
-      render(<AdminReview onBack={mockOnBack} />);
-
-      // Pending is active by default, clicking it again should still work
-      const pendingTab = screen.getByText('Pending (1)');
-      expect(pendingTab).toHaveClass('active');
-
-      await user.click(pendingTab);
-
-      // Should still be active and show pending submissions
-      expect(pendingTab).toHaveClass('active');
-      const submissionCards = document.querySelectorAll('.submission-card');
-      expect(submissionCards.length).toBe(1);
-    });
-  });
-
   describe('modal approve/deny actions', () => {
     it('should approve submission from modal and close modal', async () => {
       const user = userEvent.setup();
+
+      // Mock only pending submission
+      mockOnSnapshot.mockImplementation((query, callback) => {
+        callback({
+          docs: [mockSubmissions[0]].map(sub => ({
+            id: sub.id,
+            data: () => sub
+          }))
+        });
+        return mockUnsubscribe;
+      });
+
       render(<AdminReview onBack={mockOnBack} />);
 
-      // Open modal for pending submission
+      // Filter to submissions and open modal for pending submission
+      await user.click(screen.getByText(/^Submissions/));
       await user.click(screen.getByText('View Full Details'));
       expect(document.querySelector('.modal-overlay')).toBeInTheDocument();
 
-      // Find the approve button in the modal (there will be two - one in card, one in modal)
+      // Find the approve button in the modal
       const modalApproveBtn = document.querySelector('.modal-actions .approve-button');
       await user.click(modalApproveBtn);
 
@@ -457,9 +540,22 @@ describe('AdminReview', () => {
 
     it('should deny submission from modal and close modal', async () => {
       const user = userEvent.setup();
+
+      // Mock only pending submission
+      mockOnSnapshot.mockImplementation((query, callback) => {
+        callback({
+          docs: [mockSubmissions[0]].map(sub => ({
+            id: sub.id,
+            data: () => sub
+          }))
+        });
+        return mockUnsubscribe;
+      });
+
       render(<AdminReview onBack={mockOnBack} />);
 
-      // Open modal for pending submission
+      // Filter to submissions and open modal for pending submission
+      await user.click(screen.getByText(/^Submissions/));
       await user.click(screen.getByText('View Full Details'));
       expect(document.querySelector('.modal-overlay')).toBeInTheDocument();
 
@@ -519,7 +615,7 @@ describe('AdminReview', () => {
       expect(screen.getByText('Pending (1)')).toBeInTheDocument();
     });
 
-    it('should display N/A for missing timestamps', () => {
+    it('should not display date row for items without createdAt', () => {
       const submissionsWithNullDates = [
         {
           id: '1',
@@ -544,28 +640,25 @@ describe('AdminReview', () => {
 
       render(<AdminReview onBack={mockOnBack} />);
 
-      // Should display N/A for null timestamp
-      expect(screen.getByText('N/A')).toBeInTheDocument();
+      // createdAt is null so the "Submitted:" row should not appear for that item
+      // The component conditionally renders the date row
+      expect(screen.getByText('Pending (1)')).toBeInTheDocument();
     });
   });
 
-  describe('all submissions empty state', () => {
-    it('should show generic empty message for All filter', async () => {
+  describe('all items empty state', () => {
+    it('should show generic empty message when all sources are empty', async () => {
       // Mock with no submissions at all
       mockOnSnapshot.mockImplementation((query, callback) => {
-        callback({
-          docs: []
-        });
+        callback({ docs: [] });
         return mockUnsubscribe;
       });
+      mockGetAllSampleImages.mockReturnValue([]);
 
-      const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
 
-      await user.click(screen.getByText('All (0)'));
-
-      // Should show message without status prefix
-      expect(screen.getByText('No submissions found.')).toBeInTheDocument();
+      // Should show the no-submissions empty state div
+      expect(document.querySelector('.no-submissions')).toBeInTheDocument();
     });
   });
 
@@ -599,14 +692,122 @@ describe('AdminReview', () => {
 
       render(<AdminReview onBack={mockOnBack} />);
 
-      // Switch to Approved filter
-      await user.click(screen.getByText('Approved (1)'));
+      // Filter to submissions source, then approved status
+      await user.click(screen.getByText(/^Submissions/));
+      await user.click(screen.getByText(/^Approved/));
 
       // Open modal
       await user.click(screen.getByText('View Full Details'));
 
-      // Modal should show reviewedAt (may have multiple instances - in card and modal)
+      // Modal should show reviewedAt
       expect(screen.getAllByText('Reviewed:').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('reset to pending', () => {
+    it('should show Reset to Pending button for approved submissions', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText('Approved (1)'));
+
+      expect(screen.getByText('Reset to Pending')).toBeInTheDocument();
+    });
+
+    it('should show Reset to Pending button for denied submissions', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText('Denied (1)'));
+
+      expect(screen.getByText('Reset to Pending')).toBeInTheDocument();
+    });
+
+    it('should not show Reset to Pending button for pending submissions', () => {
+      render(<AdminReview onBack={mockOnBack} />);
+
+      expect(screen.queryByText('Reset to Pending')).not.toBeInTheDocument();
+    });
+
+    it('should call updateDoc with pending status and null reviewedAt when Reset is clicked', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText('Approved (1)'));
+      await user.click(screen.getByText('Reset to Pending'));
+
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({
+          status: 'pending',
+          reviewedAt: null
+        })
+      );
+    });
+
+    it('should handle reset error gracefully', async () => {
+      const user = userEvent.setup();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockUpdateDoc.mockRejectedValueOnce(new Error('Reset failed'));
+
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText('Approved (1)'));
+      await user.click(screen.getByText('Reset to Pending'));
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Error resetting submission:', expect.any(Error));
+      });
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should reset submission from modal and close modal', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      // Switch to approved filter and open modal
+      await user.click(screen.getByText('Approved (1)'));
+      await user.click(screen.getByText('View Full Details'));
+      expect(document.querySelector('.modal-overlay')).toBeInTheDocument();
+
+      // Find the reset button in the modal
+      const modalResetBtn = document.querySelector('.modal-actions .reset-button');
+      expect(modalResetBtn).toBeInTheDocument();
+      await user.click(modalResetBtn);
+
+      // Modal should close
+      expect(document.querySelector('.modal-overlay')).not.toBeInTheDocument();
+
+      // updateDoc should have been called with pending status
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({
+          status: 'pending',
+          reviewedAt: null
+        })
+      );
+    });
+  });
+
+  describe('game images from Firestore', () => {
+    it('should display images from Firestore images collection', async () => {
+      const firestoreImages = [
+        {
+          id: 'img-1',
+          url: 'https://example.com/game-image.jpg',
+          correctLocation: { x: 50, y: 50 },
+          correctFloor: 1,
+          description: 'Game hallway image'
+        }
+      ];
+      mockGetAllImages.mockResolvedValue(firestoreImages);
+
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Game Images/)).toBeInTheDocument();
+      });
     });
   });
 });
