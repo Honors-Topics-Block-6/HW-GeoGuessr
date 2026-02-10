@@ -8,6 +8,27 @@ vi.mock('./services/imageService', () => ({
   getRandomImage: vi.fn()
 }));
 
+// Mock the region service to return a region that covers the test area
+vi.mock('./services/regionService', () => ({
+  getRegions: vi.fn().mockResolvedValue([
+    {
+      id: 'test-region',
+      name: 'Test Building',
+      floors: [1, 2, 3],
+      polygon: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 }
+      ]
+    }
+  ]),
+  getPlayingArea: vi.fn().mockResolvedValue(null),
+  getFloorsForPoint: vi.fn().mockReturnValue([1, 2, 3]),
+  isPointInPlayingArea: vi.fn().mockReturnValue(true),
+  isPointInPolygon: vi.fn().mockReturnValue(true)
+}));
+
 // Mock Firebase
 vi.mock('./firebase', () => ({
   db: {},
@@ -39,7 +60,7 @@ describe('App', () => {
     it('should render the title screen by default', () => {
       render(<App />);
 
-      expect(screen.getByText('HW Geogessr')).toBeInTheDocument();
+      expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
     });
 
     it('should render the start game button', () => {
@@ -135,10 +156,7 @@ describe('App', () => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
       });
 
-      // Select floor
-      await user.click(screen.getByText('2nd'));
-
-      // Click on map (simulate map click)
+      // Click on map first to trigger floor availability
       const mapPicker = document.querySelector('.map-picker');
       if (mapPicker) {
         mapPicker.getBoundingClientRect = () => ({
@@ -151,6 +169,12 @@ describe('App', () => {
         });
         fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
       }
+
+      // Wait for floor selector to appear, then select floor
+      await waitFor(() => {
+        expect(screen.getByText('2nd')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('2nd'));
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /guess/i })).not.toBeDisabled();
@@ -168,10 +192,7 @@ describe('App', () => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
       });
 
-      // Select floor
-      await user.click(screen.getByText('2nd'));
-
-      // Click on map
+      // Click on map first to trigger floor availability
       const mapPicker = document.querySelector('.map-picker');
       if (mapPicker) {
         mapPicker.getBoundingClientRect = () => ({
@@ -184,6 +205,12 @@ describe('App', () => {
         });
         fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
       }
+
+      // Wait for floor selector to appear, then select floor
+      await waitFor(() => {
+        expect(screen.getByText('2nd')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('2nd'));
 
       // Submit guess
       await user.click(screen.getByRole('button', { name: /guess/i }));
@@ -209,7 +236,7 @@ describe('App', () => {
       await user.click(screen.getByText('Back'));
 
       await waitFor(() => {
-        expect(screen.getByText('HW Geogessr')).toBeInTheDocument();
+        expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
       });
     });
   });
@@ -260,7 +287,7 @@ describe('App', () => {
       await user.click(screen.getByRole('button', { name: /back to home/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('HW Geogessr')).toBeInTheDocument();
+        expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
       });
     });
   });
@@ -275,7 +302,7 @@ describe('App', () => {
 
       await waitFor(() => {
         // SubmissionApp should be rendered
-        expect(screen.queryByText('HW Geogessr')).not.toBeInTheDocument();
+        expect(screen.queryByText('HW Geoguessr')).not.toBeInTheDocument();
       });
     });
 
@@ -288,7 +315,7 @@ describe('App', () => {
       await user.click(screen.getByRole('button', { name: /submit photo/i }));
 
       await waitFor(() => {
-        expect(screen.queryByText('HW Geogessr')).not.toBeInTheDocument();
+        expect(screen.queryByText('HW Geoguessr')).not.toBeInTheDocument();
       });
 
       // Click back to game
@@ -296,7 +323,7 @@ describe('App', () => {
 
       await waitFor(() => {
         // Should be back on title screen
-        expect(screen.getByText('HW Geogessr')).toBeInTheDocument();
+        expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
       });
     });
   });
@@ -314,13 +341,30 @@ describe('App', () => {
       });
     });
 
-    it('should show incomplete status for floor initially', async () => {
+    it('should show floor status after clicking on map in a region', async () => {
       const user = userEvent.setup();
 
       render(<App />);
 
       await user.click(screen.getByRole('button', { name: /start game/i }));
 
+      await waitFor(() => {
+        expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
+      });
+
+      // Floor selector should not be visible initially (before clicking on map)
+      expect(screen.queryByText('Floor selected')).not.toBeInTheDocument();
+
+      // Click on map to trigger floor availability
+      const mapPicker = document.querySelector('.map-picker');
+      if (mapPicker) {
+        mapPicker.getBoundingClientRect = () => ({
+          left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100
+        });
+        fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
+      }
+
+      // Now floor selector should be visible
       await waitFor(() => {
         expect(screen.getByText('Floor selected').parentElement).not.toHaveClass('complete');
       });
@@ -335,6 +379,20 @@ describe('App', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
+      });
+
+      // Click on map first to make floor selector available
+      const mapPicker = document.querySelector('.map-picker');
+      if (mapPicker) {
+        mapPicker.getBoundingClientRect = () => ({
+          left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100
+        });
+        fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
+      }
+
+      // Wait for floor selector to appear
+      await waitFor(() => {
+        expect(screen.getByText('2nd')).toBeInTheDocument();
       });
 
       await user.click(screen.getByText('2nd'));
@@ -358,9 +416,7 @@ describe('App', () => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
       });
 
-      // Complete first round
-      await user.click(screen.getByText('2nd'));
-
+      // Click on map first to trigger floor availability
       const mapPicker = document.querySelector('.map-picker');
       if (mapPicker) {
         mapPicker.getBoundingClientRect = () => ({
@@ -368,6 +424,12 @@ describe('App', () => {
         });
         fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
       }
+
+      // Wait for floor selector to appear, then select floor
+      await waitFor(() => {
+        expect(screen.getByText('2nd')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('2nd'));
 
       await user.click(screen.getByRole('button', { name: /guess/i }));
 
@@ -391,6 +453,42 @@ describe('App', () => {
   });
 
   describe('final results screen', () => {
+    // Helper function to complete a round
+    const completeRound = async (user, isLastRound) => {
+      await waitFor(() => {
+        expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
+      });
+
+      // Click on map first to trigger floor availability
+      const mapPicker = document.querySelector('.map-picker');
+      if (mapPicker) {
+        mapPicker.getBoundingClientRect = () => ({
+          left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100
+        });
+        fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
+      }
+
+      // Wait for floor selector to appear, then select floor
+      await waitFor(() => {
+        expect(screen.getByText('2nd')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('2nd'));
+
+      await user.click(screen.getByRole('button', { name: /guess/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Your guess')).toBeInTheDocument();
+      });
+
+      vi.advanceTimersByTime(2000);
+
+      if (!isLastRound) {
+        await user.click(screen.getByText('Next Round'));
+      } else {
+        await user.click(screen.getByText('View Final Results'));
+      }
+    };
+
     it('should show final results after completing all 5 rounds', async () => {
       const user = userEvent.setup();
       vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -401,36 +499,7 @@ describe('App', () => {
 
       // Play through 5 rounds
       for (let round = 1; round <= 5; round++) {
-        await waitFor(() => {
-          expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
-        });
-
-        // Make a guess
-        await user.click(screen.getByText('2nd'));
-
-        const mapPicker = document.querySelector('.map-picker');
-        if (mapPicker) {
-          mapPicker.getBoundingClientRect = () => ({
-            left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100
-          });
-          fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
-        }
-
-        await user.click(screen.getByRole('button', { name: /guess/i }));
-
-        await waitFor(() => {
-          expect(screen.getByText('Your guess')).toBeInTheDocument();
-        });
-
-        vi.advanceTimersByTime(2000);
-
-        if (round < 5) {
-          // Next round
-          await user.click(screen.getByText('Next Round'));
-        } else {
-          // Last round - click View Final Results
-          await user.click(screen.getByText('View Final Results'));
-        }
+        await completeRound(user, round === 5);
       }
 
       // Should be on final results screen
@@ -449,35 +518,9 @@ describe('App', () => {
 
       await user.click(screen.getByRole('button', { name: /start game/i }));
 
-      // Complete 5 rounds quickly
+      // Complete 5 rounds
       for (let round = 1; round <= 5; round++) {
-        await waitFor(() => {
-          expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
-        });
-
-        await user.click(screen.getByText('2nd'));
-
-        const mapPicker = document.querySelector('.map-picker');
-        if (mapPicker) {
-          mapPicker.getBoundingClientRect = () => ({
-            left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100
-          });
-          fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
-        }
-
-        await user.click(screen.getByRole('button', { name: /guess/i }));
-
-        await waitFor(() => {
-          expect(screen.getByText('Your guess')).toBeInTheDocument();
-        });
-
-        vi.advanceTimersByTime(2000);
-
-        if (round < 5) {
-          await user.click(screen.getByText('Next Round'));
-        } else {
-          await user.click(screen.getByText('View Final Results'));
-        }
+        await completeRound(user, round === 5);
       }
 
       await waitFor(() => {
@@ -497,33 +540,7 @@ describe('App', () => {
 
       // Complete 5 rounds
       for (let round = 1; round <= 5; round++) {
-        await waitFor(() => {
-          expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
-        });
-
-        await user.click(screen.getByText('2nd'));
-
-        const mapPicker = document.querySelector('.map-picker');
-        if (mapPicker) {
-          mapPicker.getBoundingClientRect = () => ({
-            left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100
-          });
-          fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
-        }
-
-        await user.click(screen.getByRole('button', { name: /guess/i }));
-
-        await waitFor(() => {
-          expect(screen.getByText('Your guess')).toBeInTheDocument();
-        });
-
-        vi.advanceTimersByTime(2000);
-
-        if (round < 5) {
-          await user.click(screen.getByText('Next Round'));
-        } else {
-          await user.click(screen.getByText('View Final Results'));
-        }
+        await completeRound(user, round === 5);
       }
 
       await waitFor(() => {
@@ -534,7 +551,7 @@ describe('App', () => {
       await user.click(screen.getByRole('button', { name: /back to home/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('HW Geogessr')).toBeInTheDocument();
+        expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
       });
 
       vi.useRealTimers();
@@ -607,6 +624,20 @@ describe('App', () => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
       });
 
+      // Click on map first to trigger floor availability
+      const mapPicker = document.querySelector('.map-picker');
+      if (mapPicker) {
+        mapPicker.getBoundingClientRect = () => ({
+          left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100
+        });
+        fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
+      }
+
+      // Wait for floor selector to appear
+      await waitFor(() => {
+        expect(screen.getByText('3rd')).toBeInTheDocument();
+      });
+
       await user.click(screen.getByText('3rd'));
 
       expect(screen.getByText('3rd').closest('button')).toHaveClass('selected');
@@ -621,6 +652,20 @@ describe('App', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
+      });
+
+      // Click on map first to trigger floor availability
+      const mapPicker = document.querySelector('.map-picker');
+      if (mapPicker) {
+        mapPicker.getBoundingClientRect = () => ({
+          left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100
+        });
+        fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
+      }
+
+      // Wait for floor selector to appear
+      await waitFor(() => {
+        expect(screen.getByText('1st')).toBeInTheDocument();
       });
 
       await user.click(screen.getByText('1st'));

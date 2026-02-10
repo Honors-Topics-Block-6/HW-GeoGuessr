@@ -1,14 +1,15 @@
-=== Test Run Started: Fri Feb  6 14:20:01 PST 2026 ===
-[INFO] 2026-02-06 14:20:01 Node.js version: v22.14.0
-[INFO] 2026-02-06 14:20:01 npm version: 10.9.2
-[INFO] 2026-02-06 14:20:01 Environment variables set (NODE_ENV=test, CI=true)
-[INFO] 2026-02-06 14:20:01 Checking dependencies...
-[INFO] 2026-02-06 14:20:01 No package.json found - skipping dependency installation
-[INFO] 2026-02-06 14:20:01 Running tests...
-[INFO] 2026-02-06 14:20:01 No test framework detected - running basic sanity checks
-[INFO] 2026-02-06 14:20:01 Running sanity checks...
-[PASS] 2026-02-06 14:20:01 Project structure check
-=== Test Run Completed: Fri Feb  6 14:20:01 PST 2026 ===
-Results: 1/1 passed
-[INFO] 2026-02-06 14:20:01 Running cleanup...
-[INFO] 2026-02-06 14:20:01 Cleanup complete
+=== Test Run Started: Tue Feb 10 08:08:20 PST 2026 ===
+[INFO] 2026-02-10 08:08:20 Node.js version: v22.14.0
+[INFO] 2026-02-10 08:08:20 npm version: 10.9.2
+[INFO] 2026-02-10 08:08:20 Environment variables set (NODE_ENV=test, CI=true)
+[INFO] 2026-02-10 08:08:20 Checking dependencies...
+[INFO] 2026-02-10 08:08:20 No package.json found in root - skipping root dependency installation
+[INFO] 2026-02-10 08:08:20 Installing dependencies in react-vite-app...
+[INFO] 2026-02-10 08:08:24 Running tests...
+[INFO] 2026-02-10 08:08:24 Found Vitest in react-vite-app
+[INFO] 2026-02-10 08:08:24 Running Vitest tests in /Users/aagavin/src/Javascript/HW-GeoGuessr/react-vite-app/...
+[INFO] 2026-02-10 08:08:32 Vitest results - Passed: 610, Failed: 0
+=== Test Run Completed: Tue Feb 10 08:08:32 PST 2026 ===
+Results: 610/610 passed
+[INFO] 2026-02-10 08:08:32 Running cleanup...
+[INFO] 2026-02-10 08:08:32 Cleanup complete

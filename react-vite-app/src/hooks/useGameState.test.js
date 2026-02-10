@@ -7,6 +7,27 @@ vi.mock('../services/imageService', () => ({
   getRandomImage: vi.fn()
 }));
 
+// Mock the regionService to return a region with floors
+vi.mock('../services/regionService', () => ({
+  getRegions: vi.fn().mockResolvedValue([
+    {
+      id: 'test-region',
+      name: 'Test Building',
+      floors: [1, 2, 3],
+      polygon: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 }
+      ]
+    }
+  ]),
+  getPlayingArea: vi.fn().mockResolvedValue(null),
+  getFloorsForPoint: vi.fn().mockReturnValue([1, 2, 3]),
+  isPointInPlayingArea: vi.fn().mockReturnValue(true),
+  isPointInPolygon: vi.fn().mockReturnValue(true)
+}));
+
 import { getRandomImage } from '../services/imageService';
 
 const mockImage = {
@@ -307,7 +328,7 @@ describe('useGameState', () => {
       });
 
       // Should warn about missing image
-      expect(consoleSpy).toHaveBeenCalledWith('Cannot submit: missing location, floor, or image');
+      expect(consoleSpy).toHaveBeenCalledWith('Cannot submit: missing location or image');
       expect(result.current.screen).toBe('title');
 
       consoleSpy.mockRestore();

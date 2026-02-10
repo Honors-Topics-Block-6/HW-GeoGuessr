@@ -18,7 +18,7 @@ describe('TitleScreen', () => {
     it('should render the game title', () => {
       render(<TitleScreen {...defaultProps} />);
 
-      expect(screen.getByText('HW Geogessr')).toBeInTheDocument();
+      expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
     });
 
     it('should render the tagline', () => {
@@ -119,7 +119,7 @@ describe('TitleScreen', () => {
     it('should have a main heading', () => {
       render(<TitleScreen {...defaultProps} />);
 
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('HW Geogessr');
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('HW Geoguessr');
     });
   });
 
