@@ -1,6 +1,7 @@
+import DailyGoalsCard from '../DailyGoalsCard/DailyGoalsCard';
 import './TitleScreen.css';
 
-function TitleScreen({ onStartGame, onOpenSubmission, isLoading }) {
+function TitleScreen({ onStartGame, onOpenSubmission, isLoading, dailyGoals }) {
   return (
     <div className="title-screen">
       <button className="submit-photo-button" onClick={onOpenSubmission}>
@@ -32,6 +33,11 @@ function TitleScreen({ onStartGame, onOpenSubmission, isLoading }) {
         <p className="subtitle">
           Explore Harvard-Westlake through photos
         </p>
+        {dailyGoals && (
+          <div className="title-daily-goals">
+            <DailyGoalsCard variant="full" {...dailyGoals} />
+          </div>
+        )}
       </div>
     </div>
   );

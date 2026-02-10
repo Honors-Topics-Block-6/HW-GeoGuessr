@@ -11,7 +11,13 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import { collection, getDocs } from 'firebase/firestore';
-import { getRandomImage, getRandomSampleImage, getAllSampleImages } from './imageService';
+import {
+  getRandomImage,
+  getRandomSampleImage,
+  getAllSampleImages,
+  getAllImages,
+  getImageById
+} from './imageService';
 
 describe('imageService', () => {
   beforeEach(() => {
@@ -27,6 +33,7 @@ describe('imageService', () => {
       expect(image).toHaveProperty('url');
       expect(image).toHaveProperty('correctLocation');
       expect(image).toHaveProperty('correctFloor');
+      expect(image).toHaveProperty('environment');
     });
 
     it('should return an image with valid structure', () => {
@@ -83,6 +90,7 @@ describe('imageService', () => {
         expect(image).toHaveProperty('correctLocation');
         expect(image).toHaveProperty('correctFloor');
         expect(image).toHaveProperty('description');
+        expect(image).toHaveProperty('environment');
       });
     });
 
@@ -222,6 +230,102 @@ describe('imageService', () => {
       expect(image.correctLocation).toEqual({ x: 45, y: 55 });
       expect(image.correctFloor).toBe(2);
       expect(image.description).toBe('A test image');
+    });
+  });
+
+  describe('getAllImages', () => {
+    it('should return all Firestore images when available', async () => {
+      const mockDocs = [
+        {
+          id: 'firestore-1',
+          data: () => ({
+            url: 'https://firestore.com/1.jpg',
+            correctLocation: { x: 10, y: 20 },
+            correctFloor: 1,
+            description: 'Doc 1',
+            environment: 'indoor'
+          })
+        },
+        {
+          id: 'firestore-2',
+          data: () => ({
+            url: 'https://firestore.com/2.jpg',
+            correctLocation: { x: 30, y: 40 },
+            correctFloor: 2,
+            description: 'Doc 2',
+            environment: 'outdoor'
+          })
+        }
+      ];
+
+      getDocs.mockResolvedValueOnce({
+        empty: false,
+        docs: mockDocs
+      });
+
+      const images = await getAllImages();
+
+      expect(images).toHaveLength(2);
+      expect(images[0].id).toBe('firestore-1');
+      expect(images[1].environment).toBe('outdoor');
+    });
+
+    it('should fall back to sample images when Firestore is empty', async () => {
+      getDocs.mockResolvedValueOnce({
+        empty: true,
+        docs: []
+      });
+
+      const images = await getAllImages();
+
+      expect(images.length).toBeGreaterThanOrEqual(5);
+    });
+
+    it('should fall back to sample images when Firestore errors', async () => {
+      getDocs.mockRejectedValueOnce(new Error('read failure'));
+
+      const images = await getAllImages();
+
+      expect(images.length).toBeGreaterThanOrEqual(5);
+    });
+  });
+
+  describe('getImageById', () => {
+    it('should return exact match from Firestore data', async () => {
+      const mockDocs = [
+        {
+          id: 'firestore-1',
+          data: () => ({
+            url: 'https://firestore.com/1.jpg',
+            correctLocation: { x: 10, y: 20 },
+            correctFloor: 1,
+            description: 'Doc 1',
+            environment: 'indoor'
+          })
+        }
+      ];
+
+      getDocs.mockResolvedValueOnce({
+        empty: false,
+        docs: mockDocs
+      });
+
+      const image = await getImageById('firestore-1');
+
+      expect(image).not.toBeNull();
+      expect(image.id).toBe('firestore-1');
+      expect(image.environment).toBe('indoor');
+    });
+
+    it('should return null when id not found', async () => {
+      getDocs.mockResolvedValueOnce({
+        empty: true,
+        docs: []
+      });
+
+      const image = await getImageById('missing');
+
+      expect(image).toBeNull();
     });
   });
 });

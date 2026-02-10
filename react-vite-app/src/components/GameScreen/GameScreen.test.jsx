@@ -13,7 +13,8 @@ describe('GameScreen', () => {
     onSubmitGuess: vi.fn(),
     onBackToTitle: vi.fn(),
     currentRound: 1,
-    totalRounds: 5
+    totalRounds: 5,
+    dailyGoals: null
   };
 
   beforeEach(() => {
@@ -104,20 +105,27 @@ describe('GameScreen', () => {
     });
 
     it('should show incomplete status when no floor selected', () => {
-      render(<GameScreen {...defaultProps} guessFloor={null} />);
+      render(<GameScreen {...defaultProps} guessFloor={null} availableFloors={[1, 2]} />);
 
       const statusText = screen.getByText('Floor selected');
       expect(statusText.parentElement).not.toHaveClass('complete');
     });
 
     it('should show complete status when floor is selected', () => {
-      render(<GameScreen {...defaultProps} guessFloor={2} />);
+      render(<GameScreen {...defaultProps} guessFloor={2} availableFloors={[1, 2]} />);
 
       expect(screen.getByText('Floor selected').parentElement).toHaveClass('complete');
     });
 
     it('should show checkmark for completed items', () => {
-      render(<GameScreen {...defaultProps} guessLocation={{ x: 50, y: 50 }} guessFloor={2} />);
+      render(
+        <GameScreen
+          {...defaultProps}
+          guessLocation={{ x: 50, y: 50 }}
+          guessFloor={2}
+          availableFloors={[1, 2]}
+        />
+      );
 
       const checkmarks = screen.getAllByText('✓');
       expect(checkmarks).toHaveLength(2);
@@ -132,13 +140,27 @@ describe('GameScreen', () => {
     });
 
     it('should disable guess button when floor not selected', () => {
-      render(<GameScreen {...defaultProps} guessLocation={{ x: 50, y: 50 }} guessFloor={null} />);
+      render(
+        <GameScreen
+          {...defaultProps}
+          guessLocation={{ x: 50, y: 50 }}
+          guessFloor={null}
+          availableFloors={[1, 2]}
+        />
+      );
 
       expect(screen.getByText('Guess').closest('button')).toBeDisabled();
     });
 
     it('should enable guess button when both location and floor selected', () => {
-      render(<GameScreen {...defaultProps} guessLocation={{ x: 50, y: 50 }} guessFloor={2} />);
+      render(
+        <GameScreen
+          {...defaultProps}
+          guessLocation={{ x: 50, y: 50 }}
+          guessFloor={2}
+          availableFloors={[1, 2]}
+        />
+      );
 
       expect(screen.getByText('Guess').closest('button')).not.toBeDisabled();
     });
@@ -159,13 +181,13 @@ describe('GameScreen', () => {
     });
 
     it('should render MapPicker', () => {
-      render(<GameScreen {...defaultProps} />);
+      render(<GameScreen {...defaultProps} availableFloors={[1, 2, 3]} />);
 
       expect(screen.getByText('Click to place your guess')).toBeInTheDocument();
     });
 
     it('should render FloorSelector', () => {
-      render(<GameScreen {...defaultProps} />);
+      render(<GameScreen {...defaultProps} availableFloors={[1, 2, 3]} />);
 
       expect(screen.getByText('Select Floor')).toBeInTheDocument();
     });
@@ -174,6 +196,38 @@ describe('GameScreen', () => {
       render(<GameScreen {...defaultProps} />);
 
       expect(screen.getByText('Guess')).toBeInTheDocument();
+    });
+  });
+
+  describe('daily goals panel', () => {
+    const dailyGoals = {
+      loading: false,
+      error: null,
+      goalDateLabel: 'Tuesday, Feb 10',
+      goals: {
+        indoorTarget: 3,
+        outdoorTarget: 3,
+        firstLocationId: 'sample-1',
+        firstWinner: null
+      },
+      progress: {
+        indoorCount: 2,
+        indoorCompleted: false,
+        outdoorCount: 3,
+        outdoorCompleted: true,
+        firstLocationCompleted: false
+      },
+      firstLocationDetails: {
+        description: 'Gymnasium interior'
+      },
+      playerId: 'test-player'
+    };
+
+    it('should render daily goals card when data provided', () => {
+      render(<GameScreen {...defaultProps} dailyGoals={dailyGoals} />);
+
+      expect(screen.getByText('Daily Goals')).toBeInTheDocument();
+      expect(screen.getByText(/Outdoor Adventurer/i)).toBeInTheDocument();
     });
   });
 
@@ -221,7 +275,7 @@ describe('GameScreen', () => {
       const user = userEvent.setup();
       const onFloorSelect = vi.fn();
 
-      render(<GameScreen {...defaultProps} onFloorSelect={onFloorSelect} />);
+      render(<GameScreen {...defaultProps} onFloorSelect={onFloorSelect} availableFloors={[1, 2, 3]} />);
 
       // Click on floor 2 button
       await user.click(screen.getByText('2nd'));
@@ -230,7 +284,7 @@ describe('GameScreen', () => {
     });
 
     it('should highlight selected floor', () => {
-      render(<GameScreen {...defaultProps} guessFloor={2} />);
+      render(<GameScreen {...defaultProps} guessFloor={2} availableFloors={[1, 2, 3]} />);
 
       const floorButton = screen.getByText('2nd').closest('button');
       expect(floorButton).toHaveClass('selected');

@@ -8,35 +8,40 @@ const SAMPLE_IMAGES = [
     url: 'https://images.unsplash.com/photo-1562774053-701939374585?w=800&q=80',
     correctLocation: { x: 35, y: 45 },
     correctFloor: 2,
-    description: 'Main hallway near the library'
+    description: 'Main hallway near the library',
+    environment: 'indoor'
   },
   {
     id: 'sample-2',
     url: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?w=800&q=80',
     correctLocation: { x: 65, y: 30 },
     correctFloor: 1,
-    description: 'Science building entrance'
+    description: 'Science building entrance',
+    environment: 'outdoor'
   },
   {
     id: 'sample-3',
     url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&q=80',
     correctLocation: { x: 80, y: 60 },
     correctFloor: 1,
-    description: 'Gymnasium interior'
+    description: 'Gymnasium interior',
+    environment: 'indoor'
   },
   {
     id: 'sample-4',
     url: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&q=80',
     correctLocation: { x: 25, y: 75 },
     correctFloor: 3,
-    description: 'Arts center studio'
+    description: 'Arts center studio',
+    environment: 'indoor'
   },
   {
     id: 'sample-5',
     url: 'https://images.unsplash.com/photo-1519452635265-7b1fbfd1e4e0?w=800&q=80',
     correctLocation: { x: 50, y: 50 },
     correctFloor: 2,
-    description: 'Outdoor courtyard view'
+    description: 'Outdoor courtyard view',
+    environment: 'outdoor'
   }
 ];
 
@@ -81,4 +86,42 @@ export function getRandomSampleImage() {
  */
 export function getAllSampleImages() {
   return [...SAMPLE_IMAGES];
+}
+
+/**
+ * Fetches all image metadata, preferring Firestore.
+ * Falls back to sample data when Firestore is empty or unavailable.
+ */
+export async function getAllImages() {
+  try {
+    const imagesRef = collection(db, 'images');
+    const snapshot = await getDocs(imagesRef);
+
+    if (snapshot.empty) {
+      return getAllSampleImages();
+    }
+
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('Error fetching image catalog:', error);
+    return getAllSampleImages();
+  }
+}
+
+/**
+ * Fetch a specific image metadata entry by id.
+ * Falls back to sample data when Firestore lookup fails.
+ * @param {string} imageId
+ * @returns {Promise<Object|null>}
+ */
+export async function getImageById(imageId) {
+  if (!imageId) {
+    return null;
+  }
+
+  const images = await getAllImages();
+  return images.find(image => image.id === imageId) || null;
 }

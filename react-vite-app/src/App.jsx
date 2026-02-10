@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGameState } from './hooks/useGameState';
+import { useDailyGoals } from './hooks/useDailyGoals';
 import TitleScreen from './components/TitleScreen/TitleScreen';
 import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
 import SubmissionApp from './components/SubmissionApp/SubmissionApp';
+import DailyGoalsCard from './components/DailyGoalsCard/DailyGoalsCard';
 import './App.css';
 
 function App() {
@@ -32,6 +34,33 @@ function App() {
     viewFinalResults,
     resetGame
   } = useGameState();
+
+  const {
+    loading: goalsLoading,
+    error: goalsError,
+    goalDateLabel,
+    goals,
+    progress,
+    firstLocationDetails,
+    playerId: dailyGoalPlayerId,
+    recordGuessOutcome
+  } = useDailyGoals();
+
+  useEffect(() => {
+    if (currentResult) {
+      recordGuessOutcome({ result: currentResult });
+    }
+  }, [currentResult, recordGuessOutcome]);
+
+  const dailyGoalsProps = {
+    loading: goalsLoading,
+    error: goalsError,
+    goalDateLabel,
+    goals,
+    progress,
+    firstLocationDetails,
+    playerId: dailyGoalPlayerId
+  };
 
   const handleOpenSubmission = () => {
     setShowSubmissionApp(true);
@@ -67,6 +96,7 @@ function App() {
           onStartGame={startGame}
           onOpenSubmission={handleOpenSubmission}
           isLoading={isLoading}
+          dailyGoals={dailyGoalsProps}
         />
       )}
 
@@ -84,6 +114,7 @@ function App() {
           totalRounds={totalRounds}
           clickRejected={clickRejected}
           playingArea={playingArea}
+          dailyGoals={dailyGoalsProps}
         />
       )}
 

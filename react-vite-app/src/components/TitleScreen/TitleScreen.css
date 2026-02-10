@@ -164,6 +164,11 @@
   font-weight: 400;
 }
 
+.title-daily-goals {
+  margin-top: 2.5rem;
+  width: 100%;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .game-title {

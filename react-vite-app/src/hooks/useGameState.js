@@ -211,6 +211,8 @@ export function useGameState() {
     const result = {
       roundNumber: currentRound,
       imageUrl: currentImage.url,
+      imageId: currentImage.id || null,
+      environment: currentImage.environment || 'unknown',
       guessLocation,
       actualLocation,
       guessFloor,

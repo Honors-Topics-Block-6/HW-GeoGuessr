@@ -7,11 +7,44 @@ describe('TitleScreen', () => {
   const defaultProps = {
     onStartGame: vi.fn(),
     onOpenSubmission: vi.fn(),
-    isLoading: false
+    isLoading: false,
+    dailyGoals: null
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe('daily goals panel', () => {
+    it('should render daily goals when provided', () => {
+      const dailyGoals = {
+        loading: false,
+        error: null,
+        goalDateLabel: 'Monday, Jan 1',
+        goals: {
+          indoorTarget: 3,
+          outdoorTarget: 3,
+          firstLocationId: 'sample-1',
+          firstWinner: null
+        },
+        progress: {
+          indoorCount: 1,
+          indoorCompleted: false,
+          outdoorCount: 2,
+          outdoorCompleted: false,
+          firstLocationCompleted: false
+        },
+        firstLocationDetails: {
+          description: 'Main hallway near the library'
+        },
+        playerId: 'test-player'
+      };
+
+      render(<TitleScreen {...defaultProps} dailyGoals={dailyGoals} />);
+
+      expect(screen.getByText('Daily Goals')).toBeInTheDocument();
+      expect(screen.getByText(/Indoor Explorer/i)).toBeInTheDocument();
+    });
   });
 
   describe('rendering', () => {

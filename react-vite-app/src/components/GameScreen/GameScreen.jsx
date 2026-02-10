@@ -2,6 +2,7 @@ import ImageViewer from '../ImageViewer/ImageViewer';
 import MapPicker from '../MapPicker/MapPicker';
 import FloorSelector from '../FloorSelector/FloorSelector';
 import GuessButton from '../GuessButton/GuessButton';
+import DailyGoalsCard from '../DailyGoalsCard/DailyGoalsCard';
 import './GameScreen.css';
 
 function GameScreen({
@@ -16,13 +17,14 @@ function GameScreen({
   currentRound = 1,
   totalRounds = 5,
   clickRejected = false,
-  playingArea = null
+  playingArea = null,
+  dailyGoals = null
 }) {
   // Can submit if location is selected AND either:
   // - not in a region (availableFloors is null), OR
   // - in a region with floors and a floor is selected
-  const isInRegion = availableFloors !== null && availableFloors.length > 0;
-  const canSubmit = guessLocation !== null && (!isInRegion || guessFloor !== null);
+  const hasFloorRequirement = Array.isArray(availableFloors) && availableFloors.length > 0;
+  const canSubmit = guessLocation !== null && (!hasFloorRequirement || guessFloor !== null);
 
   return (
     <div className="game-screen">
@@ -52,7 +54,7 @@ function GameScreen({
             playingArea={playingArea}
           />
 
-          {isInRegion && (
+          {hasFloorRequirement && (
             <FloorSelector
               selectedFloor={guessFloor}
               onFloorSelect={onFloorSelect}
@@ -72,13 +74,19 @@ function GameScreen({
             <span className="status-icon">{guessLocation ? '✓' : '○'}</span>
             <span>Location selected</span>
           </div>
-          {isInRegion && (
+          {hasFloorRequirement && (
             <div className={`status-item ${guessFloor ? 'complete' : ''}`}>
               <span className="status-icon">{guessFloor ? '✓' : '○'}</span>
               <span>Floor selected</span>
             </div>
           )}
         </div>
+
+        {dailyGoals && (
+          <div className="game-daily-goals">
+            <DailyGoalsCard variant="compact" {...dailyGoals} />
+          </div>
+        )}
       </div>
     </div>
   );

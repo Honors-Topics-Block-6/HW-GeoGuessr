@@ -8,6 +8,33 @@ vi.mock('./services/imageService', () => ({
   getRandomImage: vi.fn()
 }));
 
+const recordGuessOutcomeMock = vi.fn();
+
+// Mock daily goals hook
+vi.mock('./hooks/useDailyGoals', () => ({
+  useDailyGoals: vi.fn(() => ({
+    loading: false,
+    error: null,
+    goalDateLabel: 'Tuesday, Feb 10',
+    goals: {
+      indoorTarget: 3,
+      outdoorTarget: 3,
+      firstLocationId: 'sample-1',
+      firstWinner: null
+    },
+    progress: {
+      indoorCount: 1,
+      indoorCompleted: false,
+      outdoorCount: 1,
+      outdoorCompleted: false,
+      firstLocationCompleted: false
+    },
+    firstLocationDetails: null,
+    playerId: 'test-player',
+    recordGuessOutcome: recordGuessOutcomeMock
+  }))
+}));
+
 // Mock Firebase
 vi.mock('./firebase', () => ({
   db: {},
@@ -29,6 +56,7 @@ describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getRandomImage.mockResolvedValue(mockImage);
+    recordGuessOutcomeMock.mockClear();
   });
 
   afterEach(() => {

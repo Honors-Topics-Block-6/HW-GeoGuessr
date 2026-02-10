@@ -88,6 +88,21 @@
   background-color: rgba(0, 0, 0, 0.2);
 }
 
+.game-daily-goals {
+  padding: 1rem 1.25rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.game-daily-goals .daily-goals-card {
+  background: rgba(17, 24, 39, 0.75);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.game-daily-goals .goal-detail {
+  color: var(--text-muted);
+}
+
 .status-item {
   display: flex;
   align-items: center;
