@@ -32,7 +32,6 @@ vi.mock('./services/regionService', () => ({
 // Mock Firebase
 vi.mock('./firebase', () => ({
   db: {},
-  storage: {},
   app: {}
 }));
 

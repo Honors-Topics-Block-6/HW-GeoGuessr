@@ -5,13 +5,11 @@ import SubmissionForm from './SubmissionForm';
 
 // Mock Firebase
 vi.mock('../../firebase', () => ({
-  db: {},
-  storage: {}
+  db: {}
 }));
 
 const mockAddDoc = vi.fn();
-const mockUploadBytes = vi.fn();
-const mockGetDownloadURL = vi.fn();
+const mockCompressImage = vi.fn();
 
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn(),
@@ -19,10 +17,8 @@ vi.mock('firebase/firestore', () => ({
   serverTimestamp: vi.fn(() => 'mock-timestamp')
 }));
 
-vi.mock('firebase/storage', () => ({
-  ref: vi.fn(),
-  uploadBytes: (...args) => mockUploadBytes(...args),
-  getDownloadURL: (...args) => mockGetDownloadURL(...args)
+vi.mock('../../utils/compressImage', () => ({
+  compressImage: (...args) => mockCompressImage(...args)
 }));
 
 // Mock regionService
@@ -93,8 +89,7 @@ describe('SubmissionForm', () => {
     vi.clearAllMocks();
 
     // Default mock implementations
-    mockUploadBytes.mockResolvedValue({});
-    mockGetDownloadURL.mockResolvedValue('https://example.com/photo.jpg');
+    mockCompressImage.mockResolvedValue('data:image/jpeg;base64,mockBase64Data');
     mockAddDoc.mockResolvedValue({ id: 'test-doc-id' });
     mockGetRegions.mockResolvedValue([]);
     mockGetPlayingArea.mockResolvedValue(null);
@@ -289,8 +284,8 @@ describe('SubmissionForm', () => {
     it('should show submitting state during upload', async () => {
       const user = userEvent.setup();
 
-      // Make upload take some time
-      mockUploadBytes.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)));
+      // Make compression take some time
+      mockCompressImage.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve('data:image/jpeg;base64,mock'), 100)));
 
       render(<SubmissionForm />);
 
@@ -308,10 +303,10 @@ describe('SubmissionForm', () => {
     it('should disable submit button during upload', async () => {
       const user = userEvent.setup();
 
-      // Make upload take some time
-      let resolveUpload;
-      mockUploadBytes.mockImplementation(() => new Promise(resolve => {
-        resolveUpload = resolve;
+      // Make compression take some time
+      let resolveCompress;
+      mockCompressImage.mockImplementation(() => new Promise(resolve => {
+        resolveCompress = resolve;
       }));
 
       render(<SubmissionForm />);
@@ -326,10 +321,10 @@ describe('SubmissionForm', () => {
       expect(screen.getByRole('button', { name: 'Submitting...' })).toBeDisabled();
 
       // Resolve to cleanup
-      resolveUpload();
+      resolveCompress('data:image/jpeg;base64,mock');
     });
 
-    it('should call Firebase functions during successful submission', async () => {
+    it('should call compress and Firestore during successful submission', async () => {
       const user = userEvent.setup();
       render(<SubmissionForm />);
 
@@ -340,9 +335,9 @@ describe('SubmissionForm', () => {
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
 
-      // Wait for the Firebase upload to be called
+      // Wait for the image compression to be called
       await waitFor(() => {
-        expect(mockUploadBytes).toHaveBeenCalled();
+        expect(mockCompressImage).toHaveBeenCalled();
       });
 
       // Wait for the Firestore save to be called
@@ -402,7 +397,7 @@ describe('SubmissionForm', () => {
       });
     });
 
-    it('should upload photo to Firebase Storage', async () => {
+    it('should compress photo before saving', async () => {
       const user = userEvent.setup();
       render(<SubmissionForm />);
 
@@ -414,7 +409,7 @@ describe('SubmissionForm', () => {
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
 
       await waitFor(() => {
-        expect(mockUploadBytes).toHaveBeenCalled();
+        expect(mockCompressImage).toHaveBeenCalled();
       });
     });
 
@@ -436,9 +431,9 @@ describe('SubmissionForm', () => {
   });
 
   describe('submission error handling', () => {
-    it('should show error message on upload failure', async () => {
+    it('should show error message on compression failure', async () => {
       const user = userEvent.setup();
-      mockUploadBytes.mockRejectedValue(new Error('Upload failed'));
+      mockCompressImage.mockRejectedValue(new Error('Compression failed'));
 
       render(<SubmissionForm />);
 
@@ -474,7 +469,7 @@ describe('SubmissionForm', () => {
 
     it('should re-enable submit button after error', async () => {
       const user = userEvent.setup();
-      mockUploadBytes.mockRejectedValue(new Error('Upload failed'));
+      mockCompressImage.mockRejectedValue(new Error('Compression failed'));
 
       render(<SubmissionForm />);
 

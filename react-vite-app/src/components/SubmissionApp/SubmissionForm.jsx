@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../../firebase'
+import { db } from '../../firebase'
+import { compressImage } from '../../utils/compressImage'
 import { getRegions, getPlayingArea, getFloorsForPoint, isPointInPlayingArea } from '../../services/regionService'
 import MapPicker from '../MapPicker/MapPicker'
 import FloorSelector from '../FloorSelector/FloorSelector'
@@ -144,17 +144,12 @@ function SubmissionForm() {
     setSubmitError('')
 
     try {
-      // Upload photo to Firebase Storage
-      const timestamp = Date.now()
-      const fileName = `submissions/${timestamp}_${photo.name}`
-      const storageRef = ref(storage, fileName)
+      // Compress image and convert to Base64 data URL
+      const photoDataUrl = await compressImage(photo)
 
-      await uploadBytes(storageRef, photo)
-      const photoURL = await getDownloadURL(storageRef)
-
-      // Save submission to Firestore (percentage-based coordinates matching game)
+      // Save submission with embedded image to Firestore
       await addDoc(collection(db, 'submissions'), {
-        photoURL,
+        photoURL: photoDataUrl,
         photoName: photo.name,
         location: {
           x: location.x,
