@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { saveGameResult } from '../../services/userService';
 import './FinalResultsScreen.css';
 
 /**
@@ -31,6 +33,10 @@ function generateConfettiData(count) {
 function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
   const [animationComplete, setAnimationComplete] = useState(false);
   const [displayedTotal, setDisplayedTotal] = useState(0);
+  const [saveStatus, setSaveStatus] = useState(null); // 'saving', 'saved', 'error'
+  const hasSavedRef = useRef(false);
+
+  const { user, isLoggedIn } = useAuth();
 
   const totalScore = rounds.reduce((sum, round) => sum + round.score, 0);
   const maxPossible = rounds.length * 5000;
@@ -38,6 +44,30 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
 
   // Generate confetti data once and memoize it
   const confettiPieces = useMemo(() => generateConfettiData(30), []);
+
+  // Save game result for logged-in users
+  useEffect(() => {
+    if (isLoggedIn && user && !hasSavedRef.current) {
+      hasSavedRef.current = true;
+      setSaveStatus('saving');
+      
+      const gameResult = {
+        totalScore,
+        maxPossible,
+        roundCount: rounds.length,
+        rounds: rounds.map(r => ({
+          score: r.score,
+          locationScore: r.locationScore,
+          floorCorrect: r.floorCorrect,
+          distance: r.distance
+        }))
+      };
+
+      saveGameResult(user.uid, gameResult)
+        .then(() => setSaveStatus('saved'))
+        .catch(() => setSaveStatus('error'));
+    }
+  }, [isLoggedIn, user, totalScore, maxPossible, rounds]);
 
   // Animate total score
   useEffect(() => {
@@ -99,6 +129,37 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
             <span className="total-value">{displayedTotal.toLocaleString()}</span>
             <span className="total-max">/ {maxPossible.toLocaleString()} points</span>
           </div>
+          
+          {/* Save Status Indicator */}
+          {isLoggedIn && saveStatus && (
+            <div className={`save-status save-status-${saveStatus}`}>
+              {saveStatus === 'saving' && (
+                <>
+                  <span className="save-spinner"></span>
+                  Saving progress...
+                </>
+              )}
+              {saveStatus === 'saved' && (
+                <>
+                  <span className="save-icon">✓</span>
+                  Progress saved!
+                </>
+              )}
+              {saveStatus === 'error' && (
+                <>
+                  <span className="save-icon">⚠️</span>
+                  Couldn't save progress
+                </>
+              )}
+            </div>
+          )}
+          
+          {!isLoggedIn && (
+            <div className="guest-save-notice">
+              <span className="guest-icon">ℹ️</span>
+              Sign in to save your scores
+            </div>
+          )}
         </div>
 
         {/* Round by Round Breakdown */}

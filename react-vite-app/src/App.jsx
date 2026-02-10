@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { useGameState } from './hooks/useGameState';
+import { AuthProvider } from './contexts/AuthContext';
 import TitleScreen from './components/TitleScreen/TitleScreen';
 import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
 import SubmissionApp from './components/SubmissionApp/SubmissionApp';
+import AuthScreen from './components/AuthScreen/AuthScreen';
 import './App.css';
 
-function App() {
+function AppContent() {
   const [showSubmissionApp, setShowSubmissionApp] = useState(false);
+  const [showAuthScreen, setShowAuthScreen] = useState(false);
 
   const {
     screen,
@@ -41,6 +44,24 @@ function App() {
     setShowSubmissionApp(false);
   };
 
+  const handleOpenAuth = () => {
+    setShowAuthScreen(true);
+  };
+
+  const handleCloseAuth = () => {
+    setShowAuthScreen(false);
+  };
+
+  // Show auth screen
+  if (showAuthScreen) {
+    return (
+      <AuthScreen
+        onClose={handleCloseAuth}
+        onSuccess={handleCloseAuth}
+      />
+    );
+  }
+
   // Show submission app
   if (showSubmissionApp) {
     return <SubmissionApp onBack={handleCloseSubmission} />;
@@ -66,6 +87,7 @@ function App() {
         <TitleScreen
           onStartGame={startGame}
           onOpenSubmission={handleOpenSubmission}
+          onOpenAuth={handleOpenAuth}
           isLoading={isLoading}
         />
       )}
@@ -117,6 +139,14 @@ function App() {
         </div>
       )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
