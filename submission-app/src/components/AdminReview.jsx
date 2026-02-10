@@ -49,6 +49,17 @@ function AdminReview() {
     }
   }
 
+  const handleResetToPending = async (submissionId) => {
+    try {
+      await updateDoc(doc(db, 'submissions', submissionId), {
+        status: 'pending',
+        reviewedAt: null
+      })
+    } catch (error) {
+      console.error('Error resetting submission:', error)
+    }
+  }
+
   const filteredSubmissions = submissions.filter(sub => {
     if (filter === 'all') return true
     return sub.status === filter
@@ -158,6 +169,17 @@ function AdminReview() {
                 </div>
               )}
 
+              {submission.status !== 'pending' && (
+                <div className="card-actions">
+                  <button
+                    className="reset-button"
+                    onClick={() => handleResetToPending(submission.id)}
+                  >
+                    Reset to Pending
+                  </button>
+                </div>
+              )}
+
               <button
                 className="view-details-button"
                 onClick={() => setSelectedSubmission(submission)}
@@ -206,6 +228,20 @@ function AdminReview() {
                     }}
                   >
                     Deny
+                  </button>
+                </div>
+              )}
+
+              {selectedSubmission.status !== 'pending' && (
+                <div className="modal-actions">
+                  <button
+                    className="reset-button"
+                    onClick={() => {
+                      handleResetToPending(selectedSubmission.id)
+                      setSelectedSubmission(null)
+                    }}
+                  >
+                    Reset to Pending
                   </button>
                 </div>
               )}
