@@ -1,10 +1,20 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './PhotoUpload.css'
 
 function PhotoUpload({ onPhotoSelect, selectedPhoto }) {
   const [preview, setPreview] = useState(selectedPhoto ? URL.createObjectURL(selectedPhoto) : null)
   const [dragActive, setDragActive] = useState(false)
   const inputRef = useRef(null)
+
+  // Sync preview state when selectedPhoto is cleared by parent (e.g., after form submission)
+  useEffect(() => {
+    if (!selectedPhoto) {
+      setPreview(null)
+      if (inputRef.current) {
+        inputRef.current.value = ''
+      }
+    }
+  }, [selectedPhoto])
 
   const handleFileChange = (e) => {
     const file = e.target.files[0]

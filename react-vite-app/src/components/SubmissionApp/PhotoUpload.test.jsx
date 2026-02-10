@@ -285,6 +285,43 @@ describe('PhotoUpload', () => {
     });
   });
 
+  describe('clearing preview when selectedPhoto prop becomes null', () => {
+    it('should clear preview when selectedPhoto changes from a file to null', () => {
+      const selectedPhoto = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+      const { rerender } = render(
+        <PhotoUpload onPhotoSelect={mockOnPhotoSelect} selectedPhoto={selectedPhoto} />
+      );
+
+      // Preview should be visible
+      expect(screen.getByAltText('Preview')).toBeInTheDocument();
+
+      // Parent resets selectedPhoto to null (e.g., after form submission)
+      rerender(<PhotoUpload onPhotoSelect={mockOnPhotoSelect} selectedPhoto={null} />);
+
+      // Preview should be cleared and drop zone should reappear
+      expect(screen.queryByAltText('Preview')).not.toBeInTheDocument();
+      expect(screen.getByText('Click to upload or drag and drop')).toBeInTheDocument();
+    });
+
+    it('should clear file input value when selectedPhoto becomes null', () => {
+      const selectedPhoto = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+      const { rerender } = render(
+        <PhotoUpload onPhotoSelect={mockOnPhotoSelect} selectedPhoto={selectedPhoto} />
+      );
+
+      const input = document.querySelector('input[type="file"]');
+      Object.defineProperty(input, 'value', {
+        writable: true,
+        value: 'C:\\fakepath\\test.jpg'
+      });
+
+      // Parent resets selectedPhoto to null
+      rerender(<PhotoUpload onPhotoSelect={mockOnPhotoSelect} selectedPhoto={null} />);
+
+      expect(input.value).toBe('');
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle drop with no files', () => {
       render(<PhotoUpload onPhotoSelect={mockOnPhotoSelect} selectedPhoto={null} />);
