@@ -11,7 +11,6 @@ vi.mock('./services/imageService', () => ({
 // Mock Firebase
 vi.mock('./firebase', () => ({
   db: {},
-  storage: {},
   app: {}
 }));
 
