@@ -25,18 +25,53 @@ vi.mock('firebase/storage', () => ({
   getDownloadURL: (...args) => mockGetDownloadURL(...args)
 }));
 
+// Mock regionService
+const mockGetRegions = vi.fn();
+const mockGetPlayingArea = vi.fn();
+const mockGetFloorsForPoint = vi.fn();
+const mockIsPointInPlayingArea = vi.fn();
+
+vi.mock('../../services/regionService', () => ({
+  getRegions: (...args) => mockGetRegions(...args),
+  getPlayingArea: (...args) => mockGetPlayingArea(...args),
+  getFloorsForPoint: (...args) => mockGetFloorsForPoint(...args),
+  isPointInPlayingArea: (...args) => mockIsPointInPlayingArea(...args)
+}));
+
 // Mock child components
-vi.mock('./MapSelector', () => ({
-  default: ({ onLocationSelect, selectedLocation }) => (
-    <div data-testid="map-selector">
-      <button onClick={() => onLocationSelect({ x: 100, y: 200 })}>
-        Select Location
+vi.mock('../MapPicker/MapPicker', () => ({
+  default: ({ markerPosition, onMapClick, clickRejected, playingArea }) => (
+    <div data-testid="map-picker">
+      <button onClick={() => onMapClick({ x: 50, y: 50 })}>
+        Click Map
       </button>
-      {selectedLocation && (
-        <span data-testid="selected-location">
-          {selectedLocation.x}, {selectedLocation.y}
+      <button onClick={() => onMapClick({ x: 90, y: 90 })} data-testid="click-outside">
+        Click Outside
+      </button>
+      {markerPosition && (
+        <span data-testid="marker-position">
+          {markerPosition.x}, {markerPosition.y}
         </span>
       )}
+      {clickRejected && <span data-testid="click-rejected">Rejected</span>}
+      {playingArea && <span data-testid="has-playing-area">Playing Area Active</span>}
+    </div>
+  )
+}));
+
+vi.mock('../FloorSelector/FloorSelector', () => ({
+  default: ({ selectedFloor, onFloorSelect, floors }) => (
+    <div data-testid="floor-selector">
+      {floors.map((floor) => (
+        <button
+          key={floor}
+          data-testid={`floor-${floor}`}
+          onClick={() => onFloorSelect(floor)}
+          className={selectedFloor === floor ? 'selected' : ''}
+        >
+          Floor {floor}
+        </button>
+      ))}
     </div>
   )
 }));
@@ -61,6 +96,10 @@ describe('SubmissionForm', () => {
     mockUploadBytes.mockResolvedValue({});
     mockGetDownloadURL.mockResolvedValue('https://example.com/photo.jpg');
     mockAddDoc.mockResolvedValue({ id: 'test-doc-id' });
+    mockGetRegions.mockResolvedValue([]);
+    mockGetPlayingArea.mockResolvedValue(null);
+    mockGetFloorsForPoint.mockReturnValue(null);
+    mockIsPointInPlayingArea.mockReturnValue(true);
   });
 
   describe('initial render', () => {
@@ -74,15 +113,14 @@ describe('SubmissionForm', () => {
       expect(screen.getByTestId('photo-upload')).toBeInTheDocument();
     });
 
-    it('should render MapSelector component', () => {
+    it('should render MapPicker component', () => {
       render(<SubmissionForm />);
-      expect(screen.getByTestId('map-selector')).toBeInTheDocument();
+      expect(screen.getByTestId('map-picker')).toBeInTheDocument();
     });
 
-    it('should render floor input', () => {
+    it('should render override checkbox', () => {
       render(<SubmissionForm />);
-      expect(screen.getByText('Floor Number')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)')).toBeInTheDocument();
+      expect(screen.getByText('Allow any location and floor')).toBeInTheDocument();
     });
 
     it('should render submit button', () => {
@@ -99,30 +137,108 @@ describe('SubmissionForm', () => {
       render(<SubmissionForm />);
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
+
+    it('should show location status indicator', () => {
+      render(<SubmissionForm />);
+      expect(screen.getByText('Location selected')).toBeInTheDocument();
+    });
+
+    it('should not show floor selector initially', () => {
+      render(<SubmissionForm />);
+      expect(screen.queryByTestId('floor-selector')).not.toBeInTheDocument();
+    });
   });
 
-  describe('floor input', () => {
-    it('should allow entering floor number', async () => {
+  describe('location picking', () => {
+    it('should place marker when clicking on map', async () => {
       const user = userEvent.setup();
       render(<SubmissionForm />);
 
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
-      expect(floorInput).toHaveValue(2);
+      expect(screen.getByTestId('marker-position')).toHaveTextContent('50, 50');
     });
 
-    it('should have min and max attributes', () => {
+    it('should show floor selector when location is in a region', async () => {
+      mockGetFloorsForPoint.mockReturnValue([1, 2, 3]);
+      const user = userEvent.setup();
       render(<SubmissionForm />);
 
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      expect(floorInput).toHaveAttribute('min', '1');
-      expect(floorInput).toHaveAttribute('max', '3');
+      await user.click(screen.getByText('Click Map'));
+
+      expect(screen.getByTestId('floor-selector')).toBeInTheDocument();
     });
 
-    it('should show floor hint', () => {
+    it('should not show floor selector when location is not in a region', async () => {
+      mockGetFloorsForPoint.mockReturnValue(null);
+      const user = userEvent.setup();
       render(<SubmissionForm />);
-      expect(screen.getByText('Floors 1-3 only')).toBeInTheDocument();
+
+      await user.click(screen.getByText('Click Map'));
+
+      expect(screen.queryByTestId('floor-selector')).not.toBeInTheDocument();
+    });
+
+    it('should show floor status indicator when in a region', async () => {
+      mockGetFloorsForPoint.mockReturnValue([1, 2]);
+      const user = userEvent.setup();
+      render(<SubmissionForm />);
+
+      await user.click(screen.getByText('Click Map'));
+
+      expect(screen.getByText('Floor selected')).toBeInTheDocument();
+    });
+  });
+
+  describe('override checkbox', () => {
+    it('should hide playing area overlay when override is checked', async () => {
+      mockGetPlayingArea.mockResolvedValue({ polygon: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }] });
+      const user = userEvent.setup();
+      render(<SubmissionForm />);
+
+      // Wait for playing area to load
+      await waitFor(() => {
+        expect(screen.getByTestId('has-playing-area')).toBeInTheDocument();
+      });
+
+      // Check the override checkbox
+      await user.click(screen.getByText('Allow any location and floor'));
+
+      // Playing area should be hidden
+      expect(screen.queryByTestId('has-playing-area')).not.toBeInTheDocument();
+    });
+
+    it('should show all floors when override is enabled and location is selected', async () => {
+      mockGetFloorsForPoint.mockReturnValue(null); // Not in a region normally
+      const user = userEvent.setup();
+      render(<SubmissionForm />);
+
+      // Enable override
+      await user.click(screen.getByText('Allow any location and floor'));
+
+      // Click on map
+      await user.click(screen.getByText('Click Map'));
+
+      // Should show floor selector with all floors
+      expect(screen.getByTestId('floor-selector')).toBeInTheDocument();
+      expect(screen.getByTestId('floor-1')).toBeInTheDocument();
+      expect(screen.getByTestId('floor-2')).toBeInTheDocument();
+      expect(screen.getByTestId('floor-3')).toBeInTheDocument();
+    });
+
+    it('should bypass playing area restriction when override is enabled', async () => {
+      mockIsPointInPlayingArea.mockReturnValue(false);
+      const user = userEvent.setup();
+      render(<SubmissionForm />);
+
+      // Enable override
+      await user.click(screen.getByText('Allow any location and floor'));
+
+      // Click outside playing area
+      await user.click(screen.getByTestId('click-outside'));
+
+      // Marker should still be placed
+      expect(screen.getByTestId('marker-position')).toBeInTheDocument();
     });
   });
 
@@ -148,35 +264,24 @@ describe('SubmissionForm', () => {
       expect(screen.getByText('Please select a location on the map')).toBeInTheDocument();
     });
 
-    it('should show error when submitting without floor', async () => {
+    it('should show error when submitting without floor in a region', async () => {
+      mockGetFloorsForPoint.mockReturnValue([1, 2, 3]);
       const user = userEvent.setup();
       render(<SubmissionForm />);
 
       // Upload a photo
       await user.click(screen.getByText('Upload Photo'));
-      // Select location
-      await user.click(screen.getByText('Select Location'));
+      // Select location (in a region)
+      await user.click(screen.getByText('Click Map'));
 
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
 
-      expect(screen.getByText('Please enter a valid floor number')).toBeInTheDocument();
+      expect(screen.getByText('Please select a floor')).toBeInTheDocument();
     });
 
-    it('should show error for invalid floor number', async () => {
-      const user = userEvent.setup();
+    it('should not disable submit button initially (validation on submit)', () => {
       render(<SubmissionForm />);
-
-      // Upload a photo
-      await user.click(screen.getByText('Upload Photo'));
-      // Select location
-      await user.click(screen.getByText('Select Location'));
-      // Enter invalid floor (non-numeric handled as NaN)
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.clear(floorInput);
-
-      await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
-
-      expect(screen.getByText('Please enter a valid floor number')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Submit Photo' })).not.toBeDisabled();
     });
   });
 
@@ -189,11 +294,9 @@ describe('SubmissionForm', () => {
 
       render(<SubmissionForm />);
 
-      // Fill in all fields
+      // Fill in all fields (not in a region, so no floor needed)
       await user.click(screen.getByText('Upload Photo'));
-      await user.click(screen.getByText('Select Location'));
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -215,9 +318,7 @@ describe('SubmissionForm', () => {
 
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
-      await user.click(screen.getByText('Select Location'));
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -234,9 +335,7 @@ describe('SubmissionForm', () => {
 
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
-      await user.click(screen.getByText('Select Location'));
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -258,9 +357,7 @@ describe('SubmissionForm', () => {
 
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
-      await user.click(screen.getByText('Select Location'));
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -277,15 +374,31 @@ describe('SubmissionForm', () => {
 
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
-      await user.click(screen.getByText('Select Location'));
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
 
       await waitFor(() => {
-        expect(floorInput).toHaveValue(null);
+        expect(screen.queryByTestId('marker-position')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should submit with floor when in a region', async () => {
+      mockGetFloorsForPoint.mockReturnValue([1, 2, 3]);
+      const user = userEvent.setup();
+      render(<SubmissionForm />);
+
+      // Fill in all fields
+      await user.click(screen.getByText('Upload Photo'));
+      await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByTestId('floor-2'));
+
+      // Submit
+      await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
+
+      await waitFor(() => {
+        expect(mockAddDoc).toHaveBeenCalled();
       });
     });
 
@@ -295,9 +408,7 @@ describe('SubmissionForm', () => {
 
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
-      await user.click(screen.getByText('Select Location'));
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -313,9 +424,7 @@ describe('SubmissionForm', () => {
 
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
-      await user.click(screen.getByText('Select Location'));
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -335,9 +444,7 @@ describe('SubmissionForm', () => {
 
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
-      await user.click(screen.getByText('Select Location'));
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -355,9 +462,7 @@ describe('SubmissionForm', () => {
 
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
-      await user.click(screen.getByText('Select Location'));
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -375,9 +480,7 @@ describe('SubmissionForm', () => {
 
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
-      await user.click(screen.getByText('Select Location'));
-      const floorInput = screen.getByPlaceholderText('Enter floor number (e.g., 1, 2, 3)');
-      await user.type(floorInput, '2');
+      await user.click(screen.getByText('Click Map'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -388,7 +491,7 @@ describe('SubmissionForm', () => {
     });
   });
 
-  describe('error state behavior', () => {
+  describe('state behavior', () => {
     it('should update photo selected indicator after upload', async () => {
       const user = userEvent.setup();
       render(<SubmissionForm />);
@@ -403,18 +506,27 @@ describe('SubmissionForm', () => {
       expect(screen.getByTestId('selected-photo')).toHaveTextContent('test.jpg');
     });
 
-    it('should update location indicator after selection', async () => {
+    it('should update marker position after location selection', async () => {
       const user = userEvent.setup();
       render(<SubmissionForm />);
 
-      // Initially no location
-      expect(screen.queryByTestId('selected-location')).not.toBeInTheDocument();
+      // Initially no marker
+      expect(screen.queryByTestId('marker-position')).not.toBeInTheDocument();
 
       // Select location
-      await user.click(screen.getByText('Select Location'));
+      await user.click(screen.getByText('Click Map'));
 
       // Should show coordinates
-      expect(screen.getByTestId('selected-location')).toHaveTextContent('100, 200');
+      expect(screen.getByTestId('marker-position')).toHaveTextContent('50, 50');
+    });
+
+    it('should load regions and playing area on mount', async () => {
+      render(<SubmissionForm />);
+
+      await waitFor(() => {
+        expect(mockGetRegions).toHaveBeenCalled();
+        expect(mockGetPlayingArea).toHaveBeenCalled();
+      });
     });
   });
 });
