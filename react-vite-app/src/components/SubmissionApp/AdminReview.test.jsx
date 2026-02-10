@@ -609,4 +609,90 @@ describe('AdminReview', () => {
       expect(screen.getAllByText('Reviewed:').length).toBeGreaterThan(0);
     });
   });
+
+  describe('reset to pending', () => {
+    it('should show Reset to Pending button for approved submissions', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText('Approved (1)'));
+
+      expect(screen.getByText('Reset to Pending')).toBeInTheDocument();
+    });
+
+    it('should show Reset to Pending button for denied submissions', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText('Denied (1)'));
+
+      expect(screen.getByText('Reset to Pending')).toBeInTheDocument();
+    });
+
+    it('should not show Reset to Pending button for pending submissions', () => {
+      render(<AdminReview onBack={mockOnBack} />);
+
+      expect(screen.queryByText('Reset to Pending')).not.toBeInTheDocument();
+    });
+
+    it('should call updateDoc with pending status and null reviewedAt when Reset is clicked', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText('Approved (1)'));
+      await user.click(screen.getByText('Reset to Pending'));
+
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({
+          status: 'pending',
+          reviewedAt: null
+        })
+      );
+    });
+
+    it('should handle reset error gracefully', async () => {
+      const user = userEvent.setup();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockUpdateDoc.mockRejectedValueOnce(new Error('Reset failed'));
+
+      render(<AdminReview onBack={mockOnBack} />);
+
+      await user.click(screen.getByText('Approved (1)'));
+      await user.click(screen.getByText('Reset to Pending'));
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Error resetting submission:', expect.any(Error));
+      });
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should reset submission from modal and close modal', async () => {
+      const user = userEvent.setup();
+      render(<AdminReview onBack={mockOnBack} />);
+
+      // Switch to approved filter and open modal
+      await user.click(screen.getByText('Approved (1)'));
+      await user.click(screen.getByText('View Full Details'));
+      expect(document.querySelector('.modal-overlay')).toBeInTheDocument();
+
+      // Find the reset button in the modal
+      const modalResetBtn = document.querySelector('.modal-actions .reset-button');
+      expect(modalResetBtn).toBeInTheDocument();
+      await user.click(modalResetBtn);
+
+      // Modal should close
+      expect(document.querySelector('.modal-overlay')).not.toBeInTheDocument();
+
+      // updateDoc should have been called with pending status
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({
+          status: 'pending',
+          reviewedAt: null
+        })
+      );
+    });
+  });
 });
