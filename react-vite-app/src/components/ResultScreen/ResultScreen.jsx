@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import useMapZoom from '../../hooks/useMapZoom';
 import './ResultScreen.css';
 
 /**
@@ -49,9 +50,20 @@ function ResultScreen({
   onViewFinalResults,
   isLastRound
 }) {
-  const mapRef = useRef(null);
+  const mapContainerRef = useRef(null);
   const [animationPhase, setAnimationPhase] = useState(0);
   const [displayedScore, setDisplayedScore] = useState(0);
+
+  const {
+    scale,
+    transformStyle,
+    handlers,
+    zoomIn,
+    zoomOut,
+    resetZoom
+  } = useMapZoom(mapContainerRef);
+
+  const isZoomed = scale > 1;
 
   const distance = calculateDistance(guessLocation, actualLocation);
   const locationScore = calculateScore(distance);
@@ -114,63 +126,115 @@ function ResultScreen({
       {/* Main content - Map with results */}
       <div className="result-content">
         <div className="result-map-container">
-          <div className="result-map" ref={mapRef}>
-            {/* Map Image */}
-            <img
-              className="map-image"
-              src="/map.png"
-              alt="Campus Map"
-            />
+          <div
+            className={`result-map ${isZoomed ? 'zoomed' : ''}`}
+            ref={mapContainerRef}
+            onMouseDown={handlers.onMouseDown}
+            onMouseMove={handlers.onMouseMove}
+            onMouseUp={handlers.onMouseUp}
+            onMouseLeave={handlers.onMouseLeave}
+            onTouchStart={handlers.onTouchStart}
+            onTouchMove={handlers.onTouchMove}
+            onTouchEnd={handlers.onTouchEnd}
+          >
+            <div
+              className="result-zoom-content"
+              style={{ transform: transformStyle }}
+            >
+              {/* Map Image */}
+              <img
+                className="map-image"
+                src="/map.png"
+                alt="Campus Map"
+              />
 
-            {/* Line between guess and actual (Phase 2+) */}
-            {animationPhase >= 2 && (
-              <svg
-                className="result-line-svg"
+              {/* Line between guess and actual (Phase 2+) */}
+              {animationPhase >= 2 && (
+                <svg
+                  className="result-line-svg"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  <line
+                    className="result-line"
+                    x1={`${guessLocation.x}%`}
+                    y1={`${guessLocation.y}%`}
+                    x2={`${actualLocation.x}%`}
+                    y2={`${actualLocation.y}%`}
+                    stroke="#ffc107"
+                    strokeWidth="3"
+                    strokeDasharray="8,4"
+                  />
+                </svg>
+              )}
+
+              {/* Guess marker (always visible) */}
+              <div
+                className="result-marker guess-marker"
                 style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  pointerEvents: 'none'
+                  left: `${guessLocation.x}%`,
+                  top: `${guessLocation.y}%`
                 }}
               >
-                <line
-                  className="result-line"
-                  x1={`${guessLocation.x}%`}
-                  y1={`${guessLocation.y}%`}
-                  x2={`${actualLocation.x}%`}
-                  y2={`${actualLocation.y}%`}
-                  stroke="#ffc107"
-                  strokeWidth="3"
-                  strokeDasharray="8,4"
-                />
-              </svg>
-            )}
+                <div className="marker-pin guess-pin"></div>
+                <div className="marker-label">Your guess</div>
+              </div>
 
-            {/* Guess marker (always visible) */}
-            <div
-              className="result-marker guess-marker"
-              style={{
-                left: `${guessLocation.x}%`,
-                top: `${guessLocation.y}%`
-              }}
-            >
-              <div className="marker-pin guess-pin"></div>
-              <div className="marker-label">Your guess</div>
+              {/* Actual location marker (Phase 1+) */}
+              {animationPhase >= 1 && (
+                <div
+                  className="result-marker actual-marker"
+                  style={{
+                    left: `${actualLocation.x}%`,
+                    top: `${actualLocation.y}%`
+                  }}
+                >
+                  <div className="marker-pin actual-pin"></div>
+                  <div className="marker-label">Correct</div>
+                </div>
+              )}
             </div>
 
-            {/* Actual location marker (Phase 1+) */}
-            {animationPhase >= 1 && (
-              <div
-                className="result-marker actual-marker"
-                style={{
-                  left: `${actualLocation.x}%`,
-                  top: `${actualLocation.y}%`
-                }}
+            {/* Zoom controls - positioned outside the transform wrapper */}
+            <div className="zoom-controls">
+              <button
+                className="zoom-btn zoom-in-btn"
+                onClick={(e) => { e.stopPropagation(); zoomIn(); }}
+                title="Zoom in"
+                aria-label="Zoom in"
               >
-                <div className="marker-pin actual-pin"></div>
-                <div className="marker-label">Correct</div>
+                +
+              </button>
+              <button
+                className="zoom-btn zoom-out-btn"
+                onClick={(e) => { e.stopPropagation(); zoomOut(); }}
+                title="Zoom out"
+                aria-label="Zoom out"
+                disabled={!isZoomed}
+              >
+                -
+              </button>
+              <button
+                className="zoom-btn zoom-reset-btn"
+                onClick={(e) => { e.stopPropagation(); resetZoom(); }}
+                title="Reset zoom"
+                aria-label="Reset zoom"
+                disabled={!isZoomed}
+              >
+                &#x21BA;
+              </button>
+            </div>
+
+            {/* Zoom level indicator */}
+            {isZoomed && (
+              <div className="zoom-indicator">
+                {Math.round(scale * 100)}%
               </div>
             )}
           </div>

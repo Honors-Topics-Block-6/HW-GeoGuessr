@@ -158,7 +158,8 @@
 }
 
 .approve-button,
-.deny-button {
+.deny-button,
+.reset-button {
   flex: 1;
   padding: 10px;
   border: none;
@@ -185,6 +186,15 @@
 
 .deny-button:hover {
   background-color: #c0392b;
+}
+
+.reset-button {
+  background-color: #f39c12;
+  color: white;
+}
+
+.reset-button:hover {
+  background-color: #d68910;
 }
 
 .view-details-button {
@@ -277,6 +287,7 @@
 }
 
 .modal-actions .approve-button,
-.modal-actions .deny-button {
+.modal-actions .deny-button,
+.modal-actions .reset-button {
   padding: 12px 30px;
 }
