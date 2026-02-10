@@ -98,9 +98,10 @@ describe('MapPicker', () => {
       const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
 
       const mapPicker = container.querySelector('.map-picker');
+      const mapImage = container.querySelector('.map-image');
 
-      // Mock getBoundingClientRect
-      mapPicker.getBoundingClientRect = () => ({
+      // Mock getBoundingClientRect on the image element (used by the component)
+      mapImage.getBoundingClientRect = () => ({
         left: 0,
         top: 0,
         width: 100,
@@ -119,9 +120,10 @@ describe('MapPicker', () => {
       const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
 
       const mapPicker = container.querySelector('.map-picker');
+      const mapImage = container.querySelector('.map-image');
 
-      // Mock getBoundingClientRect with offset
-      mapPicker.getBoundingClientRect = () => ({
+      // Mock getBoundingClientRect with offset on the image element
+      mapImage.getBoundingClientRect = () => ({
         left: 100,
         top: 200,
         width: 400,
@@ -142,8 +144,9 @@ describe('MapPicker', () => {
       const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
 
       const mapPicker = container.querySelector('.map-picker');
+      const mapImage = container.querySelector('.map-image');
 
-      mapPicker.getBoundingClientRect = () => ({
+      mapImage.getBoundingClientRect = () => ({
         left: 100,
         top: 100,
         width: 100,
@@ -163,8 +166,9 @@ describe('MapPicker', () => {
       const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
 
       const mapPicker = container.querySelector('.map-picker');
+      const mapImage = container.querySelector('.map-image');
 
-      mapPicker.getBoundingClientRect = () => ({
+      mapImage.getBoundingClientRect = () => ({
         left: 0,
         top: 0,
         width: 100,
@@ -184,8 +188,9 @@ describe('MapPicker', () => {
       const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
 
       const mapPicker = container.querySelector('.map-picker');
+      const mapImage = container.querySelector('.map-image');
 
-      mapPicker.getBoundingClientRect = () => ({
+      mapImage.getBoundingClientRect = () => ({
         left: 0,
         top: 0,
         width: 100,
@@ -210,8 +215,9 @@ describe('MapPicker', () => {
       const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
 
       const mapPicker = container.querySelector('.map-picker');
+      const mapImage = container.querySelector('.map-image');
 
-      mapPicker.getBoundingClientRect = () => ({
+      mapImage.getBoundingClientRect = () => ({
         left: 0,
         top: 0,
         width: 0,
