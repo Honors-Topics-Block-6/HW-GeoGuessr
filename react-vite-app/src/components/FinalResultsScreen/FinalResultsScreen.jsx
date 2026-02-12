@@ -117,12 +117,14 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
                       <span className="round-stat-label">Location</span>
                       <span className="round-stat-value">{round.locationScore.toLocaleString()}</span>
                     </div>
-                    <div className="round-stat">
-                      <span className="round-stat-label">Floor</span>
-                      <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
-                        {round.floorCorrect ? '✓' : '-20%'}
-                      </span>
-                    </div>
+                    {round.floorCorrect !== null && (
+                      <div className="round-stat">
+                        <span className="round-stat-label">Floor</span>
+                        <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
+                          {round.floorCorrect ? '✓' : '-20%'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="round-score">
