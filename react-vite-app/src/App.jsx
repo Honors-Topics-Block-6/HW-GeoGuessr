@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { useAuth } from './contexts/AuthContext';
 import { useGameState } from './hooks/useGameState';
+import LoginScreen from './components/LoginScreen/LoginScreen';
+import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
 import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
@@ -8,7 +11,9 @@ import SubmissionApp from './components/SubmissionApp/SubmissionApp';
 import './App.css';
 
 function App() {
+  const { user, userDoc, loading, needsUsername } = useAuth();
   const [showSubmissionApp, setShowSubmissionApp] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
   const {
     screen,
@@ -33,17 +38,30 @@ function App() {
     resetGame
   } = useGameState();
 
-  const handleOpenSubmission = () => {
-    setShowSubmissionApp(true);
-  };
+  // Show loading spinner while checking auth state
+  if (loading) {
+    return (
+      <div className="app">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    );
+  }
 
-  const handleCloseSubmission = () => {
-    setShowSubmissionApp(false);
-  };
+  // Not authenticated or needs username setup → show login screen
+  if (!user || needsUsername || !userDoc) {
+    return <LoginScreen />;
+  }
+
+  // Show profile screen
+  if (showProfile) {
+    return <ProfileScreen onBack={() => setShowProfile(false)} />;
+  }
 
   // Show submission app
   if (showSubmissionApp) {
-    return <SubmissionApp onBack={handleCloseSubmission} />;
+    return <SubmissionApp onBack={() => setShowSubmissionApp(false)} />;
   }
 
   // Error state
@@ -65,7 +83,8 @@ function App() {
       {screen === 'title' && (
         <TitleScreen
           onStartGame={startGame}
-          onOpenSubmission={handleOpenSubmission}
+          onOpenSubmission={() => setShowSubmissionApp(true)}
+          onOpenProfile={() => setShowProfile(true)}
           isLoading={isLoading}
         />
       )}

@@ -1,11 +1,36 @@
+import { useAuth } from '../../contexts/AuthContext';
 import './TitleScreen.css';
 
-function TitleScreen({ onStartGame, onOpenSubmission, isLoading }) {
+function TitleScreen({ onStartGame, onOpenSubmission, onOpenProfile, isLoading }) {
+  const { userDoc, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
   return (
     <div className="title-screen">
-      <button className="submit-photo-button" onClick={onOpenSubmission}>
-        Submit Photo
-      </button>
+      <div className="title-top-bar">
+        <div className="title-user-info">
+          <span className="title-user-icon">👤</span>
+          <span className="title-username">{userDoc?.username}</span>
+        </div>
+        <div className="title-top-actions">
+          <button className="title-profile-button" onClick={onOpenProfile}>
+            Profile
+          </button>
+          <button className="submit-photo-button" onClick={onOpenSubmission}>
+            Submit Photo
+          </button>
+          <button className="title-logout-button" onClick={handleLogout}>
+            Log Out
+          </button>
+        </div>
+      </div>
       <div className="title-background">
         <div className="title-overlay"></div>
       </div>

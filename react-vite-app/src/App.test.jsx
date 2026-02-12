@@ -32,7 +32,21 @@ vi.mock('./services/regionService', () => ({
 // Mock Firebase
 vi.mock('./firebase', () => ({
   db: {},
-  app: {}
+  app: {},
+  auth: {}
+}));
+
+// Mock AuthContext to provide a fake authenticated user
+vi.mock('./contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { uid: 'test-uid', email: 'test@example.com' },
+    userDoc: { uid: 'test-uid', username: 'TestUser', email: 'test@example.com' },
+    loading: false,
+    needsUsername: false,
+    logout: vi.fn(),
+    updateUsername: vi.fn(),
+  }),
+  AuthProvider: ({ children }) => children,
 }));
 
 import { getRandomImage } from './services/imageService';
