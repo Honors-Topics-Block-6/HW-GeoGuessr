@@ -29,7 +29,7 @@ function MapSelector({ onLocationSelect, selectedLocation }) {
       <div className="map-container">
         <img
           ref={imageRef}
-          src="/map.png"
+          src="/FINAL_MAP.png"
           alt="Campus Map"
           className="map-image"
           onClick={handleMapClick}

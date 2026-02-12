@@ -59,7 +59,7 @@ describe('PolygonDrawer', () => {
       render(<PolygonDrawer {...defaultProps} />);
       const image = document.querySelector('.polygon-drawer-image');
       expect(image).toBeInTheDocument();
-      expect(image).toHaveAttribute('src', '/map.png');
+      expect(image).toHaveAttribute('src', '/FINAL_MAP.png');
     });
 
     it('should render all region polygons', () => {
