@@ -197,6 +197,20 @@ describe('ResultScreen', () => {
 
       expect(screen.queryByText('Wrong Floor (-20%)')).not.toBeInTheDocument();
     });
+
+    it('should not show floor section when actualFloor is null', () => {
+      render(<ResultScreen {...defaultProps} guessFloor={null} actualFloor={null} />);
+
+      expect(screen.queryByText('Floor')).not.toBeInTheDocument();
+      expect(screen.queryByText('Wrong Floor (-20%)')).not.toBeInTheDocument();
+    });
+
+    it('should not show floor section when guessFloor is null', () => {
+      render(<ResultScreen {...defaultProps} guessFloor={null} actualFloor={2} />);
+
+      expect(screen.queryByText(/Correct!/)).not.toBeInTheDocument();
+      expect(screen.queryByText('Wrong Floor (-20%)')).not.toBeInTheDocument();
+    });
   });
 
   describe('next round button', () => {

@@ -155,7 +155,7 @@ function SubmissionForm() {
           x: location.x,
           y: location.y
         },
-        floor: floor || 1,
+        floor: floor ?? null,
         status: 'pending', // pending, approved, denied
         createdAt: serverTimestamp(),
         reviewedAt: null

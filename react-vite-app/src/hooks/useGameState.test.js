@@ -726,7 +726,7 @@ describe('useGameState', () => {
       expect(result.current.currentResult.locationScore).toBe(5000);
     });
 
-    it('should use default floor if correctFloor is missing', async () => {
+    it('should use null floor if correctFloor is missing', async () => {
       // Mock an image without correctFloor
       const imageWithoutFloor = {
         id: 'test-no-floor',
@@ -747,16 +747,16 @@ describe('useGameState', () => {
       });
 
       act(() => {
-        result.current.selectFloor(1); // Guess floor 1, which should be the default
+        result.current.selectFloor(1); // Guess floor 1
       });
 
       act(() => {
         result.current.submitGuess();
       });
 
-      // Should use default floor 1
-      expect(result.current.currentResult.actualFloor).toBe(1);
-      expect(result.current.currentResult.floorCorrect).toBe(true);
+      // Should use null floor - no floor scoring when photo has no floor
+      expect(result.current.currentResult.actualFloor).toBeNull();
+      expect(result.current.currentResult.floorCorrect).toBeNull();
     });
 
     it('should decrease score with distance', async () => {

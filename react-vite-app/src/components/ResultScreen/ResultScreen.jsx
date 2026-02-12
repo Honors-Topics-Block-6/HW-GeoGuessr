@@ -67,10 +67,11 @@ function ResultScreen({
 
   const distance = calculateDistance(guessLocation, actualLocation);
   const locationScore = calculateScore(distance);
-  const floorCorrect = guessFloor === actualFloor;
-  // Multiply by 0.8 for incorrect floor
-  const totalScore = floorCorrect ? locationScore : Math.round(locationScore * 0.8);
-  const floorPenalty = floorCorrect ? 0 : Math.round(locationScore * 0.2);
+  const hasFloorScoring = guessFloor !== null && actualFloor !== null;
+  const floorCorrect = hasFloorScoring ? guessFloor === actualFloor : null;
+  // Multiply by 0.8 for incorrect floor (only when both floors are set)
+  const totalScore = (hasFloorScoring && !floorCorrect) ? Math.round(locationScore * 0.8) : locationScore;
+  const floorPenalty = (hasFloorScoring && !floorCorrect) ? Math.round(locationScore * 0.2) : 0;
 
   // Animation sequence
   useEffect(() => {
@@ -253,17 +254,19 @@ function ResultScreen({
               <span className="stat-value">{formatDistance(distance)}</span>
             </div>
 
-            <div className="stat-row">
-              <span className="stat-icon">🏢</span>
-              <span className="stat-label">Floor</span>
-              <span className={`stat-value ${guessFloor === actualFloor ? 'correct' : 'incorrect'}`}>
-                {guessFloor === actualFloor ? (
-                  <>Correct! (Floor {actualFloor})</>
-                ) : (
-                  <>You: {guessFloor} | Actual: {actualFloor}</>
-                )}
-              </span>
-            </div>
+            {hasFloorScoring && (
+              <div className="stat-row">
+                <span className="stat-icon">🏢</span>
+                <span className="stat-label">Floor</span>
+                <span className={`stat-value ${floorCorrect ? 'correct' : 'incorrect'}`}>
+                  {floorCorrect ? (
+                    <>Correct! (Floor {actualFloor})</>
+                  ) : (
+                    <>You: {guessFloor} | Actual: {actualFloor}</>
+                  )}
+                </span>
+              </div>
+            )}
 
             <div className="score-breakdown">
               <div className="breakdown-row">
