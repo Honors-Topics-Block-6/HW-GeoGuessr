@@ -24,7 +24,7 @@ describe('MapSelector', () => {
       render(<MapSelector onLocationSelect={mockOnLocationSelect} selectedLocation={null} />);
       const mapImage = screen.getByAltText('Campus Map');
       expect(mapImage).toBeInTheDocument();
-      expect(mapImage).toHaveAttribute('src', '/map.png');
+      expect(mapImage).toHaveAttribute('src', '/FINAL_MAP.png');
     });
 
     it('should not show location marker initially', () => {
