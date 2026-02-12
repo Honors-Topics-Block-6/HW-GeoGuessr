@@ -127,41 +127,7 @@ function ResultScreen({
       {/* Main content - Map with results */}
       <div className="result-content">
         <div className="result-map-container">
-          <div className="result-map" ref={mapRef}>
-            {/* Map Image */}
-            <img
-              className="map-image"
-              src="/FINAL_MAP.png"
-              alt="Campus Map"
-            />
-
-            {/* Line between guess and actual (Phase 2+) */}
-            {animationPhase >= 2 && (
-              <svg
-                className="result-line-svg"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  pointerEvents: 'none'
-                }}
-              >
-                <line
-                  className="result-line"
-                  x1={`${guessLocation.x}%`}
-                  y1={`${guessLocation.y}%`}
-                  x2={`${actualLocation.x}%`}
-                  y2={`${actualLocation.y}%`}
-                  stroke="#ffc107"
-                  strokeWidth="3"
-                  strokeDasharray="8,4"
-                />
-              </svg>
-            )}
-
-            {/* Guess marker (always visible) */}
+          <div className="result-map" ref={mapContainerRef}>
             <div
               className="result-zoom-content"
               style={{ transform: transformStyle }}
