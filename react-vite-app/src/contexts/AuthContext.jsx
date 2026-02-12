@@ -8,7 +8,7 @@ import {
   signOut
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { createUserDoc, getUserDoc, updateUserDoc, isUsernameTaken } from '../services/userService';
+import { createUserDoc, getUserDoc, updateUserDoc, isUsernameTaken, isHardcodedAdmin } from '../services/userService';
 
 const AuthContext = createContext(null);
 
@@ -143,11 +143,15 @@ export function AuthProvider({ children }) {
     setUserDoc(prev => ({ ...prev, username: newUsername }));
   }, [user]);
 
+  // Determine admin status: check Firestore doc OR hardcoded admin UID
+  const isAdmin = !!(userDoc?.isAdmin) || (user && isHardcodedAdmin(user.uid));
+
   const value = {
     user,
     userDoc,
     loading,
     needsUsername,
+    isAdmin,
     signup,
     login,
     loginWithGoogle,

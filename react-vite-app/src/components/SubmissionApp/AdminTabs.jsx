@@ -1,6 +1,7 @@
 import './AdminTabs.css'
 import AdminReview from './AdminReview'
 import MapEditor from './MapEditor'
+import AccountManagement from './AccountManagement'
 
 function AdminTabs({ activeTab, onTabChange, onBack }) {
   return (
@@ -25,11 +26,18 @@ function AdminTabs({ activeTab, onTabChange, onBack }) {
         >
           Map Editor
         </button>
+        <button
+          className={`admin-tab ${activeTab === 'accounts' ? 'active' : ''}`}
+          onClick={() => onTabChange('accounts')}
+        >
+          Manage Accounts
+        </button>
       </div>
 
       <div className="admin-content">
         {activeTab === 'review' && <AdminReview />}
         {activeTab === 'mapEditor' && <MapEditor />}
+        {activeTab === 'accounts' && <AccountManagement />}
       </div>
     </div>
   )
