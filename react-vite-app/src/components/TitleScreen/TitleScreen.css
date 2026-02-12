@@ -8,27 +8,91 @@
   overflow: hidden;
 }
 
-.submit-photo-button {
+.title-top-bar {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 10;
-  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, rgba(12, 12, 15, 0.7) 0%, transparent 100%);
+}
+
+.title-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-user-icon {
+  font-size: 1.2rem;
+}
+
+.title-username {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.title-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title-profile-button {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.title-profile-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+}
+
+.submit-photo-button {
+  padding: 8px 16px;
   background-color: rgba(52, 152, 219, 0.9);
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .submit-photo-button:hover {
   background-color: rgba(41, 128, 185, 1);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.title-logout-button {
+  padding: 8px 16px;
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  color: #e74c3c;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.title-logout-button:hover {
+  background: rgba(231, 76, 60, 0.25);
 }
 
 .title-background {
@@ -182,6 +246,18 @@
     font-size: 1.1rem;
     padding: 0.9rem 2.5rem;
   }
+
+  .title-top-bar {
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 16px;
+  }
+
+  .title-top-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 480px) {
@@ -195,5 +271,16 @@
 
   .logo-icon {
     font-size: 3rem;
+  }
+
+  .title-top-actions {
+    gap: 6px;
+  }
+
+  .title-profile-button,
+  .submit-photo-button,
+  .title-logout-button {
+    font-size: 12px;
+    padding: 6px 12px;
   }
 }
