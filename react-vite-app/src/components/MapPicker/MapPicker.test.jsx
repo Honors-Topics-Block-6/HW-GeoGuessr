@@ -271,4 +271,181 @@ describe('MapPicker', () => {
       expect(mapPicker).toBeInTheDocument();
     });
   });
+
+  describe('zoom functionality', () => {
+    it('should render zoom control buttons', () => {
+      render(<MapPicker {...defaultProps} />);
+
+      expect(screen.getByLabelText('Zoom in')).toBeInTheDocument();
+      expect(screen.getByLabelText('Zoom out')).toBeInTheDocument();
+      expect(screen.getByLabelText('Reset zoom')).toBeInTheDocument();
+    });
+
+    it('should render zoom content wrapper', () => {
+      const { container } = render(<MapPicker {...defaultProps} />);
+
+      expect(container.querySelector('.map-zoom-content')).toBeInTheDocument();
+    });
+
+    it('should have zoom out button disabled at default zoom', () => {
+      render(<MapPicker {...defaultProps} />);
+
+      expect(screen.getByLabelText('Zoom out')).toBeDisabled();
+      expect(screen.getByLabelText('Reset zoom')).toBeDisabled();
+    });
+
+    it('should not show zoom indicator at default zoom', () => {
+      const { container } = render(<MapPicker {...defaultProps} />);
+
+      expect(container.querySelector('.zoom-indicator')).not.toBeInTheDocument();
+    });
+
+    it('should show zoom indicator after zooming in', () => {
+      const { container } = render(<MapPicker {...defaultProps} />);
+
+      // Mock getBoundingClientRect for the container (needed by useMapZoom)
+      const mapPicker = container.querySelector('.map-picker');
+      mapPicker.getBoundingClientRect = () => ({
+        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
+      });
+
+      fireEvent.click(screen.getByLabelText('Zoom in'));
+
+      expect(container.querySelector('.zoom-indicator')).toBeInTheDocument();
+    });
+
+    it('should add zoomed class when zoomed in', () => {
+      const { container } = render(<MapPicker {...defaultProps} />);
+
+      const mapPicker = container.querySelector('.map-picker');
+      mapPicker.getBoundingClientRect = () => ({
+        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
+      });
+
+      expect(mapPicker).not.toHaveClass('zoomed');
+
+      fireEvent.click(screen.getByLabelText('Zoom in'));
+
+      expect(mapPicker).toHaveClass('zoomed');
+    });
+
+    it('should enable zoom out button after zooming in', () => {
+      const { container } = render(<MapPicker {...defaultProps} />);
+
+      const mapPicker = container.querySelector('.map-picker');
+      mapPicker.getBoundingClientRect = () => ({
+        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
+      });
+
+      fireEvent.click(screen.getByLabelText('Zoom in'));
+
+      expect(screen.getByLabelText('Zoom out')).not.toBeDisabled();
+      expect(screen.getByLabelText('Reset zoom')).not.toBeDisabled();
+    });
+
+    it('should reset zoom when reset button is clicked', () => {
+      const { container } = render(<MapPicker {...defaultProps} />);
+
+      const mapPicker = container.querySelector('.map-picker');
+      mapPicker.getBoundingClientRect = () => ({
+        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
+      });
+
+      // Zoom in first
+      fireEvent.click(screen.getByLabelText('Zoom in'));
+      expect(container.querySelector('.zoom-indicator')).toBeInTheDocument();
+
+      // Reset
+      fireEvent.click(screen.getByLabelText('Reset zoom'));
+      expect(container.querySelector('.zoom-indicator')).not.toBeInTheDocument();
+    });
+
+    it('should not call onMapClick when zoom in button is clicked', () => {
+      const onMapClick = vi.fn();
+      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+
+      const mapPicker = container.querySelector('.map-picker');
+      mapPicker.getBoundingClientRect = () => ({
+        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
+      });
+
+      fireEvent.click(screen.getByLabelText('Zoom in'));
+
+      expect(onMapClick).not.toHaveBeenCalled();
+    });
+
+    it('should not call onMapClick when zoom out button is clicked while zoomed', () => {
+      const onMapClick = vi.fn();
+      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+
+      const mapPicker = container.querySelector('.map-picker');
+      mapPicker.getBoundingClientRect = () => ({
+        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
+      });
+
+      // Zoom in first so zoom out is enabled
+      fireEvent.click(screen.getByLabelText('Zoom in'));
+      onMapClick.mockClear();
+
+      fireEvent.click(screen.getByLabelText('Zoom out'));
+
+      expect(onMapClick).not.toHaveBeenCalled();
+    });
+
+    it('should not call onMapClick when dragging while zoomed', () => {
+      const onMapClick = vi.fn();
+      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+
+      const mapPicker = container.querySelector('.map-picker');
+      mapPicker.getBoundingClientRect = () => ({
+        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
+      });
+
+      // Zoom in
+      fireEvent.click(screen.getByLabelText('Zoom in'));
+      onMapClick.mockClear();
+
+      // Simulate drag: mousedown -> mousemove (>5px) -> mouseup -> click
+      fireEvent.mouseDown(mapPicker, { clientX: 100, clientY: 100 });
+      fireEvent.mouseMove(mapPicker, { clientX: 120, clientY: 120 });
+      fireEvent.mouseUp(mapPicker);
+      fireEvent.click(mapPicker, { clientX: 120, clientY: 120 });
+
+      expect(onMapClick).not.toHaveBeenCalled();
+    });
+
+    it('should still call onMapClick for clicks without dragging while zoomed', () => {
+      const onMapClick = vi.fn();
+      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+
+      const mapPicker = container.querySelector('.map-picker');
+      const mapImage = container.querySelector('.map-image');
+
+      mapPicker.getBoundingClientRect = () => ({
+        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
+      });
+
+      mapImage.getBoundingClientRect = () => ({
+        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
+      });
+
+      // Zoom in
+      fireEvent.click(screen.getByLabelText('Zoom in'));
+      onMapClick.mockClear();
+
+      // Simple click (no drag)
+      fireEvent.mouseDown(mapPicker, { clientX: 200, clientY: 150 });
+      fireEvent.mouseUp(mapPicker);
+      fireEvent.click(mapPicker, { clientX: 200, clientY: 150 });
+
+      expect(onMapClick).toHaveBeenCalled();
+    });
+
+    it('should apply transform style to zoom content wrapper', () => {
+      const { container } = render(<MapPicker {...defaultProps} />);
+
+      const zoomContent = container.querySelector('.map-zoom-content');
+      expect(zoomContent).toHaveStyle({ transform: 'translate(0px, 0px) scale(1)' });
+    });
+  });
 });

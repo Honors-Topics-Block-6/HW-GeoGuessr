@@ -1,13 +1,29 @@
 import { useRef } from 'react';
+import useMapZoom from '../../hooks/useMapZoom';
 import './MapPicker.css';
 
 function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingArea = null }) {
+  const containerRef = useRef(null);
   const imageRef = useRef(null);
 
+  const {
+    scale,
+    transformStyle,
+    handlers,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    hasMoved
+  } = useMapZoom(containerRef);
+
   const handleClick = (event) => {
+    // If the user was dragging/panning, don't place a marker
+    if (hasMoved()) return;
+
     if (!imageRef.current) return;
 
     // Get coordinates relative to the actual image element
+    // getBoundingClientRect() already accounts for CSS transforms
     const rect = imageRef.current.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * 100;
     const y = ((event.clientY - rect.top) / rect.height) * 100;
@@ -21,6 +37,7 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
 
   // Check if playing area is defined
   const hasPlayingArea = playingArea && playingArea.polygon && playingArea.polygon.length >= 3;
+  const isZoomed = scale > 1;
 
   return (
     <div className="map-picker-container">
@@ -77,17 +94,66 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
           </svg>
         )}
 
-        {/* Marker - positioned relative to the container which matches image size */}
-        {markerPosition && (
-          <div
-            className="marker"
-            style={{
-              left: `${markerPosition.x}%`,
-              top: `${markerPosition.y}%`
-            }}
+              {/* Border around the playing area */}
+              <polygon
+                points={playingArea.polygon.map(p => `${p.x},${p.y}`).join(' ')}
+                fill="none"
+                stroke="#27ae60"
+                strokeWidth="0.4"
+                strokeOpacity="0.8"
+              />
+            </svg>
+          )}
+
+          {/* Marker - positioned relative to the container which matches image size */}
+          {markerPosition && (
+            <div
+              className="marker"
+              style={{
+                left: `${markerPosition.x}%`,
+                top: `${markerPosition.y}%`
+              }}
+            >
+              <div className="marker-pin"></div>
+              <div className="marker-pulse"></div>
+            </div>
+          )}
+        </div>
+
+        {/* Zoom controls - positioned outside the transform wrapper */}
+        <div className="zoom-controls">
+          <button
+            className="zoom-btn zoom-in-btn"
+            onClick={(e) => { e.stopPropagation(); zoomIn(); }}
+            title="Zoom in"
+            aria-label="Zoom in"
           >
-            <div className="marker-pin"></div>
-            <div className="marker-pulse"></div>
+            +
+          </button>
+          <button
+            className="zoom-btn zoom-out-btn"
+            onClick={(e) => { e.stopPropagation(); zoomOut(); }}
+            title="Zoom out"
+            aria-label="Zoom out"
+            disabled={!isZoomed}
+          >
+            -
+          </button>
+          <button
+            className="zoom-btn zoom-reset-btn"
+            onClick={(e) => { e.stopPropagation(); resetZoom(); }}
+            title="Reset zoom"
+            aria-label="Reset zoom"
+            disabled={!isZoomed}
+          >
+            &#x21BA;
+          </button>
+        </div>
+
+        {/* Zoom level indicator */}
+        {isZoomed && (
+          <div className="zoom-indicator">
+            {Math.round(scale * 100)}%
           </div>
         )}
       </div>

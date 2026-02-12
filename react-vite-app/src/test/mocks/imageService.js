@@ -27,20 +27,23 @@ export const mockImages = [
 
 // Mock functions
 export const mockGetRandomImage = vi.fn();
-export const mockGetRandomSampleImage = vi.fn();
+export const mockGetAllApprovedImages = vi.fn();
+export const mockGetAllImages = vi.fn();
 export const mockGetAllSampleImages = vi.fn();
 
 // Setup default implementations
 export const setupImageServiceMocks = () => {
   mockGetRandomImage.mockResolvedValue(mockImages[0]);
-  mockGetRandomSampleImage.mockReturnValue(mockImages[0]);
+  mockGetAllApprovedImages.mockResolvedValue([...mockImages]);
+  mockGetAllImages.mockResolvedValue([...mockImages]);
   mockGetAllSampleImages.mockReturnValue([...mockImages]);
 };
 
 // Reset mocks helper
 export const resetImageServiceMocks = () => {
   mockGetRandomImage.mockReset();
-  mockGetRandomSampleImage.mockReset();
+  mockGetAllApprovedImages.mockReset();
+  mockGetAllImages.mockReset();
   mockGetAllSampleImages.mockReset();
   setupImageServiceMocks();
 };

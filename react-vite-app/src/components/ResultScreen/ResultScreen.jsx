@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import useMapZoom from '../../hooks/useMapZoom';
 import './ResultScreen.css';
 
 /**
@@ -49,16 +50,28 @@ function ResultScreen({
   onViewFinalResults,
   isLastRound
 }) {
-  const mapRef = useRef(null);
+  const mapContainerRef = useRef(null);
   const [animationPhase, setAnimationPhase] = useState(0);
   const [displayedScore, setDisplayedScore] = useState(0);
 
+  const {
+    scale,
+    transformStyle,
+    handlers,
+    zoomIn,
+    zoomOut,
+    resetZoom
+  } = useMapZoom(mapContainerRef);
+
+  const isZoomed = scale > 1;
+
   const distance = calculateDistance(guessLocation, actualLocation);
   const locationScore = calculateScore(distance);
-  const floorCorrect = guessFloor === actualFloor;
-  // Multiply by 0.8 for incorrect floor
-  const totalScore = floorCorrect ? locationScore : Math.round(locationScore * 0.8);
-  const floorPenalty = floorCorrect ? 0 : Math.round(locationScore * 0.2);
+  const hasFloorScoring = guessFloor !== null && actualFloor !== null;
+  const floorCorrect = hasFloorScoring ? guessFloor === actualFloor : null;
+  // Multiply by 0.8 for incorrect floor (only when both floors are set)
+  const totalScore = (hasFloorScoring && !floorCorrect) ? Math.round(locationScore * 0.8) : locationScore;
+  const floorPenalty = (hasFloorScoring && !floorCorrect) ? Math.round(locationScore * 0.2) : 0;
 
   // Animation sequence
   useEffect(() => {
@@ -150,27 +163,103 @@ function ResultScreen({
 
             {/* Guess marker (always visible) */}
             <div
-              className="result-marker guess-marker"
-              style={{
-                left: `${guessLocation.x}%`,
-                top: `${guessLocation.y}%`
-              }}
+              className="result-zoom-content"
+              style={{ transform: transformStyle }}
             >
-              <div className="marker-pin guess-pin"></div>
-              <div className="marker-label">Your guess</div>
-            </div>
+              {/* Map Image */}
+              <img
+                className="map-image"
+                src="/map.png"
+                alt="Campus Map"
+              />
 
-            {/* Actual location marker (Phase 1+) */}
-            {animationPhase >= 1 && (
+              {/* Line between guess and actual (Phase 2+) */}
+              {animationPhase >= 2 && (
+                <svg
+                  className="result-line-svg"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  <line
+                    className="result-line"
+                    x1={`${guessLocation.x}%`}
+                    y1={`${guessLocation.y}%`}
+                    x2={`${actualLocation.x}%`}
+                    y2={`${actualLocation.y}%`}
+                    stroke="#ffc107"
+                    strokeWidth="3"
+                    strokeDasharray="8,4"
+                  />
+                </svg>
+              )}
+
+              {/* Guess marker (always visible) */}
               <div
-                className="result-marker actual-marker"
+                className="result-marker guess-marker"
                 style={{
-                  left: `${actualLocation.x}%`,
-                  top: `${actualLocation.y}%`
+                  left: `${guessLocation.x}%`,
+                  top: `${guessLocation.y}%`
                 }}
               >
-                <div className="marker-pin actual-pin"></div>
-                <div className="marker-label">Correct</div>
+                <div className="marker-pin guess-pin"></div>
+                <div className="marker-label">Your guess</div>
+              </div>
+
+              {/* Actual location marker (Phase 1+) */}
+              {animationPhase >= 1 && (
+                <div
+                  className="result-marker actual-marker"
+                  style={{
+                    left: `${actualLocation.x}%`,
+                    top: `${actualLocation.y}%`
+                  }}
+                >
+                  <div className="marker-pin actual-pin"></div>
+                  <div className="marker-label">Correct</div>
+                </div>
+              )}
+            </div>
+
+            {/* Zoom controls - positioned outside the transform wrapper */}
+            <div className="zoom-controls">
+              <button
+                className="zoom-btn zoom-in-btn"
+                onClick={(e) => { e.stopPropagation(); zoomIn(); }}
+                title="Zoom in"
+                aria-label="Zoom in"
+              >
+                +
+              </button>
+              <button
+                className="zoom-btn zoom-out-btn"
+                onClick={(e) => { e.stopPropagation(); zoomOut(); }}
+                title="Zoom out"
+                aria-label="Zoom out"
+                disabled={!isZoomed}
+              >
+                -
+              </button>
+              <button
+                className="zoom-btn zoom-reset-btn"
+                onClick={(e) => { e.stopPropagation(); resetZoom(); }}
+                title="Reset zoom"
+                aria-label="Reset zoom"
+                disabled={!isZoomed}
+              >
+                &#x21BA;
+              </button>
+            </div>
+
+            {/* Zoom level indicator */}
+            {isZoomed && (
+              <div className="zoom-indicator">
+                {Math.round(scale * 100)}%
               </div>
             )}
           </div>
@@ -189,17 +278,19 @@ function ResultScreen({
               <span className="stat-value">{formatDistance(distance)}</span>
             </div>
 
-            <div className="stat-row">
-              <span className="stat-icon">🏢</span>
-              <span className="stat-label">Floor</span>
-              <span className={`stat-value ${guessFloor === actualFloor ? 'correct' : 'incorrect'}`}>
-                {guessFloor === actualFloor ? (
-                  <>Correct! (Floor {actualFloor})</>
-                ) : (
-                  <>You: {guessFloor} | Actual: {actualFloor}</>
-                )}
-              </span>
-            </div>
+            {hasFloorScoring && (
+              <div className="stat-row">
+                <span className="stat-icon">🏢</span>
+                <span className="stat-label">Floor</span>
+                <span className={`stat-value ${floorCorrect ? 'correct' : 'incorrect'}`}>
+                  {floorCorrect ? (
+                    <>Correct! (Floor {actualFloor})</>
+                  ) : (
+                    <>You: {guessFloor} | Actual: {actualFloor}</>
+                  )}
+                </span>
+              </div>
+            )}
 
             <div className="score-breakdown">
               <div className="breakdown-row">
