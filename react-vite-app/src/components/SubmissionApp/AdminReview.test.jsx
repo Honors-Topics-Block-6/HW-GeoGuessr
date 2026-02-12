@@ -123,9 +123,9 @@ describe('AdminReview', () => {
 
     it('should render filter tabs', () => {
       render(<AdminReview onBack={mockOnBack} />);
-      expect(screen.getByText(/Pending/)).toBeInTheDocument();
-      expect(screen.getByText(/Approved/)).toBeInTheDocument();
-      expect(screen.getByText(/Denied/)).toBeInTheDocument();
+      expect(screen.getByText(/^Pending \(/)).toBeInTheDocument();
+      expect(screen.getByText(/^Approved \(/)).toBeInTheDocument();
+      expect(screen.getByText(/^Denied \(/)).toBeInTheDocument();
     });
 
     it('should render source filter tabs', () => {
@@ -723,8 +723,12 @@ describe('AdminReview', () => {
       expect(screen.getByText('Reset to Pending')).toBeInTheDocument();
     });
 
-    it('should not show Reset to Pending button for pending submissions', () => {
+    it('should not show Reset to Pending button for pending submissions', async () => {
+      const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
+
+      // Filter to only pending submissions
+      await user.click(screen.getByText('Pending (1)'));
 
       expect(screen.queryByText('Reset to Pending')).not.toBeInTheDocument();
     });

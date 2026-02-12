@@ -191,17 +191,17 @@ export function useGameState() {
 
     // Get correct location and floor from the image data
     const actualLocation = currentImage.correctLocation || { x: 50, y: 50 };
-    const actualFloor = currentImage.correctFloor || 1;
+    const actualFloor = currentImage.correctFloor ?? null;
 
     // Calculate scores
     const distance = calculateDistance(guessLocation, actualLocation);
     const locationScore = calculateLocationScore(distance);
 
-    // Floor scoring only applies when in a region
+    // Floor scoring only applies when in a region AND the photo has a floor set
     let floorCorrect = null;
     let totalScore = locationScore;
 
-    if (isInRegion && guessFloor !== null) {
+    if (isInRegion && guessFloor !== null && actualFloor !== null) {
       floorCorrect = guessFloor === actualFloor;
       // Multiply by 0.8 for incorrect floor instead of bonus system
       totalScore = floorCorrect ? locationScore : Math.round(locationScore * 0.8);
