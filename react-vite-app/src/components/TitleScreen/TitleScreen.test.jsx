@@ -3,10 +3,30 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import TitleScreen from './TitleScreen';
 
+// Mock Firebase
+vi.mock('../../firebase', () => ({
+  db: {},
+  app: {},
+  auth: {}
+}));
+
+// Mock AuthContext so TitleScreen's useAuth() works
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { uid: 'test-uid', email: 'test@example.com' },
+    userDoc: { uid: 'test-uid', username: 'TestUser', email: 'test@example.com' },
+    loading: false,
+    needsUsername: false,
+    logout: vi.fn(),
+    updateUsername: vi.fn(),
+  }),
+}));
+
 describe('TitleScreen', () => {
   const defaultProps = {
     onStartGame: vi.fn(),
     onOpenSubmission: vi.fn(),
+    onOpenProfile: vi.fn(),
     isLoading: false
   };
 
