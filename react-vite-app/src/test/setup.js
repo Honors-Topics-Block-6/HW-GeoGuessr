@@ -23,12 +23,17 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   disconnect: vi.fn(),
 }));
 
-// Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+// Mock ResizeObserver — stores callback so tests can trigger it
+global._resizeObserverInstances = [];
+global.ResizeObserver = class ResizeObserver {
+  constructor(callback) {
+    this._callback = callback;
+    this.observe = vi.fn();
+    this.unobserve = vi.fn();
+    this.disconnect = vi.fn();
+    global._resizeObserverInstances.push(this);
+  }
+};
 
 // Suppress console errors during tests (optional - can be removed if you want to see all errors)
 const originalError = console.error;
