@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import './FinalResultsScreen.css';
 
 /**
@@ -38,6 +38,19 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
 
   // Generate confetti data once and memoize it
   const confettiPieces = useMemo(() => generateConfettiData(30), []);
+
+  // Spacebar to play again
+  const handleKeyDown = useCallback((e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      onPlayAgain();
+    }
+  }, [onPlayAgain]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   // Animate total score
   useEffect(() => {
