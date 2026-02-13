@@ -69,7 +69,7 @@ function useMapZoom(containerRef) {
   const dragStart = useRef({ x: 0, y: 0 });
   const translateStart = useRef({ x: 0, y: 0 });
   const dragMoved = useRef(false);
-  const wasPanning = useRef(false); // Track if we were actually panning (right-click)
+  const wasPanning = useRef(false); // Track if we were actually panning (left-click drag)
   const lastTouchDistance = useRef(null);
   const scaleRef = useRef(scale);
   const translateRef = useRef(translate);
@@ -143,14 +143,14 @@ function useMapZoom(containerRef) {
 
   /**
    * Mouse down - start potential drag/pan.
-   * Only right-click (button 2) or middle-click (button 1) trigger panning.
-   * Left-click (button 0) is reserved for placing pins.
+   * Left-click (button 0) or middle-click (button 1) trigger panning.
+   * A left-click that doesn't drag will still place a marker (handled via hasMoved).
    */
   const handleMouseDown = useCallback((e) => {
-    // Only allow panning on right-click or middle-click
-    const isRightClick = e.button === 2;
+    // Only allow panning on left-click or middle-click
+    const isLeftClick = e.button === 0;
     const isMiddleClick = e.button === 1;
-    if (!isRightClick && !isMiddleClick) return;
+    if (!isLeftClick && !isMiddleClick) return;
 
     isDragging.current = true;
     dragMoved.current = false;
@@ -350,10 +350,10 @@ function useMapZoom(containerRef) {
   }, []);
 
   /**
-   * Check if we were panning (right-click dragging).
+   * Check if we were panning (left-click dragging).
    * Used by click handlers to prevent pin placement during pan.
    */
-  const hasMoved = useCallback(() => wasPanning.current && dragMoved.current, []);
+  const hasMoved = useCallback(() => dragMoved.current, []);
 
   // Computed transform style string
   const transformStyle = `translate(${translate.x}px, ${translate.y}px) scale(${scale})`;

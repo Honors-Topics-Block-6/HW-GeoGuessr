@@ -44,7 +44,7 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
     <div className="map-picker-container">
       <div className="map-header">
         <span className="map-icon">🗺️</span>
-        <span>Right-click & drag to pan • Click to place your guess</span>
+        <span>Click & drag to pan • Click to place your guess</span>
       </div>
       <div
         className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''}`}
