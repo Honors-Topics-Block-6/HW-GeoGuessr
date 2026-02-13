@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import './ResultScreen.css';
 
@@ -76,6 +76,23 @@ function ResultScreen({
 
     return () => timers.forEach(clearTimeout);
   }, []);
+
+  // Spacebar to advance to next round / final results
+  const handleKeyDown = useCallback((e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (isLastRound) {
+        onViewFinalResults();
+      } else {
+        onNextRound();
+      }
+    }
+  }, [isLastRound, onNextRound, onViewFinalResults]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   // Animate score counter
   useEffect(() => {
