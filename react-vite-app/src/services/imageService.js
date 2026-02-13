@@ -49,7 +49,7 @@ const SAMPLE_IMAGES = [
  * Fetches a random image from all approved sources, optionally filtered by difficulty.
  * - Firestore 'images' collection (all are considered approved)
  * - Firestore 'submissions' collection with status 'approved'
- * @param {string|null} difficulty - 'easy', 'medium', 'hard', or null for all
+ * @param {string|null} difficulty - 'easy', 'medium', 'hard', 'all', or null for all
  */
 export async function getRandomImage(difficulty = null) {
   try {
@@ -71,7 +71,7 @@ export async function getRandomImage(difficulty = null) {
 /**
  * Fetches all approved images from both the images collection
  * and approved submissions, optionally filtered by difficulty.
- * @param {string|null} difficulty - 'easy', 'medium', 'hard', or null for all
+ * @param {string|null} difficulty - 'easy', 'medium', 'hard', 'all', or null for all
  */
 export async function getAllApprovedImages(difficulty = null) {
   try {
@@ -102,8 +102,8 @@ export async function getAllApprovedImages(difficulty = null) {
 
     let allImages = [...images, ...approvedSubmissions];
 
-    // Filter by difficulty if specified
-    if (difficulty) {
+    // Filter by difficulty if specified ('all' or null means no filter)
+    if (difficulty && difficulty !== 'all') {
       const filtered = allImages.filter(img => img.difficulty === difficulty);
       // Fall back to all images if none match the difficulty
       if (filtered.length > 0) {
