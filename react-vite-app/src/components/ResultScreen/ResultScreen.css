@@ -69,11 +69,9 @@
 
 /* Main Content */
 .result-content {
-  flex: 1;
   display: grid;
   grid-template-columns: 1.5fr 1fr;
   gap: 1.5rem;
-  min-height: 0;
 }
 
 /* Map Container */
@@ -82,7 +80,6 @@
   border-radius: 16px;
   padding: 1rem;
   border: 1px solid var(--border-color);
-  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -91,7 +88,7 @@
   position: relative;
   width: 100%;
   flex: 1;
-  min-height: 0;
+  min-height: 300px;
   background-color: var(--bg-secondary);
   border-radius: 12px;
   overflow: hidden;
@@ -357,7 +354,6 @@
 
 /* Next Round Button */
 .next-round-button {
-  margin-top: auto;
   background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
   color: var(--text-primary);
   font-size: 1.1rem;
@@ -398,6 +394,7 @@
   justify-content: center;
   gap: 0.75rem;
   padding: 1.5rem 0 0.5rem;
+  margin-top: auto;
 }
 
 .progress-dot {
@@ -423,7 +420,6 @@
 @media (max-width: 900px) {
   .result-content {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
   }
 
   .result-map {
