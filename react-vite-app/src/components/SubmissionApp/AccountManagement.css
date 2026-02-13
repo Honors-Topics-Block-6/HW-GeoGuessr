@@ -150,6 +150,38 @@
   background-color: #c0392b;
 }
 
+.actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-user-button {
+  padding: 8px 16px;
+  background-color: #f39c12;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.edit-user-button:hover {
+  background-color: #d68910;
+}
+
+.uid-cell {
+  font-family: monospace;
+  font-size: 12px;
+  color: #999;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .action-locked {
   color: #8e44ad;
   font-size: 13px;
