@@ -22,6 +22,7 @@ describe('ResultScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    global._resizeObserverInstances = [];
   });
 
   afterEach(() => {
@@ -388,6 +389,78 @@ describe('ResultScreen', () => {
       });
 
       expect(container.querySelector('.score-display.visible')).toBeInTheDocument();
+    });
+  });
+
+  describe('map height sync', () => {
+    it('should set map container height to match details panel height', () => {
+      const { container } = render(<ResultScreen {...defaultProps} />);
+
+      const mapContainer = container.querySelector('.result-map-container');
+      const detailsPanel = container.querySelector('.result-details');
+
+      // Simulate the details panel having a measured height
+      Object.defineProperty(detailsPanel, 'offsetHeight', {
+        configurable: true,
+        get: () => 500,
+      });
+
+      // Trigger the ResizeObserver callback
+      act(() => {
+        const observers = global._resizeObserverInstances;
+        observers.forEach(obs => {
+          if (obs._callback) {
+            obs._callback([]);
+          }
+        });
+      });
+
+      expect(mapContainer.style.height).toBe('500px');
+    });
+
+    it('should observe the details panel with ResizeObserver', () => {
+      const { container } = render(<ResultScreen {...defaultProps} />);
+
+      const detailsPanel = container.querySelector('.result-details');
+      const observers = global._resizeObserverInstances;
+      const lastObserver = observers[observers.length - 1];
+
+      expect(lastObserver.observe).toHaveBeenCalledWith(detailsPanel);
+    });
+
+    it('should update map height when details panel resizes', () => {
+      const { container } = render(<ResultScreen {...defaultProps} />);
+
+      const mapContainer = container.querySelector('.result-map-container');
+      const detailsPanel = container.querySelector('.result-details');
+
+      // First size
+      Object.defineProperty(detailsPanel, 'offsetHeight', {
+        configurable: true,
+        get: () => 400,
+      });
+
+      act(() => {
+        global._resizeObserverInstances.forEach(obs => {
+          if (obs._callback) obs._callback([]);
+        });
+      });
+
+      expect(mapContainer.style.height).toBe('400px');
+
+      // Resize to new height
+      Object.defineProperty(detailsPanel, 'offsetHeight', {
+        configurable: true,
+        get: () => 600,
+      });
+
+      act(() => {
+        global._resizeObserverInstances.forEach(obs => {
+          if (obs._callback) obs._callback([]);
+        });
+      });
+
+      expect(mapContainer.style.height).toBe('600px');
     });
   });
 

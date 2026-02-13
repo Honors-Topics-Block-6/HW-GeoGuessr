@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import './ResultScreen.css';
 
@@ -41,13 +41,37 @@ function ResultScreen({
   isLastRound
 }) {
   const mapContainerRef = useRef(null);
+  const detailsRef = useRef(null);
+  const mapOuterRef = useRef(null);
   const [animationPhase, setAnimationPhase] = useState(0);
   const [displayedScore, setDisplayedScore] = useState(0);
+
+  // Sync map container height to match the details panel height
+  useEffect(() => {
+    const detailsEl = detailsRef.current;
+    const mapEl = mapOuterRef.current;
+    if (!detailsEl || !mapEl) return;
+
+    const syncHeight = () => {
+      const detailsHeight = detailsEl.offsetHeight;
+      if (detailsHeight > 0) {
+        mapEl.style.height = `${detailsHeight}px`;
+      }
+    };
+
+    // Initial sync
+    syncHeight();
+
+    // Re-sync whenever the details panel resizes (e.g. window resize, content change)
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(detailsEl);
+
+    return () => observer.disconnect();
+  }, []);
 
   const {
     scale,
     transformStyle,
-    handlers,
     zoomIn,
     zoomOut,
     resetZoom
@@ -76,6 +100,23 @@ function ResultScreen({
 
     return () => timers.forEach(clearTimeout);
   }, []);
+
+  // Spacebar to advance to next round / final results
+  const handleKeyDown = useCallback((e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (isLastRound) {
+        onViewFinalResults();
+      } else {
+        onNextRound();
+      }
+    }
+  }, [isLastRound, onNextRound, onViewFinalResults]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   // Animate score counter
   useEffect(() => {
@@ -125,7 +166,7 @@ function ResultScreen({
 
       {/* Main content - Map with results */}
       <div className="result-content">
-        <div className="result-map-container">
+        <div className="result-map-container" ref={mapOuterRef}>
           <div className="result-map" ref={mapContainerRef}>
             <div
               className="result-zoom-content"
@@ -233,7 +274,7 @@ function ResultScreen({
         </div>
 
         {/* Side panel with details */}
-        <div className="result-details">
+        <div className="result-details" ref={detailsRef}>
           <div className="result-image-preview">
             <img src={imageUrl} alt="Location" />
           </div>

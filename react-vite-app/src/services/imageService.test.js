@@ -13,7 +13,7 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import { collection, getDocs } from 'firebase/firestore';
-import { getRandomImage, getAllApprovedImages, getAllImages, getAllSampleImages } from './imageService';
+import { getRandomImage, getAllApprovedImages, getAllSampleImages } from './imageService';
 
 describe('imageService', () => {
   beforeEach(() => {

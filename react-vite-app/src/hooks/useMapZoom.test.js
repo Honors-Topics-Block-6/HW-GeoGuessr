@@ -258,7 +258,7 @@ describe('useMapZoom', () => {
       const { result } = renderHook(() => useMapZoom(containerRef));
 
       act(() => {
-        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50, button: 2 });
+        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50, button: 0 });
       });
 
       act(() => {
@@ -290,7 +290,7 @@ describe('useMapZoom', () => {
   });
 
   describe('mouse panning', () => {
-    it('should not pan on left-click (button 0)', () => {
+    it('should pan on left-click (button 0)', () => {
       const { result } = renderHook(() => useMapZoom(containerRef));
 
       act(() => {
@@ -304,11 +304,11 @@ describe('useMapZoom', () => {
         });
       });
 
-      // Left-click should not trigger panning
-      expect(result.current.hasMoved()).toBe(false);
+      // Left-click should trigger panning
+      expect(result.current.hasMoved()).toBe(true);
     });
 
-    it('should pan on right-click (button 2)', () => {
+    it('should not pan on right-click (button 2)', () => {
       const { result } = renderHook(() => useMapZoom(containerRef));
 
       act(() => {
@@ -322,8 +322,8 @@ describe('useMapZoom', () => {
         });
       });
 
-      // Right-click should trigger panning
-      expect(result.current.hasMoved()).toBe(true);
+      // Right-click should not trigger panning
+      expect(result.current.hasMoved()).toBe(false);
     });
 
     it('should pan on middle-click (button 1)', () => {
@@ -344,7 +344,7 @@ describe('useMapZoom', () => {
       expect(result.current.hasMoved()).toBe(true);
     });
 
-    it('should pan when zoomed and dragging with right-click', () => {
+    it('should pan when zoomed and dragging with left-click', () => {
       const { result } = renderHook(() => useMapZoom(containerRef));
 
       // Zoom in first
@@ -352,10 +352,8 @@ describe('useMapZoom', () => {
         result.current.zoomIn();
       });
 
-      const initialTranslate = { ...result.current.translate };
-
       act(() => {
-        result.current.handlers.onMouseDown({ clientX: 100, clientY: 100, button: 2 });
+        result.current.handlers.onMouseDown({ clientX: 100, clientY: 100, button: 0 });
       });
 
       act(() => {
@@ -461,16 +459,21 @@ describe('useMapZoom', () => {
         result.current.handlers.onTouchEnd();
       });
 
-      // After touch end, hasMoved should be false for next gesture
-      // (the ref is not reset until next touchstart/mousedown)
-      // But isDragging should be false
+      // After touch end, isDragging should be false
+      // touchMove is handled by native event listener, not exposed via handlers
+      // So we verify that after touchEnd, a new touchStart + move won't carry
+      // over stale drag state by checking hasMoved is not set from previous gesture
       const translateBefore = { ...result.current.translate };
 
+      // Start a new gesture and immediately end it without moving
       act(() => {
-        result.current.handlers.onTouchMove({
-          touches: [{ clientX: 100, clientY: 100 }],
-          preventDefault: vi.fn()
+        result.current.handlers.onTouchStart({
+          touches: [{ clientX: 100, clientY: 100 }]
         });
+      });
+
+      act(() => {
+        result.current.handlers.onTouchEnd();
       });
 
       expect(result.current.translate).toEqual(translateBefore);

@@ -17,15 +17,6 @@ export function renderWithProviders(ui, options = {}) {
  * Helper to create mock events with getBoundingClientRect
  */
 export function createMockClickEvent(x, y, element) {
-  const rect = {
-    left: 0,
-    top: 0,
-    width: 100,
-    height: 100,
-    right: 100,
-    bottom: 100,
-  };
-
   return {
     clientX: x,
     clientY: y,

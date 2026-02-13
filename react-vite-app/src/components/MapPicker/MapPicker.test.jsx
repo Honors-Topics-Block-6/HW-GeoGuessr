@@ -22,7 +22,7 @@ describe('MapPicker', () => {
     it('should render the map header', () => {
       render(<MapPicker {...defaultProps} />);
 
-      expect(screen.getByText('Click to place your guess')).toBeInTheDocument();
+      expect(screen.getByText(/Click to place your guess/)).toBeInTheDocument();
     });
 
     it('should render the map icon', () => {

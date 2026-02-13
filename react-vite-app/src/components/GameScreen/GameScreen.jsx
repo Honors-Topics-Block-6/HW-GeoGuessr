@@ -1,3 +1,4 @@
+import { useEffect, useCallback } from 'react';
 import ImageViewer from '../ImageViewer/ImageViewer';
 import MapPicker from '../MapPicker/MapPicker';
 import FloorSelector from '../FloorSelector/FloorSelector';
@@ -25,6 +26,18 @@ function GameScreen({
   // - in a region with floors and a floor is selected
   const isInRegion = availableFloors !== null && availableFloors.length > 0;
   const canSubmit = guessLocation !== null && (!isInRegion || guessFloor !== null);
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.code === 'Space' && canSubmit) {
+      e.preventDefault();
+      onSubmitGuess();
+    }
+  }, [canSubmit, onSubmitGuess]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   return (
     <div className="game-screen">

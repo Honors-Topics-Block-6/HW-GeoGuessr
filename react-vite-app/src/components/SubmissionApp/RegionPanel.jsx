@@ -43,7 +43,7 @@ function RegionPanel({
   // Update edit state when selection changes
   useEffect(() => {
     if (selectedRegion) {
-      setEditName(selectedRegion.name || '')
+      setEditName(selectedRegion.name || '') // eslint-disable-line react-hooks/set-state-in-effect -- Intentional: syncing derived state from prop
       setEditFloors(selectedRegion.floors || [1])
       setEditColor(selectedRegion.color || '#4a90d9')
       setShowDeleteConfirm(false)

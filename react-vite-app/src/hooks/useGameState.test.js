@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useGameState } from './useGameState';
 
 // Mock the imageService
@@ -801,8 +801,10 @@ describe('useGameState', () => {
         result.current.submitGuess();
       });
 
-      // Expected: 5000 * e^(-0.05 * 10) = 5000 * e^(-0.5) ≈ 3033
-      expect(result.current.currentResult.locationScore).toBeCloseTo(3033, -2);
+      // GeoGuessr-style: distance=10, perfectRadius=5, effectiveDistance=5
+      // maxDistance = sqrt(100^2+100^2) - 5 ≈ 136.42
+      // ratio = 5/136.42 ≈ 0.0366, score = 5000 * e^(-10 * 0.0366^2) ≈ 4933
+      expect(result.current.currentResult.locationScore).toBeCloseTo(4933, -2);
     });
   });
 

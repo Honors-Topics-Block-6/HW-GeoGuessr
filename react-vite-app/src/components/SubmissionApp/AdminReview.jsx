@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { getAllImages, getAllSampleImages } from '../../services/imageService'
@@ -427,7 +428,7 @@ function AdminReview({ onBack }) {
         </div>
       )}
 
-      {selectedSubmission && (
+      {selectedSubmission && createPortal(
         <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={handleCloseModal}>
@@ -591,27 +592,105 @@ function AdminReview({ onBack }) {
                       </button>
                     )}
                   </div>
-                  <p><strong>Source:</strong> <span className={getSourceBadgeClass(selectedSubmission._source)}>{getSourceLabel(selectedSubmission._source)}</span></p>
-                  <p><strong>Status:</strong> <span className={getStatusBadgeClass(selectedSubmission.status)}>{selectedSubmission.status}</span></p>
-                  {selectedSubmission.description && (
-                    <p><strong>Description:</strong> {selectedSubmission.description}</p>
-                  )}
-                  <p><strong>Location:</strong> X: {selectedSubmission.location?.x}, Y: {selectedSubmission.location?.y}</p>
-                  <p><strong>Floor:</strong> {selectedSubmission.floor}</p>
-                  <p>
-                    <strong>Difficulty:</strong>{' '}
-                    <span className={`difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
-                      {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'Not set'}
+
+                  {/* Badges row */}
+                  <div className="detail-badges-row">
+                    <span className={`detail-badge ${getSourceBadgeClass(selectedSubmission._source)}`}>
+                      {getSourceLabel(selectedSubmission._source)}
                     </span>
-                  </p>
-                  <p><strong>File Name:</strong> {selectedSubmission.photoName}</p>
-                  {selectedSubmission.createdAt && (
-                    <p><strong>Submitted:</strong> {formatDate(selectedSubmission.createdAt)}</p>
-                  )}
-                  {selectedSubmission.reviewedAt && (
-                    <p><strong>Reviewed:</strong> {formatDate(selectedSubmission.reviewedAt)}</p>
+                    <span className={`detail-badge ${getStatusBadgeClass(selectedSubmission.status)}`}>
+                      {selectedSubmission.status}
+                    </span>
+                    <span className={`detail-badge difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
+                      {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'No difficulty'}
+                    </span>
+                  </div>
+
+                  {/* Description card */}
+                  {selectedSubmission.description && (
+                    <div className="detail-card">
+                      <div className="detail-card-label">Description</div>
+                      <div className="detail-card-value detail-description">{selectedSubmission.description}</div>
+                    </div>
                   )}
 
+                  {/* Info grid */}
+                  <div className="detail-info-grid">
+                    <div className="detail-info-item">
+                      <span className="detail-info-icon">📍</span>
+                      <div className="detail-info-content">
+                        <span className="detail-info-label">Coordinates</span>
+                        <span className="detail-info-value">
+                          X: {selectedSubmission.location?.x !== undefined ? Number(selectedSubmission.location.x).toFixed(1) : '—'},
+                          Y: {selectedSubmission.location?.y !== undefined ? Number(selectedSubmission.location.y).toFixed(1) : '—'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="detail-info-item">
+                      <span className="detail-info-icon">🏢</span>
+                      <div className="detail-info-content">
+                        <span className="detail-info-label">Floor</span>
+                        <span className="detail-info-value">
+                          {selectedSubmission.floor ? `Floor ${selectedSubmission.floor}` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                    {selectedSubmission.photoName && (
+                      <div className="detail-info-item">
+                        <span className="detail-info-icon">📄</span>
+                        <div className="detail-info-content">
+                          <span className="detail-info-label">File Name</span>
+                          <span className="detail-info-value">{selectedSubmission.photoName}</span>
+                        </div>
+                      </div>
+                    )}
+                    <div className="detail-info-item">
+                      <span className="detail-info-icon">🆔</span>
+                      <div className="detail-info-content">
+                        <span className="detail-info-label">ID</span>
+                        <span className="detail-info-value detail-id-value">{selectedSubmission.id}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Location map */}
+                  {selectedSubmission.location && (
+                    <div className="detail-card detail-map-card">
+                      <div className="detail-card-label">Location on Map</div>
+                      <div className="detail-map-wrapper">
+                        <MapPicker
+                          markerPosition={selectedSubmission.location}
+                          onMapClick={() => {}}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Timestamps */}
+                  {(selectedSubmission.createdAt || selectedSubmission.reviewedAt) && (
+                    <div className="detail-timestamps">
+                      {selectedSubmission.createdAt && (
+                        <div className="detail-timestamp-item">
+                          <span className="detail-timestamp-icon">📅</span>
+                          <div>
+                            <span className="detail-timestamp-label">Submitted</span>
+                            <span className="detail-timestamp-value">{formatDate(selectedSubmission.createdAt)}</span>
+                          </div>
+                        </div>
+                      )}
+                      {selectedSubmission.reviewedAt && (
+                        <div className="detail-timestamp-item">
+                          <span className="detail-timestamp-icon">✅</span>
+                          <div>
+                            <span className="detail-timestamp-label">Reviewed</span>
+                            <span className="detail-timestamp-value">{formatDate(selectedSubmission.reviewedAt)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
                   {selectedSubmission._source === 'submission' && selectedSubmission.status === 'pending' && (
                     <div className="modal-actions">
                       <button
@@ -652,7 +731,8 @@ function AdminReview({ onBack }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
