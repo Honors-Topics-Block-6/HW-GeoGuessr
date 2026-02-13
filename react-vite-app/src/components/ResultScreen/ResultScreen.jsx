@@ -47,7 +47,6 @@ function ResultScreen({
   const {
     scale,
     transformStyle,
-    handlers,
     zoomIn,
     zoomOut,
     resetZoom

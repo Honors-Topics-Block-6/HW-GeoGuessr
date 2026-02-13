@@ -9,7 +9,7 @@ function PhotoUpload({ onPhotoSelect, selectedPhoto }) {
   // Sync preview state when selectedPhoto is cleared by parent (e.g., after form submission)
   useEffect(() => {
     if (!selectedPhoto) {
-      setPreview(null)
+      setPreview(null) // eslint-disable-line react-hooks/set-state-in-effect -- Intentional: syncing derived state from prop
       if (inputRef.current) {
         inputRef.current.value = ''
       }

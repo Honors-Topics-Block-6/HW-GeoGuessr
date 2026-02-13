@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { collection, query, orderBy, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import PolygonDrawer from './PolygonDrawer'
 import RegionPanel from './RegionPanel'

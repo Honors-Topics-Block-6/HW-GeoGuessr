@@ -155,70 +155,72 @@
 /* ===== Badges ===== */
 .status-badge {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  padding: 5px 12px;
+  top: 10px;
+  right: 10px;
+  padding: 6px 14px;
   border-radius: 8px;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  backdrop-filter: blur(8px);
+  letter-spacing: 0.6px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .badge-pending {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.85);
+  color: #1a1500;
+  border: 1px solid rgba(251, 191, 36, 0.9);
 }
 
 .badge-approved {
-  background: rgba(52, 211, 153, 0.2);
-  color: #34d399;
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  background: rgba(16, 185, 129, 0.85);
+  color: #002e1a;
+  border: 1px solid rgba(16, 185, 129, 0.9);
 }
 
 .badge-denied {
-  background: rgba(248, 113, 113, 0.2);
-  color: #f87171;
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: rgba(239, 68, 68, 0.85);
+  color: #fff;
+  border: 1px solid rgba(239, 68, 68, 0.9);
 }
 
 .badge-testing {
-  background: rgba(167, 139, 250, 0.2);
-  color: #a78bfa;
-  border: 1px solid rgba(167, 139, 250, 0.3);
+  background: rgba(139, 92, 246, 0.85);
+  color: #fff;
+  border: 1px solid rgba(139, 92, 246, 0.9);
 }
 
 .source-badge {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  padding: 5px 10px;
+  top: 10px;
+  left: 10px;
+  padding: 6px 12px;
   border-radius: 8px;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  backdrop-filter: blur(8px);
+  letter-spacing: 0.6px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .source-submission {
-  background: rgba(96, 165, 250, 0.2);
-  color: #60a5fa;
-  border: 1px solid rgba(96, 165, 250, 0.3);
+  background: rgba(59, 130, 246, 0.85);
+  color: #fff;
+  border: 1px solid rgba(59, 130, 246, 0.9);
 }
 
 .source-image {
-  background: rgba(52, 211, 153, 0.2);
-  color: #34d399;
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  background: rgba(16, 185, 129, 0.85);
+  color: #002e1a;
+  border: 1px solid rgba(16, 185, 129, 0.9);
 }
 
 .source-testing {
-  background: rgba(167, 139, 250, 0.2);
-  color: #a78bfa;
-  border: 1px solid rgba(167, 139, 250, 0.3);
+  background: rgba(139, 92, 246, 0.85);
+  color: #fff;
+  border: 1px solid rgba(139, 92, 246, 0.9);
 }
 
 /* ===== Card Details ===== */
@@ -244,32 +246,36 @@
 
 /* ===== Difficulty Badges ===== */
 .difficulty-badge {
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: capitalize;
   letter-spacing: 0.3px;
 }
 
 .difficulty-badge-easy {
-  background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
 }
 
 .difficulty-badge-medium {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.2);
+  color: #f59e0b;
+  border: 1px solid rgba(251, 191, 36, 0.35);
 }
 
 .difficulty-badge-hard {
-  background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
 .difficulty-badge-none {
-  background: rgba(255, 255, 255, 0.06);
-  color: #6b7280;
+  background: rgba(255, 255, 255, 0.08);
+  color: #9ca3af;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 /* ===== Card Actions ===== */
@@ -718,9 +724,9 @@
 .detail-badge {
   display: inline-flex;
   align-items: center;
-  padding: 5px 14px;
+  padding: 6px 16px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;

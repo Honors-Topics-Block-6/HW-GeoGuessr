@@ -60,9 +60,6 @@ function AccountManagement() {
       )
       setEditingUser(null)
       setError(null)
-    } catch (err) {
-      // Re-throw so the modal can display the error
-      throw err
     } finally {
       setSavingEdit(false)
     }

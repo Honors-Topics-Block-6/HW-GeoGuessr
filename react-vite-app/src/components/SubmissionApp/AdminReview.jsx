@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { getAllImages, getAllSampleImages } from '../../services/imageService'
@@ -427,7 +428,7 @@ function AdminReview({ onBack }) {
         </div>
       )}
 
-      {selectedSubmission && (
+      {selectedSubmission && createPortal(
         <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={handleCloseModal}>
@@ -730,7 +731,8 @@ function AdminReview({ onBack }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

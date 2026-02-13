@@ -32,6 +32,7 @@ function App() {
     playingArea,
     timeRemaining,
     roundTimeSeconds,
+    // eslint-disable-next-line no-unused-vars
     difficulty,
     setScreen,
     startGame,
@@ -93,8 +94,7 @@ function App() {
   /**
    * Handle starting the game from difficulty select
    */
-  const handleStartFromDifficulty = (selectedDifficulty, mode) => {
-    // mode is 'singleplayer' (multiplayer is disabled)
+  const handleStartFromDifficulty = (selectedDifficulty, _mode) => {
     startGame(selectedDifficulty);
   };
 

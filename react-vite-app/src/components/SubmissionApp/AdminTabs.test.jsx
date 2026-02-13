@@ -12,6 +12,10 @@ vi.mock('./MapEditor', () => ({
   default: () => <div data-testid="map-editor">Map Editor Component</div>
 }));
 
+vi.mock('./AccountManagement', () => ({
+  default: () => <div data-testid="account-management">Account Management Component</div>
+}));
+
 describe('AdminTabs', () => {
   const mockOnTabChange = vi.fn();
   const mockOnBack = vi.fn();
@@ -163,7 +167,7 @@ describe('AdminTabs', () => {
         <AdminTabs activeTab="review" onTabChange={mockOnTabChange} onBack={mockOnBack} />
       );
       const tabs = document.querySelectorAll('.admin-tab');
-      expect(tabs.length).toBe(2);
+      expect(tabs.length).toBe(3);
     });
 
     it('should have back-button class', () => {

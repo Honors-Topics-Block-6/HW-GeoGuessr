@@ -27,7 +27,7 @@ vi.mock('firebase/firestore', () => ({
 
 // Mock child components
 vi.mock('./PolygonDrawer', () => ({
-  default: ({ regions, selectedRegionId, isDrawing, drawMode, playingArea, onRegionSelect, onPointAdd, onPolygonComplete, onPointMove }) => (
+  default: ({ regions, selectedRegionId, isDrawing, drawMode, onRegionSelect, onPointAdd, onPolygonComplete, onPointMove }) => (
     <div data-testid="polygon-drawer">
       <span data-testid="regions-count">{regions.length}</span>
       <span data-testid="selected-region">{selectedRegionId || 'none'}</span>
@@ -54,9 +54,6 @@ vi.mock('./RegionPanel', () => ({
     isDrawing,
     drawMode,
     newPolygonPoints,
-    playingArea,
-    onStartDrawingPlayingArea,
-    onDeletePlayingArea
   }) => (
     <div data-testid="region-panel">
       <span data-testid="panel-regions-count">{regions.length}</span>

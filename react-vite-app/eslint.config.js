@@ -23,7 +23,27 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_' }],
+    },
+  },
+  // Test files: add vitest/jest globals and relax react-refresh rules
+  {
+    files: ['**/*.test.{js,jsx}', '**/*.spec.{js,jsx}', 'src/test/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
+    },
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  // Config files: add Node.js globals
+  {
+    files: ['vite.config.{js,ts}', 'vitest.config.{js,ts}', 'eslint.config.{js,ts}'],
+    languageOptions: {
+      globals: globals.node,
     },
   },
 ])
