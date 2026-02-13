@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../firebase';
 import { createUserDoc, getUserDoc, updateUserDoc, isUsernameTaken, isHardcodedAdmin } from '../services/userService';
+import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
 
 const AuthContext = createContext(null);
 
@@ -144,8 +145,22 @@ export function AuthProvider({ children }) {
     setUserDoc(prev => ({ ...prev, username: newUsername }));
   }, [user]);
 
+  /**
+   * Re-fetch the user doc from Firestore (e.g. after XP is awarded)
+   */
+  const refreshUserDoc = useCallback(async () => {
+    if (!user) return;
+    const doc = await getUserDoc(user.uid);
+    if (doc) setUserDoc(doc);
+  }, [user]);
+
   // Determine admin status: check Firestore doc OR hardcoded admin UID
   const isAdmin = !!(userDoc?.isAdmin) || (user && isHardcodedAdmin(user.uid));
+
+  // Derive level info from the user's totalXp
+  const totalXp = userDoc?.totalXp ?? 0;
+  const levelInfo = getLevelInfo(totalXp);
+  const levelTitle = getLevelTitle(levelInfo.level);
 
   const value = {
     user,
@@ -153,12 +168,16 @@ export function AuthProvider({ children }) {
     loading,
     needsUsername,
     isAdmin,
+    totalXp,
+    levelInfo,
+    levelTitle,
     signup,
     login,
     loginWithGoogle,
     completeGoogleSignUp,
     logout,
-    updateUsername
+    updateUsername,
+    refreshUserDoc
   };
 
   return (

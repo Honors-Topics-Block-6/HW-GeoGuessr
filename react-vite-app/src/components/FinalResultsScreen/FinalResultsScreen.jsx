@@ -1,4 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { awardXp } from '../../services/xpService';
+import { calculateXpGain, getLevelTitle } from '../../utils/xpLevelling';
 import './FinalResultsScreen.css';
 
 /**
@@ -29,15 +32,44 @@ function generateConfettiData(count) {
 }
 
 function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
+  const { user, totalXp, refreshUserDoc } = useAuth();
   const [animationComplete, setAnimationComplete] = useState(false);
   const [displayedTotal, setDisplayedTotal] = useState(0);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const xpAwarded = useRef(false);
 
   const totalScore = rounds.reduce((sum, round) => sum + round.score, 0);
   const maxPossible = rounds.length * 5000;
   const performance = getPerformanceRating(totalScore, maxPossible);
 
+  // Snapshot the totalXp at mount so it doesn't shift after the Firestore refresh.
+  // useState initializer only runs once, so this captures the pre-award value.
+  const [snapshotXp] = useState(() => totalXp);
+
+  // Compute XP result from the snapshotted totalXp
+  const xpResult = useMemo(
+    () => calculateXpGain(snapshotXp, totalScore),
+    [snapshotXp, totalScore]
+  );
+
   // Generate confetti data once and memoize it
   const confettiPieces = useMemo(() => generateConfettiData(30), []);
+
+  // Award XP on mount (once per game completion)
+  useEffect(() => {
+    if (xpAwarded.current || !user) return;
+    xpAwarded.current = true;
+
+    // Persist to Firestore, then refresh local user doc
+    awardXp(user.uid, totalScore)
+      .then(() => refreshUserDoc())
+      .catch(err => console.error('Failed to award XP:', err));
+
+    // Show level-up animation after a delay
+    if (xpResult.levelsGained > 0) {
+      setTimeout(() => setShowLevelUp(true), 2000);
+    }
+  }, [user, totalScore, refreshUserDoc, xpResult]);
 
   // Spacebar to play again
   const handleKeyDown = useCallback((e) => {
@@ -95,6 +127,26 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
         </div>
       </div>
 
+      {/* Level-Up Overlay */}
+      {showLevelUp && xpResult && (
+        <div className="level-up-overlay" onClick={() => setShowLevelUp(false)}>
+          <div className="level-up-card">
+            <div className="level-up-glow"></div>
+            <span className="level-up-icon">⬆️</span>
+            <h2 className="level-up-title">Level Up!</h2>
+            <div className="level-up-levels">
+              <span className="level-up-old">Lvl {xpResult.previousLevel}</span>
+              <span className="level-up-arrow">→</span>
+              <span className="level-up-new">Lvl {xpResult.newLevel}</span>
+            </div>
+            <p className="level-up-rank">{getLevelTitle(xpResult.newLevel)}</p>
+            <button className="level-up-dismiss" onClick={() => setShowLevelUp(false)}>
+              Awesome!
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="final-results-content">
         {/* Header with performance */}
         <div className="results-hero">
@@ -113,6 +165,34 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
             <span className="total-max">/ {maxPossible.toLocaleString()} points</span>
           </div>
         </div>
+
+        {/* XP Gained Section */}
+        {xpResult && (
+          <div className="xp-gained-section">
+            <div className="xp-gained-box">
+              <div className="xp-gained-header">
+                <span className="xp-gained-icon">✨</span>
+                <span className="xp-gained-label">XP Earned</span>
+              </div>
+              <span className="xp-gained-value">+{totalScore.toLocaleString()} XP</span>
+              <div className="xp-level-info">
+                <span className="xp-level-badge">Lvl {xpResult.levelInfo.level}</span>
+                <span className="xp-level-title">{getLevelTitle(xpResult.levelInfo.level)}</span>
+              </div>
+              <div className="xp-progress-bar-container">
+                <div className="xp-progress-bar">
+                  <div
+                    className="xp-progress-fill"
+                    style={{ width: `${Math.round(xpResult.levelInfo.progress * 100)}%` }}
+                  />
+                </div>
+                <span className="xp-progress-text">
+                  {xpResult.levelInfo.xpIntoLevel.toLocaleString()} / {xpResult.levelInfo.currentLevelXp.toLocaleString()} XP
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Round by Round Breakdown */}
         <div className="rounds-breakdown">

@@ -3,6 +3,36 @@ import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FinalResultsScreen from './FinalResultsScreen';
 
+// Mock Firebase
+vi.mock('../../firebase', () => ({
+  db: {},
+  app: {},
+  auth: {}
+}));
+
+// Mock xpService
+vi.mock('../../services/xpService', () => ({
+  awardXp: vi.fn().mockResolvedValue(undefined)
+}));
+
+// Mock AuthContext to provide XP-related data
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { uid: 'test-uid', email: 'test@example.com' },
+    userDoc: { uid: 'test-uid', username: 'TestUser', email: 'test@example.com' },
+    totalXp: 0,
+    refreshUserDoc: vi.fn().mockResolvedValue(undefined),
+    levelInfo: {
+      level: 1,
+      currentLevelXp: 10000,
+      xpIntoLevel: 0,
+      xpToNextLevel: 10000,
+      progress: 0
+    },
+    levelTitle: 'Newcomer',
+  }),
+}));
+
 describe('FinalResultsScreen', () => {
   const createMockRound = (overrides = {}) => ({
     roundNumber: 1,

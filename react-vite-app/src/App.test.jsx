@@ -45,6 +45,16 @@ vi.mock('./contexts/AuthContext', () => ({
     needsUsername: false,
     logout: vi.fn(),
     updateUsername: vi.fn(),
+    totalXp: 0,
+    refreshUserDoc: vi.fn(),
+    levelInfo: {
+      level: 1,
+      currentLevelXp: 10000,
+      xpIntoLevel: 0,
+      xpToNextLevel: 10000,
+      progress: 0
+    },
+    levelTitle: 'Newcomer',
   }),
   AuthProvider: ({ children }) => children,
 }));

@@ -170,8 +170,43 @@
 .tagline {
   font-size: 1.4rem;
   color: var(--text-secondary);
-  margin-bottom: 2.5rem;
+  margin-bottom: 1rem;
   font-weight: 400;
+}
+
+/* Level badge next to username in top bar */
+.title-level-badge {
+  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* Level chip below tagline */
+.title-level-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  padding: 0.4rem 1rem;
+  background: rgba(108, 181, 45, 0.1);
+  border: 1px solid rgba(108, 181, 45, 0.25);
+  border-radius: 20px;
+}
+
+.title-level-chip-level {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-green);
+}
+
+.title-level-chip-title {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .start-button {

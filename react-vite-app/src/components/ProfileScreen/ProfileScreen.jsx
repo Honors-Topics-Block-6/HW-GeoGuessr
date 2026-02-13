@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import './ProfileScreen.css';
 
 function ProfileScreen({ onBack }) {
-  const { user, userDoc, updateUsername } = useAuth();
+  const { user, userDoc, updateUsername, totalXp, levelInfo, levelTitle } = useAuth();
 
   const [newUsername, setNewUsername] = useState(userDoc?.username || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -48,6 +48,9 @@ function ProfileScreen({ onBack }) {
     setError('');
   };
 
+  const progressPercent = Math.round(levelInfo.progress * 100);
+  const gamesPlayed = userDoc?.gamesPlayed ?? 0;
+
   return (
     <div className="profile-screen">
       <div className="profile-background">
@@ -66,6 +69,46 @@ function ProfileScreen({ onBack }) {
 
         {error && <div className="profile-error">{error}</div>}
         {success && <div className="profile-success">{success}</div>}
+
+        {/* ── Level & XP Section ── */}
+        <div className="profile-level-section">
+          <div className="profile-level-header">
+            <span className="profile-level-badge">Lvl {levelInfo.level}</span>
+            <span className="profile-level-title">{levelTitle}</span>
+          </div>
+
+          <div className="profile-xp-bar-container">
+            <div className="profile-xp-bar">
+              <div
+                className="profile-xp-bar-fill"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <div className="profile-xp-bar-labels">
+              <span className="profile-xp-current">
+                {levelInfo.xpIntoLevel.toLocaleString()} XP
+              </span>
+              <span className="profile-xp-needed">
+                {levelInfo.currentLevelXp.toLocaleString()} XP
+              </span>
+            </div>
+          </div>
+
+          <div className="profile-xp-stats">
+            <div className="profile-xp-stat">
+              <span className="profile-xp-stat-value">{totalXp.toLocaleString()}</span>
+              <span className="profile-xp-stat-label">Total XP</span>
+            </div>
+            <div className="profile-xp-stat">
+              <span className="profile-xp-stat-value">{gamesPlayed}</span>
+              <span className="profile-xp-stat-label">Games Played</span>
+            </div>
+            <div className="profile-xp-stat">
+              <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
+              <span className="profile-xp-stat-label">XP to Next Level</span>
+            </div>
+          </div>
+        </div>
 
         <div className="profile-fields">
           <div className="profile-field">
@@ -111,11 +154,6 @@ function ProfileScreen({ onBack }) {
           <div className="profile-field">
             <span className="profile-label">Email</span>
             <span className="profile-value">{user?.email}</span>
-          </div>
-
-          <div className="profile-field">
-            <span className="profile-label">User ID</span>
-            <span className="profile-value profile-uid">{user?.uid}</span>
           </div>
 
           <div className="profile-field">
