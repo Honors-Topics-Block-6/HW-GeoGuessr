@@ -32,6 +32,60 @@ vi.mock('../../services/imageService', () => ({
   getAllSampleImages: (...args) => mockGetAllSampleImages(...args)
 }));
 
+// Mock MapPicker
+vi.mock('../MapPicker/MapPicker', () => ({
+  default: ({ markerPosition, onMapClick }) => (
+    <div data-testid="map-picker">
+      <button onClick={() => onMapClick({ x: 60, y: 70 })} data-testid="click-map">
+        Click Map
+      </button>
+      {markerPosition && (
+        <span data-testid="marker-position">
+          {markerPosition.x}, {markerPosition.y}
+        </span>
+      )}
+    </div>
+  )
+}));
+
+// Mock FloorSelector
+vi.mock('../FloorSelector/FloorSelector', () => ({
+  default: ({ selectedFloor, onFloorSelect }) => (
+    <div data-testid="floor-selector">
+      {[1, 2, 3].map((floor) => (
+        <button
+          key={floor}
+          data-testid={`floor-${floor}`}
+          onClick={() => onFloorSelect(floor)}
+          className={selectedFloor === floor ? 'selected' : ''}
+        >
+          Floor {floor}
+        </button>
+      ))}
+    </div>
+  )
+}));
+
+// Mock PhotoUpload
+vi.mock('./PhotoUpload', () => ({
+  default: ({ onPhotoSelect }) => (
+    <div data-testid="photo-upload">
+      <button
+        data-testid="upload-new-photo"
+        onClick={() => onPhotoSelect(new File(['test'], 'new-photo.jpg', { type: 'image/jpeg' }))}
+      >
+        Upload New Photo
+      </button>
+    </div>
+  )
+}));
+
+// Mock compressImage
+const mockCompressImage = vi.fn();
+vi.mock('../../utils/compressImage', () => ({
+  compressImage: (...args) => mockCompressImage(...args)
+}));
+
 describe('AdminReview', () => {
   const mockOnBack = vi.fn();
   const mockUnsubscribe = vi.fn();
@@ -93,6 +147,7 @@ describe('AdminReview', () => {
     });
 
     mockUpdateDoc.mockResolvedValue();
+    mockCompressImage.mockResolvedValue('data:image/jpeg;base64,compressed');
 
     // Mock imageService - return empty by default to keep tests focused
     mockGetAllImages.mockResolvedValue([]);
@@ -811,6 +866,602 @@ describe('AdminReview', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Game Images/)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('edit mode', () => {
+    // Helper to open modal for the first pending submission
+    const openModalForPendingSubmission = async (user) => {
+      // Filter to submissions source
+      await user.click(screen.getByText(/^Submissions/));
+      // Filter to pending
+      await user.click(screen.getByText('Pending (1)'));
+      // Open modal
+      await user.click(screen.getByText('View Full Details'));
+    };
+
+    describe('edit button visibility', () => {
+      it('should show Edit button in modal for submission items', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+
+        expect(screen.getByText('Edit')).toBeInTheDocument();
+      });
+
+      it('should show Edit button in modal for game image items', async () => {
+        const user = userEvent.setup();
+        const firestoreImages = [
+          {
+            id: 'img-1',
+            url: 'https://example.com/game-image.jpg',
+            correctLocation: { x: 50, y: 50 },
+            correctFloor: 1,
+            description: 'Game hallway image'
+          }
+        ];
+        mockGetAllImages.mockResolvedValue(firestoreImages);
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        // Wait for images to load, filter to game images, open modal
+        await waitFor(() => {
+          expect(screen.getByText(/Game Images \(1\)/)).toBeInTheDocument();
+        });
+        await user.click(screen.getByText(/^Game Images/));
+        await user.click(screen.getByText('View Full Details'));
+
+        expect(screen.getByText('Edit')).toBeInTheDocument();
+      });
+
+      it('should NOT show Edit button in modal for testing items', async () => {
+        const user = userEvent.setup();
+        // Only load testing items
+        mockOnSnapshot.mockImplementation((query, callback) => {
+          callback({ docs: [] });
+          return vi.fn();
+        });
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        // Wait for testing data to load
+        await waitFor(() => {
+          expect(screen.getByText(/Testing Data \(1\)/)).toBeInTheDocument();
+        });
+        // Click the source filter tab for Testing Data
+        await user.click(screen.getByText(/^Testing Data \(/));
+        await user.click(screen.getByText('View Full Details'));
+
+        expect(screen.queryByText('Edit')).not.toBeInTheDocument();
+      });
+    });
+
+    describe('entering and exiting edit mode', () => {
+      it('should switch to edit mode when Edit button is clicked', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        // Should show edit form elements
+        expect(screen.getByText('Edit Image')).toBeInTheDocument();
+        expect(screen.getByText('Save Changes')).toBeInTheDocument();
+        expect(screen.getByText('Cancel')).toBeInTheDocument();
+      });
+
+      it('should show Cancel and Save buttons in edit mode', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        expect(screen.getByText('Save Changes')).toBeInTheDocument();
+        expect(screen.getByText('Cancel')).toBeInTheDocument();
+      });
+
+      it('should revert to view mode when Cancel is clicked', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        // Verify in edit mode
+        expect(screen.getByText('Edit Image')).toBeInTheDocument();
+
+        // Click cancel
+        await user.click(screen.getByText('Cancel'));
+
+        // Should be back in view mode
+        expect(screen.getByText('Image Details')).toBeInTheDocument();
+        expect(screen.queryByText('Edit Image')).not.toBeInTheDocument();
+      });
+
+      it('should not save changes when Cancel is clicked', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        // Modify description
+        const descInput = screen.getByLabelText('Description');
+        await user.clear(descInput);
+        await user.type(descInput, 'Modified description');
+
+        // Cancel
+        await user.click(screen.getByText('Cancel'));
+
+        // updateDoc should NOT have been called for edit save
+        expect(mockUpdateDoc).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('form fields', () => {
+      it('should populate edit form with current values', async () => {
+        const user = userEvent.setup();
+
+        // Mock with a submission that has a description
+        const subWithDesc = [{
+          id: '1',
+          photoURL: 'https://example.com/photo1.jpg',
+          photoName: 'photo1.jpg',
+          description: 'Test description',
+          location: { x: 100, y: 200 },
+          floor: 2,
+          status: 'pending',
+          createdAt: { toDate: () => new Date('2024-01-01') }
+        }];
+
+        mockOnSnapshot.mockImplementation((query, callback) => {
+          callback({
+            docs: subWithDesc.map(sub => ({
+              id: sub.id,
+              data: () => sub
+            }))
+          });
+          return vi.fn();
+        });
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText('View Full Details'));
+        await user.click(screen.getByText('Edit'));
+
+        expect(screen.getByLabelText('Description')).toHaveValue('Test description');
+        expect(screen.getByLabelText('File Name')).toHaveValue('photo1.jpg');
+      });
+
+      it('should show description input in edit mode', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        expect(screen.getByLabelText('Description')).toBeInTheDocument();
+      });
+
+      it('should show photoName input for submissions', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        expect(screen.getByLabelText('File Name')).toBeInTheDocument();
+      });
+
+      it('should NOT show photoName input for game images', async () => {
+        const user = userEvent.setup();
+        const firestoreImages = [{
+          id: 'img-1',
+          url: 'https://example.com/game-image.jpg',
+          correctLocation: { x: 50, y: 50 },
+          correctFloor: 1,
+          description: 'Game hallway image'
+        }];
+        mockGetAllImages.mockResolvedValue(firestoreImages);
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Game Images \(1\)/)).toBeInTheDocument();
+        });
+        await user.click(screen.getByText(/^Game Images/));
+        await user.click(screen.getByText('View Full Details'));
+        await user.click(screen.getByText('Edit'));
+
+        expect(screen.queryByLabelText('File Name')).not.toBeInTheDocument();
+      });
+
+      it('should show status select for submissions', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        expect(screen.getByLabelText('Status')).toBeInTheDocument();
+      });
+
+      it('should NOT show status select for game images', async () => {
+        const user = userEvent.setup();
+        const firestoreImages = [{
+          id: 'img-1',
+          url: 'https://example.com/game-image.jpg',
+          correctLocation: { x: 50, y: 50 },
+          correctFloor: 1,
+          description: 'Game hallway image'
+        }];
+        mockGetAllImages.mockResolvedValue(firestoreImages);
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Game Images \(1\)/)).toBeInTheDocument();
+        });
+        await user.click(screen.getByText(/^Game Images/));
+        await user.click(screen.getByText('View Full Details'));
+        await user.click(screen.getByText('Edit'));
+
+        expect(screen.queryByLabelText('Status')).not.toBeInTheDocument();
+      });
+
+      it('should show MapPicker in edit mode', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        expect(screen.getByTestId('map-picker')).toBeInTheDocument();
+      });
+
+      it('should show FloorSelector in edit mode', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        expect(screen.getByTestId('floor-selector')).toBeInTheDocument();
+      });
+
+      it('should show PhotoUpload in edit mode', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        expect(screen.getByTestId('photo-upload')).toBeInTheDocument();
+      });
+    });
+
+    describe('editing values', () => {
+      it('should update description when typed', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        const descInput = screen.getByLabelText('Description');
+        await user.clear(descInput);
+        await user.type(descInput, 'New description');
+
+        expect(descInput).toHaveValue('New description');
+      });
+
+      it('should update location when map is clicked', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        // Click mock map (sends {x: 60, y: 70})
+        await user.click(screen.getByTestId('click-map'));
+
+        // Marker position should update
+        expect(screen.getByTestId('marker-position')).toHaveTextContent('60, 70');
+      });
+
+      it('should update floor when FloorSelector is used', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        // Click floor 3
+        await user.click(screen.getByTestId('floor-3'));
+
+        // Floor 3 button should now be selected
+        expect(screen.getByTestId('floor-3')).toHaveClass('selected');
+      });
+
+      it('should update status when select changes', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        const statusSelect = screen.getByLabelText('Status');
+        await user.selectOptions(statusSelect, 'approved');
+
+        expect(statusSelect).toHaveValue('approved');
+      });
+    });
+
+    describe('saving submissions', () => {
+      it('should call updateDoc with correct fields for submission save', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        // Modify description
+        const descInput = screen.getByLabelText('Description');
+        await user.clear(descInput);
+        await user.type(descInput, 'Updated desc');
+
+        // Save
+        await user.click(screen.getByText('Save Changes'));
+
+        await waitFor(() => {
+          expect(mockUpdateDoc).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+              description: 'Updated desc',
+              photoName: 'photo1.jpg',
+              location: { x: 100, y: 200 },
+              floor: 2,
+              status: 'pending',
+              photoURL: 'https://example.com/photo1.jpg',
+            })
+          );
+        });
+      });
+
+      it('should close modal after successful save', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+        await user.click(screen.getByText('Save Changes'));
+
+        await waitFor(() => {
+          expect(document.querySelector('.modal-overlay')).not.toBeInTheDocument();
+        });
+      });
+
+      it('should show saving state during save', async () => {
+        // Make updateDoc hang to see the saving state
+        let resolveUpdate;
+        mockUpdateDoc.mockImplementation(() => new Promise(resolve => { resolveUpdate = resolve; }));
+
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+        await user.click(screen.getByText('Save Changes'));
+
+        // Should show saving text
+        expect(screen.getByText('Saving...')).toBeInTheDocument();
+
+        // Resolve the update
+        resolveUpdate();
+      });
+
+      it('should show error message on save failure', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        mockUpdateDoc.mockRejectedValueOnce(new Error('Save failed'));
+
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+        await user.click(screen.getByText('Save Changes'));
+
+        await waitFor(() => {
+          expect(screen.getByText('Failed to save changes. Please try again.')).toBeInTheDocument();
+        });
+
+        consoleSpy.mockRestore();
+      });
+
+      it('should re-enable Save button after error', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        mockUpdateDoc.mockRejectedValueOnce(new Error('Save failed'));
+
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+        await user.click(screen.getByText('Save Changes'));
+
+        await waitFor(() => {
+          expect(screen.getByText('Save Changes')).not.toBeDisabled();
+        });
+
+        consoleSpy.mockRestore();
+      });
+    });
+
+    describe('saving game images', () => {
+      it('should call updateDoc with mapped field names for game image save', async () => {
+        const user = userEvent.setup();
+        const firestoreImages = [{
+          id: 'img-1',
+          url: 'https://example.com/game-image.jpg',
+          correctLocation: { x: 50, y: 50 },
+          correctFloor: 1,
+          description: 'Game hallway image'
+        }];
+        mockGetAllImages.mockResolvedValue(firestoreImages);
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Game Images \(1\)/)).toBeInTheDocument();
+        });
+        await user.click(screen.getByText(/^Game Images/));
+        await user.click(screen.getByText('View Full Details'));
+        await user.click(screen.getByText('Edit'));
+
+        // Modify description
+        const descInput = screen.getByLabelText('Description');
+        await user.clear(descInput);
+        await user.type(descInput, 'Updated game image');
+
+        await user.click(screen.getByText('Save Changes'));
+
+        await waitFor(() => {
+          expect(mockUpdateDoc).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+              description: 'Updated game image',
+              correctLocation: { x: 50, y: 50 },
+              correctFloor: 1,
+              url: 'https://example.com/game-image.jpg',
+            })
+          );
+        });
+      });
+
+      it('should update firestoreImages state after successful game image save', async () => {
+        const user = userEvent.setup();
+        const firestoreImages = [{
+          id: 'img-1',
+          url: 'https://example.com/game-image.jpg',
+          correctLocation: { x: 50, y: 50 },
+          correctFloor: 1,
+          description: 'Game hallway image'
+        }];
+        mockGetAllImages.mockResolvedValue(firestoreImages);
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Game Images \(1\)/)).toBeInTheDocument();
+        });
+        await user.click(screen.getByText(/^Game Images/));
+        await user.click(screen.getByText('View Full Details'));
+        await user.click(screen.getByText('Edit'));
+
+        const descInput = screen.getByLabelText('Description');
+        await user.clear(descInput);
+        await user.type(descInput, 'Updated game image');
+
+        await user.click(screen.getByText('Save Changes'));
+
+        // Modal should close, and the card should now show updated description
+        await waitFor(() => {
+          expect(document.querySelector('.modal-overlay')).not.toBeInTheDocument();
+        });
+
+        // The updated description should appear in the card
+        expect(screen.getByText('Updated game image')).toBeInTheDocument();
+      });
+    });
+
+    describe('photo replacement', () => {
+      it('should compress and save new photo when photo is replaced', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        // Upload a new photo
+        await user.click(screen.getByTestId('upload-new-photo'));
+
+        // Save
+        await user.click(screen.getByText('Save Changes'));
+
+        await waitFor(() => {
+          // compressImage should have been called
+          expect(mockCompressImage).toHaveBeenCalled();
+          // updateDoc should have been called with compressed URL
+          expect(mockUpdateDoc).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+              photoURL: 'data:image/jpeg;base64,compressed',
+            })
+          );
+        });
+      });
+
+      it('should keep original photo if no new photo selected', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await openModalForPendingSubmission(user);
+        await user.click(screen.getByText('Edit'));
+
+        // Save without uploading a new photo
+        await user.click(screen.getByText('Save Changes'));
+
+        await waitFor(() => {
+          // compressImage should NOT have been called
+          expect(mockCompressImage).not.toHaveBeenCalled();
+          // updateDoc should use original photoURL
+          expect(mockUpdateDoc).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+              photoURL: 'https://example.com/photo1.jpg',
+            })
+          );
+        });
+      });
+    });
+
+    describe('validation', () => {
+      it('should show error when floor is missing', async () => {
+        const user = userEvent.setup();
+
+        // Mock with a submission that has null floor
+        const subNoFloor = [{
+          id: '1',
+          photoURL: 'https://example.com/photo1.jpg',
+          photoName: 'photo1.jpg',
+          location: { x: 100, y: 200 },
+          floor: null,
+          status: 'pending',
+          createdAt: { toDate: () => new Date('2024-01-01') }
+        }];
+
+        mockOnSnapshot.mockImplementation((query, callback) => {
+          callback({
+            docs: subNoFloor.map(sub => ({
+              id: sub.id,
+              data: () => sub
+            }))
+          });
+          return vi.fn();
+        });
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText('View Full Details'));
+        await user.click(screen.getByText('Edit'));
+        await user.click(screen.getByText('Save Changes'));
+
+        expect(screen.getByText('Floor is required')).toBeInTheDocument();
+        // updateDoc should NOT have been called
+        expect(mockUpdateDoc).not.toHaveBeenCalled();
       });
     });
   });
