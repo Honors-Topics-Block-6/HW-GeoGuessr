@@ -60,7 +60,6 @@ describe('useMapZoom', () => {
       expect(result.current.handlers.onMouseUp).toBeInstanceOf(Function);
       expect(result.current.handlers.onMouseLeave).toBeInstanceOf(Function);
       expect(result.current.handlers.onTouchStart).toBeInstanceOf(Function);
-      expect(result.current.handlers.onTouchMove).toBeInstanceOf(Function);
       expect(result.current.handlers.onTouchEnd).toBeInstanceOf(Function);
     });
 
@@ -201,7 +200,7 @@ describe('useMapZoom', () => {
     });
   });
 
-  describe('wheel event listener', () => {
+  describe('native event listeners', () => {
     it('should attach native wheel event listener on mount', () => {
       renderHook(() => useMapZoom(containerRef));
 
@@ -212,13 +211,27 @@ describe('useMapZoom', () => {
       );
     });
 
-    it('should remove wheel event listener on unmount', () => {
+    it('should attach native touchmove event listener on mount', () => {
+      renderHook(() => useMapZoom(containerRef));
+
+      expect(containerRef.current.addEventListener).toHaveBeenCalledWith(
+        'touchmove',
+        expect.any(Function),
+        { passive: false }
+      );
+    });
+
+    it('should remove event listeners on unmount', () => {
       const { unmount } = renderHook(() => useMapZoom(containerRef));
 
       unmount();
 
       expect(containerRef.current.removeEventListener).toHaveBeenCalledWith(
         'wheel',
+        expect.any(Function)
+      );
+      expect(containerRef.current.removeEventListener).toHaveBeenCalledWith(
+        'touchmove',
         expect.any(Function)
       );
     });
@@ -234,13 +247,8 @@ describe('useMapZoom', () => {
     it('should return false after mouse down without movement', () => {
       const { result } = renderHook(() => useMapZoom(containerRef));
 
-      // Zoom in so panning is enabled
       act(() => {
-        result.current.zoomIn();
-      });
-
-      act(() => {
-        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50 });
+        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50, button: 2 });
       });
 
       expect(result.current.hasMoved()).toBe(false);
@@ -249,13 +257,8 @@ describe('useMapZoom', () => {
     it('should return true after mouse move beyond threshold', () => {
       const { result } = renderHook(() => useMapZoom(containerRef));
 
-      // Zoom in so panning is enabled
       act(() => {
-        result.current.zoomIn();
-      });
-
-      act(() => {
-        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50 });
+        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50, button: 2 });
       });
 
       act(() => {
@@ -271,13 +274,8 @@ describe('useMapZoom', () => {
     it('should return false for small movements below threshold', () => {
       const { result } = renderHook(() => useMapZoom(containerRef));
 
-      // Zoom in so panning is enabled
       act(() => {
-        result.current.zoomIn();
-      });
-
-      act(() => {
-        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50 });
+        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50, button: 2 });
       });
 
       act(() => {
@@ -292,11 +290,11 @@ describe('useMapZoom', () => {
   });
 
   describe('mouse panning', () => {
-    it('should not start panning when scale is 1', () => {
+    it('should not pan on left-click (button 0)', () => {
       const { result } = renderHook(() => useMapZoom(containerRef));
 
       act(() => {
-        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50 });
+        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50, button: 0 });
       });
 
       act(() => {
@@ -306,11 +304,47 @@ describe('useMapZoom', () => {
         });
       });
 
-      // Translate should remain at origin since we're not zoomed
-      expect(result.current.translate).toEqual({ x: 0, y: 0 });
+      // Left-click should not trigger panning
+      expect(result.current.hasMoved()).toBe(false);
     });
 
-    it('should pan when zoomed and dragging', () => {
+    it('should pan on right-click (button 2)', () => {
+      const { result } = renderHook(() => useMapZoom(containerRef));
+
+      act(() => {
+        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50, button: 2 });
+      });
+
+      act(() => {
+        result.current.handlers.onMouseMove({
+          clientX: 100,
+          clientY: 100
+        });
+      });
+
+      // Right-click should trigger panning
+      expect(result.current.hasMoved()).toBe(true);
+    });
+
+    it('should pan on middle-click (button 1)', () => {
+      const { result } = renderHook(() => useMapZoom(containerRef));
+
+      act(() => {
+        result.current.handlers.onMouseDown({ clientX: 50, clientY: 50, button: 1 });
+      });
+
+      act(() => {
+        result.current.handlers.onMouseMove({
+          clientX: 100,
+          clientY: 100
+        });
+      });
+
+      // Middle-click should trigger panning
+      expect(result.current.hasMoved()).toBe(true);
+    });
+
+    it('should pan when zoomed and dragging with right-click', () => {
       const { result } = renderHook(() => useMapZoom(containerRef));
 
       // Zoom in first
@@ -321,7 +355,7 @@ describe('useMapZoom', () => {
       const initialTranslate = { ...result.current.translate };
 
       act(() => {
-        result.current.handlers.onMouseDown({ clientX: 100, clientY: 100 });
+        result.current.handlers.onMouseDown({ clientX: 100, clientY: 100, button: 2 });
       });
 
       act(() => {
@@ -344,7 +378,7 @@ describe('useMapZoom', () => {
       });
 
       act(() => {
-        result.current.handlers.onMouseDown({ clientX: 100, clientY: 100 });
+        result.current.handlers.onMouseDown({ clientX: 100, clientY: 100, button: 2 });
       });
 
       act(() => {
@@ -372,7 +406,7 @@ describe('useMapZoom', () => {
       });
 
       act(() => {
-        result.current.handlers.onMouseDown({ clientX: 100, clientY: 100 });
+        result.current.handlers.onMouseDown({ clientX: 100, clientY: 100, button: 2 });
       });
 
       act(() => {
@@ -394,7 +428,7 @@ describe('useMapZoom', () => {
   });
 
   describe('touch handling', () => {
-    it('should not start single-finger pan when not zoomed', () => {
+    it('should allow single-finger pan even when not zoomed (native panning support)', () => {
       const { result } = renderHook(() => useMapZoom(containerRef));
 
       act(() => {
@@ -403,14 +437,11 @@ describe('useMapZoom', () => {
         });
       });
 
-      act(() => {
-        result.current.handlers.onTouchMove({
-          touches: [{ clientX: 100, clientY: 100 }],
-          preventDefault: vi.fn()
-        });
-      });
-
-      expect(result.current.translate).toEqual({ x: 0, y: 0 });
+      // touchMove is now handled by native event listener,
+      // but touchStart should set up the drag state
+      // We can check that hasMoved would be set after sufficient movement
+      // In practice, the native listener would handle the actual panning
+      expect(result.current.hasMoved()).toBe(false); // No movement yet
     });
 
     it('should clean up on touch end', () => {

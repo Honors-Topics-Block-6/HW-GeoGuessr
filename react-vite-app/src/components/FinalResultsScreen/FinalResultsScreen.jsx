@@ -113,17 +113,26 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
                     <img src={round.imageUrl} alt={`Round ${index + 1}`} />
                   </div>
                   <div className="round-stats">
-                    <div className="round-stat">
-                      <span className="round-stat-label">Location</span>
-                      <span className="round-stat-value">{round.locationScore.toLocaleString()}</span>
-                    </div>
-                    {round.floorCorrect !== null && (
+                    {round.noGuess ? (
                       <div className="round-stat">
-                        <span className="round-stat-label">Floor</span>
-                        <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
-                          {round.floorCorrect ? '✓' : '-20%'}
-                        </span>
+                        <span className="round-stat-label">No guess</span>
+                        <span className="round-stat-value">0</span>
                       </div>
+                    ) : (
+                      <>
+                        <div className="round-stat">
+                          <span className="round-stat-label">Location</span>
+                          <span className="round-stat-value">{round.locationScore.toLocaleString()}</span>
+                        </div>
+                        {round.floorCorrect !== null && (
+                          <div className="round-stat">
+                            <span className="round-stat-label">Floor</span>
+                            <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
+                              {round.floorCorrect ? '✓' : '-20%'}
+                            </span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

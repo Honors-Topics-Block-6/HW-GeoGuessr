@@ -339,3 +339,197 @@
 .modal-actions .reset-button {
   padding: 12px 30px;
 }
+
+/* Modal Details Header with Edit button */
+.modal-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.modal-details-header h3 {
+  margin-bottom: 0;
+}
+
+.edit-button {
+  padding: 8px 20px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.edit-button:hover {
+  background-color: #2980b9;
+}
+
+/* Edit Form Styles */
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-field > label {
+  font-weight: bold;
+  font-size: 14px;
+  color: #333;
+}
+
+.edit-field input[type="text"],
+.edit-field select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.edit-field input[type="text"]:focus,
+.edit-field select:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Coordinate inputs inline */
+.coordinate-inputs {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.coordinate-inputs label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+  font-size: 14px;
+  color: #333;
+}
+
+.coordinate-inputs input[type="number"] {
+  width: 80px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.coordinate-inputs input[type="number"]:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Photo replacement section */
+.edit-photo-section {
+  position: relative;
+}
+
+.replace-photo-controls {
+  padding: 10px 20px;
+  background-color: #f8f9fa;
+  border-top: 1px solid #eee;
+}
+
+/* Edit error message */
+.edit-error {
+  background-color: #fde8e8;
+  color: #e74c3c;
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 14px;
+  border: 1px solid #f5c6cb;
+}
+
+/* Save / Cancel buttons */
+.edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.save-button {
+  flex: 1;
+  padding: 12px;
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.save-button:hover:not(:disabled) {
+  background-color: #219a52;
+}
+
+.save-button:disabled {
+  background-color: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.cancel-edit-button {
+  flex: 1;
+  padding: 12px;
+  background-color: #95a5a6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.cancel-edit-button:hover:not(:disabled) {
+  background-color: #7f8c8d;
+}
+
+.cancel-edit-button:disabled {
+  cursor: not-allowed;
+}
+
+/* Difficulty badges */
+.difficulty-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: capitalize;
+}
+
+.difficulty-badge-easy {
+  background-color: rgba(39, 174, 96, 0.15);
+  color: #27ae60;
+}
+
+.difficulty-badge-medium {
+  background-color: rgba(243, 156, 18, 0.15);
+  color: #f39c12;
+}
+
+.difficulty-badge-hard {
+  background-color: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+}
+
+.difficulty-badge-none {
+  background-color: rgba(149, 165, 166, 0.15);
+  color: #95a5a6;
+}

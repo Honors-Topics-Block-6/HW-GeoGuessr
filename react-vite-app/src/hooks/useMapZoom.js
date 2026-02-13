@@ -62,12 +62,14 @@ function getTouchMidpoint(touches) {
 function useMapZoom(containerRef) {
   const [scale, setScale] = useState(MIN_SCALE);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
 
   // Refs for gesture tracking (don't trigger re-renders)
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const translateStart = useRef({ x: 0, y: 0 });
   const dragMoved = useRef(false);
+  const wasPanning = useRef(false); // Track if we were actually panning (left-click drag)
   const lastTouchDistance = useRef(null);
   const scaleRef = useRef(scale);
   const translateRef = useRef(translate);
@@ -141,15 +143,21 @@ function useMapZoom(containerRef) {
 
   /**
    * Mouse down - start potential drag/pan.
+   * Left-click (button 0) or middle-click (button 1) trigger panning.
+   * A left-click that doesn't drag will still place a marker (handled via hasMoved).
    */
   const handleMouseDown = useCallback((e) => {
-    // Only pan when zoomed in
-    if (scaleRef.current <= MIN_SCALE) return;
+    // Only allow panning on left-click or middle-click
+    const isLeftClick = e.button === 0;
+    const isMiddleClick = e.button === 1;
+    if (!isLeftClick && !isMiddleClick) return;
 
     isDragging.current = true;
     dragMoved.current = false;
+    wasPanning.current = true; // Mark that we're panning
     dragStart.current = { x: e.clientX, y: e.clientY };
     translateStart.current = { ...translateRef.current };
+    setIsPanning(true);
   }, []);
 
   /**
@@ -180,6 +188,8 @@ function useMapZoom(containerRef) {
    */
   const handleMouseUp = useCallback(() => {
     isDragging.current = false;
+    wasPanning.current = false;
+    setIsPanning(false);
   }, []);
 
   /**
@@ -187,6 +197,8 @@ function useMapZoom(containerRef) {
    */
   const handleMouseLeave = useCallback(() => {
     isDragging.current = false;
+    wasPanning.current = false;
+    setIsPanning(false);
   }, []);
 
   /**
@@ -197,8 +209,8 @@ function useMapZoom(containerRef) {
       // Pinch start
       lastTouchDistance.current = getTouchDistance(e.touches);
       isDragging.current = false; // Cancel any single-finger drag
-    } else if (e.touches.length === 1 && scaleRef.current > MIN_SCALE) {
-      // Single-finger pan (only when zoomed)
+    } else if (e.touches.length === 1) {
+      // Single-finger pan (allow at any zoom level for native panning support)
       isDragging.current = true;
       dragMoved.current = false;
       dragStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -244,6 +256,8 @@ function useMapZoom(containerRef) {
 
       if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
         dragMoved.current = true;
+        // Prevent page scroll when panning the map
+        e.preventDefault();
       }
 
       const container = containerRef.current;
@@ -268,6 +282,14 @@ function useMapZoom(containerRef) {
     isDragging.current = false;
     lastTouchDistance.current = null;
   }, []);
+
+  // Attach native touchmove listener with { passive: false } for preventDefault support
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => el.removeEventListener('touchmove', handleTouchMove);
+  }, [containerRef, handleTouchMove]);
 
   /**
    * Zoom in by ZOOM_STEP, centered on container.
@@ -328,8 +350,8 @@ function useMapZoom(containerRef) {
   }, []);
 
   /**
-   * Check if the current/last gesture moved beyond the drag threshold.
-   * Used by click handlers to distinguish click from drag.
+   * Check if we were panning (left-click dragging).
+   * Used by click handlers to prevent pin placement during pan.
    */
   const hasMoved = useCallback(() => dragMoved.current, []);
 
@@ -342,7 +364,6 @@ function useMapZoom(containerRef) {
     onMouseUp: handleMouseUp,
     onMouseLeave: handleMouseLeave,
     onTouchStart: handleTouchStart,
-    onTouchMove: handleTouchMove,
     onTouchEnd: handleTouchEnd
   };
 
@@ -354,7 +375,8 @@ function useMapZoom(containerRef) {
     zoomIn,
     zoomOut,
     resetZoom,
-    hasMoved
+    hasMoved,
+    isPanning
   };
 }
 

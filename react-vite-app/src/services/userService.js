@@ -101,3 +101,41 @@ export async function setUserAdmin(uid, isAdmin) {
   const userRef = doc(db, 'users', uid);
   await updateDoc(userRef, { isAdmin });
 }
+
+/**
+ * Update a user's profile fields (admin operation)
+ * Validates username uniqueness, protects hardcoded admin status,
+ * and prevents modification of system fields (uid, createdAt).
+ */
+export async function updateUserProfile(uid, updates) {
+  // Prevent changing system-managed fields
+  const forbidden = ['uid', 'createdAt'];
+  for (const key of forbidden) {
+    if (key in updates) {
+      throw new Error(`Cannot modify the "${key}" field.`);
+    }
+  }
+
+  // Protect hardcoded admin's isAdmin status
+  if (uid === HARDCODED_ADMIN_UID && 'isAdmin' in updates && !updates.isAdmin) {
+    throw new Error('Cannot remove admin status from this user.');
+  }
+
+  // Validate username if being changed
+  if ('username' in updates) {
+    const trimmed = updates.username.trim();
+    if (!trimmed) {
+      throw new Error('Username cannot be empty.');
+    }
+    if (trimmed.length < 3) {
+      throw new Error('Username must be at least 3 characters.');
+    }
+    const taken = await isUsernameTaken(trimmed, uid);
+    if (taken) {
+      throw new Error('Username is already taken. Please choose another.');
+    }
+    updates.username = trimmed;
+  }
+
+  await updateUserDoc(uid, updates);
+}

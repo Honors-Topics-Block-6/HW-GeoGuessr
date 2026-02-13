@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { getAllUsers, setUserAdmin, isHardcodedAdmin } from '../../services/userService'
+import { getAllUsers, setUserAdmin, isHardcodedAdmin, updateUserProfile } from '../../services/userService'
+import UserEditModal from './UserEditModal'
 import './AccountManagement.css'
 
 function AccountManagement() {
@@ -7,6 +8,8 @@ function AccountManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [updatingUid, setUpdatingUid] = useState(null)
+  const [editingUser, setEditingUser] = useState(null)
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const fetchUsers = async () => {
     try {
@@ -45,6 +48,26 @@ function AccountManagement() {
     }
   }
 
+  const handleSaveUser = async (uid, updates) => {
+    setSavingEdit(true)
+    try {
+      await updateUserProfile(uid, updates)
+      // Update local state to reflect changes
+      setUsers(prev =>
+        prev.map(u =>
+          u.id === uid ? { ...u, ...updates } : u
+        )
+      )
+      setEditingUser(null)
+      setError(null)
+    } catch (err) {
+      // Re-throw so the modal can display the error
+      throw err
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A'
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
@@ -73,6 +96,7 @@ function AccountManagement() {
           <thead>
             <tr>
               <th>Username</th>
+              <th>UID</th>
               <th>Email</th>
               <th>Created</th>
               <th>Admin</th>
@@ -88,6 +112,7 @@ function AccountManagement() {
                     {user.username || '—'}
                     {hardcoded && <span className="permanent-badge">Permanent</span>}
                   </td>
+                  <td className="uid-cell">{user.id}</td>
                   <td>{user.email || '—'}</td>
                   <td>{formatDate(user.createdAt)}</td>
                   <td>
@@ -95,7 +120,13 @@ function AccountManagement() {
                       {user.isAdmin ? 'Yes' : 'No'}
                     </span>
                   </td>
-                  <td>
+                  <td className="actions-cell">
+                    <button
+                      className="edit-user-button"
+                      onClick={() => setEditingUser(user)}
+                    >
+                      Edit
+                    </button>
                     {hardcoded ? (
                       <span className="action-locked">Always Admin</span>
                     ) : (
@@ -118,6 +149,15 @@ function AccountManagement() {
           </tbody>
         </table>
       </div>
+
+      {editingUser && (
+        <UserEditModal
+          user={editingUser}
+          onSave={handleSaveUser}
+          onClose={() => setEditingUser(null)}
+          isSaving={savingEdit}
+        />
+      )}
     </div>
   )
 }

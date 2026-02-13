@@ -13,7 +13,8 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
     zoomIn,
     zoomOut,
     resetZoom,
-    hasMoved
+    hasMoved,
+    isPanning
   } = useMapZoom(containerRef);
 
   const handleClick = (event) => {
@@ -43,12 +44,13 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
     <div className="map-picker-container">
       <div className="map-header">
         <span className="map-icon">🗺️</span>
-        <span>Click to place your guess</span>
+        <span>Click & drag to pan • Click to place your guess</span>
       </div>
       <div
-        className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''}`}
+        className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''}`}
         ref={containerRef}
         onClick={handleClick}
+        onContextMenu={(e) => e.preventDefault()}
         {...handlers}
       >
         <div className="map-zoom-content" style={{ transform: transformStyle }}>
@@ -57,6 +59,8 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
             className="map-image"
             src="/FINAL_MAP.png"
             alt="Campus Map"
+            draggable="false"
+            onDragStart={(e) => e.preventDefault()}
           />
 
           {/* SVG overlay showing playing area - darkens outside area */}

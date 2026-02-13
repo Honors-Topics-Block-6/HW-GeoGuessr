@@ -10,6 +10,8 @@ describe('ResultScreen', () => {
     actualLocation: { x: 50, y: 50 },
     actualFloor: 2,
     imageUrl: 'https://example.com/image.jpg',
+    locationScore: 5000,
+    totalScore: 5000,
     roundNumber: 1,
     totalRounds: 5,
     onNextRound: vi.fn(),
@@ -271,20 +273,20 @@ describe('ResultScreen', () => {
       expect(screen.getAllByText('Perfect!').length).toBeGreaterThan(0);
     });
 
-    it('should show distance in feet for moderate distance (5-20 units)', () => {
-      // Distance that gives units between 5 and 20 after * 2
-      // sqrt((dx)^2 + (dy)^2) = 5 => dx=3, dy=4 gives distance=5
-      // 5 * 2 = 10 units, which is >= 5 and < 20
+    it('should show distance in feet for moderate distance beyond 10 ft', () => {
+      // sqrt((60-50)^2 + (50-50)^2) = 10, * 2 = 20 ft
       render(
         <ResultScreen
           {...defaultProps}
-          guessLocation={{ x: 53, y: 54 }}
+          guessLocation={{ x: 60, y: 50 }}
           actualLocation={{ x: 50, y: 50 }}
+          locationScore={4933}
+          totalScore={4933}
         />
       );
 
-      // Distance is 5, * 2 = 10 ft
-      expect(screen.getByText('10 ft away')).toBeInTheDocument();
+      // Distance is 10, * 2 = 20 ft
+      expect(screen.getByText('20 ft away')).toBeInTheDocument();
     });
 
     it('should show distance in feet for larger distance (>= 20 units)', () => {
@@ -293,6 +295,8 @@ describe('ResultScreen', () => {
           {...defaultProps}
           guessLocation={{ x: 50, y: 50 }}
           actualLocation={{ x: 60, y: 60 }}
+          locationScore={4431}
+          totalScore={4431}
         />
       );
 
@@ -300,9 +304,8 @@ describe('ResultScreen', () => {
       expect(screen.getByText(/\d+ ft away/)).toBeInTheDocument();
     });
 
-    it('should show "Perfect!" for very small distance (units < 5)', () => {
-      // Distance that gives units < 5 after * 2
-      // 2 / 2 = 1 distance
+    it('should show "Perfect!" for distance within 10 ft', () => {
+      // Distance is 1, * 2 = 2 ft which is <= 10 ft
       render(
         <ResultScreen
           {...defaultProps}
@@ -311,7 +314,6 @@ describe('ResultScreen', () => {
         />
       );
 
-      // Distance is 1, * 2 = 2 units < 5, so should show "Perfect!"
       expect(screen.getAllByText('Perfect!').length).toBeGreaterThan(0);
     });
   });

@@ -26,6 +26,11 @@
   cursor: crosshair;
   border: 2px solid var(--border-color);
   transition: border-color 0.2s ease;
+  touch-action: none; /* Enable native panning on touch devices */
+  user-select: none; /* Prevent text/image selection during pan */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .map-picker:hover {
@@ -47,14 +52,9 @@
   display: block;
 }
 
-/* Cursor changes when zoomed */
+/* Legacy zoom class kept for backwards compatibility */
 .map-picker.zoomed {
   cursor: grab;
-  touch-action: none;
-}
-
-.map-picker.zoomed:active {
-  cursor: grabbing;
 }
 
 /* Marker Styles */
