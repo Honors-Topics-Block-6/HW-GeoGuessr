@@ -235,9 +235,7 @@ export function useGameState() {
     const distance = calculateDistance(guessLocation, actualLocation);
     const locationScore = calculateLocationScore(distance);
 
-    // Time-based multiplier:
-    // - First 10 seconds: full points
-    // - 10–20 seconds: linearly decrease to 0
+    // Track how long the guess took (for display only — no effect on scoring)
     let timeTakenSeconds = 0;
     if (roundStartTime) {
       timeTakenSeconds = Math.min(
@@ -246,25 +244,16 @@ export function useGameState() {
       );
     }
 
-    let timeMultiplier = 1;
-    if (timeTakenSeconds > 10) {
-      const excess = Math.min(timeTakenSeconds, ROUND_TIME_SECONDS) - 10;
-      // After 10s, decrease linearly to 0 at 20s
-      timeMultiplier = Math.max(0, (ROUND_TIME_SECONDS - 10 - excess) / 10);
-    }
-
-    const timeAdjustedLocationScore = Math.round(locationScore * timeMultiplier);
-
     // Floor scoring only applies when in a region AND the photo has a floor set
     let floorCorrect = null;
-    let totalScore = timeAdjustedLocationScore;
+    let totalScore = locationScore;
 
     if (isInRegion && guessFloor !== null && actualFloor !== null) {
       floorCorrect = guessFloor === actualFloor;
       // Multiply by 0.8 for incorrect floor instead of bonus system
       totalScore = floorCorrect
-        ? timeAdjustedLocationScore
-        : Math.round(timeAdjustedLocationScore * 0.8);
+        ? locationScore
+        : Math.round(locationScore * 0.8);
     }
 
     // Create result object
@@ -276,11 +265,10 @@ export function useGameState() {
       guessFloor,
       actualFloor,
       distance,
-      locationScore: timeAdjustedLocationScore,
+      locationScore,
       floorCorrect,
       score: totalScore,
       timeTakenSeconds,
-      timeMultiplier,
       timedOut: timedOutRef.current
     };
 
@@ -298,20 +286,48 @@ export function useGameState() {
   submitGuessRef.current = submitGuess;
 
   /**
-   * When the timer hits zero on the game screen and there is a valid guess,
-   * automatically submit once and mark it as a timeout-based submission.
+   * When the timer hits zero on the game screen, automatically submit.
+   * If there is a valid guess, submit it as a timeout-based submission.
+   * If there is no guess at all, go to results with a zero-score "no guess" result.
    */
   useEffect(() => {
     if (screen !== 'game') return;
     if (timeRemaining > 0) return;
+    if (!currentImage) return;
 
     const isInRegion = availableFloors !== null && availableFloors.length > 0;
-    if (!guessLocation || !currentImage) return;
-    if (isInRegion && !guessFloor) return;
+    const hasValidGuess = guessLocation && (!isInRegion || guessFloor);
 
-    timedOutRef.current = true;
-    submitGuessRef.current();
-  }, [screen, timeRemaining, availableFloors, guessLocation, guessFloor, currentImage]);
+    if (hasValidGuess) {
+      // Valid guess exists — auto-submit it
+      timedOutRef.current = true;
+      submitGuessRef.current();
+    } else {
+      // No guess placed (or incomplete) — go to results with zero score
+      const actualLocation = currentImage.correctLocation || { x: 50, y: 50 };
+      const actualFloor = currentImage.correctFloor ?? null;
+
+      const result = {
+        roundNumber: currentRound,
+        imageUrl: currentImage.url,
+        guessLocation: null,
+        actualLocation,
+        guessFloor: null,
+        actualFloor,
+        distance: null,
+        locationScore: 0,
+        floorCorrect: null,
+        score: 0,
+        timeTakenSeconds: ROUND_TIME_SECONDS,
+        timedOut: true,
+        noGuess: true
+      };
+
+      setCurrentResult(result);
+      setRoundResults(prev => [...prev, result]);
+      setScreen('result');
+    }
+  }, [screen, timeRemaining, availableFloors, guessLocation, guessFloor, currentImage, currentRound]);
 
   /**
    * Proceed to the next round

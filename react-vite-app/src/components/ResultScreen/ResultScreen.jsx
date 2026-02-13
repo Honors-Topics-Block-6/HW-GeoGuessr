@@ -34,8 +34,8 @@ function ResultScreen({
   floorCorrect,
   totalScore,
   timeTakenSeconds,
-  timeMultiplier,
   timedOut,
+  noGuess,
   roundNumber,
   totalRounds,
   onNextRound,
@@ -57,7 +57,7 @@ function ResultScreen({
 
   const isZoomed = scale > 1;
 
-  const distance = calculateDistance(guessLocation, actualLocation);
+  const distance = guessLocation ? calculateDistance(guessLocation, actualLocation) : null;
   const effectiveLocationScore = locationScore ?? 0;
   const hasFloorScoring = guessFloor !== null && actualFloor !== null;
   const isFloorCorrect = floorCorrect ?? (guessFloor === actualFloor);
@@ -115,11 +115,15 @@ function ResultScreen({
         </div>
       </div>
 
-      {timedOut && (
+      {noGuess ? (
+        <div className="result-banner timeout-banner">
+          Time ran out! No guess was made.
+        </div>
+      ) : timedOut ? (
         <div className="result-banner timeout-banner">
           Time ran out! We locked in your last guess.
         </div>
-      )}
+      ) : null}
 
       {/* Main content - Map with results */}
       <div className="result-content">
@@ -137,7 +141,7 @@ function ResultScreen({
               />
 
               {/* Line between guess and actual (Phase 2+) */}
-              {animationPhase >= 2 && (
+              {guessLocation && animationPhase >= 2 && (
                 <svg
                   className="result-line-svg"
                   style={{
@@ -162,17 +166,19 @@ function ResultScreen({
                 </svg>
               )}
 
-              {/* Guess marker (always visible) */}
-              <div
-                className="result-marker guess-marker"
-                style={{
-                  left: `${guessLocation.x}%`,
-                  top: `${guessLocation.y}%`
-                }}
-              >
-                <div className="marker-pin guess-pin"></div>
-                <div className="marker-label">Your guess</div>
-              </div>
+              {/* Guess marker (only when a guess was made) */}
+              {guessLocation && (
+                <div
+                  className="result-marker guess-marker"
+                  style={{
+                    left: `${guessLocation.x}%`,
+                    top: `${guessLocation.y}%`
+                  }}
+                >
+                  <div className="marker-pin guess-pin"></div>
+                  <div className="marker-label">Your guess</div>
+                </div>
+              )}
 
               {/* Actual location marker (Phase 1+) */}
               {animationPhase >= 1 && (
@@ -238,7 +244,7 @@ function ResultScreen({
             <div className="stat-row">
               <span className="stat-icon">📍</span>
               <span className="stat-label">Distance</span>
-              <span className="stat-value">{formatDistance(distance)}</span>
+              <span className="stat-value">{noGuess ? 'No guess' : formatDistance(distance)}</span>
             </div>
 
             {typeof timeTakenSeconds === 'number' && (
@@ -247,9 +253,6 @@ function ResultScreen({
                 <span className="stat-label">Time</span>
                 <span className="stat-value">
                   {timeTakenSeconds.toFixed(2)}s
-                  {typeof timeMultiplier === 'number' && (
-                    <> ({Math.round(timeMultiplier * 100)}% of distance score)</>
-                  )}
                 </span>
               </div>
             )}

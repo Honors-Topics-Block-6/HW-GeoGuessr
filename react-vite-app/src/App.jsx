@@ -121,8 +121,8 @@ function App() {
           floorCorrect={currentResult.floorCorrect}
           totalScore={currentResult.score}
           timeTakenSeconds={currentResult.timeTakenSeconds}
-          timeMultiplier={currentResult.timeMultiplier}
           timedOut={currentResult.timedOut}
+          noGuess={currentResult.noGuess}
           roundNumber={currentRound}
           totalRounds={totalRounds}
           onNextRound={nextRound}
