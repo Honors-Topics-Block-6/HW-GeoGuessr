@@ -3,6 +3,12 @@ import './DifficultySelect.css';
 
 const DIFFICULTIES = [
   {
+    id: 'all',
+    label: 'All',
+    icon: '🌐',
+    description: 'Any photo, any difficulty',
+  },
+  {
     id: 'easy',
     label: 'Easy',
     icon: '🟢',
