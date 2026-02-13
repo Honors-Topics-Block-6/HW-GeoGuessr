@@ -72,6 +72,7 @@
   display: grid;
   grid-template-columns: 1.5fr 1fr;
   gap: 1.5rem;
+  align-items: start;
 }
 
 /* Map Container */
@@ -82,13 +83,15 @@
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .result-map {
   position: relative;
   width: 100%;
   flex: 1;
-  min-height: 300px;
+  min-height: 0;
   background-color: var(--bg-secondary);
   border-radius: 12px;
   overflow: hidden;
@@ -420,6 +423,10 @@
 @media (max-width: 900px) {
   .result-content {
     grid-template-columns: 1fr;
+  }
+
+  .result-map-container {
+    height: auto !important;
   }
 
   .result-map {
