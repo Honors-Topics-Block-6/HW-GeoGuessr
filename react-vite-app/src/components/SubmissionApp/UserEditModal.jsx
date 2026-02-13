@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { isHardcodedAdmin } from '../../services/userService'
 import './UserEditModal.css'
 
@@ -64,7 +65,7 @@ function UserEditModal({ user, onSave, onClose, isSaving }) {
     })
   }
 
-  return (
+  return createPortal(
     <div className="user-modal-overlay" onClick={onClose}>
       <div className="user-modal-content" onClick={e => e.stopPropagation()}>
         <button className="user-modal-close" onClick={onClose}>&times;</button>
@@ -164,7 +165,8 @@ function UserEditModal({ user, onSave, onClose, isSaving }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
