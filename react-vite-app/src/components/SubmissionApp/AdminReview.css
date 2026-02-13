@@ -533,3 +533,264 @@
   background-color: rgba(149, 165, 166, 0.15);
   color: #95a5a6;
 }
+
+/* ===========================
+   Full Details Modal - Redesign
+   =========================== */
+
+/* Wider modal for the detail view */
+.modal-content {
+  width: 100%;
+}
+
+.modal-details {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modal-details-header {
+  margin-bottom: 0;
+}
+
+.modal-details-header h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 0;
+}
+
+/* Badges row */
+.detail-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Description card */
+.detail-card {
+  background-color: #f8f9fb;
+  border: 1px solid #e8ecf1;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.detail-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #8592a6;
+  margin-bottom: 8px;
+}
+
+.detail-card-value {
+  font-size: 14px;
+  color: #2c3e50;
+  line-height: 1.6;
+}
+
+.detail-description {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Info grid */
+.detail-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.detail-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: #f8f9fb;
+  border: 1px solid #e8ecf1;
+  border-radius: 10px;
+  padding: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.detail-info-item:hover {
+  border-color: #d0d7e2;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.detail-info-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.detail-info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detail-info-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #8592a6;
+}
+
+.detail-info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+  word-break: break-all;
+}
+
+.detail-id-value {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7b8d;
+}
+
+/* Map card */
+.detail-map-card {
+  padding: 16px;
+}
+
+.detail-map-wrapper {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e0e4ea;
+}
+
+/* Override MapPicker header for read-only view inside the detail modal */
+.detail-map-wrapper .map-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #8592a6;
+  padding: 6px 10px;
+  background-color: #f0f2f5;
+  border-bottom: 1px solid #e0e4ea;
+}
+
+.detail-map-wrapper .map-picker {
+  border: none;
+  border-radius: 0;
+  cursor: default;
+}
+
+.detail-map-wrapper .map-picker:hover {
+  border-color: transparent;
+}
+
+/* Timestamps section */
+.detail-timestamps {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.detail-timestamp-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #f8f9fb;
+  border: 1px solid #e8ecf1;
+  border-radius: 10px;
+  padding: 12px 16px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.detail-timestamp-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.detail-timestamp-item > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.detail-timestamp-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #8592a6;
+}
+
+.detail-timestamp-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+/* Modal actions in redesigned view */
+.modal-actions {
+  padding-top: 4px;
+  border-top: 1px solid #e8ecf1;
+}
+
+.modal-actions .approve-button,
+.modal-actions .deny-button,
+.modal-actions .reset-button {
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 28px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.modal-actions .approve-button:hover,
+.modal-actions .deny-button:hover,
+.modal-actions .reset-button:hover {
+  transform: translateY(-1px);
+}
+
+.modal-actions .approve-button:active,
+.modal-actions .deny-button:active,
+.modal-actions .reset-button:active {
+  transform: translateY(0);
+}
+
+/* Responsive: stack info grid on small screens */
+@media (max-width: 600px) {
+  .detail-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-timestamps {
+    flex-direction: column;
+  }
+
+  .detail-timestamp-item {
+    min-width: unset;
+  }
+
+  .modal-details {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .modal-details-header h3 {
+    font-size: 18px;
+  }
+}
