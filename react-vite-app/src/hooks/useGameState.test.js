@@ -109,7 +109,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       expect(result.current.screen).toBe('game');
@@ -119,7 +119,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       expect(result.current.currentImage).toEqual(mockImage);
@@ -129,7 +129,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       expect(getRandomImage).toHaveBeenCalledTimes(1);
@@ -139,7 +139,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       expect(result.current.currentRound).toBe(1);
@@ -149,7 +149,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       expect(result.current.roundResults).toEqual([]);
@@ -168,7 +168,7 @@ describe('useGameState', () => {
 
       // Start the game (this will set isLoading = true before awaiting)
       act(() => {
-        result.current.startGame();
+        result.current.startGame('medium');
       });
 
       // After act completes, isLoading should be true while waiting for the promise
@@ -190,7 +190,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       expect(result.current.error).toBe('Failed to load image. Please try again.');
@@ -203,14 +203,14 @@ describe('useGameState', () => {
       // First, cause an error
       getRandomImage.mockRejectedValueOnce(new Error('Network error'));
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
       expect(result.current.error).not.toBeNull();
 
       // Then, start successfully
       getRandomImage.mockResolvedValueOnce(mockImage);
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       expect(result.current.error).toBeNull();
@@ -222,7 +222,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -236,7 +236,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -256,7 +256,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -270,7 +270,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -290,7 +290,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -305,7 +305,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -338,7 +338,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -360,7 +360,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -383,7 +383,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -406,7 +406,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -429,7 +429,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -453,7 +453,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -476,7 +476,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -496,7 +496,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -517,7 +517,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -537,7 +537,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       // Play through 5 rounds
@@ -561,7 +561,7 @@ describe('useGameState', () => {
 
       // Start game successfully
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       // Complete first round
@@ -588,7 +588,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -610,7 +610,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -624,7 +624,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -648,7 +648,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -675,7 +675,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -706,7 +706,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -739,7 +739,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -763,7 +763,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -786,7 +786,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {
@@ -811,7 +811,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       // Round 1
@@ -853,7 +853,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame();
+        await result.current.startGame('medium');
       });
 
       act(() => {

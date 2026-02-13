@@ -59,6 +59,26 @@ const mockImage = {
   description: 'Test image'
 };
 
+/**
+ * Helper: navigate from title screen through difficulty select to the game screen.
+ * Clicks Play on title -> selects Easy difficulty -> clicks Play on difficulty select.
+ */
+const navigateToGame = async (user) => {
+  // Click Play on title screen to go to difficulty select
+  await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+  // Wait for difficulty select screen
+  await waitFor(() => {
+    expect(screen.getByText('Choose Difficulty')).toBeInTheDocument();
+  });
+
+  // Select Easy difficulty
+  await user.click(screen.getByText('Easy'));
+
+  // Click Play on difficulty select to start the game
+  await user.click(screen.getByRole('button', { name: /^play$/i }));
+};
+
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -76,10 +96,10 @@ describe('App', () => {
       expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
     });
 
-    it('should render the start game button', () => {
+    it('should render the play button', () => {
       render(<App />);
 
-      expect(screen.getByRole('button', { name: /start game/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^play$/i })).toBeInTheDocument();
     });
 
     it('should render the submit photo button', () => {
@@ -95,13 +115,45 @@ describe('App', () => {
     });
   });
 
-  describe('game flow', () => {
-    it('should transition to game screen when start game is clicked', async () => {
+  describe('difficulty select flow', () => {
+    it('should show difficulty select screen when play is clicked', async () => {
       const user = userEvent.setup();
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose Difficulty')).toBeInTheDocument();
+      });
+    });
+
+    it('should return to title screen when back is clicked from difficulty select', async () => {
+      const user = userEvent.setup();
+
+      render(<App />);
+
+      await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose Difficulty')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('← Back'));
+
+      await waitFor(() => {
+        expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('game flow', () => {
+    it('should transition to game screen when difficulty is selected and play is clicked', async () => {
+      const user = userEvent.setup();
+
+      render(<App />);
+
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
@@ -113,7 +165,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(getRandomImage).toHaveBeenCalled();
@@ -125,7 +177,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('1 / 5')).toBeInTheDocument();
@@ -137,7 +189,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByAltText(/mystery location/i)).toHaveAttribute('src', mockImage.url);
@@ -151,7 +203,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /guess/i })).toBeDisabled();
@@ -163,7 +215,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
@@ -199,7 +251,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
@@ -240,7 +292,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
@@ -262,7 +314,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText(/failed to load image/i)).toBeInTheDocument();
@@ -276,7 +328,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /back to home/i })).toBeInTheDocument();
@@ -290,7 +342,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /back to home/i })).toBeInTheDocument();
@@ -347,7 +399,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('Location selected').parentElement).not.toHaveClass('complete');
@@ -359,7 +411,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
@@ -388,7 +440,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
@@ -423,7 +475,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
@@ -508,7 +560,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       // Play through 5 rounds
       for (let round = 1; round <= 5; round++) {
@@ -529,7 +581,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       // Complete 5 rounds
       for (let round = 1; round <= 5; round++) {
@@ -549,7 +601,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       // Complete 5 rounds
       for (let round = 1; round <= 5; round++) {
@@ -572,7 +624,7 @@ describe('App', () => {
   });
 
   describe('loading states', () => {
-    it('should show loading state when starting game', async () => {
+    it('should show loading state when starting game from difficulty select', async () => {
       // Make getRandomImage take some time
       getRandomImage.mockImplementation(
         () => new Promise(resolve => setTimeout(() => resolve(mockImage), 100))
@@ -582,9 +634,20 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      // Navigate to difficulty select
+      await user.click(screen.getByRole('button', { name: /^play$/i }));
 
-      // Button should show loading
+      await waitFor(() => {
+        expect(screen.getByText('Choose Difficulty')).toBeInTheDocument();
+      });
+
+      // Select difficulty
+      await user.click(screen.getByText('Easy'));
+
+      // Click Play on difficulty select to start the game
+      await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+      // Button should show loading on difficulty select screen
       expect(screen.getByRole('button', { name: /loading/i })).toBeDisabled();
 
       await waitFor(() => {
@@ -603,12 +666,22 @@ describe('App', () => {
 
       render(<App />);
 
-      // Start the game - this will set screen to 'game' and isLoading to true
-      act(() => {
-        user.click(screen.getByRole('button', { name: /start game/i }));
+      // Navigate to difficulty select
+      await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose Difficulty')).toBeInTheDocument();
       });
 
-      // Wait for the loading button to show (title screen loading)
+      // Select difficulty and click Play
+      await user.click(screen.getByText('Easy'));
+
+      // Start the game - this will call startGame which sets isLoading to true
+      act(() => {
+        user.click(screen.getByRole('button', { name: /^play$/i }));
+      });
+
+      // Wait for the loading button to show (difficulty select loading)
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /loading/i })).toBeInTheDocument();
       });
@@ -631,7 +704,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();
@@ -661,7 +734,7 @@ describe('App', () => {
 
       render(<App />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await navigateToGame(user);
 
       await waitFor(() => {
         expect(screen.getByText('Make Your Guess')).toBeInTheDocument();

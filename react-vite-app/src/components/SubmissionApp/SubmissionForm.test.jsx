@@ -274,6 +274,19 @@ describe('SubmissionForm', () => {
       expect(screen.getByText('Please select a floor')).toBeInTheDocument();
     });
 
+    it('should show error when submitting without difficulty', async () => {
+      const user = userEvent.setup();
+      render(<SubmissionForm />);
+
+      // Upload a photo and select location (not in a region, so no floor needed)
+      await user.click(screen.getByText('Upload Photo'));
+      await user.click(screen.getByText('Click Map'));
+
+      await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
+
+      expect(screen.getByText('Please select a difficulty')).toBeInTheDocument();
+    });
+
     it('should not disable submit button initially (validation on submit)', () => {
       render(<SubmissionForm />);
       expect(screen.getByRole('button', { name: 'Submit Photo' })).not.toBeDisabled();
@@ -292,6 +305,7 @@ describe('SubmissionForm', () => {
       // Fill in all fields (not in a region, so no floor needed)
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -314,6 +328,7 @@ describe('SubmissionForm', () => {
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -331,6 +346,7 @@ describe('SubmissionForm', () => {
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -353,6 +369,7 @@ describe('SubmissionForm', () => {
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -370,6 +387,7 @@ describe('SubmissionForm', () => {
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -388,6 +406,7 @@ describe('SubmissionForm', () => {
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
       await user.click(screen.getByTestId('floor-2'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -404,6 +423,7 @@ describe('SubmissionForm', () => {
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -420,6 +440,7 @@ describe('SubmissionForm', () => {
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -440,6 +461,7 @@ describe('SubmissionForm', () => {
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -458,6 +480,7 @@ describe('SubmissionForm', () => {
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
@@ -476,6 +499,7 @@ describe('SubmissionForm', () => {
       // Fill in all fields
       await user.click(screen.getByText('Upload Photo'));
       await user.click(screen.getByText('Click Map'));
+      await user.click(screen.getByText('Easy'));
 
       // Submit
       await user.click(screen.getByRole('button', { name: 'Submit Photo' }));
