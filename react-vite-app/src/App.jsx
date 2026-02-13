@@ -4,6 +4,7 @@ import { useGameState } from './hooks/useGameState';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
+import DifficultySelect from './components/DifficultySelect/DifficultySelect';
 import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
@@ -31,6 +32,8 @@ function App() {
     playingArea,
     timeRemaining,
     roundTimeSeconds,
+    difficulty,
+    setScreen,
     startGame,
     placeMarker,
     selectFloor,
@@ -80,13 +83,43 @@ function App() {
     );
   }
 
+  /**
+   * Handle the "Play" button on the title screen → go to difficulty select
+   */
+  const handlePlay = () => {
+    setScreen('difficultySelect');
+  };
+
+  /**
+   * Handle starting the game from difficulty select
+   */
+  const handleStartFromDifficulty = (selectedDifficulty, mode) => {
+    // mode is 'singleplayer' (multiplayer is disabled)
+    startGame(selectedDifficulty);
+  };
+
+  /**
+   * Go back from difficulty select to the title screen
+   */
+  const handleBackToTitle = () => {
+    setScreen('title');
+  };
+
   return (
     <div className="app">
       {screen === 'title' && (
         <TitleScreen
-          onStartGame={startGame}
+          onPlay={handlePlay}
           onOpenSubmission={() => setShowSubmissionApp(true)}
           onOpenProfile={() => setShowProfile(true)}
+          isLoading={isLoading}
+        />
+      )}
+
+      {screen === 'difficultySelect' && (
+        <DifficultySelect
+          onStart={handleStartFromDifficulty}
+          onBack={handleBackToTitle}
           isLoading={isLoading}
         />
       )}
@@ -134,7 +167,7 @@ function App() {
       {screen === 'finalResults' && (
         <FinalResultsScreen
           rounds={roundResults}
-          onPlayAgain={startGame}
+          onPlayAgain={() => setScreen('difficultySelect')}
           onBackToTitle={resetGame}
         />
       )}

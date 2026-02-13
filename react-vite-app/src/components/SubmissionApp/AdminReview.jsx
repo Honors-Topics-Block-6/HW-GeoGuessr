@@ -8,6 +8,8 @@ import PhotoUpload from './PhotoUpload'
 import { compressImage } from '../../utils/compressImage'
 import './AdminReview.css'
 
+const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard']
+
 function AdminReview({ onBack }) {
   const [submissions, setSubmissions] = useState([])
   const [firestoreImages, setFirestoreImages] = useState([])
@@ -53,6 +55,7 @@ function AdminReview({ onBack }) {
         photoURL: img.url,
         location: img.correctLocation,
         floor: img.correctFloor,
+        difficulty: img.difficulty || null,
         photoName: img.description || img.id,
         status: 'approved',
         _source: 'image',
@@ -114,6 +117,7 @@ function AdminReview({ onBack }) {
       photoName: selectedSubmission.photoName || '',
       location: selectedSubmission.location ? { ...selectedSubmission.location } : { x: 0, y: 0 },
       floor: selectedSubmission.floor,
+      difficulty: selectedSubmission.difficulty || null,
       status: selectedSubmission.status,
     })
     setNewPhoto(null)
@@ -161,6 +165,7 @@ function AdminReview({ onBack }) {
           photoName: editForm.photoName,
           location: editForm.location,
           floor: editForm.floor,
+          difficulty: editForm.difficulty || null,
           status: editForm.status,
           photoURL: photoURL,
         })
@@ -170,6 +175,7 @@ function AdminReview({ onBack }) {
           description: editForm.description,
           correctLocation: editForm.location,
           correctFloor: editForm.floor,
+          difficulty: editForm.difficulty || null,
           url: photoURL,
         })
         // Manually update firestoreImages state (no real-time listener)
@@ -181,6 +187,7 @@ function AdminReview({ onBack }) {
                 photoName: editForm.description || selectedSubmission.id,
                 location: editForm.location,
                 floor: editForm.floor,
+                difficulty: editForm.difficulty || null,
                 photoURL: photoURL,
               }
             : img
@@ -361,6 +368,12 @@ function AdminReview({ onBack }) {
                   <strong>Floor:</strong>
                   <span>{submission.floor}</span>
                 </div>
+                <div className="detail-row">
+                  <strong>Difficulty:</strong>
+                  <span className={`difficulty-badge difficulty-badge-${submission.difficulty || 'none'}`}>
+                    {submission.difficulty ? submission.difficulty.charAt(0).toUpperCase() + submission.difficulty.slice(1) : 'Not set'}
+                  </span>
+                </div>
                 {submission.createdAt && (
                   <div className="detail-row">
                     <strong>Submitted:</strong>
@@ -534,6 +547,21 @@ function AdminReview({ onBack }) {
                     />
                   </div>
 
+                  {/* Difficulty */}
+                  <div className="edit-field">
+                    <label htmlFor="edit-difficulty">Difficulty</label>
+                    <select
+                      id="edit-difficulty"
+                      value={editForm.difficulty || ''}
+                      onChange={e => setEditForm(prev => ({ ...prev, difficulty: e.target.value || null }))}
+                    >
+                      <option value="">Not set</option>
+                      {DIFFICULTY_OPTIONS.map(d => (
+                        <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Save / Cancel buttons */}
                   <div className="edit-actions">
                     <button
@@ -570,6 +598,12 @@ function AdminReview({ onBack }) {
                   )}
                   <p><strong>Location:</strong> X: {selectedSubmission.location?.x}, Y: {selectedSubmission.location?.y}</p>
                   <p><strong>Floor:</strong> {selectedSubmission.floor}</p>
+                  <p>
+                    <strong>Difficulty:</strong>{' '}
+                    <span className={`difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
+                      {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'Not set'}
+                    </span>
+                  </p>
                   <p><strong>File Name:</strong> {selectedSubmission.photoName}</p>
                   {selectedSubmission.createdAt && (
                     <p><strong>Submitted:</strong> {formatDate(selectedSubmission.createdAt)}</p>

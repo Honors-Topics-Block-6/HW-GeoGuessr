@@ -74,6 +74,9 @@ export function useGameState() {
   // Track when a click is rejected (outside playing area)
   const [clickRejected, setClickRejected] = useState(false);
 
+  // Selected difficulty for the current game
+  const [difficulty, setDifficulty] = useState(null);
+
   // Load regions and playing area on mount
   useEffect(() => {
     async function loadData() {
@@ -101,7 +104,7 @@ export function useGameState() {
     setError(null);
 
     try {
-      const image = await getRandomImage();
+      const image = await getRandomImage(difficulty);
       setCurrentImage(image);
       setGuessLocation(null);
       setGuessFloor(null);
@@ -113,15 +116,17 @@ export function useGameState() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [difficulty]);
 
   /**
    * Start a new game - reset everything and fetch first image
+   * @param {string} selectedDifficulty - 'easy', 'medium', or 'hard'
    */
-  const startGame = useCallback(async () => {
+  const startGame = useCallback(async (selectedDifficulty) => {
     setCurrentRound(1);
     setRoundResults([]);
     setCurrentResult(null);
+    setDifficulty(selectedDifficulty);
 
     setIsLoading(true);
     setError(null);
@@ -129,7 +134,7 @@ export function useGameState() {
     try {
       // Reload playing area and regions in case they were updated in the editor
       const [image, fetchedPlayingArea, fetchedRegions] = await Promise.all([
-        getRandomImage(),
+        getRandomImage(selectedDifficulty),
         getPlayingArea(),
         getRegions()
       ]);
@@ -356,6 +361,7 @@ export function useGameState() {
     setError(null);
     setTimeRemaining(ROUND_TIME_SECONDS);
     setRoundStartTime(null);
+    setDifficulty(null);
   }, []);
 
   return {
@@ -375,8 +381,10 @@ export function useGameState() {
     playingArea,
     timeRemaining,
     roundTimeSeconds: ROUND_TIME_SECONDS,
+    difficulty,
 
     // Actions
+    setScreen,
     startGame,
     placeMarker,
     selectFloor,

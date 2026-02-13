@@ -24,7 +24,7 @@ vi.mock('../../contexts/AuthContext', () => ({
 
 describe('TitleScreen', () => {
   const defaultProps = {
-    onStartGame: vi.fn(),
+    onPlay: vi.fn(),
     onOpenSubmission: vi.fn(),
     onOpenProfile: vi.fn(),
     isLoading: false
@@ -59,10 +59,10 @@ describe('TitleScreen', () => {
       expect(screen.getByText('🌍')).toBeInTheDocument();
     });
 
-    it('should render the Start Game button', () => {
+    it('should render the Play button', () => {
       render(<TitleScreen {...defaultProps} />);
 
-      expect(screen.getByRole('button', { name: /start game/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^play$/i })).toBeInTheDocument();
     });
 
     it('should render the Submit Photo button', () => {
@@ -72,16 +72,16 @@ describe('TitleScreen', () => {
     });
   });
 
-  describe('Start Game button', () => {
-    it('should call onStartGame when clicked', async () => {
+  describe('Play button', () => {
+    it('should call onPlay when clicked', async () => {
       const user = userEvent.setup();
-      const onStartGame = vi.fn();
+      const onPlay = vi.fn();
 
-      render(<TitleScreen {...defaultProps} onStartGame={onStartGame} />);
+      render(<TitleScreen {...defaultProps} onPlay={onPlay} />);
 
-      await user.click(screen.getByRole('button', { name: /start game/i }));
+      await user.click(screen.getByRole('button', { name: /^play$/i }));
 
-      expect(onStartGame).toHaveBeenCalledTimes(1);
+      expect(onPlay).toHaveBeenCalledTimes(1);
     });
 
     it('should be disabled when loading', () => {
@@ -99,19 +99,19 @@ describe('TitleScreen', () => {
     it('should not be disabled when not loading', () => {
       render(<TitleScreen {...defaultProps} isLoading={false} />);
 
-      expect(screen.getByRole('button', { name: /start game/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /^play$/i })).not.toBeDisabled();
     });
 
-    it('should not call onStartGame when disabled', async () => {
+    it('should not call onPlay when disabled', async () => {
       const user = userEvent.setup();
-      const onStartGame = vi.fn();
+      const onPlay = vi.fn();
 
-      render(<TitleScreen {...defaultProps} onStartGame={onStartGame} isLoading={true} />);
+      render(<TitleScreen {...defaultProps} onPlay={onPlay} isLoading={true} />);
 
       const button = screen.getByRole('button', { name: /loading/i });
       await user.click(button);
 
-      expect(onStartGame).not.toHaveBeenCalled();
+      expect(onPlay).not.toHaveBeenCalled();
     });
   });
 
@@ -132,7 +132,7 @@ describe('TitleScreen', () => {
     it('should have accessible button names', () => {
       render(<TitleScreen {...defaultProps} />);
 
-      expect(screen.getByRole('button', { name: /start game/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^play$/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /submit photo/i })).toBeInTheDocument();
     });
 

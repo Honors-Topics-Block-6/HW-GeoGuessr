@@ -11,10 +11,13 @@ import './SubmissionForm.css'
 // All possible floors when override is enabled
 const ALL_FLOORS = [1, 2, 3]
 
+const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard']
+
 function SubmissionForm() {
   const [photo, setPhoto] = useState(null)
   const [location, setLocation] = useState(null)
   const [floor, setFloor] = useState(null)
+  const [difficulty, setDifficulty] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -115,6 +118,7 @@ function SubmissionForm() {
     setPhoto(null)
     setLocation(null)
     setFloor(null)
+    setDifficulty(null)
     setAvailableFloors(null)
     // Don't reset submitSuccess here - it should persist to show the success message
     setSubmitError('')
@@ -139,6 +143,10 @@ function SubmissionForm() {
       setSubmitError('Please select a floor')
       return
     }
+    if (!difficulty) {
+      setSubmitError('Please select a difficulty')
+      return
+    }
 
     setIsSubmitting(true)
     setSubmitError('')
@@ -156,6 +164,7 @@ function SubmissionForm() {
           y: location.y
         },
         floor: floor ?? null,
+        difficulty: difficulty,
         status: 'pending', // pending, approved, denied
         createdAt: serverTimestamp(),
         reviewedAt: null
@@ -220,6 +229,26 @@ function SubmissionForm() {
             />
           )}
 
+          {/* Difficulty selector */}
+          <div className="difficulty-selector">
+            <div className="difficulty-selector-header">
+              <span className="difficulty-selector-icon">🎯</span>
+              <span>Select Difficulty</span>
+            </div>
+            <div className="difficulty-selector-buttons">
+              {DIFFICULTY_OPTIONS.map((diff) => (
+                <button
+                  key={diff}
+                  type="button"
+                  className={`difficulty-selector-button ${difficulty === diff ? 'selected' : ''} difficulty-${diff}`}
+                  onClick={() => { setDifficulty(diff); setSubmitError(''); setSubmitSuccess(false); }}
+                >
+                  {diff.charAt(0).toUpperCase() + diff.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Status indicators matching game style */}
           <div className="location-status">
             <div className={`status-item ${location ? 'complete' : ''}`}>
@@ -232,6 +261,10 @@ function SubmissionForm() {
                 <span>Floor selected</span>
               </div>
             )}
+            <div className={`status-item ${difficulty ? 'complete' : ''}`}>
+              <span className="status-icon">{difficulty ? '\u2713' : '\u25CB'}</span>
+              <span>Difficulty selected</span>
+            </div>
           </div>
         </div>
 

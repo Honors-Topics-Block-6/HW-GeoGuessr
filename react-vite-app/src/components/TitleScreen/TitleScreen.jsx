@@ -1,7 +1,7 @@
 import { useAuth } from '../../contexts/AuthContext';
 import './TitleScreen.css';
 
-function TitleScreen({ onStartGame, onOpenSubmission, onOpenProfile, isLoading }) {
+function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, isLoading }) {
   const { userDoc, logout } = useAuth();
 
   const handleLogout = async () => {
@@ -42,7 +42,7 @@ function TitleScreen({ onStartGame, onOpenSubmission, onOpenProfile, isLoading }
         <p className="tagline">Can you guess the location on campus?</p>
         <button
           className="start-button"
-          onClick={onStartGame}
+          onClick={onPlay}
           disabled={isLoading}
         >
           {isLoading ? (
@@ -51,7 +51,7 @@ function TitleScreen({ onStartGame, onOpenSubmission, onOpenProfile, isLoading }
               Loading...
             </>
           ) : (
-            'Start Game'
+            'Play'
           )}
         </button>
         <p className="subtitle">

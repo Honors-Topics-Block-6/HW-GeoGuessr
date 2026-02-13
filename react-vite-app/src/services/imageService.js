@@ -8,6 +8,7 @@ const SAMPLE_IMAGES = [
     url: 'https://images.unsplash.com/photo-1562774053-701939374585?w=800&q=80',
     correctLocation: { x: 35, y: 45 },
     correctFloor: 2,
+    difficulty: 'easy',
     description: 'Main hallway near the library'
   },
   {
@@ -15,6 +16,7 @@ const SAMPLE_IMAGES = [
     url: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?w=800&q=80',
     correctLocation: { x: 65, y: 30 },
     correctFloor: 1,
+    difficulty: 'medium',
     description: 'Science building entrance'
   },
   {
@@ -22,6 +24,7 @@ const SAMPLE_IMAGES = [
     url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&q=80',
     correctLocation: { x: 80, y: 60 },
     correctFloor: 1,
+    difficulty: 'hard',
     description: 'Gymnasium interior'
   },
   {
@@ -29,6 +32,7 @@ const SAMPLE_IMAGES = [
     url: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&q=80',
     correctLocation: { x: 25, y: 75 },
     correctFloor: 3,
+    difficulty: 'easy',
     description: 'Arts center studio'
   },
   {
@@ -36,18 +40,20 @@ const SAMPLE_IMAGES = [
     url: 'https://images.unsplash.com/photo-1519452635265-7b1fbfd1e4e0?w=800&q=80',
     correctLocation: { x: 50, y: 50 },
     correctFloor: 2,
+    difficulty: 'medium',
     description: 'Outdoor courtyard view'
   }
 ];
 
 /**
- * Fetches a random image from all approved sources:
+ * Fetches a random image from all approved sources, optionally filtered by difficulty.
  * - Firestore 'images' collection (all are considered approved)
  * - Firestore 'submissions' collection with status 'approved'
+ * @param {string|null} difficulty - 'easy', 'medium', 'hard', or null for all
  */
-export async function getRandomImage() {
+export async function getRandomImage(difficulty = null) {
   try {
-    const approvedImages = await getAllApprovedImages();
+    const approvedImages = await getAllApprovedImages(difficulty);
 
     if (approvedImages.length === 0) {
       console.warn('No approved images found in any source');
@@ -64,9 +70,10 @@ export async function getRandomImage() {
 
 /**
  * Fetches all approved images from both the images collection
- * and approved submissions.
+ * and approved submissions, optionally filtered by difficulty.
+ * @param {string|null} difficulty - 'easy', 'medium', 'hard', or null for all
  */
-export async function getAllApprovedImages() {
+export async function getAllApprovedImages(difficulty = null) {
   try {
     // Fetch from both sources in parallel
     const [imagesSnapshot, submissionsSnapshot] = await Promise.all([
@@ -88,11 +95,25 @@ export async function getAllApprovedImages() {
         url: data.photoURL,
         correctLocation: data.location,
         correctFloor: data.floor,
+        difficulty: data.difficulty || null,
         description: data.photoName || null
       };
     });
 
-    return [...images, ...approvedSubmissions];
+    let allImages = [...images, ...approvedSubmissions];
+
+    // Filter by difficulty if specified
+    if (difficulty) {
+      const filtered = allImages.filter(img => img.difficulty === difficulty);
+      // Fall back to all images if none match the difficulty
+      if (filtered.length > 0) {
+        allImages = filtered;
+      } else {
+        console.warn(`No images found for difficulty "${difficulty}", using all images`);
+      }
+    }
+
+    return allImages;
   } catch (error) {
     console.error('Error fetching approved images:', error);
     return [];
