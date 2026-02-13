@@ -15,6 +15,19 @@
   margin-bottom: 1.5rem;
 }
 
+.result-banner.timeout-banner {
+  margin-bottom: 1rem;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  background: rgba(255, 193, 7, 0.12);
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  color: #ffe58f;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .round-indicator {
   font-size: 1rem;
   color: var(--text-secondary);

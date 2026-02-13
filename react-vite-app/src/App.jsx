@@ -24,6 +24,8 @@ function App() {
     error,
     clickRejected,
     playingArea,
+    timeRemaining,
+    roundTimeSeconds,
     startGame,
     placeMarker,
     selectFloor,
@@ -84,6 +86,8 @@ function App() {
           totalRounds={totalRounds}
           clickRejected={clickRejected}
           playingArea={playingArea}
+          timeRemaining={timeRemaining}
+          timeLimitSeconds={roundTimeSeconds}
         />
       )}
 
@@ -94,6 +98,12 @@ function App() {
           actualLocation={currentResult.actualLocation}
           actualFloor={currentResult.actualFloor}
           imageUrl={currentResult.imageUrl}
+          locationScore={currentResult.locationScore}
+          floorCorrect={currentResult.floorCorrect}
+          totalScore={currentResult.score}
+          timeTakenSeconds={currentResult.timeTakenSeconds}
+          timeMultiplier={currentResult.timeMultiplier}
+          timedOut={currentResult.timedOut}
           roundNumber={currentRound}
           totalRounds={totalRounds}
           onNextRound={nextRound}
