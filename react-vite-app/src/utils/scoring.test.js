@@ -13,9 +13,9 @@ function calculateDistance(guess, actual) {
 }
 
 /**
- * GeoGuessr-style scoring: 5000 * e^(-10 * (d/D)^2)
+ * Steep exponential decay scoring: 5000 * e^(-100 * (d/D)^2)
  * At 10 ft (distance=5) or closer → 5000 points.
- * Score decays to 0 at maximum possible distance (map diagonal).
+ * Score drops very dramatically with distance, rewarding precise guesses.
  */
 function calculateLocationScore(distance) {
   const maxScore = 5000;
@@ -26,7 +26,7 @@ function calculateLocationScore(distance) {
 
   const effectiveDistance = distance - perfectRadius;
   const ratio = effectiveDistance / maxDistance;
-  const score = Math.round(maxScore * Math.exp(-10 * ratio * ratio));
+  const score = Math.round(maxScore * Math.exp(-100 * ratio * ratio));
   return Math.max(0, Math.min(maxScore, score));
 }
 
@@ -131,18 +131,18 @@ describe('scoring utilities', () => {
       expect(score20).toBeGreaterThan(score30);
     });
 
-    it('should use GeoGuessr-style decay (score at 10 map units / 20 ft)', () => {
+    it('should use steep decay (score at 10 map units / 20 ft)', () => {
       const score = calculateLocationScore(10);
       // effectiveDistance = 5, ratio = 5/136.42 ≈ 0.0366
-      // 5000 * e^(-10 * 0.0366^2) ≈ 4933
-      expect(score).toBeCloseTo(4933, -2);
+      // 5000 * e^(-100 * 0.0366^2) ≈ 4372
+      expect(score).toBeCloseTo(4372, -2);
     });
 
-    it('should use GeoGuessr-style decay (score at 20 map units / 40 ft)', () => {
+    it('should use steep decay (score at 20 map units / 40 ft)', () => {
       const score = calculateLocationScore(20);
       // effectiveDistance = 15, ratio = 15/136.42 ≈ 0.1099
-      // 5000 * e^(-10 * 0.1099^2) ≈ 4431
-      expect(score).toBeCloseTo(4431, -2);
+      // 5000 * e^(-100 * 0.1099^2) ≈ 1493
+      expect(score).toBeCloseTo(1493, -2);
     });
 
     it('should approach 0 at maximum map distance', () => {
