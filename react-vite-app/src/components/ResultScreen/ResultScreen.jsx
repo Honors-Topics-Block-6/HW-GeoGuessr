@@ -16,12 +16,10 @@ function calculateDistance(guess, actual) {
  * Format distance as a readable string
  */
 function formatDistance(distance) {
-  // Convert percentage distance to approximate "units" for display
-  // In a real campus, this might be meters or feet
-  const units = Math.round(distance * 2); // Arbitrary scaling
-  if (units < 5) return 'Perfect!';
-  if (units < 20) return `${units} ft away`;
-  return `${units} ft away`;
+  // Convert percentage distance to feet (1 percentage unit = 2 feet)
+  const feet = Math.round(distance * 2);
+  if (feet <= 10) return 'Perfect!';
+  return `${feet} ft away`;
 }
 
 function ResultScreen({

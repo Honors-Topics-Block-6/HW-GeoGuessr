@@ -17,11 +17,20 @@ function calculateDistance(guess, actual) {
 
 /**
  * Calculate location score based on distance (0-5000 points)
+ * Uses the GeoGuessr scoring formula: 5000 * e^(-10 * (d/D)^2)
+ * At 10 ft (distance=5 in map coords) or closer, the player gets 5000.
+ * Score decays to 0 at the maximum possible distance (map diagonal).
  */
 function calculateLocationScore(distance) {
   const maxScore = 5000;
-  const decayRate = 0.05;
-  const score = Math.round(maxScore * Math.exp(-decayRate * distance));
+  const perfectRadius = 5; // 10 ft = 5 percentage units (distance * 2 = feet)
+  const maxDistance = Math.sqrt(100 * 100 + 100 * 100) - perfectRadius; // ~136.42
+
+  if (distance <= perfectRadius) return maxScore;
+
+  const effectiveDistance = distance - perfectRadius;
+  const ratio = effectiveDistance / maxDistance;
+  const score = Math.round(maxScore * Math.exp(-10 * ratio * ratio));
   return Math.max(0, Math.min(maxScore, score));
 }
 
