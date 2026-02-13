@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { getRandomImage } from '../services/imageService';
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } from '../services/regionService';
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
+const ROUND_TIME_SECONDS = 20;
 
 /**
  * Calculate distance between two points (in percentage coordinates)
@@ -65,18 +66,29 @@ export function useGameState() {
   // Available floors based on selected location (null if not in a region)
   const [availableFloors, setAvailableFloors] = useState(null);
 
+  // Round timer state (seconds remaining in this guessing phase)
+  const [timeRemaining, setTimeRemaining] = useState(ROUND_TIME_SECONDS);
+  const [roundStartTime, setRoundStartTime] = useState(null);
+  const timedOutRef = useRef(false);
+
   // Track when a click is rejected (outside playing area)
   const [clickRejected, setClickRejected] = useState(false);
 
   // Load regions and playing area on mount
   useEffect(() => {
     async function loadData() {
-      const [fetchedRegions, fetchedPlayingArea] = await Promise.all([
-        getRegions(),
-        getPlayingArea()
-      ]);
-      setRegions(fetchedRegions);
-      setPlayingArea(fetchedPlayingArea);
+      try {
+        const [fetchedRegions, fetchedPlayingArea] = await Promise.all([
+          getRegions(),
+          getPlayingArea()
+        ]);
+        setRegions(fetchedRegions);
+        setPlayingArea(fetchedPlayingArea);
+      } catch (err) {
+        console.error('Failed to load regions/playing area:', err);
+        setRegions([]);
+        setPlayingArea(null);
+      }
     }
     loadData();
   }, []);
@@ -94,6 +106,7 @@ export function useGameState() {
       setGuessLocation(null);
       setGuessFloor(null);
       setAvailableFloors(null);
+      // Timer will be (re)started when the game screen is shown for this image
     } catch (err) {
       console.error('Failed to load image:', err);
       setError('Failed to load image. Please try again.');
@@ -127,6 +140,8 @@ export function useGameState() {
       setGuessLocation(null);
       setGuessFloor(null);
       setAvailableFloors(null);
+      setTimeRemaining(ROUND_TIME_SECONDS);
+      setRoundStartTime(performance.now());
       setScreen('game');
     } catch (err) {
       console.error('Failed to start game:', err);
@@ -135,6 +150,29 @@ export function useGameState() {
       setIsLoading(false);
     }
   }, []);
+
+  /**
+   * Timer effect for each guessing phase.
+   * Counts down from ROUND_TIME_SECONDS while on the game screen.
+   * When the timer expires, automatically submits the current guess (if valid).
+   */
+  useEffect(() => {
+    if (screen !== 'game' || !roundStartTime) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const elapsedSeconds = (performance.now() - roundStartTime) / 1000;
+      const remaining = Math.max(0, ROUND_TIME_SECONDS - elapsedSeconds);
+      setTimeRemaining(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [screen, roundStartTime]);
 
   /**
    * Place a marker on the map
@@ -197,14 +235,36 @@ export function useGameState() {
     const distance = calculateDistance(guessLocation, actualLocation);
     const locationScore = calculateLocationScore(distance);
 
+    // Time-based multiplier:
+    // - First 10 seconds: full points
+    // - 10–20 seconds: linearly decrease to 0
+    let timeTakenSeconds = 0;
+    if (roundStartTime) {
+      timeTakenSeconds = Math.min(
+        ROUND_TIME_SECONDS,
+        (performance.now() - roundStartTime) / 1000
+      );
+    }
+
+    let timeMultiplier = 1;
+    if (timeTakenSeconds > 10) {
+      const excess = Math.min(timeTakenSeconds, ROUND_TIME_SECONDS) - 10;
+      // After 10s, decrease linearly to 0 at 20s
+      timeMultiplier = Math.max(0, (ROUND_TIME_SECONDS - 10 - excess) / 10);
+    }
+
+    const timeAdjustedLocationScore = Math.round(locationScore * timeMultiplier);
+
     // Floor scoring only applies when in a region AND the photo has a floor set
     let floorCorrect = null;
-    let totalScore = locationScore;
+    let totalScore = timeAdjustedLocationScore;
 
     if (isInRegion && guessFloor !== null && actualFloor !== null) {
       floorCorrect = guessFloor === actualFloor;
       // Multiply by 0.8 for incorrect floor instead of bonus system
-      totalScore = floorCorrect ? locationScore : Math.round(locationScore * 0.8);
+      totalScore = floorCorrect
+        ? timeAdjustedLocationScore
+        : Math.round(timeAdjustedLocationScore * 0.8);
     }
 
     // Create result object
@@ -216,10 +276,15 @@ export function useGameState() {
       guessFloor,
       actualFloor,
       distance,
-      locationScore,
+      locationScore: timeAdjustedLocationScore,
       floorCorrect,
-      score: totalScore
+      score: totalScore,
+      timeTakenSeconds,
+      timeMultiplier,
+      timedOut: timedOutRef.current
     };
+
+    timedOutRef.current = false;
 
     // Save result
     setCurrentResult(result);
@@ -227,7 +292,26 @@ export function useGameState() {
 
     // Show result screen
     setScreen('result');
-  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound]);
+  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime]);
+
+  const submitGuessRef = useRef(submitGuess);
+  submitGuessRef.current = submitGuess;
+
+  /**
+   * When the timer hits zero on the game screen and there is a valid guess,
+   * automatically submit once and mark it as a timeout-based submission.
+   */
+  useEffect(() => {
+    if (screen !== 'game') return;
+    if (timeRemaining > 0) return;
+
+    const isInRegion = availableFloors !== null && availableFloors.length > 0;
+    if (!guessLocation || !currentImage) return;
+    if (isInRegion && !guessFloor) return;
+
+    timedOutRef.current = true;
+    submitGuessRef.current();
+  }, [screen, timeRemaining, availableFloors, guessLocation, guessFloor, currentImage]);
 
   /**
    * Proceed to the next round
@@ -242,6 +326,8 @@ export function useGameState() {
     // Increment round
     setCurrentRound(prev => prev + 1);
     setCurrentResult(null);
+    setTimeRemaining(ROUND_TIME_SECONDS);
+    setRoundStartTime(performance.now());
 
     // Load new image
     await loadNewImage();
@@ -268,6 +354,8 @@ export function useGameState() {
     setCurrentResult(null);
     setRoundResults([]);
     setError(null);
+    setTimeRemaining(ROUND_TIME_SECONDS);
+    setRoundStartTime(null);
   }, []);
 
   return {
@@ -285,6 +373,8 @@ export function useGameState() {
     error,
     clickRejected,
     playingArea,
+    timeRemaining,
+    roundTimeSeconds: ROUND_TIME_SECONDS,
 
     // Actions
     startGame,

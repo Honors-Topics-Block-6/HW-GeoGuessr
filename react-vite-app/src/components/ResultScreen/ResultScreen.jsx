@@ -13,20 +13,6 @@ function calculateDistance(guess, actual) {
 }
 
 /**
- * Calculate score based on distance (0-5000 points per round, GeoGuessr style)
- * Perfect guess = 5000 points
- * Score decreases exponentially with distance
- */
-function calculateScore(distance) {
-  // Max distance on a 100x100 grid is ~141 (diagonal)
-  // Use exponential decay for scoring
-  const maxScore = 5000;
-  const decayRate = 0.05; // Adjust for difficulty
-  const score = Math.round(maxScore * Math.exp(-decayRate * distance));
-  return Math.max(0, Math.min(maxScore, score));
-}
-
-/**
  * Format distance as a readable string
  */
 function formatDistance(distance) {
@@ -44,6 +30,12 @@ function ResultScreen({
   actualLocation,
   actualFloor,
   imageUrl,
+  locationScore,
+  floorCorrect,
+  totalScore,
+  timeTakenSeconds,
+  timeMultiplier,
+  timedOut,
   roundNumber,
   totalRounds,
   onNextRound,
@@ -66,12 +58,11 @@ function ResultScreen({
   const isZoomed = scale > 1;
 
   const distance = calculateDistance(guessLocation, actualLocation);
-  const locationScore = calculateScore(distance);
+  const effectiveLocationScore = locationScore ?? 0;
   const hasFloorScoring = guessFloor !== null && actualFloor !== null;
-  const floorCorrect = hasFloorScoring ? guessFloor === actualFloor : null;
-  // Multiply by 0.8 for incorrect floor (only when both floors are set)
-  const totalScore = (hasFloorScoring && !floorCorrect) ? Math.round(locationScore * 0.8) : locationScore;
-  const floorPenalty = (hasFloorScoring && !floorCorrect) ? Math.round(locationScore * 0.2) : 0;
+  const isFloorCorrect = floorCorrect ?? (guessFloor === actualFloor);
+  // For display only: 20% penalty when the floor is wrong
+  const floorPenalty = (hasFloorScoring && !isFloorCorrect) ? Math.round(effectiveLocationScore * 0.2) : 0;
 
   // Animation sequence
   useEffect(() => {
@@ -93,13 +84,13 @@ function ResultScreen({
     if (animationPhase >= 3) {
       const duration = 1000;
       const steps = 30;
-      const increment = totalScore / steps;
+      const increment = (totalScore ?? 0) / steps;
       let current = 0;
 
       const interval = setInterval(() => {
         current += increment;
-        if (current >= totalScore) {
-          setDisplayedScore(totalScore);
+        if (current >= (totalScore ?? 0)) {
+          setDisplayedScore(totalScore ?? 0);
           clearInterval(interval);
         } else {
           setDisplayedScore(Math.round(current));
@@ -123,6 +114,12 @@ function ResultScreen({
           <span className="score-max">/ 5,000</span>
         </div>
       </div>
+
+      {timedOut && (
+        <div className="result-banner timeout-banner">
+          Time ran out! We locked in your last guess.
+        </div>
+      )}
 
       {/* Main content - Map with results */}
       <div className="result-content">
@@ -244,12 +241,25 @@ function ResultScreen({
               <span className="stat-value">{formatDistance(distance)}</span>
             </div>
 
+            {typeof timeTakenSeconds === 'number' && (
+              <div className="stat-row">
+                <span className="stat-icon">⏱️</span>
+                <span className="stat-label">Time</span>
+                <span className="stat-value">
+                  {timeTakenSeconds.toFixed(2)}s
+                  {typeof timeMultiplier === 'number' && (
+                    <> ({Math.round(timeMultiplier * 100)}% of distance score)</>
+                  )}
+                </span>
+              </div>
+            )}
+
             {hasFloorScoring && (
               <div className="stat-row">
                 <span className="stat-icon">🏢</span>
                 <span className="stat-label">Floor</span>
-                <span className={`stat-value ${floorCorrect ? 'correct' : 'incorrect'}`}>
-                  {floorCorrect ? (
+                <span className={`stat-value ${isFloorCorrect ? 'correct' : 'incorrect'}`}>
+                  {isFloorCorrect ? (
                     <>Correct! (Floor {actualFloor})</>
                   ) : (
                     <>You: {guessFloor} | Actual: {actualFloor}</>
@@ -261,7 +271,7 @@ function ResultScreen({
             <div className="score-breakdown">
               <div className="breakdown-row">
                 <span>Location Score</span>
-                <span>{locationScore.toLocaleString()}</span>
+                <span>{effectiveLocationScore.toLocaleString()}</span>
               </div>
               {floorPenalty > 0 && (
                 <div className="breakdown-row penalty">
