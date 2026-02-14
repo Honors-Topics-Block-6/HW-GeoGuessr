@@ -1,0 +1,428 @@
+/* Waiting Room Screen */
+.waiting-screen {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-y: auto;
+}
+
+.waiting-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #0c0c0f 0%, #1a1a2e 50%, #16213e 100%);
+  z-index: 0;
+}
+
+.waiting-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(108, 181, 45, 0.08) 0%, transparent 50%);
+}
+
+.waiting-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(0deg, rgba(12, 12, 15, 0.8) 0%, transparent 50%),
+    linear-gradient(180deg, rgba(12, 12, 15, 0.4) 0%, transparent 30%);
+}
+
+.waiting-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 3rem 2rem 4rem;
+  max-width: 600px;
+  width: 100%;
+}
+
+/* Loading / Error States */
+.waiting-loading,
+.waiting-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem;
+}
+
+.waiting-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-green);
+  border-radius: 50%;
+  animation: waitingSpin 1s linear infinite;
+}
+
+@keyframes waitingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.waiting-error p {
+  color: var(--error-red);
+  font-size: 1rem;
+}
+
+.waiting-back-btn {
+  padding: 0.7rem 1.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.waiting-back-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+}
+
+/* Heading */
+.waiting-heading {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
+}
+
+/* Game Code Section */
+.waiting-code-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+
+.waiting-code-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.waiting-code-display {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1.5rem;
+  background: rgba(108, 181, 45, 0.08);
+  border: 2px solid rgba(108, 181, 45, 0.3);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.waiting-code-display:hover {
+  background: rgba(108, 181, 45, 0.12);
+  border-color: var(--accent-green);
+}
+
+.waiting-code-text {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: var(--accent-green);
+  font-family: 'Courier New', monospace;
+}
+
+.waiting-copy-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 2px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.waiting-copy-btn:hover {
+  opacity: 1;
+}
+
+.waiting-copied-toast {
+  font-size: 0.8rem;
+  color: var(--accent-green);
+  font-weight: 600;
+  animation: toastFadeIn 0.2s ease;
+}
+
+@keyframes toastFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.waiting-code-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Badges */
+.waiting-badges {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.waiting-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.waiting-badge-diff {
+  border-color: rgba(108, 181, 45, 0.3);
+  color: var(--accent-green);
+}
+
+.waiting-badge-vis.public {
+  border-color: rgba(52, 152, 219, 0.3);
+  color: #3498db;
+}
+
+.waiting-badge-vis.private {
+  border-color: rgba(243, 156, 18, 0.3);
+  color: #f39c12;
+}
+
+/* Player List */
+.waiting-players {
+  width: 100%;
+  margin-bottom: 2rem;
+}
+
+.waiting-players-heading {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.8rem;
+}
+
+.waiting-players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.waiting-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.waiting-player.host {
+  border-color: rgba(243, 156, 18, 0.3);
+  background: rgba(243, 156, 18, 0.06);
+}
+
+.waiting-player.you {
+  border-color: rgba(108, 181, 45, 0.3);
+  background: rgba(108, 181, 45, 0.06);
+}
+
+.waiting-player.host.you {
+  border-color: rgba(108, 181, 45, 0.3);
+  background: linear-gradient(135deg, rgba(108, 181, 45, 0.06) 0%, rgba(243, 156, 18, 0.06) 100%);
+}
+
+.waiting-player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.waiting-player-icon {
+  font-size: 1.1rem;
+}
+
+.waiting-player-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.waiting-player-you {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.waiting-player-role {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #f39c12;
+  padding: 0.15rem 0.5rem;
+  background: rgba(243, 156, 18, 0.1);
+  border-radius: 6px;
+}
+
+/* Waiting Dots Animation */
+.waiting-dots-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.2rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.waiting-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.waiting-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  animation: dotBounce 1.4s ease-in-out infinite;
+}
+
+.waiting-dot:nth-child(1) { animation-delay: 0s; }
+.waiting-dot:nth-child(2) { animation-delay: 0.2s; }
+.waiting-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotBounce {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+/* Actions */
+.waiting-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 350px;
+}
+
+.waiting-start-btn {
+  width: 100%;
+  padding: 0.9rem 1.5rem;
+  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(108, 181, 45, 0.3);
+}
+
+.waiting-start-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(108, 181, 45, 0.4);
+}
+
+.waiting-start-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.waiting-leave-btn {
+  width: 100%;
+  padding: 0.7rem 1.5rem;
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  color: #e74c3c;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.waiting-leave-btn:hover {
+  background: rgba(231, 76, 60, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .waiting-heading {
+    font-size: 1.8rem;
+  }
+
+  .waiting-code-text {
+    font-size: 1.6rem;
+    letter-spacing: 4px;
+  }
+
+  .waiting-content {
+    padding: 2rem 1.5rem 3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .waiting-heading {
+    font-size: 1.5rem;
+  }
+
+  .waiting-code-text {
+    font-size: 1.3rem;
+    letter-spacing: 3px;
+  }
+
+  .waiting-content {
+    padding: 1.5rem 1rem 3rem;
+  }
+
+  .waiting-badges {
+    gap: 0.4rem;
+  }
+}

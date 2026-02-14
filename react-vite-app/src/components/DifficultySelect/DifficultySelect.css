@@ -157,14 +157,9 @@
   justify-content: center;
 }
 
-.mode-card-wrapper {
-  position: relative;
+.mode-card {
   flex: 1;
   max-width: 200px;
-}
-
-.mode-card {
-  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -172,24 +167,23 @@
   padding: 1.5rem 1rem;
   border-radius: 14px;
   border: 2px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.04);
   transition: all 0.25s ease;
   color: var(--text-primary);
-  cursor: default;
+  cursor: pointer;
 }
 
-.mode-singleplayer {
-  flex: 1;
-  max-width: 200px;
+.mode-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-light);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.mode-card.selected {
   background: rgba(108, 181, 45, 0.12);
   border-color: var(--accent-green);
   box-shadow: 0 0 20px rgba(108, 181, 45, 0.2);
-  opacity: 1 !important;
-}
-
-.mode-multiplayer {
-  background: rgba(255, 255, 255, 0.03);
-  opacity: 0.4 !important;
-  cursor: not-allowed;
 }
 
 .mode-card-icon {
@@ -199,46 +193,6 @@
 .mode-card-label {
   font-size: 1.1rem;
   font-weight: 700;
-}
-
-/* Coming Soon tooltip */
-.coming-soon-tooltip {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--border-color);
-  pointer-events: none;
-  animation: tooltipFadeIn 0.15s ease;
-}
-
-.coming-soon-tooltip::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 6px solid transparent;
-  border-top-color: var(--border-color);
-}
-
-@keyframes tooltipFadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
 }
 
 /* Play Button */
@@ -289,8 +243,7 @@
   }
 
   .difficulty-card,
-  .mode-singleplayer,
-  .mode-card-wrapper {
+  .mode-card {
     max-width: 280px;
     width: 100%;
   }

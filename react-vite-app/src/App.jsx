@@ -10,6 +10,8 @@ import DifficultySelect from './components/DifficultySelect/DifficultySelect';
 import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
+import MultiplayerLobby from './components/MultiplayerLobby/MultiplayerLobby';
+import WaitingRoom from './components/WaitingRoom/WaitingRoom';
 import SubmissionApp from './components/SubmissionApp/SubmissionApp';
 import MessageBanner from './components/MessageBanner/MessageBanner';
 import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
@@ -36,8 +38,10 @@ function App() {
     playingArea,
     timeRemaining,
     roundTimeSeconds,
-    // eslint-disable-next-line no-unused-vars
     difficulty,
+    // eslint-disable-next-line no-unused-vars
+    mode,
+    lobbyDocId,
     setScreen,
     startGame,
     placeMarker,
@@ -45,7 +49,8 @@ function App() {
     submitGuess,
     nextRound,
     viewFinalResults,
-    resetGame
+    resetGame,
+    setLobbyDocId
   } = useGameState();
 
   // Track user's online presence and current activity
@@ -122,8 +127,8 @@ function App() {
   /**
    * Handle starting the game from difficulty select
    */
-  const handleStartFromDifficulty = (selectedDifficulty, _mode) => {
-    startGame(selectedDifficulty);
+  const handleStartFromDifficulty = (selectedDifficulty, selectedMode) => {
+    startGame(selectedDifficulty, selectedMode);
   };
 
   /**
@@ -151,6 +156,33 @@ function App() {
           onStart={handleStartFromDifficulty}
           onBack={handleBackToTitle}
           isLoading={isLoading}
+        />
+      )}
+
+      {screen === 'multiplayerLobby' && (
+        <MultiplayerLobby
+          difficulty={difficulty}
+          userUid={user.uid}
+          userUsername={userDoc?.username}
+          onJoinedLobby={(docId) => {
+            setLobbyDocId(docId);
+            setScreen('waitingRoom');
+          }}
+          onBack={() => setScreen('difficultySelect')}
+        />
+      )}
+
+      {screen === 'waitingRoom' && lobbyDocId && (
+        <WaitingRoom
+          lobbyDocId={lobbyDocId}
+          userUid={user.uid}
+          onLeave={() => {
+            setLobbyDocId(null);
+            setScreen('multiplayerLobby');
+          }}
+          onGameStart={() => {
+            // Future: transition to multiplayer game
+          }}
         />
       )}
 

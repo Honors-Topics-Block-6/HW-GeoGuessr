@@ -86,6 +86,12 @@ export function useGameState() {
   // Selected difficulty for the current game
   const [difficulty, setDifficulty] = useState(null);
 
+  // Game mode: 'singleplayer' or 'multiplayer'
+  const [mode, setMode] = useState(null);
+
+  // Current lobby document ID (when in multiplayer)
+  const [lobbyDocId, setLobbyDocId] = useState(null);
+
   // Load regions and playing area on mount
   useEffect(() => {
     async function loadData() {
@@ -130,12 +136,21 @@ export function useGameState() {
   /**
    * Start a new game - reset everything and fetch first image
    * @param {string} selectedDifficulty - 'easy', 'medium', or 'hard'
+   * @param {string} selectedMode - 'singleplayer' or 'multiplayer'
    */
-  const startGame = useCallback(async (selectedDifficulty) => {
+  const startGame = useCallback(async (selectedDifficulty, selectedMode = 'singleplayer') => {
     setCurrentRound(1);
     setRoundResults([]);
     setCurrentResult(null);
     setDifficulty(selectedDifficulty);
+    setMode(selectedMode);
+    setLobbyDocId(null);
+
+    // Multiplayer: go to lobby screen instead of starting a game
+    if (selectedMode === 'multiplayer') {
+      setScreen('multiplayerLobby');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -387,6 +402,8 @@ export function useGameState() {
     setTimeRemaining(ROUND_TIME_SECONDS);
     setRoundStartTime(null);
     setDifficulty(null);
+    setMode(null);
+    setLobbyDocId(null);
   }, []);
 
   return {
@@ -407,6 +424,8 @@ export function useGameState() {
     timeRemaining,
     roundTimeSeconds: ROUND_TIME_SECONDS,
     difficulty,
+    mode,
+    lobbyDocId,
 
     // Actions
     setScreen,
@@ -416,6 +435,8 @@ export function useGameState() {
     submitGuess,
     nextRound,
     viewFinalResults,
-    resetGame
+    resetGame,
+    setMode,
+    setLobbyDocId
   };
 }
