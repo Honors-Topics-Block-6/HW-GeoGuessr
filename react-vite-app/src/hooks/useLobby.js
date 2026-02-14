@@ -5,7 +5,9 @@ import {
   joinLobby,
   leaveLobby,
   subscribeLobby,
-  subscribePublicLobbies
+  subscribePublicLobbies,
+  sendHeartbeat,
+  removeStalePlayersFromLobby
 } from '../services/lobbyService';
 
 /**
@@ -162,6 +164,35 @@ export function useWaitingRoom(lobbyDocId, userUid) {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
+
+  // Heartbeat: periodically tell Firestore we're still connected
+  useEffect(() => {
+    if (!lobbyDocId || !userUid) return;
+
+    // Send an initial heartbeat immediately
+    sendHeartbeat(lobbyDocId, userUid).catch(() => {});
+
+    const heartbeatInterval = setInterval(() => {
+      if (!hasLeft.current) {
+        sendHeartbeat(docIdRef.current, uidRef.current).catch(() => {});
+      }
+    }, 10_000); // every 10 seconds
+
+    return () => clearInterval(heartbeatInterval);
+  }, [lobbyDocId, userUid]);
+
+  // Stale player detection: periodically remove disconnected players
+  useEffect(() => {
+    if (!lobbyDocId || !userUid) return;
+
+    const staleCheckInterval = setInterval(() => {
+      if (!hasLeft.current) {
+        removeStalePlayersFromLobby(docIdRef.current, uidRef.current).catch(() => {});
+      }
+    }, 15_000); // every 15 seconds
+
+    return () => clearInterval(staleCheckInterval);
+  }, [lobbyDocId, userUid]);
 
   /**
    * Leave the lobby manually.

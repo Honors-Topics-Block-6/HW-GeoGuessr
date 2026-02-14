@@ -12,9 +12,13 @@ import {
   onSnapshot,
   arrayUnion,
   arrayRemove,
-  serverTimestamp
+  serverTimestamp,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
+
+/** How long (ms) before a player's heartbeat is considered stale. */
+export const STALE_TIMEOUT = 30_000;
 
 // Characters that avoid ambiguity (no I, O, 0, 1)
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -54,6 +58,9 @@ export async function createLobby(hostUid, hostUsername, difficulty, visibility)
       username: hostUsername,
       joinedAt: new Date().toISOString()
     }],
+    heartbeats: {
+      [hostUid]: Timestamp.now()
+    },
     maxPlayers: 8,
     createdAt: now,
     updatedAt: now
@@ -125,6 +132,7 @@ export async function joinLobby(docId, playerUid, playerUsername, playerDifficul
       username: playerUsername,
       joinedAt: new Date().toISOString()
     }),
+    [`heartbeats.${playerUid}`]: Timestamp.now(),
     updatedAt: serverTimestamp()
   });
 }
@@ -247,4 +255,87 @@ export async function updateLobbyStatus(docId, status) {
  */
 export async function deleteLobby(docId) {
   await deleteDoc(doc(db, 'lobbies', docId));
+}
+
+/**
+ * Send a heartbeat for the current player in a lobby.
+ * Updates the player's entry in the `heartbeats` map with the current time.
+ * @param {string} docId - Firestore document ID of the lobby
+ * @param {string} playerUid - The player's UID
+ */
+export async function sendHeartbeat(docId, playerUid) {
+  const lobbyRef = doc(db, 'lobbies', docId);
+  await updateDoc(lobbyRef, {
+    [`heartbeats.${playerUid}`]: Timestamp.now()
+  });
+}
+
+/**
+ * Remove players whose heartbeat has gone stale from a lobby.
+ * If the lobby becomes empty after removal, it is deleted.
+ * @param {string} docId - Firestore document ID of the lobby
+ * @param {string} currentUid - The UID of the player running this check (skip self)
+ * @param {number} [staleTimeoutMs=STALE_TIMEOUT] - Time in ms after which a heartbeat is stale
+ * @returns {boolean} Whether the lobby was deleted
+ */
+export async function removeStalePlayersFromLobby(docId, currentUid, staleTimeoutMs = STALE_TIMEOUT) {
+  const lobbyRef = doc(db, 'lobbies', docId);
+  const lobbySnap = await getDoc(lobbyRef);
+
+  if (!lobbySnap.exists()) return true;
+
+  const lobby = lobbySnap.data();
+  const heartbeats = lobby.heartbeats || {};
+  const now = Date.now();
+
+  // Identify stale players (never skip the current user)
+  const stalePlayers = lobby.players.filter(p => {
+    if (p.uid === currentUid) return false;
+    const lastSeen = heartbeats[p.uid];
+    if (!lastSeen) return true; // No heartbeat ever recorded — stale
+    const lastSeenMs = lastSeen.toMillis ? lastSeen.toMillis() : lastSeen;
+    return now - lastSeenMs > staleTimeoutMs;
+  });
+
+  if (stalePlayers.length === 0) return false;
+
+  // Remove each stale player sequentially (mirrors leaveLobby logic)
+  for (const stalePlayer of stalePlayers) {
+    // Re-read to get fresh state (players/host may have changed)
+    const freshSnap = await getDoc(lobbyRef);
+    if (!freshSnap.exists()) return true;
+
+    const fresh = freshSnap.data();
+    const player = fresh.players.find(p => p.uid === stalePlayer.uid);
+    if (!player) continue;
+
+    const remaining = fresh.players.filter(p => p.uid !== stalePlayer.uid);
+
+    if (remaining.length === 0) {
+      await deleteDoc(lobbyRef);
+      return true;
+    }
+
+    const updates = {
+      players: arrayRemove(player),
+      updatedAt: serverTimestamp()
+    };
+
+    // Clean up the heartbeat entry
+    // Firestore doesn't support deleting a map key directly in updateDoc,
+    // so we rebuild the heartbeats map without the stale player.
+    const newHeartbeats = { ...fresh.heartbeats };
+    delete newHeartbeats[stalePlayer.uid];
+    updates.heartbeats = newHeartbeats;
+
+    // Transfer host if needed
+    if (fresh.hostUid === stalePlayer.uid) {
+      updates.hostUid = remaining[0].uid;
+      updates.hostUsername = remaining[0].username;
+    }
+
+    await updateDoc(lobbyRef, updates);
+  }
+
+  return false;
 }
