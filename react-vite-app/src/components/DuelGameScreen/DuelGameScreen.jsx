@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import ImageViewer from '../ImageViewer/ImageViewer';
 import MapPicker from '../MapPicker/MapPicker';
 import FloorSelector from '../FloorSelector/FloorSelector';
@@ -27,15 +27,35 @@ function DuelGameScreen({
   opponentHealth,
   myUsername = 'You'
 }) {
+  const mapPickerRef = useRef(null);
+
   const isInRegion = availableFloors !== null && availableFloors.length > 0;
   const canSubmit = !hasSubmitted && guessLocation !== null && (!isInRegion || guessFloor !== null);
 
   const handleKeyDown = useCallback((e) => {
-    if (e.code === 'Space' && canSubmit) {
+    if (hasSubmitted) return;
+
+    // Spacebar: submit guess if ready, otherwise place marker at map center
+    if (e.code === 'Space') {
       e.preventDefault();
-      onSubmitGuess();
+      if (canSubmit) {
+        onSubmitGuess();
+      } else if (!guessLocation && mapPickerRef.current) {
+        const center = mapPickerRef.current.getViewportCenter();
+        onMapClick(center);
+      }
+      return;
     }
-  }, [canSubmit, onSubmitGuess]);
+
+    // Number keys (1-9): select floor when floor selector is visible
+    if (isInRegion && availableFloors) {
+      const digit = parseInt(e.key, 10);
+      if (!isNaN(digit) && digit >= 1 && availableFloors.includes(digit)) {
+        e.preventDefault();
+        onFloorSelect(digit);
+      }
+    }
+  }, [hasSubmitted, canSubmit, onSubmitGuess, guessLocation, onMapClick, isInRegion, availableFloors, onFloorSelect]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -160,6 +180,7 @@ function DuelGameScreen({
           {!hasSubmitted && (
             <div className="guess-controls">
               <MapPicker
+                ref={mapPickerRef}
                 markerPosition={guessLocation}
                 onMapClick={onMapClick}
                 clickRejected={clickRejected}
