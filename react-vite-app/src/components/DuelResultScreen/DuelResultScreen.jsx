@@ -71,7 +71,7 @@ function DuelResultScreen({
     return () => observer.disconnect();
   }, []);
 
-  const { scale, transformStyle, zoomIn, zoomOut, resetZoom } = useMapZoom(mapContainerRef);
+  const { scale, transformStyle, handlers, zoomIn, zoomOut, resetZoom, isPanning } = useMapZoom(mapContainerRef);
   const isZoomed = scale > 1;
 
   // Animation sequence
@@ -150,9 +150,13 @@ function DuelResultScreen({
       <div className="duel-result-content">
         {/* Map */}
         <div className="duel-result-map-container" ref={mapOuterRef}>
-          <div className="duel-result-map" ref={mapContainerRef}>
+          <div
+            className={`duel-result-map ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''}`}
+            ref={mapContainerRef}
+            {...handlers}
+          >
             <div className="duel-result-zoom-content" style={{ transform: transformStyle }}>
-              <img className="map-image" src="/FINAL_MAP.png" alt="Campus Map" />
+              <img className="map-image" src="/FINAL_MAP.png" alt="Campus Map" draggable="false" onDragStart={(e) => e.preventDefault()} />
 
               {/* Lines from guesses to actual */}
               {animationPhase >= 2 && (
