@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Sample images for development/testing
@@ -142,4 +142,20 @@ export async function getAllImages() {
  */
 export function getAllSampleImages() {
   return [...SAMPLE_IMAGES];
+}
+
+/**
+ * Deletes a submission from the submissions collection
+ * @param {string} submissionId - The Firestore document ID of the submission
+ */
+export async function deleteSubmission(submissionId) {
+  await deleteDoc(doc(db, 'submissions', submissionId));
+}
+
+/**
+ * Deletes an image from the images collection
+ * @param {string} imageId - The Firestore document ID of the image
+ */
+export async function deleteImage(imageId) {
+  await deleteDoc(doc(db, 'images', imageId));
 }

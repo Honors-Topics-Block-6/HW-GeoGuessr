@@ -26,10 +26,14 @@ vi.mock('firebase/firestore', () => ({
 // Mock imageService
 const mockGetAllImages = vi.fn();
 const mockGetAllSampleImages = vi.fn();
+const mockDeleteSubmission = vi.fn();
+const mockDeleteImage = vi.fn();
 
 vi.mock('../../services/imageService', () => ({
   getAllImages: (...args) => mockGetAllImages(...args),
-  getAllSampleImages: (...args) => mockGetAllSampleImages(...args)
+  getAllSampleImages: (...args) => mockGetAllSampleImages(...args),
+  deleteSubmission: (...args) => mockDeleteSubmission(...args),
+  deleteImage: (...args) => mockDeleteImage(...args)
 }));
 
 // Mock MapPicker
@@ -148,6 +152,8 @@ describe('AdminReview', () => {
 
     mockUpdateDoc.mockResolvedValue();
     mockCompressImage.mockResolvedValue('data:image/jpeg;base64,compressed');
+    mockDeleteSubmission.mockResolvedValue();
+    mockDeleteImage.mockResolvedValue();
 
     // Mock imageService - return empty by default to keep tests focused
     mockGetAllImages.mockResolvedValue([]);
@@ -1462,6 +1468,332 @@ describe('AdminReview', () => {
         expect(screen.getByText('Floor is required')).toBeInTheDocument();
         // updateDoc should NOT have been called
         expect(mockUpdateDoc).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('delete photo functionality', () => {
+    describe('delete button visibility', () => {
+      it('should show Delete button on submission cards', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        // Filter to submissions only
+        await user.click(screen.getByText(/^Submissions/));
+
+        const deleteButtons = screen.getAllByText('Delete');
+        expect(deleteButtons.length).toBeGreaterThan(0);
+      });
+
+      it('should show Delete button on game image cards', async () => {
+        const user = userEvent.setup();
+        const firestoreImages = [{
+          id: 'img-1',
+          url: 'https://example.com/game-image.jpg',
+          correctLocation: { x: 50, y: 50 },
+          correctFloor: 1,
+          description: 'Game hallway image'
+        }];
+        mockGetAllImages.mockResolvedValue(firestoreImages);
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Game Images \(1\)/)).toBeInTheDocument();
+        });
+        await user.click(screen.getByText(/^Game Images/));
+
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      it('should NOT show Delete button on testing data cards', async () => {
+        const user = userEvent.setup();
+        // Only show testing items
+        mockOnSnapshot.mockImplementation((query, callback) => {
+          callback({ docs: [] });
+          return vi.fn();
+        });
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Testing Data \(1\)/)).toBeInTheDocument();
+        });
+        await user.click(screen.getByText(/^Testing Data \(/));
+
+        expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+      });
+
+      it('should show Delete button in modal for submission items', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+        await user.click(screen.getByText('View Full Details'));
+
+        // Modal should have a Delete button
+        const modalDeleteBtn = document.querySelector('.modal-header-actions .delete-photo-button');
+        expect(modalDeleteBtn).toBeInTheDocument();
+      });
+
+      it('should NOT show Delete button in modal for testing items', async () => {
+        const user = userEvent.setup();
+        mockOnSnapshot.mockImplementation((query, callback) => {
+          callback({ docs: [] });
+          return vi.fn();
+        });
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Testing Data \(1\)/)).toBeInTheDocument();
+        });
+        await user.click(screen.getByText(/^Testing Data \(/));
+        await user.click(screen.getByText('View Full Details'));
+
+        const modalDeleteBtn = document.querySelector('.modal-header-actions .delete-photo-button');
+        expect(modalDeleteBtn).not.toBeInTheDocument();
+      });
+    });
+
+    describe('delete confirmation popup', () => {
+      it('should show confirmation popup when Delete is clicked on a card', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+
+        // Click Delete on the card
+        await user.click(screen.getByText('Delete'));
+
+        // Confirmation popup should appear
+        expect(document.querySelector('.delete-confirm-overlay')).toBeInTheDocument();
+        expect(screen.getByText('Delete Photo')).toBeInTheDocument();
+        expect(screen.getByText('Are you sure you want to permanently delete this photo? This action cannot be undone.')).toBeInTheDocument();
+      });
+
+      it('should show photo thumbnail in confirmation popup', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+        await user.click(screen.getByText('Delete'));
+
+        const confirmImage = document.querySelector('.delete-confirm-image');
+        expect(confirmImage).toBeInTheDocument();
+        expect(confirmImage.src).toContain('example.com/photo1.jpg');
+      });
+
+      it('should dismiss popup when Cancel is clicked', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+        await user.click(screen.getByText('Delete'));
+
+        expect(document.querySelector('.delete-confirm-overlay')).toBeInTheDocument();
+
+        // Click Cancel in the confirmation popup
+        await user.click(screen.getByText('Cancel'));
+
+        expect(document.querySelector('.delete-confirm-overlay')).not.toBeInTheDocument();
+        // deleteSubmission should NOT have been called
+        expect(mockDeleteSubmission).not.toHaveBeenCalled();
+      });
+
+      it('should dismiss popup when overlay is clicked', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+        await user.click(screen.getByText('Delete'));
+
+        expect(document.querySelector('.delete-confirm-overlay')).toBeInTheDocument();
+
+        // Click the overlay background
+        await user.click(document.querySelector('.delete-confirm-overlay'));
+
+        expect(document.querySelector('.delete-confirm-overlay')).not.toBeInTheDocument();
+      });
+
+      it('should not dismiss popup when modal content is clicked', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+        await user.click(screen.getByText('Delete'));
+
+        await user.click(document.querySelector('.delete-confirm-modal'));
+
+        expect(document.querySelector('.delete-confirm-overlay')).toBeInTheDocument();
+      });
+    });
+
+    describe('confirming delete', () => {
+      it('should call deleteSubmission when confirming delete on a submission', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+        await user.click(screen.getByText('Delete'));
+
+        // Click the Delete button in the confirmation popup
+        const confirmBtn = document.querySelector('.delete-confirm-button');
+        await user.click(confirmBtn);
+
+        await waitFor(() => {
+          expect(mockDeleteSubmission).toHaveBeenCalledWith('1');
+        });
+      });
+
+      it('should call deleteImage when confirming delete on a game image', async () => {
+        const user = userEvent.setup();
+        const firestoreImages = [{
+          id: 'img-1',
+          url: 'https://example.com/game-image.jpg',
+          correctLocation: { x: 50, y: 50 },
+          correctFloor: 1,
+          description: 'Game hallway image'
+        }];
+        mockGetAllImages.mockResolvedValue(firestoreImages);
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Game Images \(1\)/)).toBeInTheDocument();
+        });
+        await user.click(screen.getByText(/^Game Images/));
+        await user.click(screen.getByText('Delete'));
+
+        const confirmBtn = document.querySelector('.delete-confirm-button');
+        await user.click(confirmBtn);
+
+        await waitFor(() => {
+          expect(mockDeleteImage).toHaveBeenCalledWith('img-1');
+        });
+      });
+
+      it('should close confirmation popup after successful delete', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+        await user.click(screen.getByText('Delete'));
+
+        const confirmBtn = document.querySelector('.delete-confirm-button');
+        await user.click(confirmBtn);
+
+        await waitFor(() => {
+          expect(document.querySelector('.delete-confirm-overlay')).not.toBeInTheDocument();
+        });
+      });
+
+      it('should show deleting state during delete operation', async () => {
+        // Make deleteSubmission hang
+        let resolveDelete;
+        mockDeleteSubmission.mockImplementation(() => new Promise(resolve => { resolveDelete = resolve; }));
+
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+        await user.click(screen.getByText('Delete'));
+
+        const confirmBtn = document.querySelector('.delete-confirm-button');
+        await user.click(confirmBtn);
+
+        // Should show deleting text
+        expect(screen.getByText('Deleting...')).toBeInTheDocument();
+
+        // Resolve the delete
+        resolveDelete();
+      });
+
+      it('should handle delete error gracefully', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        mockDeleteSubmission.mockRejectedValueOnce(new Error('Delete failed'));
+
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+        await user.click(screen.getByText('Delete'));
+
+        const confirmBtn = document.querySelector('.delete-confirm-button');
+        await user.click(confirmBtn);
+
+        await waitFor(() => {
+          expect(consoleSpy).toHaveBeenCalledWith('Error deleting photo:', expect.any(Error));
+        });
+
+        consoleSpy.mockRestore();
+      });
+
+      it('should close detail modal when deleting the currently viewed item', async () => {
+        const user = userEvent.setup();
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await user.click(screen.getByText(/^Submissions/));
+        await user.click(screen.getByText('Pending (1)'));
+
+        // Open detail modal
+        await user.click(screen.getByText('View Full Details'));
+        expect(document.querySelector('.modal-overlay')).toBeInTheDocument();
+
+        // Click Delete in the modal header
+        const modalDeleteBtn = document.querySelector('.modal-header-actions .delete-photo-button');
+        await user.click(modalDeleteBtn);
+
+        // Confirm delete
+        const confirmBtn = document.querySelector('.delete-confirm-button');
+        await user.click(confirmBtn);
+
+        await waitFor(() => {
+          // Both modals should be closed
+          expect(document.querySelector('.delete-confirm-overlay')).not.toBeInTheDocument();
+          expect(document.querySelector('.modal-overlay')).not.toBeInTheDocument();
+        });
+      });
+
+      it('should remove game image from list after successful delete', async () => {
+        const user = userEvent.setup();
+        const firestoreImages = [{
+          id: 'img-1',
+          url: 'https://example.com/game-image.jpg',
+          correctLocation: { x: 50, y: 50 },
+          correctFloor: 1,
+          description: 'Game hallway image'
+        }];
+        mockGetAllImages.mockResolvedValue(firestoreImages);
+
+        render(<AdminReview onBack={mockOnBack} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Game Images \(1\)/)).toBeInTheDocument();
+        });
+        await user.click(screen.getByText(/^Game Images/));
+
+        // Should have 1 card
+        expect(document.querySelectorAll('.submission-card').length).toBe(1);
+
+        await user.click(screen.getByText('Delete'));
+        const confirmBtn = document.querySelector('.delete-confirm-button');
+        await user.click(confirmBtn);
+
+        await waitFor(() => {
+          // Game image should be removed from the list
+          expect(screen.getByText(/Game Images \(0\)/)).toBeInTheDocument();
+        });
       });
     });
   });
