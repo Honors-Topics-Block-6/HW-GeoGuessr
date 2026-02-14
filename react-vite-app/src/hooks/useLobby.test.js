@@ -259,6 +259,112 @@ describe('useLobby (integration)', () => {
     expect(friendsListUnsub).toHaveBeenCalledTimes(1);
   });
 
+  describe('resilience — hostGame must work even when friends features fail', () => {
+    it('should still create a game when subscribeFriendsLobbies onSnapshot errors immediately', async () => {
+      // Simulate: friends lobby index missing, onSnapshot fires error
+      // This MUST NOT break createLobby
+      const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+      const friendsCall = findSnapshotCall('friends');
+      // Simulate the onSnapshot error handler firing (missing index)
+      act(() => {
+        friendsCall.errorCb(new Error('Missing composite index for friends'));
+      });
+
+      addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
+
+      let hostResult;
+      await act(async () => {
+        hostResult = await result.current.hostGame('public');
+      });
+
+      expect(hostResult).not.toBeNull();
+      expect(hostResult.docId).toBe('new-lobby');
+    });
+
+    it('should still create a game when subscribeFriendsList throws', async () => {
+      // Simulate: friendService completely broken
+      mockSubscribeFriendsList.mockImplementation(() => {
+        throw new Error('friendService module failed to load');
+      });
+
+      // This will cause the useEffect to throw — does it kill the hook?
+      let hookError = null;
+      try {
+        const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+        addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
+
+        let hostResult;
+        await act(async () => {
+          hostResult = await result.current.hostGame('public');
+        });
+
+        // If we get here, hostGame worked despite friendService being broken
+        expect(hostResult).not.toBeNull();
+        expect(hostResult.docId).toBe('new-lobby');
+      } catch (e) {
+        hookError = e;
+      }
+
+      // If this fails, it proves that a broken friendService crashes the
+      // entire useLobby hook, preventing game creation
+      if (hookError) {
+        // This is the BUG: friendService failure kills createLobby
+        expect.fail(
+          `friendService failure crashed the hook, preventing game creation: ${hookError.message}`
+        );
+      }
+    });
+
+    it('should still create a game when subscribeFriendsLobbies throws synchronously', async () => {
+      // Override onSnapshot to throw for the friends query
+      const originalImpl = onSnapshot.getMockImplementation();
+      let callCount = 0;
+      onSnapshot.mockImplementation((q, successCb, errorCb) => {
+        callCount++;
+        const args = q?._queryArgs || [];
+        const isFriendsQuery = args.some(
+          a => a._type === 'where' && a.field === 'visibility' && a.val === 'friends'
+        );
+        if (isFriendsQuery) {
+          throw new Error('Firestore not initialized');
+        }
+        onSnapshotCalls.push({ query: q, successCb, errorCb });
+        return mockOnSnapshotUnsub;
+      });
+
+      let hookError = null;
+      try {
+        const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+        addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
+
+        let hostResult;
+        await act(async () => {
+          hostResult = await result.current.hostGame('public');
+        });
+
+        expect(hostResult).not.toBeNull();
+        expect(hostResult.docId).toBe('new-lobby');
+      } catch (e) {
+        hookError = e;
+      }
+
+      // Restore
+      onSnapshot.mockImplementation((q, successCb, errorCb) => {
+        onSnapshotCalls.push({ query: q, successCb, errorCb });
+        return mockOnSnapshotUnsub;
+      });
+
+      if (hookError) {
+        expect.fail(
+          `subscribeFriendsLobbies throwing crashed the hook, preventing game creation: ${hookError.message}`
+        );
+      }
+    });
+  });
+
   describe('hostGame', () => {
     it('should call the real createLobby which calls addDoc with correct data', async () => {
       addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
