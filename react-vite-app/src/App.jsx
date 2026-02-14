@@ -22,6 +22,7 @@ import SubmissionApp from './components/SubmissionApp/SubmissionApp';
 import FriendsPanel from './components/FriendsPanel/FriendsPanel';
 import ChatWindow from './components/ChatWindow/ChatWindow';
 import BugReportModal from './components/BugReportModal/BugReportModal';
+import DailyGoalsPanel from './components/DailyGoalsPanel/DailyGoalsPanel';
 import MessageBanner from './components/MessageBanner/MessageBanner';
 import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
 import './App.css';
@@ -35,6 +36,7 @@ function App() {
   const [chatFriend, setChatFriend] = useState(null); // { uid, username }
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showBugReport, setShowBugReport] = useState(false);
+  const [showDailyGoals, setShowDailyGoals] = useState(false);
 
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState(false);
@@ -209,6 +211,17 @@ function App() {
     );
   }
 
+  // Show daily goals panel
+  if (showDailyGoals) {
+    return (
+      <>
+        {messageBanner}
+        <EmailVerificationBanner />
+        <DailyGoalsPanel onBack={() => setShowDailyGoals(false)} />
+      </>
+    );
+  }
+
   // Show submission app
   if (showSubmissionApp) {
     return (
@@ -293,6 +306,7 @@ function App() {
           onOpenFriends={() => setShowFriends(true)}
           onOpenLeaderboard={() => setShowLeaderboard(true)}
           onOpenBugReport={() => setShowBugReport(true)}
+          onOpenDailyGoals={() => setShowDailyGoals(true)}
           isLoading={isLoading}
         />
       )}
@@ -375,6 +389,7 @@ function App() {
           rounds={roundResults}
           onPlayAgain={() => setScreen('difficultySelect')}
           onBackToTitle={resetGame}
+          difficulty={difficulty}
         />
       )}
 
