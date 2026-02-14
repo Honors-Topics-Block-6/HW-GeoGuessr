@@ -15,6 +15,9 @@ export async function createUserDoc(uid, email, username) {
     email,
     username,
     isAdmin,
+    emailVerified: false,
+    totalXp: 0,
+    gamesPlayed: 0,
     createdAt: serverTimestamp()
   });
 }
@@ -135,6 +138,33 @@ export async function updateUserProfile(uid, updates) {
       throw new Error('Username is already taken. Please choose another.');
     }
     updates.username = trimmed;
+  }
+
+  // Validate totalXp if being changed
+  if ('totalXp' in updates) {
+    const xp = Number(updates.totalXp);
+    if (isNaN(xp) || xp < 0) {
+      throw new Error('Total XP must be a non-negative number.');
+    }
+    updates.totalXp = xp;
+  }
+
+  // Validate gamesPlayed if being changed
+  if ('gamesPlayed' in updates) {
+    const gp = Number(updates.gamesPlayed);
+    if (isNaN(gp) || gp < 0 || !Number.isInteger(gp)) {
+      throw new Error('Games played must be a non-negative whole number.');
+    }
+    updates.gamesPlayed = gp;
+  }
+
+  // Convert lastGameAt to a Firestore-compatible Date if provided
+  if ('lastGameAt' in updates && updates.lastGameAt !== null) {
+    const date = updates.lastGameAt instanceof Date ? updates.lastGameAt : new Date(updates.lastGameAt);
+    if (isNaN(date.getTime())) {
+      throw new Error('Last game date is invalid.');
+    }
+    updates.lastGameAt = date;
   }
 
   await updateUserDoc(uid, updates);

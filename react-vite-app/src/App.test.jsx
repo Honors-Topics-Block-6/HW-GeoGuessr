@@ -36,6 +36,19 @@ vi.mock('./firebase', () => ({
   auth: {}
 }));
 
+// Mock presence hook (no-op in tests)
+vi.mock('./hooks/usePresence', () => ({
+  usePresence: vi.fn()
+}));
+
+// Mock admin messages hook
+vi.mock('./hooks/useAdminMessages', () => ({
+  useAdminMessages: vi.fn(() => ({
+    messages: [],
+    dismissMessage: vi.fn()
+  }))
+}));
+
 // Mock AuthContext to provide a fake authenticated user
 vi.mock('./contexts/AuthContext', () => ({
   useAuth: () => ({
@@ -43,8 +56,19 @@ vi.mock('./contexts/AuthContext', () => ({
     userDoc: { uid: 'test-uid', username: 'TestUser', email: 'test@example.com' },
     loading: false,
     needsUsername: false,
+    isAdmin: false,
     logout: vi.fn(),
     updateUsername: vi.fn(),
+    totalXp: 0,
+    refreshUserDoc: vi.fn(),
+    levelInfo: {
+      level: 1,
+      currentLevelXp: 10000,
+      xpIntoLevel: 0,
+      xpToNextLevel: 10000,
+      progress: 0
+    },
+    levelTitle: 'Newcomer',
   }),
   AuthProvider: ({ children }) => children,
 }));

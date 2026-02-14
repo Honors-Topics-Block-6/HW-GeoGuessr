@@ -30,11 +30,11 @@ const DIFFICULTIES = [
 
 function DifficultySelect({ onStart, onBack, isLoading }) {
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
-  const [multiplayerHovered, setMultiplayerHovered] = useState(false);
+  const [selectedMode, setSelectedMode] = useState('singleplayer');
 
   const handleStart = () => {
     if (selectedDifficulty) {
-      onStart(selectedDifficulty, 'singleplayer');
+      onStart(selectedDifficulty, selectedMode);
     }
   };
 
@@ -70,29 +70,20 @@ function DifficultySelect({ onStart, onBack, isLoading }) {
 
         <div className="mode-options">
           <button
-            className="mode-card mode-singleplayer selected"
-            disabled
+            className={`mode-card mode-singleplayer ${selectedMode === 'singleplayer' ? 'selected' : ''}`}
+            onClick={() => setSelectedMode('singleplayer')}
           >
             <span className="mode-card-icon">👤</span>
             <span className="mode-card-label">Singleplayer</span>
           </button>
 
-          <div
-            className="mode-card-wrapper"
-            onMouseEnter={() => setMultiplayerHovered(true)}
-            onMouseLeave={() => setMultiplayerHovered(false)}
+          <button
+            className={`mode-card mode-multiplayer ${selectedMode === 'multiplayer' ? 'selected' : ''}`}
+            onClick={() => setSelectedMode('multiplayer')}
           >
-            <button
-              className="mode-card mode-multiplayer disabled"
-              disabled
-            >
-              <span className="mode-card-icon">👥</span>
-              <span className="mode-card-label">Multiplayer</span>
-            </button>
-            {multiplayerHovered && (
-              <span className="coming-soon-tooltip">Coming Soon!</span>
-            )}
-          </div>
+            <span className="mode-card-icon">👥</span>
+            <span className="mode-card-label">Multiplayer</span>
+          </button>
         </div>
 
         <button

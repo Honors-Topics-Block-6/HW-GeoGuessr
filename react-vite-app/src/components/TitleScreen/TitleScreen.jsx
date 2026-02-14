@@ -2,7 +2,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import './TitleScreen.css';
 
 function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, isLoading }) {
-  const { userDoc, logout } = useAuth();
+  const { userDoc, logout, levelInfo, levelTitle } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -18,6 +18,7 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, isLoading }) {
         <div className="title-user-info">
           <span className="title-user-icon">👤</span>
           <span className="title-username">{userDoc?.username}</span>
+          <span className="title-level-badge">Lvl {levelInfo.level}</span>
         </div>
         <div className="title-top-actions">
           <button className="title-profile-button" onClick={onOpenProfile}>
@@ -40,6 +41,13 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, isLoading }) {
         </div>
         <h1 className="game-title">HW Geoguessr</h1>
         <p className="tagline">Can you guess the location on campus?</p>
+
+        {/* Level chip under tagline */}
+        <div className="title-level-chip">
+          <span className="title-level-chip-level">Lvl {levelInfo.level}</span>
+          <span className="title-level-chip-title">{levelTitle}</span>
+        </div>
+
         <button
           className="start-button"
           onClick={onPlay}

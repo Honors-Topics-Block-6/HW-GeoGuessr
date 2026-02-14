@@ -4,12 +4,12 @@ import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } f
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
-const ROUND_TIME_SECONDS = 20;
+export const ROUND_TIME_SECONDS = 20;
 
 /**
  * Calculate distance between two points (in percentage coordinates)
  */
-function calculateDistance(guess, actual) {
+export function calculateDistance(guess, actual) {
   const dx = guess.x - actual.x;
   const dy = guess.y - actual.y;
   return Math.sqrt(dx * dx + dy * dy);
@@ -17,11 +17,11 @@ function calculateDistance(guess, actual) {
 
 /**
  * Calculate location score based on distance (0-5000 points)
- * Uses the GeoGuessr scoring formula: 5000 * e^(-10 * (d/D)^2)
+ * Uses a steep exponential decay formula: 5000 * e^(-100 * (d/D)^2)
  * At 10 ft (distance=5 in map coords) or closer, the player gets 5000.
- * Score decays to 0 at the maximum possible distance (map diagonal).
+ * Score drops very dramatically with distance, rewarding precise guesses.
  */
-function calculateLocationScore(distance) {
+export function calculateLocationScore(distance) {
   const maxScore = 5000;
   const perfectRadius = 5; // 10 ft = 5 percentage units (distance * 2 = feet)
   const maxDistance = Math.sqrt(100 * 100 + 100 * 100) - perfectRadius; // ~136.42
@@ -30,7 +30,7 @@ function calculateLocationScore(distance) {
 
   const effectiveDistance = distance - perfectRadius;
   const ratio = effectiveDistance / maxDistance;
-  const score = Math.round(maxScore * Math.exp(-10 * ratio * ratio));
+  const score = Math.round(maxScore * Math.exp(-100 * ratio * ratio));
   return Math.max(0, Math.min(maxScore, score));
 }
 
@@ -86,6 +86,12 @@ export function useGameState() {
   // Selected difficulty for the current game
   const [difficulty, setDifficulty] = useState(null);
 
+  // Game mode: 'singleplayer' or 'multiplayer'
+  const [mode, setMode] = useState(null);
+
+  // Current lobby document ID (when in multiplayer)
+  const [lobbyDocId, setLobbyDocId] = useState(null);
+
   // Load regions and playing area on mount
   useEffect(() => {
     async function loadData() {
@@ -130,12 +136,21 @@ export function useGameState() {
   /**
    * Start a new game - reset everything and fetch first image
    * @param {string} selectedDifficulty - 'easy', 'medium', or 'hard'
+   * @param {string} selectedMode - 'singleplayer' or 'multiplayer'
    */
-  const startGame = useCallback(async (selectedDifficulty) => {
+  const startGame = useCallback(async (selectedDifficulty, selectedMode = 'singleplayer') => {
     setCurrentRound(1);
     setRoundResults([]);
     setCurrentResult(null);
     setDifficulty(selectedDifficulty);
+    setMode(selectedMode);
+    setLobbyDocId(null);
+
+    // Multiplayer: go to lobby screen instead of starting a game
+    if (selectedMode === 'multiplayer') {
+      setScreen('multiplayerLobby');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -387,6 +402,8 @@ export function useGameState() {
     setTimeRemaining(ROUND_TIME_SECONDS);
     setRoundStartTime(null);
     setDifficulty(null);
+    setMode(null);
+    setLobbyDocId(null);
   }, []);
 
   return {
@@ -407,6 +424,8 @@ export function useGameState() {
     timeRemaining,
     roundTimeSeconds: ROUND_TIME_SECONDS,
     difficulty,
+    mode,
+    lobbyDocId,
 
     // Actions
     setScreen,
@@ -416,6 +435,8 @@ export function useGameState() {
     submitGuess,
     nextRound,
     viewFinalResults,
-    resetGame
+    resetGame,
+    setMode,
+    setLobbyDocId
   };
 }
