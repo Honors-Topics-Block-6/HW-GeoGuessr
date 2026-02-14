@@ -317,6 +317,33 @@ describe('useLobby (integration)', () => {
       }
     });
 
+    it('should still create a game when subscribeFriendsList onSnapshot fires an async error', async () => {
+      // subscribeFriendsList's onSnapshot may fire an async error (e.g.
+      // permissions, network). The error handler must gracefully degrade
+      // so that hostGame still works.
+      mockSubscribeFriendsList.mockImplementation((_uid, cb) => {
+        // Simulate: subscribeFriendsList registers successfully but
+        // its onSnapshot fires an error asynchronously, calling
+        // callback([]) to degrade gracefully.
+        // In real code, the error handler in friendService.js now does this.
+        cb([]); // error handler calls callback with empty array
+        return friendsListUnsub;
+      });
+
+      const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+      addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
+
+      let hostResult;
+      await act(async () => {
+        hostResult = await result.current.hostGame('public');
+      });
+
+      // hostGame must still work
+      expect(hostResult).not.toBeNull();
+      expect(hostResult.docId).toBe('new-lobby');
+    });
+
     it('should still create a game when subscribeFriendsLobbies throws synchronously', async () => {
       // Override onSnapshot to throw for the friends query
       const originalImpl = onSnapshot.getMockImplementation();

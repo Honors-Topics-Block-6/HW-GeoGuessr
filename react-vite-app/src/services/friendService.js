@@ -245,6 +245,9 @@ export function subscribeFriendRequests(uid, callback) {
       return bTime - aTime;
     });
     callback(requests);
+  }, (error) => {
+    console.error('Error subscribing to friend requests (non-fatal):', error);
+    callback([]);
   });
 }
 
@@ -267,6 +270,11 @@ export function subscribeFriendsList(uid, callback) {
       };
     });
     callback(friends);
+  }, (error) => {
+    console.error('Error subscribing to friends list (non-fatal):', error);
+    // Return empty list so the UI still works — friends features degrade
+    // gracefully but core multiplayer (host/join) is unaffected.
+    callback([]);
   });
 }
 
