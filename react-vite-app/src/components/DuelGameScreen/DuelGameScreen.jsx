@@ -35,14 +35,13 @@ function DuelGameScreen({
   const handleKeyDown = useCallback((e) => {
     if (hasSubmitted) return;
 
-    // Spacebar: submit guess if ready, otherwise place marker at map center
+    // Spacebar: submit guess if ready, otherwise click at cursor position on map
     if (e.code === 'Space') {
       e.preventDefault();
       if (canSubmit) {
         onSubmitGuess();
       } else if (!guessLocation && mapPickerRef.current) {
-        const center = mapPickerRef.current.getViewportCenter();
-        onMapClick(center);
+        mapPickerRef.current.clickAtCursor();
       }
       return;
     }
@@ -55,7 +54,7 @@ function DuelGameScreen({
         onFloorSelect(digit);
       }
     }
-  }, [hasSubmitted, canSubmit, onSubmitGuess, guessLocation, onMapClick, isInRegion, availableFloors, onFloorSelect]);
+  }, [hasSubmitted, canSubmit, onSubmitGuess, guessLocation, isInRegion, availableFloors, onFloorSelect]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
