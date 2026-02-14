@@ -121,6 +121,7 @@ function AccountManagement() {
               <th>Email</th>
               <th>Created</th>
               <th>Admin</th>
+              <th>Verified</th>
               <th>Status</th>
               <th>Activity</th>
               <th>Actions</th>
@@ -142,6 +143,11 @@ function AccountManagement() {
                   <td>
                     <span className={`admin-status ${u.isAdmin ? 'is-admin' : 'not-admin'}`}>
                       {u.isAdmin ? 'Yes' : 'No'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`verified-status ${u.verified ? 'is-verified' : 'not-verified'}`}>
+                      {u.verified ? 'Yes' : 'No'}
                     </span>
                   </td>
                   <td>
