@@ -102,6 +102,39 @@ export async function sendMessageToUser(recipientUid, text, senderUid, senderUse
 }
 
 /**
+ * Send a message to all users. Creates a message document in each user's messages subcollection.
+ * @param {string[]} recipientUids - Array of user UIDs to message
+ * @param {string} text - Message text
+ * @param {string} senderUid - UID of the sender
+ * @param {string} senderUsername - Display name of the sender
+ * @returns {Promise<{ sent: number, failed: number }>} Result counts
+ */
+export async function sendMessageToAllUsers(recipientUids, text, senderUid, senderUsername) {
+  let sent = 0;
+  let failed = 0;
+
+  const promises = recipientUids.map(async (uid) => {
+    try {
+      const messagesRef = collection(db, 'presence', uid, 'messages');
+      await addDoc(messagesRef, {
+        text,
+        senderUid,
+        senderUsername,
+        sentAt: serverTimestamp(),
+        read: false
+      });
+      sent++;
+    } catch (err) {
+      console.error(`Failed to send message to ${uid}:`, err);
+      failed++;
+    }
+  });
+
+  await Promise.all(promises);
+  return { sent, failed };
+}
+
+/**
  * Subscribe to unread messages for a user.
  * Calls callback with an array of unread message objects (including their id).
  * Returns the unsubscribe function.
