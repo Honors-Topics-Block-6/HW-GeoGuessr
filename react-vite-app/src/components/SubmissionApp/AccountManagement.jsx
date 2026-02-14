@@ -149,7 +149,7 @@ function AccountManagement() {
               <th>Email</th>
               <th>Created</th>
               <th>Admin</th>
-              <th>Permissions</th>
+              {canManageAdmins && <th>Permissions</th>}
               <th>Verified</th>
               <th>Status</th>
               <th>Activity</th>
@@ -174,33 +174,35 @@ function AccountManagement() {
                       {u.isAdmin ? 'Yes' : 'No'}
                     </span>
                   </td>
-                  <td className="permissions-cell">
-                    {u.isAdmin ? (
-                      (() => {
-                        const perms = u.permissions || {}
-                        const grantedCount = Object.values(perms).filter(Boolean).length
-                        const totalCount = Object.keys(ADMIN_PERMISSIONS).length
-                        return (
-                          <span className="permissions-summary">
-                            <span className={`permissions-count ${grantedCount === totalCount ? 'all-perms' : grantedCount > 0 ? 'some-perms' : 'no-perms'}`}>
-                              {grantedCount}/{totalCount}
+                  {canManageAdmins && (
+                    <td className="permissions-cell">
+                      {u.isAdmin ? (
+                        (() => {
+                          const perms = u.permissions || {}
+                          const grantedCount = Object.values(perms).filter(Boolean).length
+                          const totalCount = Object.keys(ADMIN_PERMISSIONS).length
+                          return (
+                            <span className="permissions-summary">
+                              <span className={`permissions-count ${grantedCount === totalCount ? 'all-perms' : grantedCount > 0 ? 'some-perms' : 'no-perms'}`}>
+                                {grantedCount}/{totalCount}
+                              </span>
+                              {!hardcoded && (
+                                <button
+                                  className="permissions-edit-button"
+                                  onClick={() => setPermissionsUser(u)}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              {hardcoded && <span className="permissions-locked">All</span>}
                             </span>
-                            {canManageAdmins && !hardcoded && (
-                              <button
-                                className="permissions-edit-button"
-                                onClick={() => setPermissionsUser(u)}
-                              >
-                                Edit
-                              </button>
-                            )}
-                            {hardcoded && <span className="permissions-locked">All</span>}
-                          </span>
-                        )
-                      })()
-                    ) : (
-                      <span className="permissions-na">—</span>
-                    )}
-                  </td>
+                          )
+                        })()
+                      ) : (
+                        <span className="permissions-na">—</span>
+                      )}
+                    </td>
+                  )}
                   <td>
                     <span className={`verified-status ${u.emailVerified ? 'is-verified' : 'not-verified'}`}>
                       {u.emailVerified ? 'Yes' : 'No'}
