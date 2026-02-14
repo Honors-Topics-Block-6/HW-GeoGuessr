@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { awardXp } from '../../services/xpService';
 import { calculateXpGain, getLevelTitle } from '../../utils/xpLevelling';
+import { useDailyGoals } from '../../hooks/useDailyGoals';
+import { GOAL_TYPES } from '../../utils/dailyGoalDefinitions';
 import './FinalResultsScreen.css';
 
 /**
@@ -31,8 +33,9 @@ function generateConfettiData(count) {
   }));
 }
 
-function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
+function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }) {
   const { user, totalXp, refreshUserDoc } = useAuth();
+  const { recordProgress } = useDailyGoals(user?.uid);
   const [animationComplete, setAnimationComplete] = useState(false);
   const [displayedTotal, setDisplayedTotal] = useState(0);
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -65,11 +68,34 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle }) {
       .then(() => refreshUserDoc())
       .catch(err => console.error('Failed to award XP:', err));
 
+    // --- Daily Goals Progress ---
+    // Goal: games played (always +1)
+    recordProgress(GOAL_TYPES.GAMES_PLAYED, 1);
+
+    // Goal: high score per round (check each round's score)
+    for (const round of rounds) {
+      if (round.score > 0) {
+        recordProgress(GOAL_TYPES.HIGH_SCORE_ROUND, round.score);
+      }
+      // Goal: correct floor guesses
+      if (round.floorCorrect === true) {
+        recordProgress(GOAL_TYPES.PERFECT_FLOOR, 1);
+      }
+    }
+
+    // Goal: high score per game (total score)
+    recordProgress(GOAL_TYPES.HIGH_SCORE_GAME, totalScore);
+
+    // Goal: play on specific difficulty
+    if (difficulty) {
+      recordProgress(GOAL_TYPES.PLAY_DIFFICULTY, 1, { targetDifficulty: difficulty });
+    }
+
     // Show level-up animation after a delay
     if (xpResult.levelsGained > 0) {
       setTimeout(() => setShowLevelUp(true), 2000);
     }
-  }, [user, totalScore, refreshUserDoc, xpResult]);
+  }, [user, totalScore, refreshUserDoc, xpResult, rounds, difficulty, recordProgress]);
 
   // Spacebar to play again
   const handleKeyDown = useCallback((e) => {

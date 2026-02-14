@@ -43,6 +43,24 @@
   gap: 10px;
 }
 
+.title-daily-goals-button {
+  padding: 8px 16px;
+  background: rgba(255, 193, 7, 0.15);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  color: #ffc107;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.title-daily-goals-button:hover {
+  background: rgba(255, 193, 7, 0.25);
+  color: #ffca28;
+  transform: translateY(-1px);
+}
+
 .title-leaderboard-button {
   padding: 8px 16px;
   background: rgba(255, 215, 0, 0.1);
@@ -347,6 +365,7 @@
     gap: 6px;
   }
 
+  .title-daily-goals-button,
   .title-leaderboard-button,
   .title-profile-button,
   .title-friends-button,
