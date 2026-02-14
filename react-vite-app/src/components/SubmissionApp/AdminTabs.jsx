@@ -3,6 +3,7 @@ import AdminReview from './AdminReview'
 import MapEditor from './MapEditor'
 import AccountManagement from './AccountManagement'
 import FriendsManagement from './FriendsManagement'
+import BugReportManagement from './BugReportManagement'
 
 function AdminTabs({ activeTab, onTabChange, onBack }) {
   return (
@@ -39,6 +40,12 @@ function AdminTabs({ activeTab, onTabChange, onBack }) {
         >
           Friends &amp; Chat
         </button>
+        <button
+          className={`admin-tab ${activeTab === 'bugReports' ? 'active' : ''}`}
+          onClick={() => onTabChange('bugReports')}
+        >
+          Bug Reports
+        </button>
       </div>
 
       <div className="admin-content">
@@ -46,6 +53,7 @@ function AdminTabs({ activeTab, onTabChange, onBack }) {
         {activeTab === 'mapEditor' && <MapEditor />}
         {activeTab === 'accounts' && <AccountManagement />}
         {activeTab === 'friends' && <FriendsManagement />}
+        {activeTab === 'bugReports' && <BugReportManagement />}
       </div>
     </div>
   )

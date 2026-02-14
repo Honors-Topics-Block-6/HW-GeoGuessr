@@ -35,6 +35,9 @@ describe('TitleScreen', () => {
     onPlay: vi.fn(),
     onOpenSubmission: vi.fn(),
     onOpenProfile: vi.fn(),
+    onOpenFriends: vi.fn(),
+    onOpenLeaderboard: vi.fn(),
+    onOpenBugReport: vi.fn(),
     isLoading: false
   };
 
@@ -77,6 +80,12 @@ describe('TitleScreen', () => {
       render(<TitleScreen {...defaultProps} />);
 
       expect(screen.getByRole('button', { name: /submit photo/i })).toBeInTheDocument();
+    });
+
+    it('should render the Report Bug button', () => {
+      render(<TitleScreen {...defaultProps} />);
+
+      expect(screen.getByRole('button', { name: /report bug/i })).toBeInTheDocument();
     });
   });
 
@@ -133,6 +142,19 @@ describe('TitleScreen', () => {
       await user.click(screen.getByRole('button', { name: /submit photo/i }));
 
       expect(onOpenSubmission).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Report Bug button', () => {
+    it('should call onOpenBugReport when clicked', async () => {
+      const user = userEvent.setup();
+      const onOpenBugReport = vi.fn();
+
+      render(<TitleScreen {...defaultProps} onOpenBugReport={onOpenBugReport} />);
+
+      await user.click(screen.getByRole('button', { name: /report bug/i }));
+
+      expect(onOpenBugReport).toHaveBeenCalledTimes(1);
     });
   });
 
