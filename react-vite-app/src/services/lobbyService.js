@@ -61,7 +61,7 @@ export async function createLobby(hostUid, hostUsername, difficulty, visibility)
     heartbeats: {
       [hostUid]: Timestamp.now()
     },
-    maxPlayers: 8,
+    maxPlayers: 2,
     createdAt: now,
     updatedAt: now
   };

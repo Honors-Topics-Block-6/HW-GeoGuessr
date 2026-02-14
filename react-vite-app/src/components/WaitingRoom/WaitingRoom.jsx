@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useWaitingRoom } from '../../hooks/useLobby';
+import { startDuel } from '../../services/duelService';
 import './WaitingRoom.css';
 
 const DIFFICULTY_LABELS = {
@@ -9,9 +10,10 @@ const DIFFICULTY_LABELS = {
   hard: { label: 'Hard', icon: '🔴' },
 };
 
-function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart: _onGameStart }) {
+function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }) {
   const { lobby, isLoading, error, leave } = useWaitingRoom(lobbyDocId, userUid);
   const [copied, setCopied] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   const handleCopyCode = async () => {
     if (!lobby?.gameId) return;
@@ -29,6 +31,32 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart: _onGameStart }
     await leave();
     onLeave();
   }, [leave, onLeave]);
+
+  /**
+   * Host starts the duel game
+   */
+  const handleStartGame = useCallback(async () => {
+    if (!lobby || isStarting) return;
+    setIsStarting(true);
+    try {
+      await startDuel(lobbyDocId, lobby.players, lobby.difficulty);
+      // The onSnapshot listener will detect status='in_progress' and
+      // onGameStart will be called from the useEffect below
+    } catch (err) {
+      console.error('Failed to start game:', err);
+      setIsStarting(false);
+    }
+  }, [lobby, lobbyDocId, isStarting]);
+
+  /**
+   * Auto-transition when lobby status changes to 'in_progress'
+   * This handles both host (after startDuel) and non-host (via listener)
+   */
+  useEffect(() => {
+    if (lobby?.status === 'in_progress') {
+      onGameStart();
+    }
+  }, [lobby?.status, onGameStart]);
 
   if (isLoading) {
     return (
@@ -67,6 +95,9 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart: _onGameStart }
   const diffInfo = DIFFICULTY_LABELS[lobby.difficulty] || DIFFICULTY_LABELS.all;
   const isHost = lobby.hostUid === userUid;
   const playerCount = lobby.players?.length || 0;
+  const maxPlayers = lobby.maxPlayers || 2;
+  const isFull = playerCount >= maxPlayers;
+  const canStart = isHost && isFull && !isStarting;
 
   return (
     <div className="waiting-screen">
@@ -87,7 +118,7 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart: _onGameStart }
             </button>
           </div>
           {copied && <span className="waiting-copied-toast">Copied!</span>}
-          <p className="waiting-code-hint">Share this code with friends to invite them</p>
+          <p className="waiting-code-hint">Share this code with your opponent to invite them</p>
         </div>
 
         {/* Badges */}
@@ -99,7 +130,10 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart: _onGameStart }
             {lobby.visibility === 'public' ? '🌐 Public' : '🔒 Private'}
           </span>
           <span className="waiting-badge waiting-badge-count">
-            {playerCount}/{lobby.maxPlayers || 8} Players
+            {playerCount}/{maxPlayers} Players
+          </span>
+          <span className="waiting-badge waiting-badge-mode">
+            ⚔️ Duel
           </span>
         </div>
 
@@ -129,14 +163,33 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart: _onGameStart }
           </div>
 
           {/* Waiting animation */}
-          <div className="waiting-dots-container">
-            <span className="waiting-dots-text">Waiting for players</span>
-            <span className="waiting-dots">
-              <span className="waiting-dot"></span>
-              <span className="waiting-dot"></span>
-              <span className="waiting-dot"></span>
-            </span>
-          </div>
+          {!isFull && (
+            <div className="waiting-dots-container">
+              <span className="waiting-dots-text">Waiting for opponent</span>
+              <span className="waiting-dots">
+                <span className="waiting-dot"></span>
+                <span className="waiting-dot"></span>
+                <span className="waiting-dot"></span>
+              </span>
+            </div>
+          )}
+
+          {isFull && !isHost && (
+            <div className="waiting-dots-container">
+              <span className="waiting-dots-text">Waiting for host to start</span>
+              <span className="waiting-dots">
+                <span className="waiting-dot"></span>
+                <span className="waiting-dot"></span>
+                <span className="waiting-dot"></span>
+              </span>
+            </div>
+          )}
+
+          {isFull && isHost && (
+            <div className="waiting-ready-container">
+              <span className="waiting-ready-text">Both players ready!</span>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -144,10 +197,11 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart: _onGameStart }
           {isHost && (
             <button
               className="waiting-start-btn"
-              disabled
-              title="Multiplayer gameplay coming soon!"
+              disabled={!canStart}
+              onClick={handleStartGame}
+              title={!isFull ? 'Waiting for opponent to join...' : 'Start the duel!'}
             >
-              Start Game (Coming Soon)
+              {isStarting ? 'Starting...' : isFull ? 'Start Duel ⚔️' : 'Waiting for Opponent...'}
             </button>
           )}
           <button className="waiting-leave-btn" onClick={handleLeave}>
