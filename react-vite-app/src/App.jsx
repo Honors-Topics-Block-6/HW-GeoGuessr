@@ -9,6 +9,7 @@ import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
 import SubmissionApp from './components/SubmissionApp/SubmissionApp';
+import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
 import './App.css';
 
 function App() {
@@ -62,18 +63,29 @@ function App() {
 
   // Show profile screen
   if (showProfile) {
-    return <ProfileScreen onBack={() => setShowProfile(false)} />;
+    return (
+      <>
+        <EmailVerificationBanner />
+        <ProfileScreen onBack={() => setShowProfile(false)} />
+      </>
+    );
   }
 
   // Show submission app
   if (showSubmissionApp) {
-    return <SubmissionApp onBack={() => setShowSubmissionApp(false)} />;
+    return (
+      <>
+        <EmailVerificationBanner />
+        <SubmissionApp onBack={() => setShowSubmissionApp(false)} />
+      </>
+    );
   }
 
   // Error state
   if (error) {
     return (
       <div className="app">
+        <EmailVerificationBanner />
         <div className="error-container">
           <p className="error-message">{error}</p>
           <button className="retry-button" onClick={resetGame}>
@@ -107,6 +119,7 @@ function App() {
 
   return (
     <div className="app">
+      <EmailVerificationBanner />
       {screen === 'title' && (
         <TitleScreen
           onPlay={handlePlay}
