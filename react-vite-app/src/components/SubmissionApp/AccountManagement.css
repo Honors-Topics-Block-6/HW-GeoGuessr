@@ -31,6 +31,35 @@
   border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
+/* ===== Message All Button ===== */
+.message-all-button {
+  margin-left: auto;
+  padding: 9px 20px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.18) 0%, rgba(99, 102, 241, 0.18) 100%);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.message-all-button:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.30) 0%, rgba(99, 102, 241, 0.30) 100%);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+  transform: translateY(-1px);
+  color: #c4b5fd;
+}
+
+.message-all-button:active {
+  transform: translateY(0);
+}
+
 .account-error {
   background: rgba(248, 113, 113, 0.1);
   color: #f87171;

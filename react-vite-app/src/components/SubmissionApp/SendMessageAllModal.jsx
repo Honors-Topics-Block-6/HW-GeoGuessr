@@ -1,21 +1,21 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { sendMessageToUser } from '../../services/presenceService'
+import { sendMessageToAllUsers } from '../../services/presenceService'
 import './SendMessageModal.css'
 
 /**
- * Modal for admins to send a message to a specific user.
- * The message will appear as a popup banner on the recipient's screen.
+ * Modal for admins to broadcast a message to ALL users.
  * Includes a free-text "Send As" field so the admin can type any sender name.
  *
- * @param {{ recipientUser: object, onClose: function, senderUid: string, senderUsername: string }} props
+ * @param {{ users: object[], onClose: function, currentUid: string, currentUsername: string }} props
  */
-function SendMessageModal({ recipientUser, onClose, senderUid, senderUsername: defaultSenderUsername }) {
+function SendMessageAllModal({ users, onClose, currentUid, currentUsername }) {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
-  const [senderName, setSenderName] = useState(defaultSenderUsername)
+  const [result, setResult] = useState(null)
+  const [senderName, setSenderName] = useState(currentUsername)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -27,22 +27,29 @@ function SendMessageModal({ recipientUser, onClose, senderUid, senderUsername: d
       return
     }
 
+    const recipientUids = users.map(u => u.id)
+    if (recipientUids.length === 0) {
+      setError('No users to message.')
+      return
+    }
+
     const displayName = senderName.trim() || 'Admin'
 
     try {
       setSending(true)
-      await sendMessageToUser(
-        recipientUser.id,
+      const res = await sendMessageToAllUsers(
+        recipientUids,
         trimmed,
-        senderUid,
+        currentUid,
         displayName
       )
+      setResult(res)
       setSuccess(true)
       setTimeout(() => {
         onClose()
-      }, 1200)
+      }, 2500)
     } catch (err) {
-      console.error('Failed to send message:', err)
+      console.error('Failed to send message to all:', err)
       setError(err.message || 'Failed to send message.')
     } finally {
       setSending(false)
@@ -51,21 +58,26 @@ function SendMessageModal({ recipientUser, onClose, senderUid, senderUsername: d
 
   return createPortal(
     <div className="send-msg-overlay" onClick={onClose}>
-      <div className="send-msg-content" onClick={e => e.stopPropagation()}>
+      <div className="send-msg-content send-msg-content-wide" onClick={e => e.stopPropagation()}>
         <button className="send-msg-close" onClick={onClose}>&times;</button>
 
         <h3 className="send-msg-title">
-          Send Message to <span className="send-msg-recipient">{recipientUser.username || recipientUser.id}</span>
+          Message All Users <span className="send-msg-recipient">({users.length} users)</span>
         </h3>
 
         {error && <div className="send-msg-error">{error}</div>}
-        {success && <div className="send-msg-success">Message sent!</div>}
+        {success && (
+          <div className="send-msg-success">
+            Messages sent to {result?.sent || 0} user{result?.sent !== 1 ? 's' : ''}!
+            {result?.failed > 0 && ` (${result.failed} failed)`}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="send-msg-form">
           <div className="send-msg-field">
-            <label className="send-msg-label" htmlFor="sender-name-single">Send As</label>
+            <label className="send-msg-label" htmlFor="sender-name-all">Send As</label>
             <input
-              id="sender-name-single"
+              id="sender-name-all"
               type="text"
               className="send-msg-input"
               value={senderName}
@@ -77,16 +89,16 @@ function SendMessageModal({ recipientUser, onClose, senderUid, senderUsername: d
           </div>
 
           <div className="send-msg-field">
-            <label className="send-msg-label" htmlFor="admin-message">Message</label>
+            <label className="send-msg-label" htmlFor="admin-message-all">Message</label>
             <textarea
-              id="admin-message"
+              id="admin-message-all"
               className="send-msg-textarea"
               value={message}
               onChange={(e) => {
                 setMessage(e.target.value)
                 setError(null)
               }}
-              placeholder="Type your message here..."
+              placeholder="Type your broadcast message here..."
               disabled={sending || success}
               rows={4}
               maxLength={500}
@@ -97,17 +109,17 @@ function SendMessageModal({ recipientUser, onClose, senderUid, senderUsername: d
           </div>
 
           <div className="send-msg-preview">
-            <span className="send-msg-preview-label">Recipient will see:</span>
+            <span className="send-msg-preview-label">Recipients will see:</span>
             <span className="send-msg-preview-sender">From: {senderName.trim() || 'Admin'}</span>
           </div>
 
           <div className="send-msg-actions">
             <button
               type="submit"
-              className="send-msg-send"
+              className="send-msg-send send-msg-send-all"
               disabled={sending || success || !message.trim()}
             >
-              {sending ? 'Sending...' : success ? 'Sent!' : 'Send Message'}
+              {sending ? 'Sending...' : success ? 'Sent!' : `Send to All ${users.length} Users`}
             </button>
             <button
               type="button"
@@ -125,4 +137,4 @@ function SendMessageModal({ recipientUser, onClose, senderUid, senderUsername: d
   )
 }
 
-export default SendMessageModal
+export default SendMessageAllModal
