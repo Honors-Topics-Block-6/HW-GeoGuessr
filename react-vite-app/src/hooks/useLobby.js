@@ -19,10 +19,15 @@ import { subscribeFriendsList } from '../services/friendService';
 export function useLobby(userUid, userUsername, selectedDifficulty) {
   const [publicLobbies, setPublicLobbies] = useState([]);
   const [friendsLobbies, setFriendsLobbies] = useState([]);
-  const [friendUids, setFriendUids] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState(null);
+
+  // Keep friendUids in a ref so the friends-lobby listener callback always
+  // sees the latest value without needing to tear down / re-create the
+  // Firestore onSnapshot (which causes INTERNAL ASSERTION errors).
+  const friendUidsRef = useRef([]);
+  const allFriendsLobbiesRef = useRef([]);
 
   // Subscribe to public lobbies in real-time
   useEffect(() => {
@@ -32,25 +37,33 @@ export function useLobby(userUid, userUsername, selectedDifficulty) {
     return unsubscribe;
   }, []);
 
-  // Subscribe to the user's friends list to know who is a friend
+  // Subscribe to the user's friends list to know who is a friend.
+  // When the list changes, re-filter the cached friends lobbies.
   useEffect(() => {
     if (!userUid) return;
     const unsubscribe = subscribeFriendsList(userUid, (friends) => {
-      setFriendUids(friends.map(f => f.friendUid));
-    });
-    return unsubscribe;
-  }, [userUid]);
-
-  // Subscribe to friends-only lobbies, filtering to only those hosted by actual friends
-  useEffect(() => {
-    const unsubscribe = subscribeFriendsLobbies((lobbies) => {
-      const filtered = lobbies.filter(
-        lobby => friendUids.includes(lobby.hostUid)
+      friendUidsRef.current = friends.map(f => f.friendUid);
+      // Re-filter using the latest friends lobbies snapshot
+      const filtered = allFriendsLobbiesRef.current.filter(
+        lobby => friendUidsRef.current.includes(lobby.hostUid)
       );
       setFriendsLobbies(filtered);
     });
     return unsubscribe;
-  }, [friendUids]);
+  }, [userUid]);
+
+  // Subscribe to friends-only lobbies once; filter client-side using the ref.
+  // This listener is stable and never torn down due to friendUids changes.
+  useEffect(() => {
+    const unsubscribe = subscribeFriendsLobbies((lobbies) => {
+      allFriendsLobbiesRef.current = lobbies;
+      const filtered = lobbies.filter(
+        lobby => friendUidsRef.current.includes(lobby.hostUid)
+      );
+      setFriendsLobbies(filtered);
+    });
+    return unsubscribe;
+  }, []);
 
   /**
    * Host a new game.
