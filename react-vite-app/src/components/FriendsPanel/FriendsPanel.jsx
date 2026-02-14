@@ -1,0 +1,318 @@
+import { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useFriends } from '../../hooks/useFriends';
+import { subscribeToAllPresence } from '../../services/presenceService';
+import { useEffect } from 'react';
+import './FriendsPanel.css';
+
+function FriendsPanel({ onBack, onOpenChat }) {
+  const { user, userDoc } = useAuth();
+  const {
+    friends,
+    incomingRequests,
+    outgoingRequests,
+    sendRequest,
+    acceptRequest,
+    declineRequest,
+    removeFriend,
+    loading,
+    error: friendsError
+  } = useFriends(user?.uid, userDoc?.username);
+
+  const [addUid, setAddUid] = useState('');
+  const [addError, setAddError] = useState(null);
+  const [addSuccess, setAddSuccess] = useState(null);
+  const [addLoading, setAddLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(null);
+  const [presenceMap, setPresenceMap] = useState({});
+  const [tab, setTab] = useState('friends'); // 'friends' | 'requests' | 'add'
+  const [confirmRemove, setConfirmRemove] = useState(null);
+
+  // Subscribe to presence for online status
+  useEffect(() => {
+    const unsubscribe = subscribeToAllPresence((data) => {
+      setPresenceMap(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const isUserOnline = (uid) => {
+    const presence = presenceMap[uid];
+    if (!presence || !presence.online) return false;
+    if (!presence.lastSeen) return false;
+    const lastSeen = presence.lastSeen.toDate ? presence.lastSeen.toDate() : new Date(presence.lastSeen);
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    return lastSeen > twoMinutesAgo;
+  };
+
+  const handleAddFriend = async (e) => {
+    e.preventDefault();
+    setAddError(null);
+    setAddSuccess(null);
+
+    const trimmed = addUid.trim();
+    if (!trimmed) {
+      setAddError('Please enter a user ID.');
+      return;
+    }
+
+    setAddLoading(true);
+    try {
+      await sendRequest(trimmed);
+      setAddSuccess('Friend request sent!');
+      setAddUid('');
+      setTimeout(() => setAddSuccess(null), 3000);
+    } catch (err) {
+      setAddError(err.message);
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  const handleAccept = async (requestId) => {
+    setActionLoading(requestId);
+    try {
+      await acceptRequest(requestId);
+    } catch (err) {
+      console.error('Accept failed:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDecline = async (requestId) => {
+    setActionLoading(requestId);
+    try {
+      await declineRequest(requestId);
+    } catch (err) {
+      console.error('Decline failed:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRemoveFriend = async (friendUid) => {
+    setActionLoading(friendUid);
+    try {
+      await removeFriend(friendUid);
+      setConfirmRemove(null);
+    } catch (err) {
+      console.error('Remove failed:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const requestCount = incomingRequests.length;
+
+  return (
+    <div className="friends-panel">
+      <div className="friends-background">
+        <div className="friends-overlay"></div>
+      </div>
+      <div className="friends-card">
+        <button className="friends-back-button" onClick={onBack}>
+          ← Back
+        </button>
+
+        <h1 className="friends-title">Friends</h1>
+
+        {friendsError && <div className="friends-error">{friendsError}</div>}
+
+        {/* Tabs */}
+        <div className="friends-tabs">
+          <button
+            className={`friends-tab ${tab === 'friends' ? 'active' : ''}`}
+            onClick={() => setTab('friends')}
+          >
+            Friends ({friends.length})
+          </button>
+          <button
+            className={`friends-tab ${tab === 'requests' ? 'active' : ''}`}
+            onClick={() => setTab('requests')}
+          >
+            Requests
+            {requestCount > 0 && <span className="friends-tab-badge">{requestCount}</span>}
+          </button>
+          <button
+            className={`friends-tab ${tab === 'add' ? 'active' : ''}`}
+            onClick={() => setTab('add')}
+          >
+            Add Friend
+          </button>
+        </div>
+
+        {/* Friends List Tab */}
+        {tab === 'friends' && (
+          <div className="friends-list-section">
+            {loading ? (
+              <div className="friends-loading">Loading friends...</div>
+            ) : friends.length === 0 ? (
+              <div className="friends-empty">
+                <span className="friends-empty-icon">👥</span>
+                <p>No friends yet</p>
+                <p className="friends-empty-hint">Add friends by their user ID!</p>
+              </div>
+            ) : (
+              <div className="friends-list">
+                {friends.map(friend => {
+                  const online = isUserOnline(friend.friendUid);
+                  return (
+                    <div key={friend.pairId} className="friend-item">
+                      <div className="friend-info">
+                        <span className={`friend-online-dot ${online ? 'online' : 'offline'}`}></span>
+                        <span className="friend-username">{friend.friendUsername}</span>
+                        {online && (
+                          <span className="friend-status-text">Online</span>
+                        )}
+                      </div>
+                      <div className="friend-actions">
+                        <button
+                          className="friend-chat-button"
+                          onClick={() => onOpenChat(friend.friendUid, friend.friendUsername)}
+                        >
+                          Chat
+                        </button>
+                        {confirmRemove === friend.friendUid ? (
+                          <div className="friend-confirm-remove">
+                            <button
+                              className="friend-confirm-yes"
+                              onClick={() => handleRemoveFriend(friend.friendUid)}
+                              disabled={actionLoading === friend.friendUid}
+                            >
+                              {actionLoading === friend.friendUid ? '...' : 'Yes'}
+                            </button>
+                            <button
+                              className="friend-confirm-no"
+                              onClick={() => setConfirmRemove(null)}
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="friend-remove-button"
+                            onClick={() => setConfirmRemove(friend.friendUid)}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Requests Tab */}
+        {tab === 'requests' && (
+          <div className="friends-requests-section">
+            {/* Incoming */}
+            <div className="requests-group">
+              <h3 className="requests-group-title">Incoming Requests</h3>
+              {incomingRequests.length === 0 ? (
+                <div className="requests-empty">No pending requests</div>
+              ) : (
+                <div className="requests-list">
+                  {incomingRequests.map(req => (
+                    <div key={req.id} className="request-item">
+                      <div className="request-info">
+                        <span className="request-username">{req.fromUsername}</span>
+                        <span className="request-uid">{req.fromUid}</span>
+                      </div>
+                      <div className="request-actions">
+                        <button
+                          className="request-accept"
+                          onClick={() => handleAccept(req.id)}
+                          disabled={actionLoading === req.id}
+                        >
+                          {actionLoading === req.id ? '...' : 'Accept'}
+                        </button>
+                        <button
+                          className="request-decline"
+                          onClick={() => handleDecline(req.id)}
+                          disabled={actionLoading === req.id}
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Outgoing */}
+            <div className="requests-group">
+              <h3 className="requests-group-title">Sent Requests</h3>
+              {outgoingRequests.length === 0 ? (
+                <div className="requests-empty">No sent requests</div>
+              ) : (
+                <div className="requests-list">
+                  {outgoingRequests.map(req => (
+                    <div key={req.id} className="request-item outgoing">
+                      <div className="request-info">
+                        <span className="request-username">{req.toUsername}</span>
+                        <span className="request-uid">{req.toUid}</span>
+                      </div>
+                      <span className="request-pending-badge">Pending</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Add Friend Tab */}
+        {tab === 'add' && (
+          <div className="friends-add-section">
+            <div className="add-friend-info">
+              <p>Add a friend by entering their User ID.</p>
+              <div className="your-uid-box">
+                <span className="your-uid-label">Your User ID:</span>
+                <code className="your-uid-value">{user?.uid}</code>
+                <button
+                  className="copy-uid-button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(user?.uid || '');
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+
+            {addError && <div className="add-friend-error">{addError}</div>}
+            {addSuccess && <div className="add-friend-success">{addSuccess}</div>}
+
+            <form onSubmit={handleAddFriend} className="add-friend-form">
+              <input
+                type="text"
+                className="add-friend-input"
+                placeholder="Enter friend's User ID..."
+                value={addUid}
+                onChange={(e) => {
+                  setAddUid(e.target.value);
+                  setAddError(null);
+                }}
+                disabled={addLoading}
+              />
+              <button
+                type="submit"
+                className="add-friend-submit"
+                disabled={addLoading || !addUid.trim()}
+              >
+                {addLoading ? 'Sending...' : 'Send Request'}
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default FriendsPanel;

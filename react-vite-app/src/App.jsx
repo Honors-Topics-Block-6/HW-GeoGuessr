@@ -19,6 +19,8 @@ import DuelResultScreen from './components/DuelResultScreen/DuelResultScreen';
 import DuelFinalScreen from './components/DuelFinalScreen/DuelFinalScreen';
 import LeaderboardScreen from './components/LeaderboardScreen/LeaderboardScreen';
 import SubmissionApp from './components/SubmissionApp/SubmissionApp';
+import FriendsPanel from './components/FriendsPanel/FriendsPanel';
+import ChatWindow from './components/ChatWindow/ChatWindow';
 import MessageBanner from './components/MessageBanner/MessageBanner';
 import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
 import './App.css';
@@ -27,6 +29,9 @@ function App() {
   const { user, userDoc, loading, needsUsername, isAdmin } = useAuth();
   const [showSubmissionApp, setShowSubmissionApp] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatFriend, setChatFriend] = useState(null); // { uid, username }
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   // Track whether we're in a duel (multiplayer) game
@@ -72,7 +77,7 @@ function App() {
   );
 
   // Track user's online presence and current activity
-  usePresence(user, inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard);
+  usePresence(user, inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard, showFriends, showChat);
 
   // Listen for admin messages sent to this user
   const { messages, dismissMessage } = useAdminMessages(user?.uid);
@@ -81,6 +86,24 @@ function App() {
   const messageBanner = user && messages.length > 0 ? (
     <MessageBanner messages={messages} onDismiss={dismissMessage} />
   ) : null;
+
+  /**
+   * Handle opening a chat from the friends panel
+   */
+  const handleOpenChat = useCallback((friendUid, friendUsername) => {
+    setChatFriend({ uid: friendUid, username: friendUsername });
+    setShowChat(true);
+    setShowFriends(false);
+  }, []);
+
+  /**
+   * Handle closing the chat → go back to friends panel
+   */
+  const handleCloseChat = useCallback(() => {
+    setShowChat(false);
+    setChatFriend(null);
+    setShowFriends(true);
+  }, []);
 
   /**
    * Handle transition from WaitingRoom to the duel game
@@ -127,13 +150,48 @@ function App() {
     return <LoginScreen />;
   }
 
+  // Show chat window
+  if (showChat && chatFriend) {
+    return (
+      <>
+        {messageBanner}
+        <EmailVerificationBanner />
+        <ChatWindow
+          friendUid={chatFriend.uid}
+          friendUsername={chatFriend.username}
+          onBack={handleCloseChat}
+        />
+      </>
+    );
+  }
+
+  // Show friends panel
+  if (showFriends) {
+    return (
+      <>
+        {messageBanner}
+        <EmailVerificationBanner />
+        <FriendsPanel
+          onBack={() => setShowFriends(false)}
+          onOpenChat={handleOpenChat}
+        />
+      </>
+    );
+  }
+
   // Show profile screen
   if (showProfile) {
     return (
       <>
         {messageBanner}
         <EmailVerificationBanner />
-        <ProfileScreen onBack={() => setShowProfile(false)} />
+        <ProfileScreen
+          onBack={() => setShowProfile(false)}
+          onOpenFriends={() => {
+            setShowProfile(false);
+            setShowFriends(true);
+          }}
+        />
       </>
     );
   }
@@ -230,6 +288,7 @@ function App() {
           onPlay={handlePlay}
           onOpenSubmission={() => setShowSubmissionApp(true)}
           onOpenProfile={() => setShowProfile(true)}
+          onOpenFriends={() => setShowFriends(true)}
           onOpenLeaderboard={() => setShowLeaderboard(true)}
           isLoading={isLoading}
         />

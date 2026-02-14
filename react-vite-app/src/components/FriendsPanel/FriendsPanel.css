@@ -1,0 +1,626 @@
+/* ===== Friends Panel ===== */
+.friends-panel {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.friends-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #0c0c0f 0%, #1a1a2e 50%, #16213e 100%);
+  z-index: 0;
+}
+
+.friends-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(circle at 30% 70%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 70% 30%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+}
+
+.friends-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(0deg, rgba(12, 12, 15, 0.8) 0%, transparent 50%),
+    linear-gradient(180deg, rgba(12, 12, 15, 0.4) 0%, transparent 30%);
+}
+
+.friends-card {
+  position: relative;
+  z-index: 1;
+  background: rgba(22, 33, 62, 0.6);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 550px;
+  margin: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.friends-card::-webkit-scrollbar {
+  width: 6px;
+}
+.friends-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+.friends-card::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.friends-back-button {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.25rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #b0b8cc;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.friends-back-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.friends-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #e0e6f0;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.friends-error {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  text-align: center;
+}
+
+/* ===== Tabs ===== */
+.friends-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 1.5rem;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.friends-tab {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8892a8;
+  transition: all 0.25s ease;
+  position: relative;
+  white-space: nowrap;
+}
+
+.friends-tab:hover {
+  color: #c4c9d6;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.friends-tab.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+  color: #a78bfa;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.15);
+}
+
+.friends-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f87171;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 5px;
+  margin-left: 6px;
+}
+
+/* ===== Friends List ===== */
+.friends-loading {
+  text-align: center;
+  color: #8892a8;
+  padding: 2rem;
+  font-size: 0.95rem;
+}
+
+.friends-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #8892a8;
+}
+
+.friends-empty-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.friends-empty p {
+  margin: 0.25rem 0;
+}
+
+.friends-empty-hint {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+
+.friend-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.friend-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.friend-online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.friend-online-dot.online {
+  background: #34d399;
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+}
+
+.friend-online-dot.offline {
+  background: #6b7280;
+}
+
+.friend-username {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e0e6f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friend-status-text {
+  font-size: 0.75rem;
+  color: #34d399;
+  font-weight: 500;
+}
+
+.friend-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.friend-chat-button {
+  padding: 6px 14px;
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.25s ease;
+}
+
+.friend-chat-button:hover {
+  background: rgba(96, 165, 250, 0.22);
+  box-shadow: 0 2px 8px rgba(96, 165, 250, 0.15);
+  transform: translateY(-1px);
+}
+
+.friend-remove-button {
+  padding: 6px 12px;
+  background: rgba(248, 113, 113, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.15);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.friend-remove-button:hover {
+  background: rgba(248, 113, 113, 0.18);
+}
+
+.friend-confirm-remove {
+  display: flex;
+  gap: 4px;
+}
+
+.friend-confirm-yes {
+  padding: 6px 10px;
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.friend-confirm-yes:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.friend-confirm-no {
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #b0b8cc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ===== Requests ===== */
+.friends-requests-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.requests-group-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #a78bfa;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0 0 0.75rem 0;
+}
+
+.requests-empty {
+  color: #6b7280;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.request-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.request-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.request-username {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e0e6f0;
+}
+
+.request-uid {
+  font-size: 0.72rem;
+  color: #6b7280;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.request-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.request-accept {
+  padding: 7px 16px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.request-accept:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.request-accept:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.request-decline {
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #b0b8cc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.25s ease;
+}
+
+.request-decline:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+.request-decline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.request-pending-badge {
+  padding: 5px 12px;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* ===== Add Friend ===== */
+.friends-add-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.add-friend-info {
+  text-align: center;
+  color: #8892a8;
+  font-size: 0.9rem;
+}
+
+.add-friend-info p {
+  margin: 0 0 1rem 0;
+}
+
+.your-uid-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+
+.your-uid-label {
+  font-size: 0.8rem;
+  color: #8892a8;
+  font-weight: 600;
+}
+
+.your-uid-value {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.75rem;
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.08);
+  padding: 4px 8px;
+  border-radius: 6px;
+  word-break: break-all;
+}
+
+.copy-uid-button {
+  padding: 4px 10px;
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.copy-uid-button:hover {
+  background: rgba(96, 165, 250, 0.22);
+}
+
+.add-friend-error {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  text-align: center;
+}
+
+.add-friend-success {
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  text-align: center;
+}
+
+.add-friend-form {
+  display: flex;
+  gap: 10px;
+}
+
+.add-friend-input {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #e0e6f0;
+  background: rgba(255, 255, 255, 0.04);
+  transition: all 0.2s ease;
+  min-width: 0;
+}
+
+.add-friend-input:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.add-friend-input::placeholder {
+  color: #4a5568;
+}
+
+.add-friend-input:disabled {
+  opacity: 0.5;
+}
+
+.add-friend-submit {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.add-friend-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.add-friend-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 480px) {
+  .friends-card {
+    padding: 2rem 1.25rem;
+    margin: 0.5rem;
+  }
+
+  .friends-title {
+    font-size: 1.5rem;
+  }
+
+  .friends-tab {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .add-friend-form {
+    flex-direction: column;
+  }
+
+  .friend-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .friend-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .your-uid-box {
+    flex-direction: column;
+    gap: 6px;
+  }
+}

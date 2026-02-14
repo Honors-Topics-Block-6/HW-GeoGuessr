@@ -16,6 +16,10 @@ vi.mock('./AccountManagement', () => ({
   default: () => <div data-testid="account-management">Account Management Component</div>
 }));
 
+vi.mock('./FriendsManagement', () => ({
+  default: () => <div data-testid="friends-management">Friends Management Component</div>
+}));
+
 describe('AdminTabs', () => {
   const mockOnTabChange = vi.fn();
   const mockOnBack = vi.fn();
@@ -167,7 +171,7 @@ describe('AdminTabs', () => {
         <AdminTabs activeTab="review" onTabChange={mockOnTabChange} onBack={mockOnBack} />
       );
       const tabs = document.querySelectorAll('.admin-tab');
-      expect(tabs.length).toBe(3);
+      expect(tabs.length).toBe(4);
     });
 
     it('should have back-button class', () => {

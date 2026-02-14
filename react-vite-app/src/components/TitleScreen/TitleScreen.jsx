@@ -1,7 +1,7 @@
 import { useAuth } from '../../contexts/AuthContext';
 import './TitleScreen.css';
 
-function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenLeaderboard, isLoading }) {
+function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, isLoading }) {
   const { userDoc, logout, levelInfo, levelTitle } = useAuth();
 
   const handleLogout = async () => {
@@ -26,6 +26,9 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenLeaderboar
           </button>
           <button className="title-profile-button" onClick={onOpenProfile}>
             Profile
+          </button>
+          <button className="title-friends-button" onClick={onOpenFriends}>
+            Friends
           </button>
           <button className="submit-photo-button" onClick={onOpenSubmission}>
             Submit Photo
