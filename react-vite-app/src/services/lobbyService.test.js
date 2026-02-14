@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock Firebase before importing the service
+// ─── Firestore mock with argument tracking ──────────────────────────
+// We mock firebase/firestore but track the actual arguments passed to
+// query(), where(), orderBy(), and onSnapshot() so tests can verify
+// the REAL query construction logic in lobbyService — not just that
+// "some function was called".
 vi.mock('../firebase', () => ({
-  db: {}
+  db: { _marker: 'mock-db' }
 }));
 
 const mockOnSnapshotUnsub = vi.fn();
@@ -14,10 +18,10 @@ vi.mock('firebase/firestore', () => ({
   getDocs: vi.fn(),
   deleteDoc: vi.fn(),
   doc: vi.fn((_db, _col, id) => ({ id, path: `lobbies/${id}` })),
-  collection: vi.fn(),
-  query: vi.fn((...args) => args),
-  where: vi.fn((...args) => args),
-  orderBy: vi.fn((...args) => args),
+  collection: vi.fn((_db, name) => ({ _collectionName: name })),
+  query: vi.fn((...args) => ({ _queryArgs: args })),
+  where: vi.fn((field, op, val) => ({ _type: 'where', field, op, val })),
+  orderBy: vi.fn((field, dir) => ({ _type: 'orderBy', field, dir })),
   onSnapshot: vi.fn(() => mockOnSnapshotUnsub),
   arrayUnion: vi.fn(val => val),
   arrayRemove: vi.fn(val => val),
@@ -31,7 +35,9 @@ vi.mock('./friendService', () => ({
   areFriends: (...args) => mockAreFriends(...args)
 }));
 
-import { addDoc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import {
+  addDoc, getDoc, updateDoc, onSnapshot, query, where, orderBy, collection
+} from 'firebase/firestore';
 import {
   createLobby,
   joinLobby,
@@ -109,6 +115,36 @@ describe('lobbyService', () => {
       expect(lobbyData.visibility).toBe('friends');
       expect(lobbyData.difficulty).toBe('medium');
       expect(lobbyData.hostUid).toBe('host-uid');
+    });
+
+    it('should write to the lobbies collection', async () => {
+      addDoc.mockResolvedValueOnce({ id: 'lobby-x' });
+
+      await createLobby('uid', 'User', 'easy', 'public');
+
+      // First arg to addDoc should be the collection ref
+      const collectionRef = addDoc.mock.calls[0][0];
+      expect(collectionRef._collectionName).toBe('lobbies');
+    });
+
+    it('should include heartbeat for the host', async () => {
+      addDoc.mockResolvedValueOnce({ id: 'lobby-x' });
+
+      await createLobby('host-uid', 'Host', 'easy', 'public');
+
+      const lobbyData = addDoc.mock.calls[0][1];
+      expect(lobbyData.heartbeats).toBeDefined();
+      expect(lobbyData.heartbeats['host-uid']).toBeDefined();
+    });
+
+    it('should include createdAt and updatedAt timestamps', async () => {
+      addDoc.mockResolvedValueOnce({ id: 'lobby-x' });
+
+      await createLobby('uid', 'User', 'easy', 'public');
+
+      const lobbyData = addDoc.mock.calls[0][1];
+      expect(lobbyData.createdAt).toEqual({ _type: 'serverTimestamp' });
+      expect(lobbyData.updatedAt).toEqual({ _type: 'serverTimestamp' });
     });
   });
 
@@ -230,7 +266,6 @@ describe('lobbyService', () => {
     });
 
     it('should block non-friend from joining friends-only lobby via game code', async () => {
-      // This tests the same joinLobby path used by join-by-code
       getDoc.mockResolvedValueOnce(makeLobbySnap({
         visibility: 'friends',
         hostUid: 'host-uid'
@@ -245,25 +280,17 @@ describe('lobbyService', () => {
     });
 
     it('should dynamically import friendService (not statically)', async () => {
-      // Verify that areFriends is resolved via dynamic import() at call time,
-      // not at module load time. We do this by changing the mock's behavior
-      // AFTER lobbyService has already been imported — if areFriends were
-      // captured statically at import time this would have no effect.
       getDoc.mockResolvedValueOnce(makeLobbySnap({ visibility: 'friends' }));
       mockAreFriends.mockResolvedValueOnce(true);
       updateDoc.mockResolvedValueOnce();
 
       await joinLobby('doc-1', 'player-uid', 'Player', 'easy');
 
-      // The mock was called — proving the dynamic import path resolved
-      // our mock factory, not a stale static reference.
       expect(mockAreFriends).toHaveBeenCalledTimes(1);
       expect(mockAreFriends).toHaveBeenCalledWith('host-uid', 'player-uid');
     });
 
     it('should propagate errors from dynamically-imported areFriends', async () => {
-      // If friendService's areFriends throws at runtime, joinLobby should
-      // propagate it — proving the dynamic import is actually wired up.
       getDoc.mockResolvedValueOnce(makeLobbySnap({ visibility: 'friends' }));
       mockAreFriends.mockRejectedValueOnce(new Error('Firestore permission denied'));
 
@@ -275,13 +302,11 @@ describe('lobbyService', () => {
     });
 
     it('should not import friendService at all for public/private lobbies', async () => {
-      // For non-friends lobbies, the dynamic import() should never be reached
       getDoc.mockResolvedValueOnce(makeLobbySnap({ visibility: 'public' }));
       updateDoc.mockResolvedValueOnce();
 
       await joinLobby('doc-1', 'player-uid', 'Player', 'easy');
 
-      // mockAreFriends should never be called — the import() branch was skipped
       expect(mockAreFriends).not.toHaveBeenCalled();
 
       vi.clearAllMocks();
@@ -296,6 +321,38 @@ describe('lobbyService', () => {
   });
 
   describe('subscribePublicLobbies', () => {
+    it('should build a query filtering visibility=public, status=waiting', () => {
+      const callback = vi.fn();
+      subscribePublicLobbies(callback);
+
+      // query() was called — inspect what was passed
+      expect(query).toHaveBeenCalledTimes(1);
+      const queryArgs = query.mock.calls[0];
+
+      // First arg: collection ref
+      expect(queryArgs[0]._collectionName).toBe('lobbies');
+
+      // Remaining args: where/orderBy constraints
+      const constraints = queryArgs.slice(1);
+      const wheres = constraints.filter(c => c._type === 'where');
+      const orders = constraints.filter(c => c._type === 'orderBy');
+
+      // Must filter on BOTH visibility and status
+      expect(wheres).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: 'visibility', op: '==', val: 'public' }),
+          expect.objectContaining({ field: 'status', op: '==', val: 'waiting' })
+        ])
+      );
+
+      // Must order by createdAt
+      expect(orders).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: 'createdAt' })
+        ])
+      );
+    });
+
     it('should call onSnapshot and return an unsubscribe function', () => {
       const callback = vi.fn();
       const unsubscribe = subscribePublicLobbies(callback);
@@ -314,7 +371,6 @@ describe('lobbyService', () => {
       const callback = vi.fn();
       subscribePublicLobbies(callback);
 
-      // Simulate a Firestore snapshot
       snapshotCallback({
         docs: [
           { id: 'lobby-1', data: () => ({ hostUsername: 'Alice', visibility: 'public' }) },
@@ -345,7 +401,6 @@ describe('lobbyService', () => {
       const fallbackUnsub = vi.fn();
       let errorHandler;
 
-      // Primary onSnapshot: capture the error handler
       onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
         errorHandler = errCb;
         return primaryUnsub;
@@ -354,15 +409,51 @@ describe('lobbyService', () => {
       const callback = vi.fn();
       const cleanup = subscribePublicLobbies(callback);
 
-      // Simulate primary error, triggering fallback
       onSnapshot.mockImplementationOnce(() => fallbackUnsub);
       errorHandler(new Error('Missing index'));
 
-      // Now cleanup should unsubscribe both
       cleanup();
       expect(primaryUnsub).toHaveBeenCalledTimes(1);
       expect(fallbackUnsub).toHaveBeenCalledTimes(1);
     });
-  });
 
+    it('should use fallback query WITHOUT orderBy when primary fails', () => {
+      let errorHandler;
+
+      onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
+        errorHandler = errCb;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      subscribePublicLobbies(callback);
+
+      // Clear to isolate the fallback query() call
+      query.mockClear();
+      where.mockClear();
+      orderBy.mockClear();
+
+      onSnapshot.mockImplementationOnce(() => vi.fn());
+      errorHandler(new Error('Missing index'));
+
+      // Fallback query should be built
+      expect(query).toHaveBeenCalledTimes(1);
+      const fallbackArgs = query.mock.calls[0];
+      const fallbackConstraints = fallbackArgs.slice(1);
+      const fallbackWheres = fallbackConstraints.filter(c => c._type === 'where');
+      const fallbackOrders = fallbackConstraints.filter(c => c._type === 'orderBy');
+
+      // Same where filters
+      expect(fallbackWheres).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: 'visibility', op: '==', val: 'public' }),
+          expect.objectContaining({ field: 'status', op: '==', val: 'waiting' })
+        ])
+      );
+
+      // NO orderBy in fallback
+      expect(fallbackOrders).toHaveLength(0);
+      expect(orderBy).not.toHaveBeenCalled();
+    });
+  });
 });

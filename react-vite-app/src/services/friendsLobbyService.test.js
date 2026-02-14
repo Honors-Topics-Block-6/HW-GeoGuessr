@@ -2,20 +2,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Firebase before importing the service
 vi.mock('../firebase', () => ({
-  db: {}
+  db: { _marker: 'mock-db' }
 }));
 
 const mockOnSnapshotUnsub = vi.fn();
 
 vi.mock('firebase/firestore', () => ({
-  collection: vi.fn(),
-  query: vi.fn((...args) => args),
-  where: vi.fn((...args) => args),
-  orderBy: vi.fn((...args) => args),
+  collection: vi.fn((_db, name) => ({ _collectionName: name })),
+  query: vi.fn((...args) => ({ _queryArgs: args })),
+  where: vi.fn((field, op, val) => ({ _type: 'where', field, op, val })),
+  orderBy: vi.fn((field, dir) => ({ _type: 'orderBy', field, dir })),
   onSnapshot: vi.fn(() => mockOnSnapshotUnsub)
 }));
 
-import { onSnapshot } from 'firebase/firestore';
+import { onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { subscribeFriendsLobbies } from './friendsLobbyService';
 
 describe('friendsLobbyService', () => {
@@ -24,6 +24,37 @@ describe('friendsLobbyService', () => {
   });
 
   describe('subscribeFriendsLobbies', () => {
+    it('should build a query filtering visibility=friends, status=waiting, ordered by createdAt', () => {
+      const callback = vi.fn();
+      subscribeFriendsLobbies(callback);
+
+      expect(query).toHaveBeenCalledTimes(1);
+      const queryArgs = query.mock.calls[0];
+
+      // First arg: collection ref
+      expect(queryArgs[0]._collectionName).toBe('lobbies');
+
+      // Remaining args: where/orderBy constraints
+      const constraints = queryArgs.slice(1);
+      const wheres = constraints.filter(c => c._type === 'where');
+      const orders = constraints.filter(c => c._type === 'orderBy');
+
+      // Must filter on visibility=friends AND status=waiting
+      expect(wheres).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: 'visibility', op: '==', val: 'friends' }),
+          expect.objectContaining({ field: 'status', op: '==', val: 'waiting' })
+        ])
+      );
+
+      // Must order by createdAt
+      expect(orders).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: 'createdAt' })
+        ])
+      );
+    });
+
     it('should call onSnapshot and return an unsubscribe function', () => {
       const callback = vi.fn();
       const unsubscribe = subscribeFriendsLobbies(callback);
@@ -76,6 +107,45 @@ describe('friendsLobbyService', () => {
       cleanup();
       expect(primaryUnsub).toHaveBeenCalledTimes(1);
       expect(fallbackUnsub).toHaveBeenCalledTimes(1);
+    });
+
+    it('should use fallback query WITHOUT orderBy when primary fails', () => {
+      let errorHandler;
+
+      onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
+        errorHandler = errCb;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      subscribeFriendsLobbies(callback);
+
+      // Clear to isolate the fallback query() call
+      query.mockClear();
+      where.mockClear();
+      orderBy.mockClear();
+
+      onSnapshot.mockImplementationOnce(() => vi.fn());
+      errorHandler(new Error('Missing index'));
+
+      // Fallback query should be built
+      expect(query).toHaveBeenCalledTimes(1);
+      const fallbackArgs = query.mock.calls[0];
+      const fallbackConstraints = fallbackArgs.slice(1);
+      const fallbackWheres = fallbackConstraints.filter(c => c._type === 'where');
+      const fallbackOrders = fallbackConstraints.filter(c => c._type === 'orderBy');
+
+      // Same where filters
+      expect(fallbackWheres).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: 'visibility', op: '==', val: 'friends' }),
+          expect.objectContaining({ field: 'status', op: '==', val: 'waiting' })
+        ])
+      );
+
+      // NO orderBy in fallback
+      expect(fallbackOrders).toHaveLength(0);
+      expect(orderBy).not.toHaveBeenCalled();
     });
 
     it('should handle fallback error gracefully and return empty array', () => {
