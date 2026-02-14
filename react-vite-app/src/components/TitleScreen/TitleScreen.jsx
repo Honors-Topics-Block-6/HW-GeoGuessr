@@ -2,7 +2,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import './TitleScreen.css';
 
 function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, isLoading }) {
-  const { userDoc, logout, levelInfo, levelTitle } = useAuth();
+  const { userDoc, logout, levelInfo } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -47,12 +47,6 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
         </div>
         <h1 className="game-title">HW Geoguessr</h1>
         <p className="tagline">Can you guess the location on campus?</p>
-
-        {/* Level chip under tagline */}
-        <div className="title-level-chip">
-          <span className="title-level-chip-level">Lvl {levelInfo.level}</span>
-          <span className="title-level-chip-title">{levelTitle}</span>
-        </div>
 
         <button
           className="start-button"
