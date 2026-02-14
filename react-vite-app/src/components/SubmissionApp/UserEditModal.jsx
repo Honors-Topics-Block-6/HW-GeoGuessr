@@ -4,8 +4,6 @@ import { isHardcodedAdmin } from '../../services/userService'
 import './UserEditModal.css'
 
 function UserEditModal({ user, onSave, onClose, isSaving }) {
-  // System fields that are never editable
-  const systemFields = ['uid', 'id', 'createdAt']
   // Known fields we render explicitly with nice UI
   const knownFields = ['uid', 'id', 'email', 'username', 'isAdmin', 'createdAt', 'totalXp', 'gamesPlayed', 'lastGameAt']
 
