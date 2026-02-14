@@ -146,8 +146,8 @@ function AccountManagement() {
                     </span>
                   </td>
                   <td>
-                    <span className={`verified-status ${u.verified ? 'is-verified' : 'not-verified'}`}>
-                      {u.verified ? 'Yes' : 'No'}
+                    <span className={`verified-status ${u.emailVerified ? 'is-verified' : 'not-verified'}`}>
+                      {u.emailVerified ? 'Yes' : 'No'}
                     </span>
                   </td>
                   <td>

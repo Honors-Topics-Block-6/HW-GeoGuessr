@@ -15,7 +15,7 @@ export async function createUserDoc(uid, email, username) {
     email,
     username,
     isAdmin,
-    verified: false,
+    emailVerified: false,
     totalXp: 0,
     gamesPlayed: 0,
     createdAt: serverTimestamp()

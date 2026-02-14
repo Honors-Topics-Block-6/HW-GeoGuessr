@@ -34,20 +34,33 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
-      setEmailVerified(firebaseUser?.emailVerified ?? false);
+      const authVerified = firebaseUser?.emailVerified ?? false;
 
       if (firebaseUser) {
         // Fetch the user's Firestore document
         const doc = await getUserDoc(firebaseUser.uid);
         if (doc) {
+          // Verified if either Firebase Auth or Firestore says so
+          // (admin can set emailVerified in Firestore, user can verify via email link)
+          const isVerified = authVerified || doc.emailVerified === true;
+          setEmailVerified(isVerified);
+
+          // Sync Firebase Auth → Firestore when user verifies via email link
+          if (authVerified && !doc.emailVerified) {
+            await updateUserDoc(firebaseUser.uid, { emailVerified: true });
+            doc.emailVerified = true;
+          }
+
           setUserDoc(doc);
           setNeedsUsername(false);
         } else {
+          setEmailVerified(authVerified);
           // User exists in Auth but not in Firestore (Google sign-in, first time)
           setUserDoc(null);
           setNeedsUsername(true);
         }
       } else {
+        setEmailVerified(false);
         setUserDoc(null);
         setNeedsUsername(false);
       }
@@ -59,6 +72,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Poll for email verification status (focus + interval)
+  // Checks both Firebase Auth (user clicked email link) and Firestore (admin toggled it)
   useEffect(() => {
     if (!user || emailVerified) return;
 
@@ -67,12 +81,23 @@ export function AuthProvider({ children }) {
 
     const checkVerification = async () => {
       try {
+        // Check Firebase Auth (user verified via email link)
         await user.reload();
-        if (user.emailVerified) {
+        if (auth.currentUser?.emailVerified) {
           setEmailVerified(true);
+          await updateUserDoc(user.uid, { emailVerified: true });
+          setUserDoc(prev => prev ? { ...prev, emailVerified: true } : prev);
+          return;
+        }
+
+        // Check Firestore (admin may have toggled emailVerified)
+        const doc = await getUserDoc(user.uid);
+        if (doc?.emailVerified) {
+          setEmailVerified(true);
+          setUserDoc(prev => prev ? { ...prev, emailVerified: true } : prev);
         }
       } catch (err) {
-        console.error('Failed to reload user:', err);
+        console.error('Failed to check verification status:', err);
       }
     };
 
