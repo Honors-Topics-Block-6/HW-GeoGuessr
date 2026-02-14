@@ -1,15 +1,26 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { ADMIN_PERMISSIONS } from '../../services/userService'
 import SubmissionForm from './SubmissionForm'
 import AdminTabs from './AdminTabs'
 import './SubmissionApp.css'
 
 function SubmissionApp({ onBack }) {
-  const { isAdmin } = useAuth()
+  const { isAdmin, hasPermission } = useAuth()
   const [adminScreen, setAdminScreen] = useState(null) // null | 'review' | 'mapEditor' | 'accounts'
 
+  // Determine the first visible tab to land on when entering admin panel
+  const firstVisibleTab = useMemo(() => {
+    if (hasPermission(ADMIN_PERMISSIONS.REVIEW_SUBMISSIONS) || hasPermission(ADMIN_PERMISSIONS.DELETE_PHOTOS)) return 'review'
+    if (hasPermission(ADMIN_PERMISSIONS.EDIT_MAP)) return 'mapEditor'
+    if (hasPermission(ADMIN_PERMISSIONS.VIEW_ACCOUNTS) || hasPermission(ADMIN_PERMISSIONS.EDIT_ACCOUNTS) || hasPermission(ADMIN_PERMISSIONS.MESSAGE_ACCOUNTS) || hasPermission(ADMIN_PERMISSIONS.MANAGE_ADMINS)) return 'accounts'
+    if (hasPermission(ADMIN_PERMISSIONS.MANAGE_FRIENDS_CHATS)) return 'friends'
+    if (hasPermission(ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS)) return 'bugReports'
+    return 'review' // fallback
+  }, [hasPermission])
+
   const handleAdminClick = () => {
-    setAdminScreen('review')
+    setAdminScreen(firstVisibleTab)
   }
 
   const handleBackToSubmission = () => {

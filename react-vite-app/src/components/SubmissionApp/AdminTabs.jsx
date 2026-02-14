@@ -1,4 +1,6 @@
 import './AdminTabs.css'
+import { useAuth } from '../../contexts/AuthContext'
+import { ADMIN_PERMISSIONS } from '../../services/userService'
 import AdminReview from './AdminReview'
 import MapEditor from './MapEditor'
 import AccountManagement from './AccountManagement'
@@ -6,6 +8,45 @@ import FriendsManagement from './FriendsManagement'
 import BugReportManagement from './BugReportManagement'
 
 function AdminTabs({ activeTab, onTabChange, onBack }) {
+  const { hasPermission } = useAuth()
+
+  // Define which permissions gate each tab
+  const tabs = [
+    {
+      key: 'review',
+      label: 'Review Submissions',
+      // Visible if user can review submissions OR delete photos
+      visible: hasPermission(ADMIN_PERMISSIONS.REVIEW_SUBMISSIONS) || hasPermission(ADMIN_PERMISSIONS.DELETE_PHOTOS),
+    },
+    {
+      key: 'mapEditor',
+      label: 'Map Editor',
+      visible: hasPermission(ADMIN_PERMISSIONS.EDIT_MAP),
+    },
+    {
+      key: 'accounts',
+      label: 'Manage Accounts',
+      // Visible if user can view, edit, message accounts, or manage admins
+      visible:
+        hasPermission(ADMIN_PERMISSIONS.VIEW_ACCOUNTS) ||
+        hasPermission(ADMIN_PERMISSIONS.EDIT_ACCOUNTS) ||
+        hasPermission(ADMIN_PERMISSIONS.MESSAGE_ACCOUNTS) ||
+        hasPermission(ADMIN_PERMISSIONS.MANAGE_ADMINS),
+    },
+    {
+      key: 'friends',
+      label: 'Friends & Chat',
+      visible: hasPermission(ADMIN_PERMISSIONS.MANAGE_FRIENDS_CHATS),
+    },
+    {
+      key: 'bugReports',
+      label: 'Bug Reports',
+      visible: hasPermission(ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS),
+    },
+  ]
+
+  const visibleTabs = tabs.filter(t => t.visible)
+
   return (
     <div className="admin-panel">
       <div className="admin-panel-header">
@@ -16,44 +57,23 @@ function AdminTabs({ activeTab, onTabChange, onBack }) {
       </div>
 
       <div className="admin-tabs">
-        <button
-          className={`admin-tab ${activeTab === 'review' ? 'active' : ''}`}
-          onClick={() => onTabChange('review')}
-        >
-          Review Submissions
-        </button>
-        <button
-          className={`admin-tab ${activeTab === 'mapEditor' ? 'active' : ''}`}
-          onClick={() => onTabChange('mapEditor')}
-        >
-          Map Editor
-        </button>
-        <button
-          className={`admin-tab ${activeTab === 'accounts' ? 'active' : ''}`}
-          onClick={() => onTabChange('accounts')}
-        >
-          Manage Accounts
-        </button>
-        <button
-          className={`admin-tab ${activeTab === 'friends' ? 'active' : ''}`}
-          onClick={() => onTabChange('friends')}
-        >
-          Friends &amp; Chat
-        </button>
-        <button
-          className={`admin-tab ${activeTab === 'bugReports' ? 'active' : ''}`}
-          onClick={() => onTabChange('bugReports')}
-        >
-          Bug Reports
-        </button>
+        {visibleTabs.map(tab => (
+          <button
+            key={tab.key}
+            className={`admin-tab ${activeTab === tab.key ? 'active' : ''}`}
+            onClick={() => onTabChange(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       <div className="admin-content">
-        {activeTab === 'review' && <AdminReview />}
-        {activeTab === 'mapEditor' && <MapEditor />}
-        {activeTab === 'accounts' && <AccountManagement />}
-        {activeTab === 'friends' && <FriendsManagement />}
-        {activeTab === 'bugReports' && <BugReportManagement />}
+        {activeTab === 'review' && (hasPermission(ADMIN_PERMISSIONS.REVIEW_SUBMISSIONS) || hasPermission(ADMIN_PERMISSIONS.DELETE_PHOTOS)) && <AdminReview />}
+        {activeTab === 'mapEditor' && hasPermission(ADMIN_PERMISSIONS.EDIT_MAP) && <MapEditor />}
+        {activeTab === 'accounts' && (hasPermission(ADMIN_PERMISSIONS.VIEW_ACCOUNTS) || hasPermission(ADMIN_PERMISSIONS.EDIT_ACCOUNTS) || hasPermission(ADMIN_PERMISSIONS.MESSAGE_ACCOUNTS) || hasPermission(ADMIN_PERMISSIONS.MANAGE_ADMINS)) && <AccountManagement />}
+        {activeTab === 'friends' && hasPermission(ADMIN_PERMISSIONS.MANAGE_FRIENDS_CHATS) && <FriendsManagement />}
+        {activeTab === 'bugReports' && hasPermission(ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS) && <BugReportManagement />}
       </div>
     </div>
   )

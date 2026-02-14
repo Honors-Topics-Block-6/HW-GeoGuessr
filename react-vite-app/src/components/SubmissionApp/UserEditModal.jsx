@@ -6,7 +6,7 @@ import './UserEditModal.css'
 
 function UserEditModal({ user, onSave, onClose, isSaving }) {
   // Known fields we render explicitly with nice UI
-  const knownFields = ['uid', 'id', 'email', 'username', 'isAdmin', 'emailVerified', 'verified', 'createdAt', 'totalXp', 'gamesPlayed', 'lastGameAt']
+  const knownFields = ['uid', 'id', 'email', 'username', 'isAdmin', 'emailVerified', 'verified', 'createdAt', 'totalXp', 'gamesPlayed', 'lastGameAt', 'permissions']
 
   // Extra/dynamic fields beyond the known set
   const extraFields = Object.keys(user).filter(
