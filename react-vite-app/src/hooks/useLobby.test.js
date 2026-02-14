@@ -1,18 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
-// ─── Integration test: only mock the Firestore boundary ────────────
-// We do NOT mock lobbyService, friendsLobbyService, or friendService.
-// Instead we mock firebase/firestore and ../firebase so the REAL service
-// code runs, and we can catch bugs in how the services construct queries,
-// handle snapshots, etc.
+// ─── TRUE integration test: only mock the Firestore boundary ─────
+// We do NOT mock lobbyService, friendsLobbyService, OR friendService.
+// Every service module runs its REAL code. Only firebase/firestore
+// and ../firebase are faked so no network calls are made.
 
 vi.mock('../firebase', () => ({
   db: { _marker: 'mock-db' }
 }));
 
-// Capture snapshot callbacks registered by the real onSnapshot calls
-// so we can simulate Firestore events
+// Capture every onSnapshot registration so tests can simulate Firestore events
 let onSnapshotCalls = [];
 const mockOnSnapshotUnsub = vi.fn();
 
@@ -20,9 +18,9 @@ vi.mock('firebase/firestore', () => ({
   addDoc: vi.fn(),
   updateDoc: vi.fn(),
   getDoc: vi.fn(),
-  getDocs: vi.fn(),
+  getDocs: vi.fn(() => ({ empty: true, docs: [] })),
   deleteDoc: vi.fn(),
-  doc: vi.fn((_db, _col, id) => ({ id, path: `lobbies/${id}` })),
+  doc: vi.fn((_db, _col, id) => ({ id, path: `${_col}/${id}` })),
   collection: vi.fn((_db, name) => ({ _collectionName: name })),
   query: vi.fn((...args) => ({ _queryArgs: args })),
   where: vi.fn((field, op, val) => ({ _type: 'where', field, op, val })),
@@ -37,75 +35,97 @@ vi.mock('firebase/firestore', () => ({
   Timestamp: { now: vi.fn(() => ({ toMillis: () => Date.now() })) }
 }));
 
-// subscribeFriendsList is used directly in the hook — we mock only this
-// since it queries a different collection (friends, not lobbies)
-const mockSubscribeFriendsList = vi.fn();
-vi.mock('../services/friendService', () => ({
-  subscribeFriendsList: (...args) => mockSubscribeFriendsList(...args),
-  areFriends: vi.fn()
-}));
+// NO friendService mock — the real subscribeFriendsList runs and calls
+// the mocked onSnapshot above, so we can verify it registers an error
+// handler and responds correctly to Firestore events.
 
 import { addDoc, onSnapshot } from 'firebase/firestore';
 import { useLobby } from './useLobby';
 
 describe('useLobby (integration)', () => {
-  let friendsListCallback;
-  const friendsListUnsub = vi.fn();
+  /**
+   * Helper: find the onSnapshot call whose query targets a specific
+   * collection name. Works for both lobbies queries (which include
+   * where clauses) and the friends collection query.
+   */
+  function findSnapshotCallByCollection(collectionName) {
+    return onSnapshotCalls.find(call => {
+      const args = call.query?._queryArgs || [];
+      return args.some(a => a._collectionName === collectionName);
+    });
+  }
 
   /**
    * Helper: find the onSnapshot call whose query filters on a specific
-   * visibility value. This lets us target the public vs friends listener.
+   * visibility value (for lobby queries only).
    */
-  function findSnapshotCall(visibility) {
+  function findSnapshotCallByVisibility(visibility) {
     return onSnapshotCalls.find(call => {
       const args = call.query?._queryArgs || [];
-      return args.some(a => a._type === 'where' && a.field === 'visibility' && a.val === visibility);
+      return args.some(
+        a => a._type === 'where' && a.field === 'visibility' && a.val === visibility
+      );
     });
   }
 
   beforeEach(() => {
     vi.clearAllMocks();
     onSnapshotCalls = [];
-    friendsListCallback = null;
-
-    mockSubscribeFriendsList.mockImplementation((_uid, cb) => {
-      friendsListCallback = cb;
-      return friendsListUnsub;
-    });
   });
 
-  it('should set up real onSnapshot listeners for public and friends lobbies', () => {
+  // ─── Listener setup ────────────────────────────────────────────
+
+  it('should set up 3 real onSnapshot listeners: public lobbies, friends lobbies, friends list', () => {
     renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
 
-    // The real subscribePublicLobbies and subscribeFriendsLobbies run,
-    // each calling onSnapshot once
-    expect(onSnapshot).toHaveBeenCalledTimes(2);
+    // Real subscribePublicLobbies, subscribeFriendsLobbies, and
+    // subscribeFriendsList each call onSnapshot once.
+    expect(onSnapshot).toHaveBeenCalledTimes(3);
 
-    // Verify the queries target the right visibility values
-    const publicCall = findSnapshotCall('public');
-    const friendsCall = findSnapshotCall('friends');
+    const publicCall = findSnapshotCallByVisibility('public');
+    const friendsLobbyCall = findSnapshotCallByVisibility('friends');
+    const friendsListCall = findSnapshotCallByCollection('friends');
 
     expect(publicCall).toBeDefined();
-    expect(friendsCall).toBeDefined();
+    expect(friendsLobbyCall).toBeDefined();
+    expect(friendsListCall).toBeDefined();
   });
 
-  it('should subscribe to friends list when userUid is provided', () => {
-    renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
-
-    expect(mockSubscribeFriendsList).toHaveBeenCalledTimes(1);
-    expect(mockSubscribeFriendsList.mock.calls[0][0]).toBe('user-1');
-  });
-
-  it('should NOT subscribe to friends list when userUid is falsy', () => {
+  it('should only set up 2 listeners when userUid is falsy (no friends list)', () => {
     renderHook(() => useLobby(null, 'TestUser', 'easy'));
 
-    expect(mockSubscribeFriendsList).not.toHaveBeenCalled();
+    // subscribeFriendsList is skipped when userUid is falsy
+    expect(onSnapshot).toHaveBeenCalledTimes(2);
+
+    const publicCall = findSnapshotCallByVisibility('public');
+    const friendsLobbyCall = findSnapshotCallByVisibility('friends');
+    const friendsListCall = findSnapshotCallByCollection('friends');
+
+    expect(publicCall).toBeDefined();
+    expect(friendsLobbyCall).toBeDefined();
+    // friends list listener should NOT exist
+    expect(friendsListCall).toBeUndefined();
   });
+
+  // ─── Every onSnapshot must have an error handler ───────────────
+
+  it('should register error handlers on ALL onSnapshot listeners', () => {
+    renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+    expect(onSnapshotCalls.length).toBe(3);
+
+    for (const call of onSnapshotCalls) {
+      expect(call.errorCb).toBeDefined();
+      expect(typeof call.errorCb).toBe('function');
+    }
+  });
+
+  // ─── Public lobbies ────────────────────────────────────────────
 
   it('should return public lobbies from the real subscribePublicLobbies listener', () => {
     const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
 
-    const publicCall = findSnapshotCall('public');
+    const publicCall = findSnapshotCallByVisibility('public');
 
     act(() => {
       publicCall.successCb({
@@ -121,22 +141,41 @@ describe('useLobby (integration)', () => {
     expect(result.current.publicLobbies[1].docId).toBe('pub-2');
   });
 
+  // ─── Friends list + friends lobbies filtering ──────────────────
+
   it('should filter friends lobbies to only show those hosted by actual friends', () => {
     const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
 
-    const friendsCall = findSnapshotCall('friends');
+    const friendsListCall = findSnapshotCallByCollection('friends');
+    const friendsLobbyCall = findSnapshotCallByVisibility('friends');
 
-    // First, set up the friends list
+    // Friends list arrives first
     act(() => {
-      friendsListCallback([
-        { friendUid: 'friend-A', friendUsername: 'FriendA' },
-        { friendUid: 'friend-B', friendUsername: 'FriendB' }
-      ]);
+      friendsListCall.successCb({
+        docs: [
+          {
+            id: 'pair-1',
+            data: () => ({
+              users: ['user-1', 'friend-A'],
+              usernames: { 'user-1': 'Me', 'friend-A': 'Alice' },
+              since: null
+            })
+          },
+          {
+            id: 'pair-2',
+            data: () => ({
+              users: ['user-1', 'friend-B'],
+              usernames: { 'user-1': 'Me', 'friend-B': 'Bob' },
+              since: null
+            })
+          }
+        ]
+      });
     });
 
-    // Then, simulate friends lobbies arriving via the REAL listener
+    // Friends lobbies arrive — includes a stranger's lobby
     act(() => {
-      friendsCall.successCb({
+      friendsLobbyCall.successCb({
         docs: [
           { id: 'fl-1', data: () => ({ hostUid: 'friend-A', visibility: 'friends' }) },
           { id: 'fl-2', data: () => ({ hostUid: 'stranger', visibility: 'friends' }) },
@@ -154,14 +193,15 @@ describe('useLobby (integration)', () => {
   it('should return empty friendsLobbies when user has no friends', () => {
     const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
 
-    const friendsCall = findSnapshotCall('friends');
+    const friendsListCall = findSnapshotCallByCollection('friends');
+    const friendsLobbyCall = findSnapshotCallByVisibility('friends');
 
     act(() => {
-      friendsListCallback([]);
+      friendsListCall.successCb({ docs: [] });
     });
 
     act(() => {
-      friendsCall.successCb({
+      friendsLobbyCall.successCb({
         docs: [
           { id: 'fl-1', data: () => ({ hostUid: 'stranger-1', visibility: 'friends' }) }
         ]
@@ -174,11 +214,12 @@ describe('useLobby (integration)', () => {
   it('should re-filter friends lobbies when friends list updates', () => {
     const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
 
-    const friendsCall = findSnapshotCall('friends');
+    const friendsListCall = findSnapshotCallByCollection('friends');
+    const friendsLobbyCall = findSnapshotCallByVisibility('friends');
 
     // Friends lobbies arrive before friends list -> should be empty
     act(() => {
-      friendsCall.successCb({
+      friendsLobbyCall.successCb({
         docs: [
           { id: 'fl-1', data: () => ({ hostUid: 'friend-A', visibility: 'friends' }) }
         ]
@@ -188,9 +229,18 @@ describe('useLobby (integration)', () => {
 
     // Now friends list arrives -> should re-filter and show the lobby
     act(() => {
-      friendsListCallback([
-        { friendUid: 'friend-A', friendUsername: 'FriendA' }
-      ]);
+      friendsListCall.successCb({
+        docs: [
+          {
+            id: 'pair-1',
+            data: () => ({
+              users: ['user-1', 'friend-A'],
+              usernames: { 'user-1': 'Me', 'friend-A': 'FriendA' },
+              since: null
+            })
+          }
+        ]
+      });
     });
     expect(result.current.friendsLobbies).toHaveLength(1);
     expect(result.current.friendsLobbies[0].docId).toBe('fl-1');
@@ -199,16 +249,19 @@ describe('useLobby (integration)', () => {
   it('should remove a lobby from friendsLobbies when friend is removed', () => {
     const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
 
-    const friendsCall = findSnapshotCall('friends');
+    const friendsListCall = findSnapshotCallByCollection('friends');
+    const friendsLobbyCall = findSnapshotCallByVisibility('friends');
 
     act(() => {
-      friendsListCallback([
-        { friendUid: 'friend-A', friendUsername: 'FriendA' },
-        { friendUid: 'friend-B', friendUsername: 'FriendB' }
-      ]);
+      friendsListCall.successCb({
+        docs: [
+          { id: 'p1', data: () => ({ users: ['user-1', 'friend-A'], usernames: { 'friend-A': 'A' }, since: null }) },
+          { id: 'p2', data: () => ({ users: ['user-1', 'friend-B'], usernames: { 'friend-B': 'B' }, since: null }) }
+        ]
+      });
     });
     act(() => {
-      friendsCall.successCb({
+      friendsLobbyCall.successCb({
         docs: [
           { id: 'fl-1', data: () => ({ hostUid: 'friend-A', visibility: 'friends' }) },
           { id: 'fl-2', data: () => ({ hostUid: 'friend-B', visibility: 'friends' }) }
@@ -219,30 +272,43 @@ describe('useLobby (integration)', () => {
 
     // friend-B is removed from friends list
     act(() => {
-      friendsListCallback([
-        { friendUid: 'friend-A', friendUsername: 'FriendA' }
-      ]);
+      friendsListCall.successCb({
+        docs: [
+          { id: 'p1', data: () => ({ users: ['user-1', 'friend-A'], usernames: { 'friend-A': 'A' }, since: null }) }
+        ]
+      });
     });
     expect(result.current.friendsLobbies).toHaveLength(1);
     expect(result.current.friendsLobbies[0].hostUid).toBe('friend-A');
   });
 
+  // ─── Listener stability ────────────────────────────────────────
+
   it('should NOT tear down friends lobbies listener when friends list changes', () => {
     renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
 
-    // onSnapshot called exactly twice (public + friends), once each
+    // 3 onSnapshot calls: public, friends lobbies, friends list
     const initialCallCount = onSnapshot.mock.calls.length;
-    expect(initialCallCount).toBe(2);
+    expect(initialCallCount).toBe(3);
+
+    const friendsListCall = findSnapshotCallByCollection('friends');
 
     // Simulate friends list changing multiple times
     act(() => {
-      friendsListCallback([{ friendUid: 'a', friendUsername: 'A' }]);
+      friendsListCall.successCb({
+        docs: [{ id: 'p1', data: () => ({ users: ['user-1', 'a'], usernames: { a: 'A' }, since: null }) }]
+      });
     });
     act(() => {
-      friendsListCallback([{ friendUid: 'a', friendUsername: 'A' }, { friendUid: 'b', friendUsername: 'B' }]);
+      friendsListCall.successCb({
+        docs: [
+          { id: 'p1', data: () => ({ users: ['user-1', 'a'], usernames: { a: 'A' }, since: null }) },
+          { id: 'p2', data: () => ({ users: ['user-1', 'b'], usernames: { b: 'B' }, since: null }) }
+        ]
+      });
     });
     act(() => {
-      friendsListCallback([]);
+      friendsListCall.successCb({ docs: [] });
     });
 
     // No new onSnapshot calls — no listener thrashing
@@ -254,21 +320,20 @@ describe('useLobby (integration)', () => {
 
     unmount();
 
-    // 2 onSnapshot unsubs (public + friends) + 1 friendsList unsub
-    expect(mockOnSnapshotUnsub).toHaveBeenCalledTimes(2);
-    expect(friendsListUnsub).toHaveBeenCalledTimes(1);
+    // 3 onSnapshot unsubs (public + friends lobbies + friends list)
+    expect(mockOnSnapshotUnsub).toHaveBeenCalledTimes(3);
   });
+
+  // ─── Resilience — hostGame must work even when friends features fail ──
 
   describe('resilience — hostGame must work even when friends features fail', () => {
     it('should still create a game when subscribeFriendsLobbies onSnapshot errors immediately', async () => {
-      // Simulate: friends lobby index missing, onSnapshot fires error
-      // This MUST NOT break createLobby
       const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
 
-      const friendsCall = findSnapshotCall('friends');
+      const friendsLobbyCall = findSnapshotCallByVisibility('friends');
       // Simulate the onSnapshot error handler firing (missing index)
       act(() => {
-        friendsCall.errorCb(new Error('Missing composite index for friends'));
+        friendsLobbyCall.errorCb(new Error('Missing composite index for friends'));
       });
 
       addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
@@ -282,55 +347,14 @@ describe('useLobby (integration)', () => {
       expect(hostResult.docId).toBe('new-lobby');
     });
 
-    it('should still create a game when subscribeFriendsList throws', async () => {
-      // Simulate: friendService completely broken
-      mockSubscribeFriendsList.mockImplementation(() => {
-        throw new Error('friendService module failed to load');
-      });
-
-      // This will cause the useEffect to throw — does it kill the hook?
-      let hookError = null;
-      try {
-        const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
-
-        addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
-
-        let hostResult;
-        await act(async () => {
-          hostResult = await result.current.hostGame('public');
-        });
-
-        // If we get here, hostGame worked despite friendService being broken
-        expect(hostResult).not.toBeNull();
-        expect(hostResult.docId).toBe('new-lobby');
-      } catch (e) {
-        hookError = e;
-      }
-
-      // If this fails, it proves that a broken friendService crashes the
-      // entire useLobby hook, preventing game creation
-      if (hookError) {
-        // This is the BUG: friendService failure kills createLobby
-        expect.fail(
-          `friendService failure crashed the hook, preventing game creation: ${hookError.message}`
-        );
-      }
-    });
-
-    it('should still create a game when subscribeFriendsList onSnapshot fires an async error', async () => {
-      // subscribeFriendsList's onSnapshot may fire an async error (e.g.
-      // permissions, network). The error handler must gracefully degrade
-      // so that hostGame still works.
-      mockSubscribeFriendsList.mockImplementation((_uid, cb) => {
-        // Simulate: subscribeFriendsList registers successfully but
-        // its onSnapshot fires an error asynchronously, calling
-        // callback([]) to degrade gracefully.
-        // In real code, the error handler in friendService.js now does this.
-        cb([]); // error handler calls callback with empty array
-        return friendsListUnsub;
-      });
-
+    it('should still create a game when subscribeFriendsList onSnapshot errors', async () => {
       const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+      const friendsListCall = findSnapshotCallByCollection('friends');
+      // Simulate Firestore error on friends list listener
+      act(() => {
+        friendsListCall.errorCb(new Error('Permission denied on friends collection'));
+      });
 
       addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
 
@@ -339,22 +363,19 @@ describe('useLobby (integration)', () => {
         hostResult = await result.current.hostGame('public');
       });
 
-      // hostGame must still work
       expect(hostResult).not.toBeNull();
       expect(hostResult.docId).toBe('new-lobby');
     });
 
     it('should still create a game when subscribeFriendsLobbies throws synchronously', async () => {
-      // Override onSnapshot to throw for the friends query
+      // Override onSnapshot to throw for the friends lobbies query
       const originalImpl = onSnapshot.getMockImplementation();
-      let callCount = 0;
       onSnapshot.mockImplementation((q, successCb, errorCb) => {
-        callCount++;
         const args = q?._queryArgs || [];
-        const isFriendsQuery = args.some(
+        const isFriendsLobbyQuery = args.some(
           a => a._type === 'where' && a.field === 'visibility' && a.val === 'friends'
         );
-        if (isFriendsQuery) {
+        if (isFriendsLobbyQuery) {
           throw new Error('Firestore not initialized');
         }
         onSnapshotCalls.push({ query: q, successCb, errorCb });
@@ -379,10 +400,10 @@ describe('useLobby (integration)', () => {
       }
 
       // Restore
-      onSnapshot.mockImplementation((q, successCb, errorCb) => {
+      onSnapshot.mockImplementation(originalImpl || ((q, successCb, errorCb) => {
         onSnapshotCalls.push({ query: q, successCb, errorCb });
         return mockOnSnapshotUnsub;
-      });
+      }));
 
       if (hookError) {
         expect.fail(
@@ -390,7 +411,54 @@ describe('useLobby (integration)', () => {
         );
       }
     });
+
+    it('should still create a game when subscribeFriendsList throws synchronously', async () => {
+      // Override onSnapshot to throw for the friends collection query
+      const originalImpl = onSnapshot.getMockImplementation();
+      onSnapshot.mockImplementation((q, successCb, errorCb) => {
+        const args = q?._queryArgs || [];
+        const isFriendsCollectionQuery = args.some(
+          a => a._collectionName === 'friends'
+        );
+        if (isFriendsCollectionQuery) {
+          throw new Error('friendService module failed to load');
+        }
+        onSnapshotCalls.push({ query: q, successCb, errorCb });
+        return mockOnSnapshotUnsub;
+      });
+
+      let hookError = null;
+      try {
+        const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+        addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
+
+        let hostResult;
+        await act(async () => {
+          hostResult = await result.current.hostGame('public');
+        });
+
+        expect(hostResult).not.toBeNull();
+        expect(hostResult.docId).toBe('new-lobby');
+      } catch (e) {
+        hookError = e;
+      }
+
+      // Restore
+      onSnapshot.mockImplementation(originalImpl || ((q, successCb, errorCb) => {
+        onSnapshotCalls.push({ query: q, successCb, errorCb });
+        return mockOnSnapshotUnsub;
+      }));
+
+      if (hookError) {
+        expect.fail(
+          `subscribeFriendsList throwing crashed the hook, preventing game creation: ${hookError.message}`
+        );
+      }
+    });
   });
+
+  // ─── hostGame ──────────────────────────────────────────────────
 
   describe('hostGame', () => {
     it('should call the real createLobby which calls addDoc with correct data', async () => {
@@ -479,6 +547,8 @@ describe('useLobby (integration)', () => {
       expect(result.current.isCreating).toBe(false);
     });
   });
+
+  // ─── clearError ────────────────────────────────────────────────
 
   describe('clearError', () => {
     it('should clear the error state', async () => {
