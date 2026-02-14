@@ -1,0 +1,409 @@
+/* ===== Friends Management - Admin Panel Tab ===== */
+
+.friends-mgmt {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.friends-mgmt-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.friends-mgmt-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #e0e6f0;
+}
+
+.friends-mgmt-count {
+  background: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.friends-mgmt-error {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  padding: 14px 18px;
+  border-radius: 14px;
+  margin-bottom: 18px;
+  font-size: 14px;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+.friends-mgmt-loading {
+  text-align: center;
+  padding: 40px;
+  color: #8892a8;
+  font-size: 15px;
+}
+
+.friends-mgmt-empty {
+  text-align: center;
+  padding: 30px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* ===== Sections ===== */
+.friends-mgmt-section {
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.friends-mgmt-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #a78bfa;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.friends-mgmt-close-btn {
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #b0b8cc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.friends-mgmt-close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+/* ===== Table ===== */
+.friends-mgmt-table-wrapper {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.friends-mgmt-table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+.friends-mgmt-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+.friends-mgmt-table-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.friends-mgmt-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.friends-mgmt-table thead {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.friends-mgmt-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #8892a8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.friends-mgmt-table td {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #c4c9d6;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: top;
+}
+
+.friends-mgmt-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.friends-mgmt-user {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.friends-mgmt-username {
+  font-weight: 600;
+  color: #e0e6f0;
+  font-size: 13px;
+}
+
+.friends-mgmt-uid {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  color: #6b7280;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friends-mgmt-date {
+  font-size: 12px;
+  color: #8892a8;
+  white-space: nowrap;
+}
+
+.friends-mgmt-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.friends-mgmt-chat-btn {
+  padding: 6px 12px;
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.friends-mgmt-chat-btn:hover {
+  background: rgba(96, 165, 250, 0.22);
+}
+
+.friends-mgmt-req-btn {
+  padding: 6px 12px;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.friends-mgmt-req-btn:hover {
+  background: rgba(251, 191, 36, 0.22);
+}
+
+.friends-mgmt-remove-btn {
+  padding: 6px 12px;
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.friends-mgmt-remove-btn:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.22);
+}
+
+.friends-mgmt-remove-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Status & Direction Badges ===== */
+.friends-mgmt-direction {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.friends-mgmt-direction.incoming {
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.friends-mgmt-direction.outgoing {
+  background: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.friends-mgmt-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.friends-mgmt-status.pending {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.friends-mgmt-status.accepted {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+.friends-mgmt-status.declined {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+/* ===== Chat Message List ===== */
+.friends-mgmt-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.friends-mgmt-chat-list::-webkit-scrollbar {
+  width: 5px;
+}
+.friends-mgmt-chat-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.friends-mgmt-chat-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.friends-mgmt-chat-msg {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.friends-mgmt-chat-msg-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.friends-mgmt-chat-sender {
+  font-size: 12px;
+  font-weight: 700;
+  color: #a78bfa;
+}
+
+.friends-mgmt-chat-time {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.friends-mgmt-chat-read {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.friends-mgmt-chat-read.read {
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+}
+
+.friends-mgmt-chat-read.unread {
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+}
+
+.friends-mgmt-chat-msg-body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.friends-mgmt-chat-text {
+  margin: 0;
+  font-size: 13px;
+  color: #c4c9d6;
+  line-height: 1.4;
+  word-break: break-word;
+  flex: 1;
+}
+
+.friends-mgmt-delete-msg-btn {
+  padding: 4px 10px;
+  background: rgba(248, 113, 113, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.friends-mgmt-delete-msg-btn:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.18);
+}
+
+.friends-mgmt-delete-msg-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .friends-mgmt {
+    padding: 12px;
+  }
+
+  .friends-mgmt-table th,
+  .friends-mgmt-table td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .friends-mgmt-actions {
+    flex-direction: column;
+  }
+
+  .friends-mgmt-section {
+    padding: 14px;
+  }
+}

@@ -348,6 +348,74 @@
   cursor: not-allowed;
 }
 
+/* ===== Friends List in Edit Modal ===== */
+.user-modal-friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.user-modal-friends-list::-webkit-scrollbar {
+  width: 4px;
+}
+.user-modal-friends-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.user-modal-friends-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.user-modal-friend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.user-modal-friend-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e6f0;
+}
+
+.user-modal-friend-uid {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  color: #6b7280;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-modal-friend-remove {
+  padding: 4px 10px;
+  background: rgba(248, 113, 113, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.user-modal-friend-remove:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.18);
+}
+
+.user-modal-friend-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 480px) {
   .user-modal-content {

@@ -2,6 +2,7 @@ import './AdminTabs.css'
 import AdminReview from './AdminReview'
 import MapEditor from './MapEditor'
 import AccountManagement from './AccountManagement'
+import FriendsManagement from './FriendsManagement'
 
 function AdminTabs({ activeTab, onTabChange, onBack }) {
   return (
@@ -32,12 +33,19 @@ function AdminTabs({ activeTab, onTabChange, onBack }) {
         >
           Manage Accounts
         </button>
+        <button
+          className={`admin-tab ${activeTab === 'friends' ? 'active' : ''}`}
+          onClick={() => onTabChange('friends')}
+        >
+          Friends &amp; Chat
+        </button>
       </div>
 
       <div className="admin-content">
         {activeTab === 'review' && <AdminReview />}
         {activeTab === 'mapEditor' && <MapEditor />}
         {activeTab === 'accounts' && <AccountManagement />}
+        {activeTab === 'friends' && <FriendsManagement />}
       </div>
     </div>
   )
