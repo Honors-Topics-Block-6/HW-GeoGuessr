@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
-import { getAllImages, getAllSampleImages } from '../../services/imageService'
+import { getAllImages, getAllSampleImages, deleteSubmission, deleteImage } from '../../services/imageService'
 import MapPicker from '../MapPicker/MapPicker'
 import FloorSelector from '../FloorSelector/FloorSelector'
 import PhotoUpload from './PhotoUpload'
@@ -26,6 +26,10 @@ function AdminReview({ onBack }) {
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [newPhoto, setNewPhoto] = useState(null)
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Fetch submissions from Firestore (real-time)
   useEffect(() => {
@@ -202,6 +206,41 @@ function AdminReview({ onBack }) {
       setSaveError('Failed to save changes. Please try again.')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // Delete handlers
+  const handleDeleteClick = (item) => {
+    setDeleteTarget(item)
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteTarget(null)
+    setIsDeleting(false)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+
+    setIsDeleting(true)
+    try {
+      if (deleteTarget._source === 'submission') {
+        await deleteSubmission(deleteTarget.id)
+      } else if (deleteTarget._source === 'image') {
+        await deleteImage(deleteTarget.id)
+        setFirestoreImages(prev => prev.filter(img => img.id !== deleteTarget.id))
+      }
+
+      // Close modals and clear state
+      if (selectedSubmission && selectedSubmission.id === deleteTarget.id) {
+        setSelectedSubmission(null)
+        handleCancelEdit()
+      }
+      setDeleteTarget(null)
+    } catch (error) {
+      console.error('Error deleting photo:', error)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -417,6 +456,17 @@ function AdminReview({ onBack }) {
                 </div>
               )}
 
+              {submission._source !== 'testing' && (
+                <div className="card-actions">
+                  <button
+                    className="delete-photo-button"
+                    onClick={() => handleDeleteClick(submission)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+
               <button
                 className="view-details-button"
                 onClick={() => setSelectedSubmission(submission)}
@@ -426,6 +476,41 @@ function AdminReview({ onBack }) {
             </div>
           ))}
         </div>
+      )}
+
+      {deleteTarget && createPortal(
+        <div className="delete-confirm-overlay" onClick={handleCancelDelete}>
+          <div className="delete-confirm-modal" onClick={e => e.stopPropagation()}>
+            <img
+              src={deleteTarget.photoURL}
+              alt="Photo to delete"
+              className="delete-confirm-image"
+            />
+            <div className="delete-confirm-body">
+              <h3 className="delete-confirm-title">Delete Photo</h3>
+              <p className="delete-confirm-message">
+                Are you sure you want to permanently delete this photo? This action cannot be undone.
+              </p>
+              <div className="delete-confirm-actions">
+                <button
+                  className="delete-confirm-button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+                <button
+                  className="delete-cancel-button"
+                  onClick={handleCancelDelete}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {selectedSubmission && createPortal(
@@ -586,11 +671,18 @@ function AdminReview({ onBack }) {
                 <>
                   <div className="modal-details-header">
                     <h3>Image Details</h3>
-                    {isEditable && (
-                      <button className="edit-button" onClick={handleStartEdit}>
-                        Edit
-                      </button>
-                    )}
+                    <div className="modal-header-actions">
+                      {isEditable && (
+                        <button className="edit-button" onClick={handleStartEdit}>
+                          Edit
+                        </button>
+                      )}
+                      {isEditable && (
+                        <button className="delete-photo-button" onClick={() => handleDeleteClick(selectedSubmission)}>
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Badges row */}
