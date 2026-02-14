@@ -20,6 +20,10 @@ vi.mock('./FriendsManagement', () => ({
   default: () => <div data-testid="friends-management">Friends Management Component</div>
 }));
 
+vi.mock('./BugReportManagement', () => ({
+  default: () => <div data-testid="bug-report-management">Bug Report Management Component</div>
+}));
+
 describe('AdminTabs', () => {
   const mockOnTabChange = vi.fn();
   const mockOnBack = vi.fn();
@@ -55,6 +59,13 @@ describe('AdminTabs', () => {
         <AdminTabs activeTab="review" onTabChange={mockOnTabChange} onBack={mockOnBack} />
       );
       expect(screen.getByText('Map Editor')).toBeInTheDocument();
+    });
+
+    it('should render Bug Reports tab', () => {
+      render(
+        <AdminTabs activeTab="review" onTabChange={mockOnTabChange} onBack={mockOnBack} />
+      );
+      expect(screen.getByText('Bug Reports')).toBeInTheDocument();
     });
   });
 
@@ -98,6 +109,22 @@ describe('AdminTabs', () => {
       const reviewTab = screen.getByText('Review Submissions');
       expect(reviewTab).not.toHaveClass('active');
     });
+
+    it('should show BugReportManagement when activeTab is bugReports', () => {
+      render(
+        <AdminTabs activeTab="bugReports" onTabChange={mockOnTabChange} onBack={mockOnBack} />
+      );
+      expect(screen.getByTestId('bug-report-management')).toBeInTheDocument();
+      expect(screen.queryByTestId('admin-review')).not.toBeInTheDocument();
+    });
+
+    it('should have active class on Bug Reports tab when activeTab is bugReports', () => {
+      render(
+        <AdminTabs activeTab="bugReports" onTabChange={mockOnTabChange} onBack={mockOnBack} />
+      );
+      const bugReportsTab = screen.getByText('Bug Reports');
+      expect(bugReportsTab).toHaveClass('active');
+    });
   });
 
   describe('tab click handlers', () => {
@@ -121,6 +148,17 @@ describe('AdminTabs', () => {
       await user.click(screen.getByText('Map Editor'));
 
       expect(mockOnTabChange).toHaveBeenCalledWith('mapEditor');
+    });
+
+    it('should call onTabChange with bugReports when Bug Reports tab is clicked', async () => {
+      const user = userEvent.setup();
+      render(
+        <AdminTabs activeTab="review" onTabChange={mockOnTabChange} onBack={mockOnBack} />
+      );
+
+      await user.click(screen.getByText('Bug Reports'));
+
+      expect(mockOnTabChange).toHaveBeenCalledWith('bugReports');
     });
   });
 
@@ -171,7 +209,7 @@ describe('AdminTabs', () => {
         <AdminTabs activeTab="review" onTabChange={mockOnTabChange} onBack={mockOnBack} />
       );
       const tabs = document.querySelectorAll('.admin-tab');
-      expect(tabs.length).toBe(4);
+      expect(tabs.length).toBe(5);
     });
 
     it('should have back-button class', () => {
