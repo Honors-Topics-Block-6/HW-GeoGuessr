@@ -17,6 +17,7 @@ import WaitingRoom from './components/WaitingRoom/WaitingRoom';
 import DuelGameScreen from './components/DuelGameScreen/DuelGameScreen';
 import DuelResultScreen from './components/DuelResultScreen/DuelResultScreen';
 import DuelFinalScreen from './components/DuelFinalScreen/DuelFinalScreen';
+import LeaderboardScreen from './components/LeaderboardScreen/LeaderboardScreen';
 import SubmissionApp from './components/SubmissionApp/SubmissionApp';
 import FriendsPanel from './components/FriendsPanel/FriendsPanel';
 import ChatWindow from './components/ChatWindow/ChatWindow';
@@ -31,6 +32,7 @@ function App() {
   const [showFriends, setShowFriends] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatFriend, setChatFriend] = useState(null); // { uid, username }
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState(false);
@@ -75,7 +77,7 @@ function App() {
   );
 
   // Track user's online presence and current activity
-  usePresence(user, inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showFriends, showChat);
+  usePresence(user, inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard, showFriends, showChat);
 
   // Listen for admin messages sent to this user
   const { messages, dismissMessage } = useAdminMessages(user?.uid);
@@ -194,6 +196,17 @@ function App() {
     );
   }
 
+  // Show leaderboard screen
+  if (showLeaderboard) {
+    return (
+      <>
+        {messageBanner}
+        <EmailVerificationBanner />
+        <LeaderboardScreen onBack={() => setShowLeaderboard(false)} />
+      </>
+    );
+  }
+
   // Show submission app
   if (showSubmissionApp) {
     return (
@@ -276,6 +289,7 @@ function App() {
           onOpenSubmission={() => setShowSubmissionApp(true)}
           onOpenProfile={() => setShowProfile(true)}
           onOpenFriends={() => setShowFriends(true)}
+          onOpenLeaderboard={() => setShowLeaderboard(true)}
           isLoading={isLoading}
         />
       )}
