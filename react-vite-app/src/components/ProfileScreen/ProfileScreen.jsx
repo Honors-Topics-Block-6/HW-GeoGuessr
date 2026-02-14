@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import './ProfileScreen.css';
 
 function ProfileScreen({ onBack }) {
-  const { user, userDoc, updateUsername, totalXp, levelInfo, levelTitle } = useAuth();
+  const { user, userDoc, updateUsername, totalXp, levelInfo, levelTitle, emailVerified } = useAuth();
 
   const [newUsername, setNewUsername] = useState(userDoc?.username || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -153,7 +153,12 @@ function ProfileScreen({ onBack }) {
 
           <div className="profile-field">
             <span className="profile-label">Email</span>
-            <span className="profile-value">{user?.email}</span>
+            <div className="profile-value-row">
+              <span className="profile-value">{user?.email}</span>
+              <span className={`profile-verification-badge ${emailVerified ? 'verified' : 'unverified'}`}>
+                {emailVerified ? 'Verified' : 'Unverified'}
+              </span>
+            </div>
           </div>
 
           <div className="profile-field">

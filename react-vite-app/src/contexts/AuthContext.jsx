@@ -5,7 +5,8 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-  signOut
+  signOut,
+  sendEmailVerification
 } from 'firebase/auth';
 import { auth } from '../firebase';
 import { createUserDoc, getUserDoc, updateUserDoc, isUsernameTaken, isHardcodedAdmin } from '../services/userService';
@@ -27,11 +28,13 @@ export function AuthProvider({ children }) {
   const [userDoc, setUserDoc] = useState(null);    // Firestore user document
   const [loading, setLoading] = useState(true);    // Initial auth check loading
   const [needsUsername, setNeedsUsername] = useState(false); // Google sign-in needs username
+  const [emailVerified, setEmailVerified] = useState(false); // Email verification status
 
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
+      setEmailVerified(firebaseUser?.emailVerified ?? false);
 
       if (firebaseUser) {
         // Fetch the user's Firestore document
@@ -55,6 +58,41 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
+  // Poll for email verification status (focus + interval)
+  useEffect(() => {
+    if (!user || emailVerified) return;
+
+    const isGoogleUser = user.providerData?.some(p => p.providerId === 'google.com');
+    if (isGoogleUser) return;
+
+    const checkVerification = async () => {
+      try {
+        await user.reload();
+        if (user.emailVerified) {
+          setEmailVerified(true);
+        }
+      } catch (err) {
+        console.error('Failed to reload user:', err);
+      }
+    };
+
+    const interval = setInterval(checkVerification, 30000);
+    window.addEventListener('focus', checkVerification);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', checkVerification);
+    };
+  }, [user, emailVerified]);
+
+  /**
+   * Send or resend verification email
+   */
+  const sendVerificationEmailToUser = useCallback(async () => {
+    if (!user) throw new Error('No authenticated user');
+    await sendEmailVerification(user);
+  }, [user]);
+
   /**
    * Sign up with email and password
    */
@@ -66,6 +104,14 @@ export function AuthProvider({ children }) {
     }
 
     const credential = await createUserWithEmailAndPassword(auth, email, password);
+
+    // Send verification email (non-blocking — signup succeeds even if this fails)
+    try {
+      await sendEmailVerification(credential.user);
+    } catch (err) {
+      console.error('Failed to send verification email:', err);
+    }
+
     await createUserDoc(credential.user.uid, email, username);
     const doc = await getUserDoc(credential.user.uid);
     setUserDoc(doc);
@@ -171,13 +217,15 @@ export function AuthProvider({ children }) {
     totalXp,
     levelInfo,
     levelTitle,
+    emailVerified,
     signup,
     login,
     loginWithGoogle,
     completeGoogleSignUp,
     logout,
     updateUsername,
-    refreshUserDoc
+    refreshUserDoc,
+    sendVerificationEmail: sendVerificationEmailToUser
   };
 
   return (
