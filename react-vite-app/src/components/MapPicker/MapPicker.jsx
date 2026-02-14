@@ -1,8 +1,8 @@
-import { useRef } from 'react';
+import { useRef, useImperativeHandle, forwardRef } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import './MapPicker.css';
 
-function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingArea = null }) {
+const MapPicker = forwardRef(function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingArea = null }, ref) {
   const containerRef = useRef(null);
   const imageRef = useRef(null);
 
@@ -35,6 +35,35 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
 
     onMapClick({ x: clampedX, y: clampedY });
   };
+
+  /**
+   * Expose a method to get the center of the current viewport in map coordinates.
+   * When zoomed/panned, returns the map-percentage coords at the center of the visible area.
+   * At default zoom (scale=1), returns { x: 50, y: 50 }.
+   */
+  useImperativeHandle(ref, () => ({
+    getViewportCenter() {
+      const container = containerRef.current;
+      const image = imageRef.current;
+      if (!container || !image) return { x: 50, y: 50 };
+
+      const containerRect = container.getBoundingClientRect();
+      const imageRect = image.getBoundingClientRect();
+
+      // Center of the container in screen coords
+      const centerScreenX = containerRect.left + containerRect.width / 2;
+      const centerScreenY = containerRect.top + containerRect.height / 2;
+
+      // Convert to map percentages using the image's bounding rect
+      const x = ((centerScreenX - imageRect.left) / imageRect.width) * 100;
+      const y = ((centerScreenY - imageRect.top) / imageRect.height) * 100;
+
+      return {
+        x: Math.max(0, Math.min(100, x)),
+        y: Math.max(0, Math.min(100, y))
+      };
+    }
+  }), []);
 
   // Check if playing area is defined
   const hasPlayingArea = playingArea && playingArea.polygon && playingArea.polygon.length >= 3;
@@ -158,6 +187,6 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
       </div>
     </div>
   );
-}
+});
 
 export default MapPicker;
