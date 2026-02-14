@@ -27,7 +27,7 @@
   background: linear-gradient(145deg, #1e1e3a 0%, #161630 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 24px;
-  max-width: 500px;
+  max-width: 560px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
@@ -98,7 +98,46 @@
 .user-modal-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 8px;
+}
+
+/* ===== Sections ===== */
+.user-modal-section {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.user-modal-section-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: #a78bfa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.12);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.user-modal-section-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: #6b7280;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ===== Field rows (side by side) ===== */
+.user-modal-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
 
 /* Field rows */
@@ -127,6 +166,8 @@
   color: #e0e6f0;
   background: rgba(255, 255, 255, 0.04);
   transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .user-modal-input:focus {
@@ -140,6 +181,78 @@
   opacity: 0.5;
   background: rgba(255, 255, 255, 0.02);
   cursor: not-allowed;
+}
+
+/* Number input with icon + unit */
+.user-modal-number-wrapper {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.user-modal-number-wrapper:focus-within {
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.user-modal-number-icon {
+  padding: 0 0 0 12px;
+  font-size: 16px;
+  flex-shrink: 0;
+  color: #a78bfa;
+}
+
+.user-modal-input-number {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 12px 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.user-modal-input-number:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: none;
+  background: transparent;
+}
+
+.user-modal-number-unit {
+  padding: 0 14px 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+/* Hide number input spinners for cleaner look */
+.user-modal-input-number::-webkit-outer-spin-button,
+.user-modal-input-number::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.user-modal-input-number[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Field hints — shows current value below inputs */
+.user-modal-field-hint {
+  font-size: 11px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* datetime-local styling */
+.user-modal-input[type="datetime-local"] {
+  color-scheme: dark;
 }
 
 /* Read-only values */
@@ -241,6 +354,19 @@
     padding: 22px;
     margin: 10px;
     border-radius: 20px;
+  }
+
+  .user-modal-section {
+    padding: 14px;
+  }
+
+  .user-modal-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .user-modal-section-header {
+    flex-direction: column;
+    gap: 4px;
   }
 
   .user-modal-actions {
