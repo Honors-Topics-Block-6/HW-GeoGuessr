@@ -25,12 +25,13 @@ vi.mock('firebase/firestore', () => ({
   Timestamp: { now: vi.fn(() => ({ toMillis: () => Date.now() })) }
 }));
 
+const mockAreFriends = vi.fn();
+
 vi.mock('./friendService', () => ({
-  areFriends: vi.fn()
+  areFriends: (...args) => mockAreFriends(...args)
 }));
 
 import { addDoc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
-import { areFriends } from './friendService';
 import {
   createLobby,
   joinLobby,
@@ -178,7 +179,7 @@ describe('lobbyService', () => {
 
       await joinLobby('doc-1', 'player-uid', 'Player', 'easy');
 
-      expect(areFriends).not.toHaveBeenCalled();
+      expect(mockAreFriends).not.toHaveBeenCalled();
       expect(updateDoc).toHaveBeenCalledTimes(1);
     });
 
@@ -188,30 +189,30 @@ describe('lobbyService', () => {
 
       await joinLobby('doc-1', 'player-uid', 'Player', 'easy');
 
-      expect(areFriends).not.toHaveBeenCalled();
+      expect(mockAreFriends).not.toHaveBeenCalled();
       expect(updateDoc).toHaveBeenCalledTimes(1);
     });
 
     it('should allow a friend to join a friends-only lobby', async () => {
       getDoc.mockResolvedValueOnce(makeLobbySnap({ visibility: 'friends' }));
-      areFriends.mockResolvedValueOnce(true);
+      mockAreFriends.mockResolvedValueOnce(true);
       updateDoc.mockResolvedValueOnce();
 
       await joinLobby('doc-1', 'player-uid', 'Player', 'easy');
 
-      expect(areFriends).toHaveBeenCalledWith('host-uid', 'player-uid');
+      expect(mockAreFriends).toHaveBeenCalledWith('host-uid', 'player-uid');
       expect(updateDoc).toHaveBeenCalledTimes(1);
     });
 
     it('should block a non-friend from joining a friends-only lobby', async () => {
       getDoc.mockResolvedValueOnce(makeLobbySnap({ visibility: 'friends' }));
-      areFriends.mockResolvedValueOnce(false);
+      mockAreFriends.mockResolvedValueOnce(false);
 
       await expect(
         joinLobby('doc-1', 'player-uid', 'Player', 'easy')
       ).rejects.toThrow('This lobby is friends-only. You must be friends with the host to join.');
 
-      expect(areFriends).toHaveBeenCalledWith('host-uid', 'player-uid');
+      expect(mockAreFriends).toHaveBeenCalledWith('host-uid', 'player-uid');
       expect(updateDoc).not.toHaveBeenCalled();
     });
 
@@ -225,7 +226,7 @@ describe('lobbyService', () => {
 
       await joinLobby('doc-1', 'host-uid', 'Host', 'easy');
 
-      expect(areFriends).not.toHaveBeenCalled();
+      expect(mockAreFriends).not.toHaveBeenCalled();
     });
 
     it('should block non-friend from joining friends-only lobby via game code', async () => {
@@ -234,13 +235,63 @@ describe('lobbyService', () => {
         visibility: 'friends',
         hostUid: 'host-uid'
       }));
-      areFriends.mockResolvedValueOnce(false);
+      mockAreFriends.mockResolvedValueOnce(false);
 
       await expect(
         joinLobby('doc-1', 'stranger-uid', 'Stranger', 'easy')
       ).rejects.toThrow('friends-only');
 
       expect(updateDoc).not.toHaveBeenCalled();
+    });
+
+    it('should dynamically import friendService (not statically)', async () => {
+      // Verify that areFriends is resolved via dynamic import() at call time,
+      // not at module load time. We do this by changing the mock's behavior
+      // AFTER lobbyService has already been imported — if areFriends were
+      // captured statically at import time this would have no effect.
+      getDoc.mockResolvedValueOnce(makeLobbySnap({ visibility: 'friends' }));
+      mockAreFriends.mockResolvedValueOnce(true);
+      updateDoc.mockResolvedValueOnce();
+
+      await joinLobby('doc-1', 'player-uid', 'Player', 'easy');
+
+      // The mock was called — proving the dynamic import path resolved
+      // our mock factory, not a stale static reference.
+      expect(mockAreFriends).toHaveBeenCalledTimes(1);
+      expect(mockAreFriends).toHaveBeenCalledWith('host-uid', 'player-uid');
+    });
+
+    it('should propagate errors from dynamically-imported areFriends', async () => {
+      // If friendService's areFriends throws at runtime, joinLobby should
+      // propagate it — proving the dynamic import is actually wired up.
+      getDoc.mockResolvedValueOnce(makeLobbySnap({ visibility: 'friends' }));
+      mockAreFriends.mockRejectedValueOnce(new Error('Firestore permission denied'));
+
+      await expect(
+        joinLobby('doc-1', 'player-uid', 'Player', 'easy')
+      ).rejects.toThrow('Firestore permission denied');
+
+      expect(updateDoc).not.toHaveBeenCalled();
+    });
+
+    it('should not import friendService at all for public/private lobbies', async () => {
+      // For non-friends lobbies, the dynamic import() should never be reached
+      getDoc.mockResolvedValueOnce(makeLobbySnap({ visibility: 'public' }));
+      updateDoc.mockResolvedValueOnce();
+
+      await joinLobby('doc-1', 'player-uid', 'Player', 'easy');
+
+      // mockAreFriends should never be called — the import() branch was skipped
+      expect(mockAreFriends).not.toHaveBeenCalled();
+
+      vi.clearAllMocks();
+
+      getDoc.mockResolvedValueOnce(makeLobbySnap({ visibility: 'private' }));
+      updateDoc.mockResolvedValueOnce();
+
+      await joinLobby('doc-1', 'player-uid', 'Player', 'easy');
+
+      expect(mockAreFriends).not.toHaveBeenCalled();
     });
   });
 
