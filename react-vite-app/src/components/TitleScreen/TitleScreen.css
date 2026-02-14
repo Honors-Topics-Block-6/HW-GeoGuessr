@@ -43,6 +43,23 @@
   gap: 10px;
 }
 
+.title-leaderboard-button {
+  padding: 8px 16px;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  color: #ffd700;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.title-leaderboard-button:hover {
+  background: rgba(255, 215, 0, 0.2);
+  color: #ffe44d;
+}
+
 .title-profile-button {
   padding: 8px 16px;
   background: rgba(255, 255, 255, 0.08);
@@ -312,6 +329,7 @@
     gap: 6px;
   }
 
+  .title-leaderboard-button,
   .title-profile-button,
   .submit-photo-button,
   .title-logout-button {

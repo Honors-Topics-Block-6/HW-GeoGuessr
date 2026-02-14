@@ -17,6 +17,7 @@ import WaitingRoom from './components/WaitingRoom/WaitingRoom';
 import DuelGameScreen from './components/DuelGameScreen/DuelGameScreen';
 import DuelResultScreen from './components/DuelResultScreen/DuelResultScreen';
 import DuelFinalScreen from './components/DuelFinalScreen/DuelFinalScreen';
+import LeaderboardScreen from './components/LeaderboardScreen/LeaderboardScreen';
 import SubmissionApp from './components/SubmissionApp/SubmissionApp';
 import MessageBanner from './components/MessageBanner/MessageBanner';
 import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
@@ -26,6 +27,7 @@ function App() {
   const { user, userDoc, loading, needsUsername, isAdmin } = useAuth();
   const [showSubmissionApp, setShowSubmissionApp] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState(false);
@@ -70,7 +72,7 @@ function App() {
   );
 
   // Track user's online presence and current activity
-  usePresence(user, inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin);
+  usePresence(user, inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard);
 
   // Listen for admin messages sent to this user
   const { messages, dismissMessage } = useAdminMessages(user?.uid);
@@ -132,6 +134,17 @@ function App() {
         {messageBanner}
         <EmailVerificationBanner />
         <ProfileScreen onBack={() => setShowProfile(false)} />
+      </>
+    );
+  }
+
+  // Show leaderboard screen
+  if (showLeaderboard) {
+    return (
+      <>
+        {messageBanner}
+        <EmailVerificationBanner />
+        <LeaderboardScreen onBack={() => setShowLeaderboard(false)} />
       </>
     );
   }
@@ -217,6 +230,7 @@ function App() {
           onPlay={handlePlay}
           onOpenSubmission={() => setShowSubmissionApp(true)}
           onOpenProfile={() => setShowProfile(true)}
+          onOpenLeaderboard={() => setShowLeaderboard(true)}
           isLoading={isLoading}
         />
       )}
