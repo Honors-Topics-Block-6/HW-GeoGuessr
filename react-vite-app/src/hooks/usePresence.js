@@ -19,6 +19,8 @@ function getActivityString(screen, showSubmissionApp, showProfile, isAdmin) {
   const screenMap = {
     title: 'Title Screen',
     difficultySelect: 'Selecting Difficulty',
+    multiplayerLobby: 'In Multiplayer Lobby',
+    waitingRoom: 'In Waiting Room',
     game: 'Playing Game',
     result: 'Viewing Results',
     finalResults: 'Viewing Final Results'
