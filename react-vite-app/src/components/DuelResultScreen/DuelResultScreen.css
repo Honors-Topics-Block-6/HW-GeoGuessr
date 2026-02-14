@@ -76,6 +76,16 @@
   transform-origin: 0 0;
 }
 
+/* Cursor changes when duel result map is zoomed */
+.duel-result-map.zoomed {
+  cursor: grab;
+  touch-action: none;
+}
+
+.duel-result-map.zoomed:active {
+  cursor: grabbing;
+}
+
 /* ── Markers ── */
 .duel-pin-red {
   background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%);

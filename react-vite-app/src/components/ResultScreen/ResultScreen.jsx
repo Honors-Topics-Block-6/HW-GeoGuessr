@@ -72,9 +72,11 @@ function ResultScreen({
   const {
     scale,
     transformStyle,
+    handlers,
     zoomIn,
     zoomOut,
-    resetZoom
+    resetZoom,
+    isPanning
   } = useMapZoom(mapContainerRef);
 
   const isZoomed = scale > 1;
@@ -167,7 +169,11 @@ function ResultScreen({
       {/* Main content - Map with results */}
       <div className="result-content">
         <div className="result-map-container" ref={mapOuterRef}>
-          <div className="result-map" ref={mapContainerRef}>
+          <div
+            className={`result-map ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''}`}
+            ref={mapContainerRef}
+            {...handlers}
+          >
             <div
               className="result-zoom-content"
               style={{ transform: transformStyle }}
@@ -177,6 +183,8 @@ function ResultScreen({
                 className="map-image"
                 src="/FINAL_MAP.png"
                 alt="Campus Map"
+                draggable="false"
+                onDragStart={(e) => e.preventDefault()}
               />
 
               {/* Line between guess and actual (Phase 2+) */}
