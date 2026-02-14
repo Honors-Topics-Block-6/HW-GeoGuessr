@@ -127,7 +127,9 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }) {
             {diffInfo.icon} {diffInfo.label}
           </span>
           <span className={`waiting-badge waiting-badge-vis ${lobby.visibility}`}>
-            {lobby.visibility === 'public' ? '🌐 Public' : '🔒 Private'}
+            {lobby.visibility === 'public' && '🌐 Public'}
+            {lobby.visibility === 'friends' && '👥 Friends'}
+            {lobby.visibility === 'private' && '🔒 Private'}
           </span>
           <span className="waiting-badge waiting-badge-count">
             {playerCount}/{maxPlayers} Players

@@ -15,6 +15,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
   const [visibility, setVisibility] = useState('public');
   const {
     publicLobbies,
+    friendsLobbies,
     isCreating,
     isJoining,
     error,
@@ -86,6 +87,13 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
                 Public
               </button>
               <button
+                className={`lobby-vis-btn ${visibility === 'friends' ? 'selected' : ''}`}
+                onClick={() => setVisibility('friends')}
+              >
+                <span className="lobby-vis-icon">👥</span>
+                Friends
+              </button>
+              <button
                 className={`lobby-vis-btn ${visibility === 'private' ? 'selected' : ''}`}
                 onClick={() => setVisibility('private')}
               >
@@ -129,6 +137,20 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
           </p>
           <PublicGameList
             lobbies={publicLobbies}
+            selectedDifficulty={difficulty}
+            onJoin={handleJoinPublic}
+            isJoining={isJoining}
+          />
+        </div>
+
+        {/* Browse Friends' Games */}
+        <div className="lobby-public-section">
+          <h2 className="lobby-section-heading">Friends' Games</h2>
+          <p className="lobby-section-desc">
+            Games hosted by your friends — only {diffInfo.label} difficulty games can be joined
+          </p>
+          <PublicGameList
+            lobbies={friendsLobbies}
             selectedDifficulty={difficulty}
             onJoin={handleJoinPublic}
             isJoining={isJoining}
