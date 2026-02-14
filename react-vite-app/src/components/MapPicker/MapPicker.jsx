@@ -1,10 +1,22 @@
-import { useRef, useImperativeHandle, forwardRef } from 'react';
+import { useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import './MapPicker.css';
 
 const MapPicker = forwardRef(function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingArea = null }, ref) {
   const containerRef = useRef(null);
   const imageRef = useRef(null);
+  const lastMousePos = useRef(null);
+
+  const coordsFromClientPos = useCallback((clientX, clientY) => {
+    if (!imageRef.current) return null;
+    const rect = imageRef.current.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
+    return {
+      x: Math.max(0, Math.min(100, x)),
+      y: Math.max(0, Math.min(100, y))
+    };
+  }, []);
 
   const {
     scale,
@@ -18,52 +30,37 @@ const MapPicker = forwardRef(function MapPicker({ markerPosition, onMapClick, cl
   } = useMapZoom(containerRef);
 
   const handleClick = (event) => {
-    // If the user was dragging/panning, don't place a marker
     if (hasMoved()) return;
+    const coords = coordsFromClientPos(event.clientX, event.clientY);
+    if (coords) onMapClick(coords);
+  };
 
-    if (!imageRef.current) return;
+  const handleMouseMove = (event) => {
+    lastMousePos.current = { x: event.clientX, y: event.clientY };
+    // Forward to zoom/pan handler
+    if (handlers.onMouseMove) handlers.onMouseMove(event);
+  };
 
-    // Get coordinates relative to the actual image element
-    // getBoundingClientRect() already accounts for CSS transforms
-    const rect = imageRef.current.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-
-    // Clamp values between 0 and 100
-    const clampedX = Math.max(0, Math.min(100, x));
-    const clampedY = Math.max(0, Math.min(100, y));
-
-    onMapClick({ x: clampedX, y: clampedY });
+  const handleMouseLeave = (event) => {
+    lastMousePos.current = null;
+    if (handlers.onMouseLeave) handlers.onMouseLeave(event);
   };
 
   /**
-   * Expose a method to get the center of the current viewport in map coordinates.
-   * When zoomed/panned, returns the map-percentage coords at the center of the visible area.
-   * At default zoom (scale=1), returns { x: 50, y: 50 }.
+   * Expose clickAtCursor() — places a marker at the current mouse position.
+   * Returns false if the cursor isn't over the map.
    */
   useImperativeHandle(ref, () => ({
-    getViewportCenter() {
-      const container = containerRef.current;
-      const image = imageRef.current;
-      if (!container || !image) return { x: 50, y: 50 };
-
-      const containerRect = container.getBoundingClientRect();
-      const imageRect = image.getBoundingClientRect();
-
-      // Center of the container in screen coords
-      const centerScreenX = containerRect.left + containerRect.width / 2;
-      const centerScreenY = containerRect.top + containerRect.height / 2;
-
-      // Convert to map percentages using the image's bounding rect
-      const x = ((centerScreenX - imageRect.left) / imageRect.width) * 100;
-      const y = ((centerScreenY - imageRect.top) / imageRect.height) * 100;
-
-      return {
-        x: Math.max(0, Math.min(100, x)),
-        y: Math.max(0, Math.min(100, y))
-      };
+    clickAtCursor() {
+      if (!lastMousePos.current) return false;
+      const coords = coordsFromClientPos(lastMousePos.current.x, lastMousePos.current.y);
+      if (coords) {
+        onMapClick(coords);
+        return true;
+      }
+      return false;
     }
-  }), []);
+  }), [coordsFromClientPos, onMapClick]);
 
   // Check if playing area is defined
   const hasPlayingArea = playingArea && playingArea.polygon && playingArea.polygon.length >= 3;
@@ -81,6 +78,8 @@ const MapPicker = forwardRef(function MapPicker({ markerPosition, onMapClick, cl
         onClick={handleClick}
         onContextMenu={(e) => e.preventDefault()}
         {...handlers}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
       >
         <div className="map-zoom-content" style={{ transform: transformStyle }}>
           <img

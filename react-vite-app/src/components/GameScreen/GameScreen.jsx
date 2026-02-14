@@ -30,14 +30,13 @@ function GameScreen({
   const canSubmit = guessLocation !== null && (!isInRegion || guessFloor !== null);
 
   const handleKeyDown = useCallback((e) => {
-    // Spacebar: submit guess if ready, otherwise place marker at map center
+    // Spacebar: submit guess if ready, otherwise click at cursor position on map
     if (e.code === 'Space') {
       e.preventDefault();
       if (canSubmit) {
         onSubmitGuess();
       } else if (!guessLocation && mapPickerRef.current) {
-        const center = mapPickerRef.current.getViewportCenter();
-        onMapClick(center);
+        mapPickerRef.current.clickAtCursor();
       }
       return;
     }
@@ -50,7 +49,7 @@ function GameScreen({
         onFloorSelect(digit);
       }
     }
-  }, [canSubmit, onSubmitGuess, guessLocation, onMapClick, isInRegion, availableFloors, onFloorSelect]);
+  }, [canSubmit, onSubmitGuess, guessLocation, isInRegion, availableFloors, onFloorSelect]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
