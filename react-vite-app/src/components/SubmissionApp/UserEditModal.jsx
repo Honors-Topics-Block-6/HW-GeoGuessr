@@ -5,7 +5,7 @@ import './UserEditModal.css'
 
 function UserEditModal({ user, onSave, onClose, isSaving }) {
   // Known fields we render explicitly with nice UI
-  const knownFields = ['uid', 'id', 'email', 'username', 'isAdmin', 'createdAt', 'totalXp', 'gamesPlayed', 'lastGameAt']
+  const knownFields = ['uid', 'id', 'email', 'username', 'isAdmin', 'verified', 'createdAt', 'totalXp', 'gamesPlayed', 'lastGameAt']
 
   // Extra/dynamic fields beyond the known set
   const extraFields = Object.keys(user).filter(
@@ -25,6 +25,7 @@ function UserEditModal({ user, onSave, onClose, isSaving }) {
     username: user.username || '',
     email: user.email || '',
     isAdmin: user.isAdmin || false,
+    verified: user.verified || false,
     totalXp: user.totalXp ?? 0,
     gamesPlayed: user.gamesPlayed ?? 0,
     lastGameAt: toDatetimeLocal(user.lastGameAt),
@@ -60,6 +61,9 @@ function UserEditModal({ user, onSave, onClose, isSaving }) {
     }
     if (formData.isAdmin !== (user.isAdmin || false)) {
       updates.isAdmin = formData.isAdmin
+    }
+    if (formData.verified !== (user.verified || false)) {
+      updates.verified = formData.verified
     }
 
     // XP & Stats — compare numerically
@@ -202,6 +206,20 @@ function UserEditModal({ user, onSave, onClose, isSaving }) {
                   <span>{formData.isAdmin ? 'Admin' : 'Not Admin'}</span>
                 </label>
               )}
+            </div>
+
+            {/* Editable: Verified toggle */}
+            <div className="user-modal-field">
+              <label className="user-modal-label">Verified Status</label>
+              <label className="user-modal-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={formData.verified}
+                  onChange={(e) => handleChange('verified', e.target.checked)}
+                  disabled={isSaving}
+                />
+                <span>{formData.verified ? 'Verified' : 'Not Verified'}</span>
+              </label>
             </div>
           </div>
 
