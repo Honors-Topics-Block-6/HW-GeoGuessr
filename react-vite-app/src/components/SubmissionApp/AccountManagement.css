@@ -322,6 +322,75 @@
   transform: translateY(-1px);
 }
 
+/* ===== Permissions Column ===== */
+.permissions-cell {
+  white-space: nowrap;
+}
+
+.permissions-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.permissions-count {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.permissions-count.all-perms {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+.permissions-count.some-perms {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.permissions-count.no-perms {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+.permissions-edit-button {
+  padding: 4px 12px;
+  background: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.3px;
+}
+
+.permissions-edit-button:hover {
+  background: rgba(139, 92, 246, 0.22);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+.permissions-locked {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a78bfa;
+  font-style: italic;
+}
+
+.permissions-na {
+  color: #6b7280;
+  font-size: 13px;
+}
+
 .account-management .loading {
   text-align: center;
   padding: 60px;

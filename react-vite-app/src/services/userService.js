@@ -5,12 +5,62 @@ import { db } from '../firebase';
 const HARDCODED_ADMIN_UID = 'bL0Ww9dSPbeDAGSDVlhljYMnqfE3';
 
 /**
+ * All available admin permissions.
+ * Each key is stored as a boolean in the user's `permissions` map in Firestore.
+ */
+export const ADMIN_PERMISSIONS = {
+  REVIEW_SUBMISSIONS: 'reviewSubmissions',
+  DELETE_PHOTOS: 'deletePhotos',
+  EDIT_MAP: 'editMap',
+  VIEW_ACCOUNTS: 'viewAccounts',
+  EDIT_ACCOUNTS: 'editAccounts',
+  MESSAGE_ACCOUNTS: 'messageAccounts',
+  MANAGE_ADMINS: 'manageAdmins',
+  MANAGE_FRIENDS_CHATS: 'manageFriendsChats',
+  MANAGE_BUG_REPORTS: 'manageBugReports',
+};
+
+/**
+ * Human-readable labels for each permission (used in UI)
+ */
+export const PERMISSION_LABELS = {
+  [ADMIN_PERMISSIONS.REVIEW_SUBMISSIONS]: 'Review Submissions',
+  [ADMIN_PERMISSIONS.DELETE_PHOTOS]: 'Delete Photos',
+  [ADMIN_PERMISSIONS.EDIT_MAP]: 'Edit Map',
+  [ADMIN_PERMISSIONS.VIEW_ACCOUNTS]: 'View Accounts',
+  [ADMIN_PERMISSIONS.EDIT_ACCOUNTS]: 'Edit Accounts',
+  [ADMIN_PERMISSIONS.MESSAGE_ACCOUNTS]: 'Message Accounts',
+  [ADMIN_PERMISSIONS.MANAGE_ADMINS]: 'Manage Admins & Permissions',
+  [ADMIN_PERMISSIONS.MANAGE_FRIENDS_CHATS]: 'Manage Friends & Chats',
+  [ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS]: 'Manage Bug Reports',
+};
+
+/**
+ * Returns a permissions object with ALL permissions set to true.
+ * Used for the hardcoded admin and as a convenience for granting full access.
+ */
+export function getAllPermissions() {
+  return Object.fromEntries(
+    Object.values(ADMIN_PERMISSIONS).map(p => [p, true])
+  );
+}
+
+/**
+ * Returns a permissions object with ALL permissions set to false.
+ */
+export function getNoPermissions() {
+  return Object.fromEntries(
+    Object.values(ADMIN_PERMISSIONS).map(p => [p, false])
+  );
+}
+
+/**
  * Create a new user document in Firestore
  */
 export async function createUserDoc(uid, email, username) {
   const userRef = doc(db, 'users', uid);
   const isAdmin = uid === HARDCODED_ADMIN_UID;
-  await setDoc(userRef, {
+  const userData = {
     uid,
     email,
     username,
@@ -19,7 +69,12 @@ export async function createUserDoc(uid, email, username) {
     totalXp: 0,
     gamesPlayed: 0,
     createdAt: serverTimestamp()
-  });
+  };
+  // Hardcoded admin gets all permissions on creation
+  if (isAdmin) {
+    userData.permissions = getAllPermissions();
+  }
+  await setDoc(userRef, userData);
 }
 
 /**
@@ -31,9 +86,10 @@ export async function getUserDoc(uid) {
   const snapshot = await getDoc(userRef);
   if (snapshot.exists()) {
     const data = snapshot.data();
-    // Hardcoded admin is ALWAYS an admin
+    // Hardcoded admin is ALWAYS an admin with ALL permissions
     if (uid === HARDCODED_ADMIN_UID) {
       data.isAdmin = true;
+      data.permissions = getAllPermissions();
     }
     return data;
   }
@@ -84,9 +140,10 @@ export async function getAllUsers() {
   const snapshot = await getDocs(q);
   return snapshot.docs.map(docSnap => {
     const data = docSnap.data();
-    // Hardcoded admin is ALWAYS an admin
+    // Hardcoded admin is ALWAYS an admin with ALL permissions
     if (docSnap.id === HARDCODED_ADMIN_UID) {
       data.isAdmin = true;
+      data.permissions = getAllPermissions();
     }
     return { id: docSnap.id, ...data };
   });
@@ -102,7 +159,23 @@ export async function setUserAdmin(uid, isAdmin) {
     throw new Error('Cannot remove admin status from this user.');
   }
   const userRef = doc(db, 'users', uid);
-  await updateDoc(userRef, { isAdmin });
+  const updates = { isAdmin };
+  // When granting admin, give all permissions by default
+  // When revoking admin, clear all permissions
+  updates.permissions = isAdmin ? getAllPermissions() : getNoPermissions();
+  await updateDoc(userRef, updates);
+}
+
+/**
+ * Update a specific admin user's permissions map.
+ * Cannot modify hardcoded admin's permissions.
+ */
+export async function updateUserPermissions(uid, permissions) {
+  if (uid === HARDCODED_ADMIN_UID) {
+    throw new Error('Cannot modify permissions for this user.');
+  }
+  const userRef = doc(db, 'users', uid);
+  await updateDoc(userRef, { permissions });
 }
 
 /**
@@ -112,7 +185,7 @@ export async function setUserAdmin(uid, isAdmin) {
  */
 export async function updateUserProfile(uid, updates) {
   // Prevent changing system-managed fields
-  const forbidden = ['uid', 'createdAt'];
+  const forbidden = ['uid', 'createdAt', 'permissions'];
   for (const key of forbidden) {
     if (key in updates) {
       throw new Error(`Cannot modify the "${key}" field.`);
