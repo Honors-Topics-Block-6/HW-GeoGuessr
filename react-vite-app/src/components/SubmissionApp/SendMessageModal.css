@@ -1,0 +1,228 @@
+/* ===== Send Message Modal - Dark Glass Theme (matches UserEditModal) ===== */
+
+/* Overlay */
+.send-msg-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: sendMsgOverlayIn 0.2s ease-out;
+}
+
+@keyframes sendMsgOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Content card */
+.send-msg-content {
+  background: linear-gradient(145deg, #1e1e3a 0%, #161630 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  max-width: 480px;
+  width: 100%;
+  position: relative;
+  padding: 32px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.08);
+  animation: sendMsgSlideIn 0.3s ease-out;
+}
+
+@keyframes sendMsgSlideIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Close button */
+.send-msg-close {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #8892a8;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.send-msg-close:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.15);
+}
+
+/* Title */
+.send-msg-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #e0e6f0;
+  margin: 0 0 20px 0;
+}
+
+.send-msg-recipient {
+  color: #a78bfa;
+}
+
+/* Error */
+.send-msg-error {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+/* Success */
+.send-msg-success {
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+/* Form layout */
+.send-msg-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Field */
+.send-msg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Label */
+.send-msg-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #8892a8;
+}
+
+/* Textarea */
+.send-msg-textarea {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #e0e6f0;
+  background: rgba(255, 255, 255, 0.04);
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.5;
+}
+
+.send-msg-textarea:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.send-msg-textarea:disabled {
+  opacity: 0.5;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: not-allowed;
+}
+
+.send-msg-textarea::placeholder {
+  color: #4a5568;
+}
+
+/* Character count */
+.send-msg-char-count {
+  font-size: 11px;
+  color: #6b7280;
+  text-align: right;
+}
+
+/* Action buttons */
+.send-msg-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.send-msg-send {
+  flex: 1;
+  padding: 13px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+.send-msg-send:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.send-msg-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.send-msg-cancel {
+  flex: 1;
+  padding: 13px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #b0b8cc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.send-msg-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.send-msg-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 480px) {
+  .send-msg-content {
+    padding: 22px;
+    margin: 10px;
+    border-radius: 20px;
+  }
+
+  .send-msg-actions {
+    flex-direction: column;
+  }
+}

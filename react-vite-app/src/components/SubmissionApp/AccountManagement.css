@@ -230,6 +230,75 @@
   font-style: italic;
 }
 
+/* ===== Online Status Indicator ===== */
+.online-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.online-indicator.online .online-dot {
+  background: #34d399;
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+  animation: onlinePulse 2s ease-in-out infinite;
+}
+
+.online-indicator.online {
+  color: #34d399;
+}
+
+.online-indicator.offline .online-dot {
+  background: #6b7280;
+}
+
+.online-indicator.offline {
+  color: #6b7280;
+}
+
+@keyframes onlinePulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(52, 211, 153, 0.5); }
+  50% { box-shadow: 0 0 12px rgba(52, 211, 153, 0.8); }
+}
+
+/* ===== Activity Cell ===== */
+.activity-cell {
+  font-size: 13px;
+  color: #a78bfa;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ===== Send Message Button ===== */
+.send-msg-button {
+  padding: 8px 18px;
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.3px;
+}
+
+.send-msg-button:hover {
+  background: rgba(96, 165, 250, 0.22);
+  box-shadow: 0 4px 12px rgba(96, 165, 250, 0.15);
+  transform: translateY(-1px);
+}
+
 .account-management .loading {
   text-align: center;
   padding: 60px;
@@ -255,6 +324,11 @@
   }
 
   .edit-user-button {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  .send-msg-button {
     padding: 6px 12px;
     font-size: 11px;
   }

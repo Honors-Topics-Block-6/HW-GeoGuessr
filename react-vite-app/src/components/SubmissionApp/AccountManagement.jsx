@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
 import { getAllUsers, setUserAdmin, isHardcodedAdmin, updateUserProfile } from '../../services/userService'
+import { subscribeToAllPresence } from '../../services/presenceService'
 import UserEditModal from './UserEditModal'
+import SendMessageModal from './SendMessageModal'
 import './AccountManagement.css'
 
 function AccountManagement() {
+  const { user, userDoc } = useAuth()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [updatingUid, setUpdatingUid] = useState(null)
   const [editingUser, setEditingUser] = useState(null)
   const [savingEdit, setSavingEdit] = useState(false)
+  const [presenceMap, setPresenceMap] = useState({})
+  const [messagingUser, setMessagingUser] = useState(null)
 
   const fetchUsers = async () => {
     try {
@@ -28,6 +34,24 @@ function AccountManagement() {
   useEffect(() => {
     fetchUsers()
   }, [])
+
+  // Subscribe to real-time presence data
+  useEffect(() => {
+    const unsubscribe = subscribeToAllPresence((data) => {
+      setPresenceMap(data)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  // Determine if a user is online (online flag + lastSeen within 2 minutes)
+  const isUserOnline = (uid) => {
+    const presence = presenceMap[uid]
+    if (!presence || !presence.online) return false
+    if (!presence.lastSeen) return false
+    const lastSeen = presence.lastSeen.toDate ? presence.lastSeen.toDate() : new Date(presence.lastSeen)
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000)
+    return lastSeen > twoMinutesAgo
+  }
 
   const handleToggleAdmin = async (uid, currentIsAdmin) => {
     try {
@@ -97,44 +121,62 @@ function AccountManagement() {
               <th>Email</th>
               <th>Created</th>
               <th>Admin</th>
+              <th>Status</th>
+              <th>Activity</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {users.map(user => {
-              const hardcoded = isHardcodedAdmin(user.id)
+            {users.map(u => {
+              const hardcoded = isHardcodedAdmin(u.id)
+              const online = isUserOnline(u.id)
               return (
-                <tr key={user.id} className={user.isAdmin ? 'admin-row' : ''}>
+                <tr key={u.id} className={u.isAdmin ? 'admin-row' : ''}>
                   <td className="username-cell">
-                    {user.username || '—'}
+                    {u.username || '—'}
                     {hardcoded && <span className="permanent-badge">Permanent</span>}
                   </td>
-                  <td className="uid-cell">{user.id}</td>
-                  <td>{user.email || '—'}</td>
-                  <td>{formatDate(user.createdAt)}</td>
+                  <td className="uid-cell">{u.id}</td>
+                  <td>{u.email || '—'}</td>
+                  <td>{formatDate(u.createdAt)}</td>
                   <td>
-                    <span className={`admin-status ${user.isAdmin ? 'is-admin' : 'not-admin'}`}>
-                      {user.isAdmin ? 'Yes' : 'No'}
+                    <span className={`admin-status ${u.isAdmin ? 'is-admin' : 'not-admin'}`}>
+                      {u.isAdmin ? 'Yes' : 'No'}
                     </span>
+                  </td>
+                  <td>
+                    <span className={`online-indicator ${online ? 'online' : 'offline'}`}>
+                      <span className="online-dot"></span>
+                      {online ? 'Online' : 'Offline'}
+                    </span>
+                  </td>
+                  <td className="activity-cell">
+                    {online ? (presenceMap[u.id]?.currentActivity || '—') : '—'}
                   </td>
                   <td className="actions-cell">
                     <button
                       className="edit-user-button"
-                      onClick={() => setEditingUser(user)}
+                      onClick={() => setEditingUser(u)}
                     >
                       Edit
+                    </button>
+                    <button
+                      className="send-msg-button"
+                      onClick={() => setMessagingUser(u)}
+                    >
+                      Message
                     </button>
                     {hardcoded ? (
                       <span className="action-locked">Always Admin</span>
                     ) : (
                       <button
-                        className={`toggle-admin-button ${user.isAdmin ? 'revoke' : 'grant'}`}
-                        onClick={() => handleToggleAdmin(user.id, user.isAdmin)}
-                        disabled={updatingUid === user.id}
+                        className={`toggle-admin-button ${u.isAdmin ? 'revoke' : 'grant'}`}
+                        onClick={() => handleToggleAdmin(u.id, u.isAdmin)}
+                        disabled={updatingUid === u.id}
                       >
-                        {updatingUid === user.id
+                        {updatingUid === u.id
                           ? 'Updating...'
-                          : user.isAdmin
+                          : u.isAdmin
                             ? 'Revoke Admin'
                             : 'Make Admin'}
                       </button>
@@ -153,6 +195,15 @@ function AccountManagement() {
           onSave={handleSaveUser}
           onClose={() => setEditingUser(null)}
           isSaving={savingEdit}
+        />
+      )}
+
+      {messagingUser && (
+        <SendMessageModal
+          recipientUser={messagingUser}
+          onClose={() => setMessagingUser(null)}
+          senderUid={user?.uid}
+          senderUsername={userDoc?.username || 'Admin'}
         />
       )}
     </div>

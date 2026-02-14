@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useGameState } from './hooks/useGameState';
+import { usePresence } from './hooks/usePresence';
+import { useAdminMessages } from './hooks/useAdminMessages';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
@@ -9,10 +11,11 @@ import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
 import SubmissionApp from './components/SubmissionApp/SubmissionApp';
+import MessageBanner from './components/MessageBanner/MessageBanner';
 import './App.css';
 
 function App() {
-  const { user, userDoc, loading, needsUsername } = useAuth();
+  const { user, userDoc, loading, needsUsername, isAdmin } = useAuth();
   const [showSubmissionApp, setShowSubmissionApp] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
@@ -44,6 +47,17 @@ function App() {
     resetGame
   } = useGameState();
 
+  // Track user's online presence and current activity
+  usePresence(user, screen, showSubmissionApp, showProfile, isAdmin);
+
+  // Listen for admin messages sent to this user
+  const { messages, dismissMessage } = useAdminMessages(user?.uid);
+
+  // Prepare the message banner (uses createPortal, renders at viewport top)
+  const messageBanner = user && messages.length > 0 ? (
+    <MessageBanner messages={messages} onDismiss={dismissMessage} />
+  ) : null;
+
   // Show loading spinner while checking auth state
   if (loading) {
     return (
@@ -62,12 +76,22 @@ function App() {
 
   // Show profile screen
   if (showProfile) {
-    return <ProfileScreen onBack={() => setShowProfile(false)} />;
+    return (
+      <>
+        {messageBanner}
+        <ProfileScreen onBack={() => setShowProfile(false)} />
+      </>
+    );
   }
 
   // Show submission app
   if (showSubmissionApp) {
-    return <SubmissionApp onBack={() => setShowSubmissionApp(false)} />;
+    return (
+      <>
+        {messageBanner}
+        <SubmissionApp onBack={() => setShowSubmissionApp(false)} />
+      </>
+    );
   }
 
   // Error state
@@ -107,6 +131,8 @@ function App() {
 
   return (
     <div className="app">
+      {messageBanner}
+
       {screen === 'title' && (
         <TitleScreen
           onPlay={handlePlay}
