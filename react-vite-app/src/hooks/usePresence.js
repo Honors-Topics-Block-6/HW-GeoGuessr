@@ -11,7 +11,9 @@ const HEARTBEAT_INTERVAL_MS = 60 * 1000; // 60 seconds
 /**
  * Derive a friendly activity string from the app's current screen state.
  */
-function getActivityString(screen, showSubmissionApp, showProfile, isAdmin) {
+function getActivityString(screen, showSubmissionApp, showProfile, isAdmin, showFriends, showChat) {
+  if (showChat) return 'Chatting';
+  if (showFriends) return 'Friends List';
   if (showProfile) return 'Viewing Profile';
   if (showSubmissionApp && isAdmin) return 'In Admin Panel';
   if (showSubmissionApp) return 'Submitting Photos';
@@ -42,11 +44,11 @@ function getActivityString(screen, showSubmissionApp, showProfile, isAdmin) {
  * @param {boolean} showProfile - Whether the profile screen is shown
  * @param {boolean} isAdmin - Whether the current user is an admin
  */
-export function usePresence(user, screen, showSubmissionApp, showProfile, isAdmin) {
+export function usePresence(user, screen, showSubmissionApp, showProfile, isAdmin, showFriends = false, showChat = false) {
   const prevUidRef = useRef(null);
   const activityRef = useRef('');
 
-  const currentActivity = getActivityString(screen, showSubmissionApp, showProfile, isAdmin);
+  const currentActivity = getActivityString(screen, showSubmissionApp, showProfile, isAdmin, showFriends, showChat);
 
   // Set presence online when user logs in, offline when they log out
   useEffect(() => {

@@ -60,6 +60,24 @@
   color: var(--text-primary);
 }
 
+.title-friends-button {
+  padding: 8px 16px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #a78bfa;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.title-friends-button:hover {
+  background: rgba(139, 92, 246, 0.25);
+  color: #c4b5fd;
+  transform: translateY(-1px);
+}
+
 .submit-photo-button {
   padding: 8px 16px;
   background-color: rgba(52, 152, 219, 0.9);
@@ -313,6 +331,7 @@
   }
 
   .title-profile-button,
+  .title-friends-button,
   .submit-photo-button,
   .title-logout-button {
     font-size: 12px;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import './ProfileScreen.css';
 
-function ProfileScreen({ onBack }) {
+function ProfileScreen({ onBack, onOpenFriends }) {
   const { user, userDoc, updateUsername, totalXp, levelInfo, levelTitle, emailVerified } = useAuth();
 
   const [newUsername, setNewUsername] = useState(userDoc?.username || '');
@@ -158,6 +158,19 @@ function ProfileScreen({ onBack }) {
               <span className={`profile-verification-badge ${emailVerified ? 'verified' : 'unverified'}`}>
                 {emailVerified ? 'Verified' : 'Unverified'}
               </span>
+            </div>
+          </div>
+
+          <div className="profile-field">
+            <span className="profile-label">Friends</span>
+            <div className="profile-value-row">
+              <span className="profile-value">View and manage your friends</span>
+              <button
+                className="profile-friends-button"
+                onClick={onOpenFriends}
+              >
+                Friends
+              </button>
             </div>
           </div>
 

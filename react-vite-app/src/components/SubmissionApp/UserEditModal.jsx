@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { isHardcodedAdmin } from '../../services/userService'
+import { getUserFriendships, getUserFriendRequests, adminRemoveFriend } from '../../services/friendService'
 import './UserEditModal.css'
 
 function UserEditModal({ user, onSave, onClose, isSaving }) {
@@ -19,6 +20,47 @@ function UserEditModal({ user, onSave, onClose, isSaving }) {
     // Format as YYYY-MM-DDTHH:MM for datetime-local input
     const pad = (n) => String(n).padStart(2, '0')
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  }
+
+  const [userFriends, setUserFriends] = useState([])
+  const [userFriendRequests, setUserFriendRequests] = useState([])
+  const [friendsLoading, setFriendsLoading] = useState(true)
+  const [removingFriend, setRemovingFriend] = useState(null)
+
+  // Fetch friends and requests for this user
+  useEffect(() => {
+    let cancelled = false
+    const fetchFriendData = async () => {
+      setFriendsLoading(true)
+      try {
+        const [friends, requests] = await Promise.all([
+          getUserFriendships(user.id),
+          getUserFriendRequests(user.id)
+        ])
+        if (!cancelled) {
+          setUserFriends(friends)
+          setUserFriendRequests(requests)
+        }
+      } catch (err) {
+        console.error('Failed to load friend data:', err)
+      } finally {
+        if (!cancelled) setFriendsLoading(false)
+      }
+    }
+    fetchFriendData()
+    return () => { cancelled = true }
+  }, [user.id])
+
+  const handleRemoveFriend = async (friendUid) => {
+    setRemovingFriend(friendUid)
+    try {
+      await adminRemoveFriend(user.id, friendUid)
+      setUserFriends(prev => prev.filter(f => f.friendUid !== friendUid))
+    } catch (err) {
+      console.error('Failed to remove friend:', err)
+    } finally {
+      setRemovingFriend(null)
+    }
   }
 
   const [formData, setFormData] = useState({
@@ -300,6 +342,55 @@ function UserEditModal({ user, onSave, onClose, isSaving }) {
               <label className="user-modal-label">Created</label>
               <span className="user-modal-value">{formatDate(user.createdAt)}</span>
             </div>
+          </div>
+
+          {/* ────── Friends Section ────── */}
+          <div className="user-modal-section">
+            <div className="user-modal-section-header">
+              Friends
+              <span className="user-modal-section-hint">
+                {friendsLoading ? 'Loading...' : `${userFriends.length} friend${userFriends.length !== 1 ? 's' : ''}`}
+              </span>
+            </div>
+            {!friendsLoading && userFriends.length === 0 ? (
+              <div className="user-modal-value" style={{ fontStyle: 'italic', color: '#6b7280' }}>No friends</div>
+            ) : (
+              <div className="user-modal-friends-list">
+                {userFriends.map(f => (
+                  <div key={f.friendUid} className="user-modal-friend-item">
+                    <span className="user-modal-friend-name">{f.friendUsername}</span>
+                    <span className="user-modal-friend-uid">{f.friendUid}</span>
+                    <button
+                      type="button"
+                      className="user-modal-friend-remove"
+                      onClick={() => handleRemoveFriend(f.friendUid)}
+                      disabled={removingFriend === f.friendUid}
+                    >
+                      {removingFriend === f.friendUid ? '...' : 'Remove'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pending requests */}
+            {!friendsLoading && userFriendRequests.filter(r => r.status === 'pending').length > 0 && (
+              <>
+                <div className="user-modal-label" style={{ marginTop: '12px' }}>Pending Requests</div>
+                <div className="user-modal-friends-list">
+                  {userFriendRequests.filter(r => r.status === 'pending').map(req => (
+                    <div key={req.id} className="user-modal-friend-item">
+                      <span className="user-modal-friend-name">
+                        {req.direction === 'incoming' ? req.fromUsername : req.toUsername}
+                      </span>
+                      <span className="user-modal-friend-uid">
+                        {req.direction === 'incoming' ? 'Incoming' : 'Outgoing'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* ────── Extra/Dynamic Fields Section ────── */}
