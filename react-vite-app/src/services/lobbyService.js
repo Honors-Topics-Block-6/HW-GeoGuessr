@@ -16,7 +16,6 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { areFriends } from './friendService';
 
 /** How long (ms) before a player's heartbeat is considered stale. */
 export const STALE_TIMEOUT = 30_000;
@@ -127,8 +126,11 @@ export async function joinLobby(docId, playerUid, playerUsername, playerDifficul
     throw new Error('You are already in this lobby.');
   }
 
-  // If lobby is friends-only, verify the joiner is friends with the host
+  // If lobby is friends-only, verify the joiner is friends with the host.
+  // Lazy-import friendService so a failure in that module never breaks
+  // the rest of lobbyService (createLobby, subscribePublicLobbies, etc.).
   if (lobby.visibility === 'friends' && lobby.hostUid !== playerUid) {
+    const { areFriends } = await import('./friendService');
     const isFriend = await areFriends(lobby.hostUid, playerUid);
     if (!isFriend) {
       throw new Error('This lobby is friends-only. You must be friends with the host to join.');
@@ -245,62 +247,6 @@ export function subscribePublicLobbies(callback) {
       callback(lobbies);
     }, (fallbackError) => {
       console.error('Fallback public lobbies query also failed:', fallbackError);
-      callback([]);
-    });
-  });
-
-  // Return a cleanup function that unsubscribes from both listeners
-  return () => {
-    primaryUnsub();
-    if (fallbackUnsub) fallbackUnsub();
-  };
-}
-
-/**
- * Subscribe to friends-only lobbies that are waiting for players.
- * Returns all lobbies with visibility === 'friends' — the caller is
- * responsible for filtering to only show lobbies hosted by actual friends.
- * @param {function} callback - Called with an array of lobby objects
- * @returns {function} Unsubscribe function
- */
-export function subscribeFriendsLobbies(callback) {
-  let fallbackUnsub = null;
-
-  const q = query(
-    collection(db, 'lobbies'),
-    where('visibility', '==', 'friends'),
-    where('status', '==', 'waiting'),
-    orderBy('createdAt', 'desc')
-  );
-
-  const primaryUnsub = onSnapshot(q, (snapshot) => {
-    const lobbies = snapshot.docs.map(docSnap => ({
-      docId: docSnap.id,
-      ...docSnap.data()
-    }));
-    callback(lobbies);
-  }, (error) => {
-    console.error('Error subscribing to friends lobbies:', error);
-    // Fallback: query without orderBy (in case index is missing)
-    const fallbackQ = query(
-      collection(db, 'lobbies'),
-      where('visibility', '==', 'friends'),
-      where('status', '==', 'waiting')
-    );
-    fallbackUnsub = onSnapshot(fallbackQ, (snapshot) => {
-      const lobbies = snapshot.docs.map(docSnap => ({
-        docId: docSnap.id,
-        ...docSnap.data()
-      }));
-      // Sort client-side as fallback
-      lobbies.sort((a, b) => {
-        const aTime = a.createdAt?.toMillis?.() || 0;
-        const bTime = b.createdAt?.toMillis?.() || 0;
-        return bTime - aTime;
-      });
-      callback(lobbies);
-    }, (fallbackError) => {
-      console.error('Fallback friends lobbies query also failed:', fallbackError);
       callback([]);
     });
   });

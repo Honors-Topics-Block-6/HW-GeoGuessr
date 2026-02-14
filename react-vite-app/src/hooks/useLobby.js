@@ -6,10 +6,10 @@ import {
   leaveLobby,
   subscribeLobby,
   subscribePublicLobbies,
-  subscribeFriendsLobbies,
   sendHeartbeat,
   removeStalePlayersFromLobby
 } from '../services/lobbyService';
+import { subscribeFriendsLobbies } from '../services/friendsLobbyService';
 import { subscribeFriendsList } from '../services/friendService';
 
 /**

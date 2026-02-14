@@ -21,9 +21,12 @@ vi.mock('../services/lobbyService', () => ({
   leaveLobby: (...args) => mockLeaveLobby(...args),
   subscribeLobby: (...args) => mockSubscribeLobby(...args),
   subscribePublicLobbies: (...args) => mockSubscribePublicLobbies(...args),
-  subscribeFriendsLobbies: (...args) => mockSubscribeFriendsLobbies(...args),
   sendHeartbeat: (...args) => mockSendHeartbeat(...args),
   removeStalePlayersFromLobby: (...args) => mockRemoveStale(...args)
+}));
+
+vi.mock('../services/friendsLobbyService', () => ({
+  subscribeFriendsLobbies: (...args) => mockSubscribeFriendsLobbies(...args)
 }));
 
 const mockSubscribeFriendsList = vi.fn();
