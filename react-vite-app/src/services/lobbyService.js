@@ -253,6 +253,8 @@ export function subscribePublicLobbies(callback) {
  * @returns {function} Unsubscribe function
  */
 export function subscribeFriendsLobbies(callback) {
+  let fallbackUnsub = null;
+
   const q = query(
     collection(db, 'lobbies'),
     where('visibility', '==', 'friends'),
@@ -260,7 +262,7 @@ export function subscribeFriendsLobbies(callback) {
     orderBy('createdAt', 'desc')
   );
 
-  return onSnapshot(q, (snapshot) => {
+  const primaryUnsub = onSnapshot(q, (snapshot) => {
     const lobbies = snapshot.docs.map(docSnap => ({
       docId: docSnap.id,
       ...docSnap.data()
@@ -274,7 +276,7 @@ export function subscribeFriendsLobbies(callback) {
       where('visibility', '==', 'friends'),
       where('status', '==', 'waiting')
     );
-    return onSnapshot(fallbackQ, (snapshot) => {
+    fallbackUnsub = onSnapshot(fallbackQ, (snapshot) => {
       const lobbies = snapshot.docs.map(docSnap => ({
         docId: docSnap.id,
         ...docSnap.data()
@@ -286,8 +288,17 @@ export function subscribeFriendsLobbies(callback) {
         return bTime - aTime;
       });
       callback(lobbies);
+    }, (fallbackError) => {
+      console.error('Fallback friends lobbies query also failed:', fallbackError);
+      callback([]);
     });
   });
+
+  // Return a cleanup function that unsubscribes from both listeners
+  return () => {
+    primaryUnsub();
+    if (fallbackUnsub) fallbackUnsub();
+  };
 }
 
 /**
