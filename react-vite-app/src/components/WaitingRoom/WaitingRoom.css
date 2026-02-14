@@ -220,6 +220,11 @@
   color: #3498db;
 }
 
+.waiting-badge-vis.friends {
+  border-color: rgba(155, 89, 182, 0.3);
+  color: #9b59b6;
+}
+
 .waiting-badge-vis.private {
   border-color: rgba(243, 156, 18, 0.3);
   color: #f39c12;

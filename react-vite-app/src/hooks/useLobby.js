@@ -6,9 +6,11 @@ import {
   leaveLobby,
   subscribeLobby,
   subscribePublicLobbies,
+  subscribeFriendsLobbies,
   sendHeartbeat,
   removeStalePlayersFromLobby
 } from '../services/lobbyService';
+import { subscribeFriendsList } from '../services/friendService';
 
 /**
  * Hook for the MultiplayerLobby screen.
@@ -16,6 +18,8 @@ import {
  */
 export function useLobby(userUid, userUsername, selectedDifficulty) {
   const [publicLobbies, setPublicLobbies] = useState([]);
+  const [friendsLobbies, setFriendsLobbies] = useState([]);
+  const [friendUids, setFriendUids] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState(null);
@@ -28,9 +32,29 @@ export function useLobby(userUid, userUsername, selectedDifficulty) {
     return unsubscribe;
   }, []);
 
+  // Subscribe to the user's friends list to know who is a friend
+  useEffect(() => {
+    if (!userUid) return;
+    const unsubscribe = subscribeFriendsList(userUid, (friends) => {
+      setFriendUids(friends.map(f => f.friendUid));
+    });
+    return unsubscribe;
+  }, [userUid]);
+
+  // Subscribe to friends-only lobbies, filtering to only those hosted by actual friends
+  useEffect(() => {
+    const unsubscribe = subscribeFriendsLobbies((lobbies) => {
+      const filtered = lobbies.filter(
+        lobby => friendUids.includes(lobby.hostUid)
+      );
+      setFriendsLobbies(filtered);
+    });
+    return unsubscribe;
+  }, [friendUids]);
+
   /**
    * Host a new game.
-   * @param {'public' | 'private'} visibility
+   * @param {'public' | 'private' | 'friends'} visibility
    * @returns {{ docId: string, gameId: string }}
    */
   const hostGame = useCallback(async (visibility) => {
@@ -98,6 +122,7 @@ export function useLobby(userUid, userUsername, selectedDifficulty) {
 
   return {
     publicLobbies,
+    friendsLobbies,
     isCreating,
     isJoining,
     error,

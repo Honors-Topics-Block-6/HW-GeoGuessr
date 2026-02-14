@@ -16,6 +16,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { areFriends } from './friendService';
 
 /** How long (ms) before a player's heartbeat is considered stale. */
 export const STALE_TIMEOUT = 30_000;
@@ -39,7 +40,7 @@ export function generateGameId() {
  * @param {string} hostUid - Host's UID
  * @param {string} hostUsername - Host's display name
  * @param {string} difficulty - 'all' | 'easy' | 'medium' | 'hard'
- * @param {string} visibility - 'public' | 'private'
+ * @param {string} visibility - 'public' | 'private' | 'friends'
  * @returns {{ docId: string, gameId: string }}
  */
 export async function createLobby(hostUid, hostUsername, difficulty, visibility) {
@@ -124,6 +125,14 @@ export async function joinLobby(docId, playerUid, playerUsername, playerDifficul
 
   if (lobby.players.some(p => p.uid === playerUid)) {
     throw new Error('You are already in this lobby.');
+  }
+
+  // If lobby is friends-only, verify the joiner is friends with the host
+  if (lobby.visibility === 'friends' && lobby.hostUid !== playerUid) {
+    const isFriend = await areFriends(lobby.hostUid, playerUid);
+    if (!isFriend) {
+      throw new Error('This lobby is friends-only. You must be friends with the host to join.');
+    }
   }
 
   await updateDoc(lobbyRef, {
@@ -218,6 +227,51 @@ export function subscribePublicLobbies(callback) {
     const fallbackQ = query(
       collection(db, 'lobbies'),
       where('visibility', '==', 'public'),
+      where('status', '==', 'waiting')
+    );
+    return onSnapshot(fallbackQ, (snapshot) => {
+      const lobbies = snapshot.docs.map(docSnap => ({
+        docId: docSnap.id,
+        ...docSnap.data()
+      }));
+      // Sort client-side as fallback
+      lobbies.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+      callback(lobbies);
+    });
+  });
+}
+
+/**
+ * Subscribe to friends-only lobbies that are waiting for players.
+ * Returns all lobbies with visibility === 'friends' — the caller is
+ * responsible for filtering to only show lobbies hosted by actual friends.
+ * @param {function} callback - Called with an array of lobby objects
+ * @returns {function} Unsubscribe function
+ */
+export function subscribeFriendsLobbies(callback) {
+  const q = query(
+    collection(db, 'lobbies'),
+    where('visibility', '==', 'friends'),
+    where('status', '==', 'waiting'),
+    orderBy('createdAt', 'desc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const lobbies = snapshot.docs.map(docSnap => ({
+      docId: docSnap.id,
+      ...docSnap.data()
+    }));
+    callback(lobbies);
+  }, (error) => {
+    console.error('Error subscribing to friends lobbies:', error);
+    // Fallback: query without orderBy (in case index is missing)
+    const fallbackQ = query(
+      collection(db, 'lobbies'),
+      where('visibility', '==', 'friends'),
       where('status', '==', 'waiting')
     );
     return onSnapshot(fallbackQ, (snapshot) => {
