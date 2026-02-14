@@ -41,28 +41,36 @@ export function useLobby(userUid, userUsername, selectedDifficulty) {
   // When the list changes, re-filter the cached friends lobbies.
   useEffect(() => {
     if (!userUid) return;
-    const unsubscribe = subscribeFriendsList(userUid, (friends) => {
-      friendUidsRef.current = friends.map(f => f.friendUid);
-      // Re-filter using the latest friends lobbies snapshot
-      const filtered = allFriendsLobbiesRef.current.filter(
-        lobby => friendUidsRef.current.includes(lobby.hostUid)
-      );
-      setFriendsLobbies(filtered);
-    });
-    return unsubscribe;
+    try {
+      const unsubscribe = subscribeFriendsList(userUid, (friends) => {
+        friendUidsRef.current = friends.map(f => f.friendUid);
+        // Re-filter using the latest friends lobbies snapshot
+        const filtered = allFriendsLobbiesRef.current.filter(
+          lobby => friendUidsRef.current.includes(lobby.hostUid)
+        );
+        setFriendsLobbies(filtered);
+      });
+      return unsubscribe;
+    } catch (err) {
+      console.error('Friends list subscription failed (non-fatal):', err);
+    }
   }, [userUid]);
 
   // Subscribe to friends-only lobbies once; filter client-side using the ref.
   // This listener is stable and never torn down due to friendUids changes.
   useEffect(() => {
-    const unsubscribe = subscribeFriendsLobbies((lobbies) => {
-      allFriendsLobbiesRef.current = lobbies;
-      const filtered = lobbies.filter(
-        lobby => friendUidsRef.current.includes(lobby.hostUid)
-      );
-      setFriendsLobbies(filtered);
-    });
-    return unsubscribe;
+    try {
+      const unsubscribe = subscribeFriendsLobbies((lobbies) => {
+        allFriendsLobbiesRef.current = lobbies;
+        const filtered = lobbies.filter(
+          lobby => friendUidsRef.current.includes(lobby.hostUid)
+        );
+        setFriendsLobbies(filtered);
+      });
+      return unsubscribe;
+    } catch (err) {
+      console.error('Friends lobbies subscription failed (non-fatal):', err);
+    }
   }, []);
 
   /**
