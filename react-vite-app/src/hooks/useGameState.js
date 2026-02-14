@@ -4,12 +4,12 @@ import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } f
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
-const ROUND_TIME_SECONDS = 20;
+export const ROUND_TIME_SECONDS = 20;
 
 /**
  * Calculate distance between two points (in percentage coordinates)
  */
-function calculateDistance(guess, actual) {
+export function calculateDistance(guess, actual) {
   const dx = guess.x - actual.x;
   const dy = guess.y - actual.y;
   return Math.sqrt(dx * dx + dy * dy);
@@ -21,7 +21,7 @@ function calculateDistance(guess, actual) {
  * At 10 ft (distance=5 in map coords) or closer, the player gets 5000.
  * Score drops very dramatically with distance, rewarding precise guesses.
  */
-function calculateLocationScore(distance) {
+export function calculateLocationScore(distance) {
   const maxScore = 5000;
   const perfectRadius = 5; // 10 ft = 5 percentage units (distance * 2 = feet)
   const maxDistance = Math.sqrt(100 * 100 + 100 * 100) - perfectRadius; // ~136.42

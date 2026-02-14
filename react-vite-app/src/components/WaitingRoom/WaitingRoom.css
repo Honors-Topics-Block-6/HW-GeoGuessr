@@ -342,6 +342,33 @@
   }
 }
 
+/* Ready State */
+.waiting-ready-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.2rem;
+}
+
+.waiting-ready-text {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent-green);
+  text-shadow: 0 0 10px rgba(108, 181, 45, 0.3);
+  animation: readyPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes readyPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Mode Badge */
+.waiting-badge-mode {
+  border-color: rgba(231, 76, 60, 0.3);
+  color: #e74c3c;
+}
+
 /* Actions */
 .waiting-actions {
   display: flex;
