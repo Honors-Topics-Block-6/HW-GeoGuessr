@@ -12,6 +12,7 @@ import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
 import SubmissionApp from './components/SubmissionApp/SubmissionApp';
 import MessageBanner from './components/MessageBanner/MessageBanner';
+import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
 import './App.css';
 
 function App() {
@@ -79,6 +80,7 @@ function App() {
     return (
       <>
         {messageBanner}
+        <EmailVerificationBanner />
         <ProfileScreen onBack={() => setShowProfile(false)} />
       </>
     );
@@ -89,6 +91,7 @@ function App() {
     return (
       <>
         {messageBanner}
+        <EmailVerificationBanner />
         <SubmissionApp onBack={() => setShowSubmissionApp(false)} />
       </>
     );
@@ -98,6 +101,7 @@ function App() {
   if (error) {
     return (
       <div className="app">
+        <EmailVerificationBanner />
         <div className="error-container">
           <p className="error-message">{error}</p>
           <button className="retry-button" onClick={resetGame}>
@@ -132,7 +136,7 @@ function App() {
   return (
     <div className="app">
       {messageBanner}
-
+      <EmailVerificationBanner />
       {screen === 'title' && (
         <TitleScreen
           onPlay={handlePlay}
