@@ -1,7 +1,7 @@
 import { useAuth } from '../../contexts/AuthContext';
 import './TitleScreen.css';
 
-function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, isLoading }) {
+function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, onOpenBugReport, onOpenDailyGoals, isLoading }) {
   const { userDoc, logout, levelInfo, levelTitle } = useAuth();
 
   const handleLogout = async () => {
@@ -21,6 +21,9 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
           <span className="title-level-badge">Lvl {levelInfo.level}</span>
         </div>
         <div className="title-top-actions">
+          <button className="title-daily-goals-button" onClick={onOpenDailyGoals}>
+            Daily Goals
+          </button>
           <button className="title-leaderboard-button" onClick={onOpenLeaderboard}>
             Leaderboard
           </button>
@@ -32,6 +35,9 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
           </button>
           <button className="submit-photo-button" onClick={onOpenSubmission}>
             Submit Photo
+          </button>
+          <button className="title-bug-report-button" onClick={onOpenBugReport}>
+            Report Bug
           </button>
           <button className="title-logout-button" onClick={handleLogout}>
             Log Out
@@ -47,12 +53,6 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
         </div>
         <h1 className="game-title">HW Geoguessr</h1>
         <p className="tagline">Can you guess the location on campus?</p>
-
-        {/* Level chip under tagline */}
-        <div className="title-level-chip">
-          <span className="title-level-chip-level">Lvl {levelInfo.level}</span>
-          <span className="title-level-chip-title">{levelTitle}</span>
-        </div>
 
         <button
           className="start-button"

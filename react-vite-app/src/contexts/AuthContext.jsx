@@ -9,7 +9,7 @@ import {
   sendEmailVerification
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { createUserDoc, getUserDoc, updateUserDoc, isUsernameTaken, isHardcodedAdmin } from '../services/userService';
+import { createUserDoc, getUserDoc, updateUserDoc, isUsernameTaken, isHardcodedAdmin, getAllPermissions, getNoPermissions, ADMIN_PERMISSIONS } from '../services/userService';
 import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
 
 const AuthContext = createContext(null);
@@ -228,6 +228,24 @@ export function AuthProvider({ children }) {
   // Determine admin status: check Firestore doc OR hardcoded admin UID
   const isAdmin = !!(userDoc?.isAdmin) || (user && isHardcodedAdmin(user.uid));
 
+  // Derive permissions: hardcoded admin always has all, other admins get their stored permissions
+  const permissions = isAdmin
+    ? (user && isHardcodedAdmin(user.uid))
+      ? getAllPermissions()
+      : (userDoc?.permissions || getNoPermissions())
+    : getNoPermissions();
+
+  /**
+   * Check if the current user has a specific admin permission.
+   * @param {string} permission - One of ADMIN_PERMISSIONS values
+   * @returns {boolean}
+   */
+  const hasPermission = useCallback((permission) => {
+    if (!isAdmin) return false;
+    if (user && isHardcodedAdmin(user.uid)) return true;
+    return !!(permissions[permission]);
+  }, [isAdmin, user, permissions]);
+
   // Derive level info from the user's totalXp
   const totalXp = userDoc?.totalXp ?? 0;
   const levelInfo = getLevelInfo(totalXp);
@@ -239,6 +257,8 @@ export function AuthProvider({ children }) {
     loading,
     needsUsername,
     isAdmin,
+    permissions,
+    hasPermission,
     totalXp,
     levelInfo,
     levelTitle,

@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getAllUsers, setUserAdmin, isHardcodedAdmin, updateUserProfile } from '../../services/userService'
+import { getAllUsers, setUserAdmin, isHardcodedAdmin, updateUserProfile, updateUserPermissions, ADMIN_PERMISSIONS } from '../../services/userService'
 import { subscribeToAllPresence } from '../../services/presenceService'
 import UserEditModal from './UserEditModal'
 import SendMessageModal from './SendMessageModal'
+import PermissionsModal from './PermissionsModal'
 import './AccountManagement.css'
 
 function AccountManagement() {
-  const { user, userDoc } = useAuth()
+  const { user, userDoc, hasPermission } = useAuth()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -16,6 +17,13 @@ function AccountManagement() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [presenceMap, setPresenceMap] = useState({})
   const [messagingUser, setMessagingUser] = useState(null)
+  const [permissionsUser, setPermissionsUser] = useState(null)
+  const [savingPermissions, setSavingPermissions] = useState(false)
+
+  const canViewAccounts = hasPermission(ADMIN_PERMISSIONS.VIEW_ACCOUNTS)
+  const canEditAccounts = hasPermission(ADMIN_PERMISSIONS.EDIT_ACCOUNTS)
+  const canMessageAccounts = hasPermission(ADMIN_PERMISSIONS.MESSAGE_ACCOUNTS)
+  const canManageAdmins = hasPermission(ADMIN_PERMISSIONS.MANAGE_ADMINS)
 
   const fetchUsers = async () => {
     try {
@@ -89,6 +97,26 @@ function AccountManagement() {
     }
   }
 
+  const handleSavePermissions = async (uid, newPermissions) => {
+    setSavingPermissions(true)
+    try {
+      await updateUserPermissions(uid, newPermissions)
+      // Update local state to reflect changes
+      setUsers(prev =>
+        prev.map(u =>
+          u.id === uid ? { ...u, permissions: newPermissions } : u
+        )
+      )
+      setPermissionsUser(null)
+      setError(null)
+    } catch (err) {
+      console.error('Error updating permissions:', err)
+      setError(err.message || 'Failed to update permissions.')
+    } finally {
+      setSavingPermissions(false)
+    }
+  }
+
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A'
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
@@ -121,6 +149,7 @@ function AccountManagement() {
               <th>Email</th>
               <th>Created</th>
               <th>Admin</th>
+              <th>Permissions</th>
               <th>Verified</th>
               <th>Status</th>
               <th>Activity</th>
@@ -145,6 +174,33 @@ function AccountManagement() {
                       {u.isAdmin ? 'Yes' : 'No'}
                     </span>
                   </td>
+                  <td className="permissions-cell">
+                    {u.isAdmin ? (
+                      (() => {
+                        const perms = u.permissions || {}
+                        const grantedCount = Object.values(perms).filter(Boolean).length
+                        const totalCount = Object.keys(ADMIN_PERMISSIONS).length
+                        return (
+                          <span className="permissions-summary">
+                            <span className={`permissions-count ${grantedCount === totalCount ? 'all-perms' : grantedCount > 0 ? 'some-perms' : 'no-perms'}`}>
+                              {grantedCount}/{totalCount}
+                            </span>
+                            {canManageAdmins && !hardcoded && (
+                              <button
+                                className="permissions-edit-button"
+                                onClick={() => setPermissionsUser(u)}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {hardcoded && <span className="permissions-locked">All</span>}
+                          </span>
+                        )
+                      })()
+                    ) : (
+                      <span className="permissions-na">—</span>
+                    )}
+                  </td>
                   <td>
                     <span className={`verified-status ${u.emailVerified ? 'is-verified' : 'not-verified'}`}>
                       {u.emailVerified ? 'Yes' : 'No'}
@@ -160,32 +216,38 @@ function AccountManagement() {
                     {online ? (presenceMap[u.id]?.currentActivity || '—') : '—'}
                   </td>
                   <td className="actions-cell">
-                    <button
-                      className="edit-user-button"
-                      onClick={() => setEditingUser(u)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="send-msg-button"
-                      onClick={() => setMessagingUser(u)}
-                    >
-                      Message
-                    </button>
-                    {hardcoded ? (
-                      <span className="action-locked">Always Admin</span>
-                    ) : (
+                    {canEditAccounts && (
                       <button
-                        className={`toggle-admin-button ${u.isAdmin ? 'revoke' : 'grant'}`}
-                        onClick={() => handleToggleAdmin(u.id, u.isAdmin)}
-                        disabled={updatingUid === u.id}
+                        className="edit-user-button"
+                        onClick={() => setEditingUser(u)}
                       >
-                        {updatingUid === u.id
-                          ? 'Updating...'
-                          : u.isAdmin
-                            ? 'Revoke Admin'
-                            : 'Make Admin'}
+                        Edit
                       </button>
+                    )}
+                    {canMessageAccounts && (
+                      <button
+                        className="send-msg-button"
+                        onClick={() => setMessagingUser(u)}
+                      >
+                        Message
+                      </button>
+                    )}
+                    {canManageAdmins && (
+                      hardcoded ? (
+                        <span className="action-locked">Always Admin</span>
+                      ) : (
+                        <button
+                          className={`toggle-admin-button ${u.isAdmin ? 'revoke' : 'grant'}`}
+                          onClick={() => handleToggleAdmin(u.id, u.isAdmin)}
+                          disabled={updatingUid === u.id}
+                        >
+                          {updatingUid === u.id
+                            ? 'Updating...'
+                            : u.isAdmin
+                              ? 'Revoke Admin'
+                              : 'Make Admin'}
+                        </button>
+                      )
                     )}
                   </td>
                 </tr>
@@ -210,6 +272,15 @@ function AccountManagement() {
           onClose={() => setMessagingUser(null)}
           senderUid={user?.uid}
           senderUsername={userDoc?.username || 'Admin'}
+        />
+      )}
+
+      {permissionsUser && (
+        <PermissionsModal
+          user={permissionsUser}
+          onSave={handleSavePermissions}
+          onClose={() => setPermissionsUser(null)}
+          isSaving={savingPermissions}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import ImageViewer from '../ImageViewer/ImageViewer';
 import MapPicker from '../MapPicker/MapPicker';
 import FloorSelector from '../FloorSelector/FloorSelector';
@@ -21,6 +21,8 @@ function GameScreen({
   timeRemaining,
   timeLimitSeconds = 20
 }) {
+  const mapPickerRef = useRef(null);
+
   // Can submit if location is selected AND either:
   // - not in a region (availableFloors is null), OR
   // - in a region with floors and a floor is selected
@@ -28,11 +30,26 @@ function GameScreen({
   const canSubmit = guessLocation !== null && (!isInRegion || guessFloor !== null);
 
   const handleKeyDown = useCallback((e) => {
-    if (e.code === 'Space' && canSubmit) {
+    // Spacebar: submit guess if ready, otherwise click at cursor position on map
+    if (e.code === 'Space') {
       e.preventDefault();
-      onSubmitGuess();
+      if (canSubmit) {
+        onSubmitGuess();
+      } else if (!guessLocation && mapPickerRef.current) {
+        mapPickerRef.current.clickAtCursor();
+      }
+      return;
     }
-  }, [canSubmit, onSubmitGuess]);
+
+    // Number keys (1-9): select floor when floor selector is visible
+    if (isInRegion && availableFloors) {
+      const digit = parseInt(e.key, 10);
+      if (!isNaN(digit) && digit >= 1 && availableFloors.includes(digit)) {
+        e.preventDefault();
+        onFloorSelect(digit);
+      }
+    }
+  }, [canSubmit, onSubmitGuess, guessLocation, isInRegion, availableFloors, onFloorSelect]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -100,6 +117,7 @@ function GameScreen({
 
         <div className="guess-controls">
           <MapPicker
+            ref={mapPickerRef}
             markerPosition={guessLocation}
             onMapClick={onMapClick}
             clickRejected={clickRejected}

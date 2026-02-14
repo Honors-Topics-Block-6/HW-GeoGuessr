@@ -1,10 +1,22 @@
-import { useRef } from 'react';
+import { useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import './MapPicker.css';
 
-function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingArea = null }) {
+const MapPicker = forwardRef(function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingArea = null }, ref) {
   const containerRef = useRef(null);
   const imageRef = useRef(null);
+  const lastMousePos = useRef(null);
+
+  const coordsFromClientPos = useCallback((clientX, clientY) => {
+    if (!imageRef.current) return null;
+    const rect = imageRef.current.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
+    return {
+      x: Math.max(0, Math.min(100, x)),
+      y: Math.max(0, Math.min(100, y))
+    };
+  }, []);
 
   const {
     scale,
@@ -18,23 +30,37 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
   } = useMapZoom(containerRef);
 
   const handleClick = (event) => {
-    // If the user was dragging/panning, don't place a marker
     if (hasMoved()) return;
-
-    if (!imageRef.current) return;
-
-    // Get coordinates relative to the actual image element
-    // getBoundingClientRect() already accounts for CSS transforms
-    const rect = imageRef.current.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-
-    // Clamp values between 0 and 100
-    const clampedX = Math.max(0, Math.min(100, x));
-    const clampedY = Math.max(0, Math.min(100, y));
-
-    onMapClick({ x: clampedX, y: clampedY });
+    const coords = coordsFromClientPos(event.clientX, event.clientY);
+    if (coords) onMapClick(coords);
   };
+
+  const handleMouseMove = (event) => {
+    lastMousePos.current = { x: event.clientX, y: event.clientY };
+    // Forward to zoom/pan handler
+    if (handlers.onMouseMove) handlers.onMouseMove(event);
+  };
+
+  const handleMouseLeave = (event) => {
+    lastMousePos.current = null;
+    if (handlers.onMouseLeave) handlers.onMouseLeave(event);
+  };
+
+  /**
+   * Expose clickAtCursor() — places a marker at the current mouse position.
+   * Returns false if the cursor isn't over the map.
+   */
+  useImperativeHandle(ref, () => ({
+    clickAtCursor() {
+      if (!lastMousePos.current) return false;
+      const coords = coordsFromClientPos(lastMousePos.current.x, lastMousePos.current.y);
+      if (coords) {
+        onMapClick(coords);
+        return true;
+      }
+      return false;
+    }
+  }), [coordsFromClientPos, onMapClick]);
 
   // Check if playing area is defined
   const hasPlayingArea = playingArea && playingArea.polygon && playingArea.polygon.length >= 3;
@@ -52,6 +78,8 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
         onClick={handleClick}
         onContextMenu={(e) => e.preventDefault()}
         {...handlers}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
       >
         <div className="map-zoom-content" style={{ transform: transformStyle }}>
           <img
@@ -158,6 +186,6 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
       </div>
     </div>
   );
-}
+});
 
 export default MapPicker;

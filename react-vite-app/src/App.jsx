@@ -21,6 +21,8 @@ import LeaderboardScreen from './components/LeaderboardScreen/LeaderboardScreen'
 import SubmissionApp from './components/SubmissionApp/SubmissionApp';
 import FriendsPanel from './components/FriendsPanel/FriendsPanel';
 import ChatWindow from './components/ChatWindow/ChatWindow';
+import BugReportModal from './components/BugReportModal/BugReportModal';
+import DailyGoalsPanel from './components/DailyGoalsPanel/DailyGoalsPanel';
 import MessageBanner from './components/MessageBanner/MessageBanner';
 import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
 import './App.css';
@@ -33,6 +35,8 @@ function App() {
   const [showChat, setShowChat] = useState(false);
   const [chatFriend, setChatFriend] = useState(null); // { uid, username }
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showBugReport, setShowBugReport] = useState(false);
+  const [showDailyGoals, setShowDailyGoals] = useState(false);
 
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState(false);
@@ -207,6 +211,17 @@ function App() {
     );
   }
 
+  // Show daily goals panel
+  if (showDailyGoals) {
+    return (
+      <>
+        {messageBanner}
+        <EmailVerificationBanner />
+        <DailyGoalsPanel onBack={() => setShowDailyGoals(false)} />
+      </>
+    );
+  }
+
   // Show submission app
   if (showSubmissionApp) {
     return (
@@ -290,6 +305,8 @@ function App() {
           onOpenProfile={() => setShowProfile(true)}
           onOpenFriends={() => setShowFriends(true)}
           onOpenLeaderboard={() => setShowLeaderboard(true)}
+          onOpenBugReport={() => setShowBugReport(true)}
+          onOpenDailyGoals={() => setShowDailyGoals(true)}
           isLoading={isLoading}
         />
       )}
@@ -372,6 +389,7 @@ function App() {
           rounds={roundResults}
           onPlayAgain={() => setScreen('difficultySelect')}
           onBackToTitle={resetGame}
+          difficulty={difficulty}
         />
       )}
 
@@ -450,6 +468,16 @@ function App() {
         <div className="loading-container">
           <div className="loading-spinner"></div>
         </div>
+      )}
+
+      {/* Bug Report Modal (renders as portal overlay) */}
+      {showBugReport && (
+        <BugReportModal
+          onClose={() => setShowBugReport(false)}
+          userId={user.uid}
+          username={userDoc?.username}
+          userEmail={user.email}
+        />
       )}
     </div>
   );

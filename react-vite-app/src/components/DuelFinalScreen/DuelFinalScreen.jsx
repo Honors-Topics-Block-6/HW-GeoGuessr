@@ -1,5 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { STARTING_HEALTH } from '../../services/duelService';
+import { useDailyGoals } from '../../hooks/useDailyGoals';
+import { GOAL_TYPES } from '../../utils/dailyGoalDefinitions';
 import './DuelFinalScreen.css';
 
 const CONFETTI_COLORS = ['#6cb52d', '#ffc107', '#ff4757', '#3498db', '#9b59b6', '#e74c3c'];
@@ -24,6 +26,8 @@ function DuelFinalScreen({
   onBackToTitle
 }) {
   const [animationComplete, setAnimationComplete] = useState(false);
+  const { recordProgress } = useDailyGoals(myUid);
+  const goalsRecorded = useRef(false);
 
   const confettiPieces = useMemo(() => generateConfettiData(40), []);
 
@@ -66,6 +70,23 @@ function DuelFinalScreen({
     const timer = setTimeout(() => setAnimationComplete(true), 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Record daily goal progress for duel completion
+  useEffect(() => {
+    if (goalsRecorded.current || !myUid) return;
+    goalsRecorded.current = true;
+
+    // Goal: play a duel
+    recordProgress(GOAL_TYPES.PLAY_DUEL, 1);
+
+    // Goal: win a duel
+    if (winner === myUid) {
+      recordProgress(GOAL_TYPES.WIN_DUEL, 1);
+    }
+
+    // Goal: games played (duels count as games)
+    recordProgress(GOAL_TYPES.GAMES_PLAYED, 1);
+  }, [myUid, winner, recordProgress]);
 
   return (
     <div className="duel-final-screen">
