@@ -115,6 +115,14 @@ export function useWaitingRoom(lobbyDocId, userUid) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const hasLeft = useRef(false);
+  const docIdRef = useRef(lobbyDocId);
+  const uidRef = useRef(userUid);
+
+  // Keep refs in sync so the beforeunload handler sees current values
+  useEffect(() => {
+    docIdRef.current = lobbyDocId;
+    uidRef.current = userUid;
+  }, [lobbyDocId, userUid]);
 
   // Subscribe to lobby updates
   useEffect(() => {
@@ -135,14 +143,25 @@ export function useWaitingRoom(lobbyDocId, userUid) {
 
     return () => {
       unsubscribe();
-      // Auto-leave the lobby on unmount (unless already left manually)
-      if (!hasLeft.current && lobbyDocId && userUid) {
-        leaveLobby(lobbyDocId, userUid).catch(() => {
-          // Ignore errors on cleanup
-        });
-      }
     };
   }, [lobbyDocId, userUid]);
+
+  // Auto-leave lobby when the browser tab/window is closed
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!hasLeft.current && docIdRef.current && uidRef.current) {
+        // Use sendBeacon-style fire-and-forget; leaveLobby is async but
+        // we can't await in beforeunload. The call will still reach Firestore
+        // in most cases. Stale lobbies are acceptable at this stage.
+        leaveLobby(docIdRef.current, uidRef.current).catch(() => {});
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   /**
    * Leave the lobby manually.
