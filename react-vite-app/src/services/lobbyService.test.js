@@ -385,7 +385,7 @@ describe('lobbyService', () => {
       expect(lobbies[1].docId).toBe('lobby-2');
     });
 
-    it('should unsubscribe primary and fallback listeners on cleanup', () => {
+    it('should unsubscribe the listener on cleanup', () => {
       const primaryUnsub = vi.fn();
       onSnapshot.mockImplementationOnce(() => primaryUnsub);
 
@@ -396,28 +396,7 @@ describe('lobbyService', () => {
       expect(primaryUnsub).toHaveBeenCalledTimes(1);
     });
 
-    it('should set up fallback listener on primary error and clean both up', () => {
-      const primaryUnsub = vi.fn();
-      const fallbackUnsub = vi.fn();
-      let errorHandler;
-
-      onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
-        errorHandler = errCb;
-        return primaryUnsub;
-      });
-
-      const callback = vi.fn();
-      const cleanup = subscribePublicLobbies(callback);
-
-      onSnapshot.mockImplementationOnce(() => fallbackUnsub);
-      errorHandler(new Error('Missing index'));
-
-      cleanup();
-      expect(primaryUnsub).toHaveBeenCalledTimes(1);
-      expect(fallbackUnsub).toHaveBeenCalledTimes(1);
-    });
-
-    it('should use fallback query WITHOUT orderBy when primary fails', () => {
+    it('should call callback with empty array on error (no fallback listener)', () => {
       let errorHandler;
 
       onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
@@ -428,32 +407,16 @@ describe('lobbyService', () => {
       const callback = vi.fn();
       subscribePublicLobbies(callback);
 
-      // Clear to isolate the fallback query() call
-      query.mockClear();
-      where.mockClear();
-      orderBy.mockClear();
+      const snapshotCallsBefore = onSnapshot.mock.calls.length;
 
-      onSnapshot.mockImplementationOnce(() => vi.fn());
-      errorHandler(new Error('Missing index'));
+      // Trigger error (e.g. missing composite index)
+      errorHandler(new Error('The query requires an index'));
 
-      // Fallback query should be built
-      expect(query).toHaveBeenCalledTimes(1);
-      const fallbackArgs = query.mock.calls[0];
-      const fallbackConstraints = fallbackArgs.slice(1);
-      const fallbackWheres = fallbackConstraints.filter(c => c._type === 'where');
-      const fallbackOrders = fallbackConstraints.filter(c => c._type === 'orderBy');
+      // Should NOT have created any new onSnapshot listeners
+      expect(onSnapshot.mock.calls.length).toBe(snapshotCallsBefore);
 
-      // Same where filters
-      expect(fallbackWheres).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ field: 'visibility', op: '==', val: 'public' }),
-          expect.objectContaining({ field: 'status', op: '==', val: 'waiting' })
-        ])
-      );
-
-      // NO orderBy in fallback
-      expect(fallbackOrders).toHaveLength(0);
-      expect(orderBy).not.toHaveBeenCalled();
+      // Should have called callback with empty array
+      expect(callback).toHaveBeenCalledWith([]);
     });
   });
 });

@@ -86,30 +86,18 @@ describe('friendsLobbyService', () => {
       expect(lobbies[0].visibility).toBe('friends');
     });
 
-    it('should unsubscribe primary and fallback listeners on cleanup', () => {
+    it('should unsubscribe the listener on cleanup', () => {
       const primaryUnsub = vi.fn();
-      const fallbackUnsub = vi.fn();
-      let errorHandler;
-
-      onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
-        errorHandler = errCb;
-        return primaryUnsub;
-      });
+      onSnapshot.mockImplementationOnce(() => primaryUnsub);
 
       const callback = vi.fn();
       const cleanup = subscribeFriendsLobbies(callback);
 
-      // Trigger fallback
-      onSnapshot.mockImplementationOnce(() => fallbackUnsub);
-      errorHandler(new Error('Missing index'));
-
-      // Cleanup should unsubscribe both
       cleanup();
       expect(primaryUnsub).toHaveBeenCalledTimes(1);
-      expect(fallbackUnsub).toHaveBeenCalledTimes(1);
     });
 
-    it('should use fallback query WITHOUT orderBy when primary fails', () => {
+    it('should call callback with empty array on error (no fallback listener)', () => {
       let errorHandler;
 
       onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
@@ -120,91 +108,16 @@ describe('friendsLobbyService', () => {
       const callback = vi.fn();
       subscribeFriendsLobbies(callback);
 
-      // Clear to isolate the fallback query() call
-      query.mockClear();
-      where.mockClear();
-      orderBy.mockClear();
+      const snapshotCallsBefore = onSnapshot.mock.calls.length;
 
-      onSnapshot.mockImplementationOnce(() => vi.fn());
-      errorHandler(new Error('Missing index'));
+      // Trigger error (e.g. missing composite index)
+      errorHandler(new Error('The query requires an index'));
 
-      // Fallback query should be built
-      expect(query).toHaveBeenCalledTimes(1);
-      const fallbackArgs = query.mock.calls[0];
-      const fallbackConstraints = fallbackArgs.slice(1);
-      const fallbackWheres = fallbackConstraints.filter(c => c._type === 'where');
-      const fallbackOrders = fallbackConstraints.filter(c => c._type === 'orderBy');
+      // Should NOT have created any new onSnapshot listeners
+      expect(onSnapshot.mock.calls.length).toBe(snapshotCallsBefore);
 
-      // Same where filters
-      expect(fallbackWheres).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ field: 'visibility', op: '==', val: 'friends' }),
-          expect.objectContaining({ field: 'status', op: '==', val: 'waiting' })
-        ])
-      );
-
-      // NO orderBy in fallback
-      expect(fallbackOrders).toHaveLength(0);
-      expect(orderBy).not.toHaveBeenCalled();
-    });
-
-    it('should handle fallback error gracefully and return empty array', () => {
-      let primaryErrorHandler;
-      let fallbackErrorHandler;
-
-      onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
-        primaryErrorHandler = errCb;
-        return vi.fn();
-      });
-
-      const callback = vi.fn();
-      subscribeFriendsLobbies(callback);
-
-      // Trigger fallback
-      onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
-        fallbackErrorHandler = errCb;
-        return vi.fn();
-      });
-      primaryErrorHandler(new Error('Primary failed'));
-
-      // Trigger fallback error
-      fallbackErrorHandler(new Error('Fallback also failed'));
-
+      // Should have called callback with empty array
       expect(callback).toHaveBeenCalledWith([]);
-    });
-
-    it('should sort fallback results client-side by createdAt descending', () => {
-      let primaryErrorHandler;
-      let fallbackSnapshotCallback;
-
-      onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
-        primaryErrorHandler = errCb;
-        return vi.fn();
-      });
-
-      const callback = vi.fn();
-      subscribeFriendsLobbies(callback);
-
-      // Trigger fallback
-      onSnapshot.mockImplementationOnce((_q, cb) => {
-        fallbackSnapshotCallback = cb;
-        return vi.fn();
-      });
-      primaryErrorHandler(new Error('Index missing'));
-
-      // Send unsorted data
-      fallbackSnapshotCallback({
-        docs: [
-          { id: 'old', data: () => ({ createdAt: { toMillis: () => 1000 }, hostUid: 'a' }) },
-          { id: 'new', data: () => ({ createdAt: { toMillis: () => 3000 }, hostUid: 'b' }) },
-          { id: 'mid', data: () => ({ createdAt: { toMillis: () => 2000 }, hostUid: 'c' }) }
-        ]
-      });
-
-      const lobbies = callback.mock.calls[0][0];
-      expect(lobbies[0].docId).toBe('new');
-      expect(lobbies[1].docId).toBe('mid');
-      expect(lobbies[2].docId).toBe('old');
     });
   });
 });

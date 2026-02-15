@@ -107,6 +107,36 @@ describe('useLobby (integration)', () => {
     expect(friendsListCall).toBeUndefined();
   });
 
+  // ─── Error callbacks must NOT create new onSnapshot listeners ───
+  // Firestore's internal WatchChangeAggregator corrupts its state when
+  // a new onSnapshot is started inside the error callback of another
+  // onSnapshot. This causes INTERNAL ASSERTION FAILED errors that
+  // poison ALL subsequent Firestore operations (including addDoc).
+
+  it('should NOT create fallback onSnapshot listeners when primary queries fail', () => {
+    renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+    // 3 listeners on mount
+    const countBefore = onSnapshotCalls.length;
+    expect(countBefore).toBe(3);
+
+    const publicCall = findSnapshotCallByVisibility('public');
+    const friendsLobbyCall = findSnapshotCallByVisibility('friends');
+
+    // Fire errors on both lobby queries
+    act(() => {
+      publicCall.errorCb(new Error('The query requires an index'));
+    });
+    act(() => {
+      friendsLobbyCall.errorCb(new Error('The query requires an index'));
+    });
+
+    // NO new onSnapshot calls should have been created.
+    // Creating a new onSnapshot inside an error callback corrupts
+    // Firestore's internal state and breaks ALL subsequent operations.
+    expect(onSnapshotCalls.length).toBe(countBefore);
+  });
+
   // ─── Every onSnapshot must have an error handler ───────────────
 
   it('should register error handlers on ALL onSnapshot listeners', () => {
@@ -457,64 +487,28 @@ describe('useLobby (integration)', () => {
       }
     });
 
-    it('should still create a game when ALL listeners fail with errors (full cascade)', async () => {
-      // This simulates the real production scenario: Firestore composite
-      // indexes are missing, so every primary query errors, every fallback
-      // query errors, and callback([]) is called for each.
+    it('should still create a game when ALL listeners fail with errors', async () => {
       const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
-
-      // Initial mount creates 3 onSnapshot calls
-      expect(onSnapshotCalls.length).toBe(3);
 
       const publicCall = findSnapshotCallByVisibility('public');
       const friendsLobbyCall = findSnapshotCallByVisibility('friends');
       const friendsListCall = findSnapshotCallByCollection('friends');
 
-      // 1. Fire error on public lobbies primary -> triggers fallback in subscribePublicLobbies
+      // Fire errors on all listeners — no fallback listeners should be created
       act(() => {
-        publicCall.errorCb(new Error('Missing composite index for public'));
+        publicCall.errorCb(new Error('The query requires an index'));
       });
-
-      // subscribePublicLobbies error handler creates a fallback onSnapshot
-      // Find the new fallback call (it queries lobbies with visibility=public but no orderBy)
-      const publicFallbackCalls = onSnapshotCalls.filter(call => {
-        const args = call.query?._queryArgs || [];
-        return args.some(a => a._type === 'where' && a.field === 'visibility' && a.val === 'public');
-      });
-      expect(publicFallbackCalls.length).toBe(2); // primary + fallback
-
-      // Fire error on the fallback too
-      const publicFallback = publicFallbackCalls[1];
-      if (publicFallback.errorCb) {
-        act(() => {
-          publicFallback.errorCb(new Error('Fallback also failed'));
-        });
-      }
-
-      // 2. Fire error on friends lobbies primary -> triggers fallback in subscribeFriendsLobbies
       act(() => {
-        friendsLobbyCall.errorCb(new Error('Missing composite index for friends'));
+        friendsLobbyCall.errorCb(new Error('The query requires an index'));
       });
-
-      const friendsLobbyFallbackCalls = onSnapshotCalls.filter(call => {
-        const args = call.query?._queryArgs || [];
-        return args.some(a => a._type === 'where' && a.field === 'visibility' && a.val === 'friends');
-      });
-      expect(friendsLobbyFallbackCalls.length).toBe(2); // primary + fallback
-
-      const friendsLobbyFallback = friendsLobbyFallbackCalls[1];
-      if (friendsLobbyFallback.errorCb) {
-        act(() => {
-          friendsLobbyFallback.errorCb(new Error('Friends fallback also failed'));
-        });
-      }
-
-      // 3. Fire error on friends list
       act(() => {
-        friendsListCall.errorCb(new Error('Permission denied on friends'));
+        friendsListCall.errorCb(new Error('Permission denied'));
       });
 
-      // After all errors: publicLobbies=[], friendsLobbies=[], but hook is still alive
+      // No new onSnapshot calls — no fallback corruption
+      expect(onSnapshotCalls.length).toBe(3);
+
+      // After all errors: publicLobbies=[], friendsLobbies=[], but hook is alive
       expect(result.current.publicLobbies).toEqual([]);
       expect(result.current.friendsLobbies).toEqual([]);
 
@@ -528,37 +522,6 @@ describe('useLobby (integration)', () => {
 
       expect(hostResult).not.toBeNull();
       expect(hostResult.docId).toBe('game-after-all-errors');
-    });
-
-    it('should properly clean up fallback listeners on unmount after errors', () => {
-      const { unmount } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
-
-      const publicCall = findSnapshotCallByVisibility('public');
-      const friendsLobbyCall = findSnapshotCallByVisibility('friends');
-
-      // Fire errors to trigger fallback subscriptions
-      act(() => {
-        publicCall.errorCb(new Error('index missing'));
-      });
-      act(() => {
-        friendsLobbyCall.errorCb(new Error('index missing'));
-      });
-
-      // We now have: 3 original + 2 fallback = 5 onSnapshot calls
-      const totalCalls = onSnapshotCalls.length;
-      expect(totalCalls).toBe(5);
-
-      // Unmount should clean up ALL listeners including fallbacks
-      unmount();
-
-      // Each onSnapshot call returned mockOnSnapshotUnsub, so it should
-      // be called once for each subscription that the hook is responsible for.
-      // The hook manages cleanup for:
-      // - subscribePublicLobbies (wraps primary + fallback)
-      // - subscribeFriendsLobbies (wraps primary + fallback)
-      // - subscribeFriendsList (single)
-      // Total unsub calls should be >= 5
-      expect(mockOnSnapshotUnsub.mock.calls.length).toBeGreaterThanOrEqual(5);
     });
   });
 

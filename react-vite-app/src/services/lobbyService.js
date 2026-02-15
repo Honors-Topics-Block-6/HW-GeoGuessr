@@ -210,8 +210,6 @@ export function subscribeLobby(docId, callback) {
  * @returns {function} Unsubscribe function
  */
 export function subscribePublicLobbies(callback) {
-  let fallbackUnsub = null;
-
   const q = query(
     collection(db, 'lobbies'),
     where('visibility', '==', 'public'),
@@ -219,43 +217,21 @@ export function subscribePublicLobbies(callback) {
     orderBy('createdAt', 'desc')
   );
 
-  const primaryUnsub = onSnapshot(q, (snapshot) => {
+  return onSnapshot(q, (snapshot) => {
     const lobbies = snapshot.docs.map(docSnap => ({
       docId: docSnap.id,
       ...docSnap.data()
     }));
     callback(lobbies);
   }, (error) => {
+    // DO NOT create a fallback onSnapshot here. Starting a new listener
+    // inside an onSnapshot error callback corrupts Firestore's internal
+    // WatchChangeAggregator state, causing INTERNAL ASSERTION FAILED errors
+    // that break ALL subsequent Firestore operations (including writes).
     console.error('Error subscribing to public lobbies:', error);
-    // Fallback: query without orderBy (in case index is missing)
-    const fallbackQ = query(
-      collection(db, 'lobbies'),
-      where('visibility', '==', 'public'),
-      where('status', '==', 'waiting')
-    );
-    fallbackUnsub = onSnapshot(fallbackQ, (snapshot) => {
-      const lobbies = snapshot.docs.map(docSnap => ({
-        docId: docSnap.id,
-        ...docSnap.data()
-      }));
-      // Sort client-side as fallback
-      lobbies.sort((a, b) => {
-        const aTime = a.createdAt?.toMillis?.() || 0;
-        const bTime = b.createdAt?.toMillis?.() || 0;
-        return bTime - aTime;
-      });
-      callback(lobbies);
-    }, (fallbackError) => {
-      console.error('Fallback public lobbies query also failed:', fallbackError);
-      callback([]);
-    });
+    console.error('Create the required composite index at the link above.');
+    callback([]);
   });
-
-  // Return a cleanup function that unsubscribes from both listeners
-  return () => {
-    primaryUnsub();
-    if (fallbackUnsub) fallbackUnsub();
-  };
 }
 
 /**
