@@ -456,6 +456,110 @@ describe('useLobby (integration)', () => {
         );
       }
     });
+
+    it('should still create a game when ALL listeners fail with errors (full cascade)', async () => {
+      // This simulates the real production scenario: Firestore composite
+      // indexes are missing, so every primary query errors, every fallback
+      // query errors, and callback([]) is called for each.
+      const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+      // Initial mount creates 3 onSnapshot calls
+      expect(onSnapshotCalls.length).toBe(3);
+
+      const publicCall = findSnapshotCallByVisibility('public');
+      const friendsLobbyCall = findSnapshotCallByVisibility('friends');
+      const friendsListCall = findSnapshotCallByCollection('friends');
+
+      // 1. Fire error on public lobbies primary -> triggers fallback in subscribePublicLobbies
+      act(() => {
+        publicCall.errorCb(new Error('Missing composite index for public'));
+      });
+
+      // subscribePublicLobbies error handler creates a fallback onSnapshot
+      // Find the new fallback call (it queries lobbies with visibility=public but no orderBy)
+      const publicFallbackCalls = onSnapshotCalls.filter(call => {
+        const args = call.query?._queryArgs || [];
+        return args.some(a => a._type === 'where' && a.field === 'visibility' && a.val === 'public');
+      });
+      expect(publicFallbackCalls.length).toBe(2); // primary + fallback
+
+      // Fire error on the fallback too
+      const publicFallback = publicFallbackCalls[1];
+      if (publicFallback.errorCb) {
+        act(() => {
+          publicFallback.errorCb(new Error('Fallback also failed'));
+        });
+      }
+
+      // 2. Fire error on friends lobbies primary -> triggers fallback in subscribeFriendsLobbies
+      act(() => {
+        friendsLobbyCall.errorCb(new Error('Missing composite index for friends'));
+      });
+
+      const friendsLobbyFallbackCalls = onSnapshotCalls.filter(call => {
+        const args = call.query?._queryArgs || [];
+        return args.some(a => a._type === 'where' && a.field === 'visibility' && a.val === 'friends');
+      });
+      expect(friendsLobbyFallbackCalls.length).toBe(2); // primary + fallback
+
+      const friendsLobbyFallback = friendsLobbyFallbackCalls[1];
+      if (friendsLobbyFallback.errorCb) {
+        act(() => {
+          friendsLobbyFallback.errorCb(new Error('Friends fallback also failed'));
+        });
+      }
+
+      // 3. Fire error on friends list
+      act(() => {
+        friendsListCall.errorCb(new Error('Permission denied on friends'));
+      });
+
+      // After all errors: publicLobbies=[], friendsLobbies=[], but hook is still alive
+      expect(result.current.publicLobbies).toEqual([]);
+      expect(result.current.friendsLobbies).toEqual([]);
+
+      // hostGame must still work!
+      addDoc.mockResolvedValueOnce({ id: 'game-after-all-errors' });
+
+      let hostResult;
+      await act(async () => {
+        hostResult = await result.current.hostGame('public');
+      });
+
+      expect(hostResult).not.toBeNull();
+      expect(hostResult.docId).toBe('game-after-all-errors');
+    });
+
+    it('should properly clean up fallback listeners on unmount after errors', () => {
+      const { unmount } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+      const publicCall = findSnapshotCallByVisibility('public');
+      const friendsLobbyCall = findSnapshotCallByVisibility('friends');
+
+      // Fire errors to trigger fallback subscriptions
+      act(() => {
+        publicCall.errorCb(new Error('index missing'));
+      });
+      act(() => {
+        friendsLobbyCall.errorCb(new Error('index missing'));
+      });
+
+      // We now have: 3 original + 2 fallback = 5 onSnapshot calls
+      const totalCalls = onSnapshotCalls.length;
+      expect(totalCalls).toBe(5);
+
+      // Unmount should clean up ALL listeners including fallbacks
+      unmount();
+
+      // Each onSnapshot call returned mockOnSnapshotUnsub, so it should
+      // be called once for each subscription that the hook is responsible for.
+      // The hook manages cleanup for:
+      // - subscribePublicLobbies (wraps primary + fallback)
+      // - subscribeFriendsLobbies (wraps primary + fallback)
+      // - subscribeFriendsList (single)
+      // Total unsub calls should be >= 5
+      expect(mockOnSnapshotUnsub.mock.calls.length).toBeGreaterThanOrEqual(5);
+    });
   });
 
   // ─── hostGame ──────────────────────────────────────────────────
