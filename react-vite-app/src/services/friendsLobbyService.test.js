@@ -1,18 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Firebase before importing the service
+//
+// CRITICAL: The onSnapshot mock simulates Firestore's real corruption
+// behavior: calling onSnapshot() from inside an onSnapshot error callback
+// corrupts the Firestore instance, causing ALL subsequent operations to
+// throw "INTERNAL ASSERTION FAILED: Unexpected state".
 vi.mock('../firebase', () => ({
   db: { _marker: 'mock-db' }
 }));
 
 const mockOnSnapshotUnsub = vi.fn();
+let insideErrorCallback = false;
+let firestoreCorrupted = false;
 
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn((_db, name) => ({ _collectionName: name })),
   query: vi.fn((...args) => ({ _queryArgs: args })),
   where: vi.fn((field, op, val) => ({ _type: 'where', field, op, val })),
   orderBy: vi.fn((field, dir) => ({ _type: 'orderBy', field, dir })),
-  onSnapshot: vi.fn(() => mockOnSnapshotUnsub)
+  onSnapshot: vi.fn((q, successCb, errorCb) => {
+    // Simulate Firestore corruption: if onSnapshot is called while we're
+    // inside another onSnapshot's error callback, corrupt the instance.
+    if (insideErrorCallback) {
+      firestoreCorrupted = true;
+    }
+    return mockOnSnapshotUnsub;
+  })
 }));
 
 import { onSnapshot, query, where, orderBy } from 'firebase/firestore';
@@ -21,6 +35,8 @@ import { subscribeFriendsLobbies } from './friendsLobbyService';
 describe('friendsLobbyService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    insideErrorCallback = false;
+    firestoreCorrupted = false;
   });
 
   describe('subscribeFriendsLobbies', () => {
@@ -97,7 +113,7 @@ describe('friendsLobbyService', () => {
       expect(primaryUnsub).toHaveBeenCalledTimes(1);
     });
 
-    it('should call callback with empty array on error (no fallback listener)', () => {
+    it('should call callback with empty array on error without corrupting Firestore', () => {
       let errorHandler;
 
       onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
@@ -110,8 +126,17 @@ describe('friendsLobbyService', () => {
 
       const snapshotCallsBefore = onSnapshot.mock.calls.length;
 
-      // Trigger error (e.g. missing composite index)
-      errorHandler(new Error('The query requires an index'));
+      // Simulate the real Firestore behavior: track that we're inside an error callback.
+      // If the error handler creates a new onSnapshot, Firestore becomes corrupted.
+      insideErrorCallback = true;
+      try {
+        errorHandler(new Error('The query requires an index'));
+      } finally {
+        insideErrorCallback = false;
+      }
+
+      // Firestore must NOT have been corrupted by the error handler
+      expect(firestoreCorrupted).toBe(false);
 
       // Should NOT have created any new onSnapshot listeners
       expect(onSnapshot.mock.calls.length).toBe(snapshotCallsBefore);

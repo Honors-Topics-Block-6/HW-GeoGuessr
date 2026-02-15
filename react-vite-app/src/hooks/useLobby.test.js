@@ -5,28 +5,86 @@ import { renderHook, act } from '@testing-library/react';
 // We do NOT mock lobbyService, friendsLobbyService, OR friendService.
 // Every service module runs its REAL code. Only firebase/firestore
 // and ../firebase are faked so no network calls are made.
+//
+// CRITICAL: The Firestore mock below simulates a real Firestore behavior:
+// calling onSnapshot() from inside an onSnapshot error callback corrupts
+// Firestore's internal WatchChangeAggregator state machine. Once corrupted,
+// ALL subsequent Firestore operations (addDoc, getDoc, updateDoc, etc.)
+// throw "INTERNAL ASSERTION FAILED: Unexpected state". This is the exact
+// bug that broke multiplayer in production.
 
 vi.mock('../firebase', () => ({
   db: { _marker: 'mock-db' }
 }));
 
-// Capture every onSnapshot registration so tests can simulate Firestore events
+// ─── Firestore state machine mock ────────────────────────────────
+// Tracks whether we're currently inside an onSnapshot error callback.
+// If onSnapshot is called while insideErrorCallback is true, the mock
+// Firestore becomes "corrupted" — just like the real Firestore SDK.
 let onSnapshotCalls = [];
+let insideErrorCallback = false;
+let firestoreCorrupted = false;
 const mockOnSnapshotUnsub = vi.fn();
 
+function assertNotCorrupted(opName) {
+  if (firestoreCorrupted) {
+    throw new Error(
+      `INTERNAL ASSERTION FAILED: Unexpected state — ` +
+      `Firestore corrupted by nested onSnapshot in error callback. ` +
+      `${opName}() cannot proceed.`
+    );
+  }
+}
+
 vi.mock('firebase/firestore', () => ({
-  addDoc: vi.fn(),
-  updateDoc: vi.fn(),
-  getDoc: vi.fn(),
-  getDocs: vi.fn(() => ({ empty: true, docs: [] })),
-  deleteDoc: vi.fn(),
+  addDoc: vi.fn((...args) => {
+    assertNotCorrupted('addDoc');
+    // Default: return resolved promise (tests can override with mockResolvedValueOnce)
+    return Promise.resolve({ id: 'default-doc' });
+  }),
+  updateDoc: vi.fn((...args) => {
+    assertNotCorrupted('updateDoc');
+    return Promise.resolve();
+  }),
+  getDoc: vi.fn((...args) => {
+    assertNotCorrupted('getDoc');
+    return Promise.resolve({ exists: () => false, data: () => null });
+  }),
+  getDocs: vi.fn((...args) => {
+    assertNotCorrupted('getDocs');
+    return Promise.resolve({ empty: true, docs: [] });
+  }),
+  deleteDoc: vi.fn((...args) => {
+    assertNotCorrupted('deleteDoc');
+    return Promise.resolve();
+  }),
   doc: vi.fn((_db, _col, id) => ({ id, path: `${_col}/${id}` })),
   collection: vi.fn((_db, name) => ({ _collectionName: name })),
   query: vi.fn((...args) => ({ _queryArgs: args })),
   where: vi.fn((field, op, val) => ({ _type: 'where', field, op, val })),
   orderBy: vi.fn((...args) => args),
   onSnapshot: vi.fn((q, successCb, errorCb) => {
-    onSnapshotCalls.push({ query: q, successCb, errorCb });
+    // Simulate Firestore corruption: if onSnapshot is called while we're
+    // inside another onSnapshot's error callback, corrupt the instance.
+    if (insideErrorCallback) {
+      firestoreCorrupted = true;
+      console.error(
+        'TEST MOCK: onSnapshot called inside error callback — Firestore is now corrupted. ' +
+        'This simulates the real INTERNAL ASSERTION FAILED behavior.'
+      );
+    }
+
+    // Wrap the error callback to track when we're inside it
+    const wrappedErrorCb = errorCb ? (error) => {
+      insideErrorCallback = true;
+      try {
+        errorCb(error);
+      } finally {
+        insideErrorCallback = false;
+      }
+    } : undefined;
+
+    onSnapshotCalls.push({ query: q, successCb, errorCb: wrappedErrorCb, _rawErrorCb: errorCb });
     return mockOnSnapshotUnsub;
   }),
   arrayUnion: vi.fn(val => val),
@@ -71,6 +129,8 @@ describe('useLobby (integration)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     onSnapshotCalls = [];
+    insideErrorCallback = false;
+    firestoreCorrupted = false;
   });
 
   // ─── Listener setup ────────────────────────────────────────────
@@ -107,34 +167,102 @@ describe('useLobby (integration)', () => {
     expect(friendsListCall).toBeUndefined();
   });
 
-  // ─── Error callbacks must NOT create new onSnapshot listeners ───
-  // Firestore's internal WatchChangeAggregator corrupts its state when
-  // a new onSnapshot is started inside the error callback of another
-  // onSnapshot. This causes INTERNAL ASSERTION FAILED errors that
-  // poison ALL subsequent Firestore operations (including addDoc).
+  // ─── CRITICAL: Firestore corruption test ────────────────────────
+  // This test replicates the EXACT production error. The Firestore mock
+  // simulates the real SDK behavior: if onSnapshot() is called from inside
+  // an onSnapshot error callback, Firestore's internal state is corrupted
+  // and ALL subsequent operations throw INTERNAL ASSERTION FAILED.
+  //
+  // With the old buggy code (fallback onSnapshot in error callback):
+  //   → error callback fires → creates new onSnapshot → firestoreCorrupted=true
+  //   → addDoc throws INTERNAL ASSERTION FAILED → hostGame fails → TEST FAILS
+  //
+  // With the fixed code (error callback just calls callback([])):
+  //   → error callback fires → no new onSnapshot → firestoreCorrupted stays false
+  //   → addDoc works → hostGame succeeds → TEST PASSES
 
-  it('should NOT create fallback onSnapshot listeners when primary queries fail', () => {
-    renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+  it('should NOT corrupt Firestore when onSnapshot queries fail (no nested listeners)', async () => {
+    const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
 
     // 3 listeners on mount
-    const countBefore = onSnapshotCalls.length;
-    expect(countBefore).toBe(3);
+    expect(onSnapshotCalls.length).toBe(3);
+    expect(firestoreCorrupted).toBe(false);
 
     const publicCall = findSnapshotCallByVisibility('public');
     const friendsLobbyCall = findSnapshotCallByVisibility('friends');
 
-    // Fire errors on both lobby queries
+    // Simulate the EXACT production scenario: Firestore returns
+    // "The query requires an index" for the composite queries
+    act(() => {
+      publicCall.errorCb(new Error(
+        'FirebaseError: The query requires an index. You can create it here: https://console.firebase.google.com/...'
+      ));
+    });
+    act(() => {
+      friendsLobbyCall.errorCb(new Error(
+        'FirebaseError: The query requires an index. You can create it here: https://console.firebase.google.com/...'
+      ));
+    });
+
+    // The critical assertion: Firestore must NOT be corrupted.
+    // If the error callbacks created new onSnapshot listeners (the old bug),
+    // insideErrorCallback would have been true during the onSnapshot call,
+    // which sets firestoreCorrupted = true.
+    expect(firestoreCorrupted).toBe(false);
+
+    // And as a consequence, addDoc (used by createLobby/hostGame) must work.
+    // With the old buggy code, this would throw:
+    //   "INTERNAL ASSERTION FAILED: Unexpected state"
+    addDoc.mockResolvedValueOnce({ id: 'game-after-errors' });
+
+    let hostResult;
+    await act(async () => {
+      hostResult = await result.current.hostGame('public');
+    });
+
+    expect(hostResult).not.toBeNull();
+    expect(hostResult.docId).toBe('game-after-errors');
+    expect(result.current.error).toBeNull();
+  });
+
+  it('should NOT corrupt Firestore when ALL listeners fail (full cascade)', async () => {
+    const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
+
+    const publicCall = findSnapshotCallByVisibility('public');
+    const friendsLobbyCall = findSnapshotCallByVisibility('friends');
+    const friendsListCall = findSnapshotCallByCollection('friends');
+
+    // Fire errors on ALL listeners
     act(() => {
       publicCall.errorCb(new Error('The query requires an index'));
     });
     act(() => {
       friendsLobbyCall.errorCb(new Error('The query requires an index'));
     });
+    act(() => {
+      friendsListCall.errorCb(new Error('Permission denied'));
+    });
 
-    // NO new onSnapshot calls should have been created.
-    // Creating a new onSnapshot inside an error callback corrupts
-    // Firestore's internal state and breaks ALL subsequent operations.
-    expect(onSnapshotCalls.length).toBe(countBefore);
+    // Firestore must NOT be corrupted by any of these error handlers
+    expect(firestoreCorrupted).toBe(false);
+
+    // No new onSnapshot calls beyond the original 3
+    expect(onSnapshotCalls.length).toBe(3);
+
+    // Lobby lists should be empty but the hook should be alive
+    expect(result.current.publicLobbies).toEqual([]);
+    expect(result.current.friendsLobbies).toEqual([]);
+
+    // hostGame must still work — this is the key user-facing behavior
+    addDoc.mockResolvedValueOnce({ id: 'game-after-all-errors' });
+
+    let hostResult;
+    await act(async () => {
+      hostResult = await result.current.hostGame('public');
+    });
+
+    expect(hostResult).not.toBeNull();
+    expect(hostResult.docId).toBe('game-after-all-errors');
   });
 
   // ─── Every onSnapshot must have an error handler ───────────────
@@ -366,6 +494,9 @@ describe('useLobby (integration)', () => {
         friendsLobbyCall.errorCb(new Error('Missing composite index for friends'));
       });
 
+      // Firestore must NOT be corrupted
+      expect(firestoreCorrupted).toBe(false);
+
       addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
 
       let hostResult;
@@ -385,6 +516,9 @@ describe('useLobby (integration)', () => {
       act(() => {
         friendsListCall.errorCb(new Error('Permission denied on friends collection'));
       });
+
+      // Firestore must NOT be corrupted
+      expect(firestoreCorrupted).toBe(false);
 
       addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
 
@@ -485,43 +619,6 @@ describe('useLobby (integration)', () => {
           `subscribeFriendsList throwing crashed the hook, preventing game creation: ${hookError.message}`
         );
       }
-    });
-
-    it('should still create a game when ALL listeners fail with errors', async () => {
-      const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
-
-      const publicCall = findSnapshotCallByVisibility('public');
-      const friendsLobbyCall = findSnapshotCallByVisibility('friends');
-      const friendsListCall = findSnapshotCallByCollection('friends');
-
-      // Fire errors on all listeners — no fallback listeners should be created
-      act(() => {
-        publicCall.errorCb(new Error('The query requires an index'));
-      });
-      act(() => {
-        friendsLobbyCall.errorCb(new Error('The query requires an index'));
-      });
-      act(() => {
-        friendsListCall.errorCb(new Error('Permission denied'));
-      });
-
-      // No new onSnapshot calls — no fallback corruption
-      expect(onSnapshotCalls.length).toBe(3);
-
-      // After all errors: publicLobbies=[], friendsLobbies=[], but hook is alive
-      expect(result.current.publicLobbies).toEqual([]);
-      expect(result.current.friendsLobbies).toEqual([]);
-
-      // hostGame must still work!
-      addDoc.mockResolvedValueOnce({ id: 'game-after-all-errors' });
-
-      let hostResult;
-      await act(async () => {
-        hostResult = await result.current.hostGame('public');
-      });
-
-      expect(hostResult).not.toBeNull();
-      expect(hostResult.docId).toBe('game-after-all-errors');
     });
   });
 

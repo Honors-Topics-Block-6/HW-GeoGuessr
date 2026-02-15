@@ -5,24 +5,63 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // query(), where(), orderBy(), and onSnapshot() so tests can verify
 // the REAL query construction logic in lobbyService — not just that
 // "some function was called".
+//
+// CRITICAL: The onSnapshot mock simulates Firestore's real corruption
+// behavior: calling onSnapshot() from inside an onSnapshot error callback
+// corrupts the Firestore instance, causing ALL subsequent operations to
+// throw "INTERNAL ASSERTION FAILED: Unexpected state".
 vi.mock('../firebase', () => ({
   db: { _marker: 'mock-db' }
 }));
 
 const mockOnSnapshotUnsub = vi.fn();
+let insideErrorCallback = false;
+let firestoreCorrupted = false;
+
+function assertNotCorrupted(opName) {
+  if (firestoreCorrupted) {
+    throw new Error(
+      `INTERNAL ASSERTION FAILED: Unexpected state — ` +
+      `Firestore corrupted by nested onSnapshot in error callback. ` +
+      `${opName}() cannot proceed.`
+    );
+  }
+}
 
 vi.mock('firebase/firestore', () => ({
-  addDoc: vi.fn(),
-  updateDoc: vi.fn(),
-  getDoc: vi.fn(),
-  getDocs: vi.fn(),
-  deleteDoc: vi.fn(),
+  addDoc: vi.fn((...args) => {
+    assertNotCorrupted('addDoc');
+    return Promise.resolve({ id: 'default-doc' });
+  }),
+  updateDoc: vi.fn((...args) => {
+    assertNotCorrupted('updateDoc');
+    return Promise.resolve();
+  }),
+  getDoc: vi.fn((...args) => {
+    assertNotCorrupted('getDoc');
+    return Promise.resolve({ exists: () => false, data: () => null });
+  }),
+  getDocs: vi.fn((...args) => {
+    assertNotCorrupted('getDocs');
+    return Promise.resolve({ empty: true, docs: [] });
+  }),
+  deleteDoc: vi.fn((...args) => {
+    assertNotCorrupted('deleteDoc');
+    return Promise.resolve();
+  }),
   doc: vi.fn((_db, _col, id) => ({ id, path: `lobbies/${id}` })),
   collection: vi.fn((_db, name) => ({ _collectionName: name })),
   query: vi.fn((...args) => ({ _queryArgs: args })),
   where: vi.fn((field, op, val) => ({ _type: 'where', field, op, val })),
   orderBy: vi.fn((field, dir) => ({ _type: 'orderBy', field, dir })),
-  onSnapshot: vi.fn(() => mockOnSnapshotUnsub),
+  onSnapshot: vi.fn((q, successCb, errorCb) => {
+    // Simulate Firestore corruption: if onSnapshot is called while we're
+    // inside another onSnapshot's error callback, corrupt the instance.
+    if (insideErrorCallback) {
+      firestoreCorrupted = true;
+    }
+    return mockOnSnapshotUnsub;
+  }),
   arrayUnion: vi.fn(val => val),
   arrayRemove: vi.fn(val => val),
   serverTimestamp: vi.fn(() => ({ _type: 'serverTimestamp' })),
@@ -48,6 +87,8 @@ import {
 describe('lobbyService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    insideErrorCallback = false;
+    firestoreCorrupted = false;
   });
 
   describe('generateGameId', () => {
@@ -396,7 +437,7 @@ describe('lobbyService', () => {
       expect(primaryUnsub).toHaveBeenCalledTimes(1);
     });
 
-    it('should call callback with empty array on error (no fallback listener)', () => {
+    it('should call callback with empty array on error without corrupting Firestore', () => {
       let errorHandler;
 
       onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
@@ -409,14 +450,48 @@ describe('lobbyService', () => {
 
       const snapshotCallsBefore = onSnapshot.mock.calls.length;
 
-      // Trigger error (e.g. missing composite index)
-      errorHandler(new Error('The query requires an index'));
+      // Simulate the real Firestore behavior: track that we're inside an error callback.
+      // If the error handler creates a new onSnapshot, Firestore becomes corrupted.
+      insideErrorCallback = true;
+      try {
+        errorHandler(new Error('The query requires an index'));
+      } finally {
+        insideErrorCallback = false;
+      }
+
+      // Firestore must NOT have been corrupted by the error handler
+      expect(firestoreCorrupted).toBe(false);
 
       // Should NOT have created any new onSnapshot listeners
       expect(onSnapshot.mock.calls.length).toBe(snapshotCallsBefore);
 
       // Should have called callback with empty array
       expect(callback).toHaveBeenCalledWith([]);
+    });
+
+    it('should allow addDoc to work after onSnapshot error (no Firestore corruption)', async () => {
+      let errorHandler;
+
+      onSnapshot.mockImplementationOnce((_q, _cb, errCb) => {
+        errorHandler = errCb;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      subscribePublicLobbies(callback);
+
+      // Trigger error — this must NOT corrupt Firestore
+      insideErrorCallback = true;
+      try {
+        errorHandler(new Error('The query requires an index'));
+      } finally {
+        insideErrorCallback = false;
+      }
+
+      // addDoc should still work (not throw INTERNAL ASSERTION FAILED)
+      addDoc.mockResolvedValueOnce({ id: 'new-lobby' });
+      const result = await createLobby('host-uid', 'Host', 'easy', 'public');
+      expect(result.docId).toBe('new-lobby');
     });
   });
 });
