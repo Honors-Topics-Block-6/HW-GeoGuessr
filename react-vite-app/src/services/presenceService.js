@@ -178,3 +178,4 @@ export async function markMessageRead(recipientUid, messageId) {
   const messageRef = doc(db, 'presence', recipientUid, 'messages', messageId);
   await updateDoc(messageRef, { read: true });
 }
+

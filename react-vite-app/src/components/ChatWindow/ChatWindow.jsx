@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useChat } from '../../hooks/useChat';
 import './ChatWindow.css';
 
-function ChatWindow({ friendUid, friendUsername, onBack }) {
+function ChatWindow({ friendUid, friendUsername, onBack, onJoinLobby }) {
   const { user, userDoc } = useAuth();
   const { messages, sendMessage, loading } = useChat(
     user?.uid,
@@ -100,6 +100,7 @@ function ChatWindow({ friendUid, friendUsername, onBack }) {
             <>
               {messages.map((msg, index) => {
                 const isMe = msg.senderUid === user?.uid;
+                const isInvite = msg.type === 'lobby_invite';
                 const showTimestamp = index === 0 ||
                   (() => {
                     const prev = messages[index - 1];
@@ -116,11 +117,34 @@ function ChatWindow({ friendUid, friendUsername, onBack }) {
                         {formatTime(msg.sentAt)}
                       </div>
                     )}
-                    <div className={`chat-message ${isMe ? 'mine' : 'theirs'}`}>
-                      <div className={`chat-bubble ${isMe ? 'mine' : 'theirs'}`}>
-                        <p className="chat-bubble-text">{msg.text}</p>
+
+                    {isInvite ? (
+                      /* ── Lobby Invite Card ── */
+                      <div className={`chat-message ${isMe ? 'mine' : 'theirs'}`}>
+                        <div className="chat-invite-card">
+                          <div className="chat-invite-icon">⚔️</div>
+                          <p className="chat-invite-text">{msg.text}</p>
+                          {!isMe && onJoinLobby && (
+                            <button
+                              className="chat-invite-join-btn"
+                              onClick={() => onJoinLobby(msg)}
+                            >
+                              Join Duel
+                            </button>
+                          )}
+                          {isMe && (
+                            <span className="chat-invite-sent-label">Invite Sent</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      /* ── Normal Message Bubble ── */
+                      <div className={`chat-message ${isMe ? 'mine' : 'theirs'}`}>
+                        <div className={`chat-bubble ${isMe ? 'mine' : 'theirs'}`}>
+                          <p className="chat-bubble-text">{msg.text}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

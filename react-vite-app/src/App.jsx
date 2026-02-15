@@ -5,6 +5,7 @@ import { useDuelGame } from './hooks/useDuelGame';
 import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
 import { STARTING_HEALTH } from './services/duelService';
+import { joinLobby } from './services/lobbyService';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
@@ -70,7 +71,8 @@ function App() {
     nextRound,
     viewFinalResults,
     resetGame,
-    setLobbyDocId
+    setLobbyDocId,
+    setDifficulty
   } = useGameState();
 
   // Duel game hook — only active when inDuel is true and we have a lobby doc ID
@@ -85,6 +87,36 @@ function App() {
 
   // Listen for admin messages sent to this user
   const { messages, dismissMessage } = useAdminMessages(user?.uid);
+
+  /**
+   * Handle joining a lobby from a chat invite message.
+   * Joins the lobby and navigates to the WaitingRoom.
+   */
+  const handleJoinFromInvite = useCallback(async (inviteMsg) => {
+    try {
+      await joinLobby(
+        inviteMsg.lobbyDocId,
+        user.uid,
+        userDoc?.username,
+        inviteMsg.difficulty
+      );
+      // Close any open panels so we land cleanly on the WaitingRoom
+      setShowFriends(false);
+      setShowChat(false);
+      setChatFriend(null);
+      setShowProfile(false);
+      setShowLeaderboard(false);
+      setShowDailyGoals(false);
+      setShowSubmissionApp(false);
+      // Set game state for the WaitingRoom
+      setDifficulty(inviteMsg.difficulty);
+      setLobbyDocId(inviteMsg.lobbyDocId);
+      setScreen('waitingRoom');
+    } catch (err) {
+      console.error('Failed to join lobby from invite:', err);
+      alert(err.message || 'Failed to join lobby.');
+    }
+  }, [user, userDoc, setDifficulty, setLobbyDocId, setScreen]);
 
   // Prepare the message banner (uses createPortal, renders at viewport top)
   const messageBanner = user && messages.length > 0 ? (
@@ -164,6 +196,7 @@ function App() {
           friendUid={chatFriend.uid}
           friendUsername={chatFriend.username}
           onBack={handleCloseChat}
+          onJoinLobby={handleJoinFromInvite}
         />
       </>
     );

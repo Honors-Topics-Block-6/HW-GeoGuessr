@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useWaitingRoom } from '../../hooks/useLobby';
 import { startDuel } from '../../services/duelService';
+import InviteFriendsModal from '../InviteFriendsModal/InviteFriendsModal';
 import './WaitingRoom.css';
 
 const DIFFICULTY_LABELS = {
@@ -14,6 +15,7 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }) {
   const { lobby, isLoading, error, leave } = useWaitingRoom(lobbyDocId, userUid);
   const [copied, setCopied] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   const handleCopyCode = async () => {
     if (!lobby?.gameId) return;
@@ -164,14 +166,22 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }) {
 
           {/* Waiting animation */}
           {!isFull && (
-            <div className="waiting-dots-container">
-              <span className="waiting-dots-text">Waiting for opponent</span>
-              <span className="waiting-dots">
-                <span className="waiting-dot"></span>
-                <span className="waiting-dot"></span>
-                <span className="waiting-dot"></span>
-              </span>
-            </div>
+            <>
+              <div className="waiting-dots-container">
+                <span className="waiting-dots-text">Waiting for opponent</span>
+                <span className="waiting-dots">
+                  <span className="waiting-dot"></span>
+                  <span className="waiting-dot"></span>
+                  <span className="waiting-dot"></span>
+                </span>
+              </div>
+              <button
+                className="waiting-invite-btn"
+                onClick={() => setShowInviteModal(true)}
+              >
+                👥 Invite Friends
+              </button>
+            </>
           )}
 
           {isFull && !isHost && (
@@ -209,6 +219,15 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }) {
           </button>
         </div>
       </div>
+
+      {/* Invite Friends Modal */}
+      {showInviteModal && (
+        <InviteFriendsModal
+          onClose={() => setShowInviteModal(false)}
+          lobbyDocId={lobbyDocId}
+          difficulty={lobby.difficulty}
+        />
+      )}
     </div>
   );
 }

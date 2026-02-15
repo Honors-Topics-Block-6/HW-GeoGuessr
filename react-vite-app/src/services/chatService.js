@@ -128,6 +128,31 @@ export function subscribeUnreadCount(chatId, currentUid, callback) {
   });
 }
 
+/**
+ * Send a lobby invite as a special chat message to a friend.
+ * The message includes lobby metadata so the recipient can join
+ * directly from the chat via a "Join" button.
+ *
+ * @param {string} chatId - The chat ID (from getChatId)
+ * @param {string} senderUid - Inviter's UID
+ * @param {string} senderUsername - Inviter's display name
+ * @param {string} lobbyDocId - The Firestore document ID of the lobby
+ * @param {string} difficulty - The lobby's difficulty setting
+ */
+export async function sendLobbyInvite(chatId, senderUid, senderUsername, lobbyDocId, difficulty) {
+  const messagesRef = collection(db, 'chats', chatId, 'messages');
+  await addDoc(messagesRef, {
+    type: 'lobby_invite',
+    senderUid,
+    senderUsername,
+    text: `${senderUsername} invited you to a duel!`,
+    lobbyDocId,
+    difficulty,
+    sentAt: serverTimestamp(),
+    read: false
+  });
+}
+
 // ────── Admin Functions ──────
 
 /**
