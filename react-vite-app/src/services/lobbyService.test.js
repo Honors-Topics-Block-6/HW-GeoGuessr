@@ -21,9 +21,7 @@ let firestoreCorrupted = false;
 function assertNotCorrupted(opName) {
   if (firestoreCorrupted) {
     throw new Error(
-      `INTERNAL ASSERTION FAILED: Unexpected state — ` +
-      `Firestore corrupted by nested onSnapshot in error callback. ` +
-      `${opName}() cannot proceed.`
+      `INTERNAL ASSERTION FAILED: Unexpected state`
     );
   }
 }

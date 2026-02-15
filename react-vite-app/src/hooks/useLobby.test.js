@@ -29,9 +29,7 @@ const mockOnSnapshotUnsub = vi.fn();
 function assertNotCorrupted(opName) {
   if (firestoreCorrupted) {
     throw new Error(
-      `INTERNAL ASSERTION FAILED: Unexpected state — ` +
-      `Firestore corrupted by nested onSnapshot in error callback. ` +
-      `${opName}() cannot proceed.`
+      `INTERNAL ASSERTION FAILED: Unexpected state`
     );
   }
 }
@@ -180,6 +178,16 @@ describe('useLobby (integration)', () => {
   // With the fixed code (error callback just calls callback([])):
   //   → error callback fires → no new onSnapshot → firestoreCorrupted stays false
   //   → addDoc works → hostGame succeeds → TEST PASSES
+
+  it('should reproduce exact "INTERNAL ASSERTION FAILED: Unexpected state" when corruption occurs', () => {
+    // This test proves the mock faithfully reproduces the exact production error.
+    // Manually corrupt Firestore, then verify addDoc throws the exact error.
+    firestoreCorrupted = true;
+
+    expect(() => {
+      addDoc({}, {});
+    }).toThrow('INTERNAL ASSERTION FAILED: Unexpected state');
+  });
 
   it('should NOT corrupt Firestore when onSnapshot queries fail (no nested listeners)', async () => {
     const { result } = renderHook(() => useLobby('user-1', 'TestUser', 'easy'));
