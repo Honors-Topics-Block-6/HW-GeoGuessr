@@ -4,6 +4,7 @@ import { getAllUsers, setUserAdmin, isHardcodedAdmin, updateUserProfile, updateU
 import { subscribeToAllPresence } from '../../services/presenceService'
 import UserEditModal from './UserEditModal'
 import SendMessageModal from './SendMessageModal'
+import SendMessageAllModal from './SendMessageAllModal'
 import PermissionsModal from './PermissionsModal'
 import './AccountManagement.css'
 
@@ -19,6 +20,7 @@ function AccountManagement() {
   const [messagingUser, setMessagingUser] = useState(null)
   const [permissionsUser, setPermissionsUser] = useState(null)
   const [savingPermissions, setSavingPermissions] = useState(false)
+  const [showMessageAll, setShowMessageAll] = useState(false)
 
   const canViewAccounts = hasPermission(ADMIN_PERMISSIONS.VIEW_ACCOUNTS)
   const canEditAccounts = hasPermission(ADMIN_PERMISSIONS.EDIT_ACCOUNTS)
@@ -136,6 +138,14 @@ function AccountManagement() {
       <div className="account-management-header">
         <h3>User Accounts</h3>
         <span className="account-count">{users.length} account{users.length !== 1 ? 's' : ''}</span>
+        {canMessageAccounts && (
+          <button
+            className="message-all-button"
+            onClick={() => setShowMessageAll(true)}
+          >
+            Message All
+          </button>
+        )}
       </div>
 
       {error && <div className="account-error">{error}</div>}
@@ -149,7 +159,7 @@ function AccountManagement() {
               <th>Email</th>
               <th>Created</th>
               <th>Admin</th>
-              <th>Permissions</th>
+              {canManageAdmins && <th>Permissions</th>}
               <th>Verified</th>
               <th>Status</th>
               <th>Activity</th>
@@ -174,33 +184,35 @@ function AccountManagement() {
                       {u.isAdmin ? 'Yes' : 'No'}
                     </span>
                   </td>
-                  <td className="permissions-cell">
-                    {u.isAdmin ? (
-                      (() => {
-                        const perms = u.permissions || {}
-                        const grantedCount = Object.values(perms).filter(Boolean).length
-                        const totalCount = Object.keys(ADMIN_PERMISSIONS).length
-                        return (
-                          <span className="permissions-summary">
-                            <span className={`permissions-count ${grantedCount === totalCount ? 'all-perms' : grantedCount > 0 ? 'some-perms' : 'no-perms'}`}>
-                              {grantedCount}/{totalCount}
+                  {canManageAdmins && (
+                    <td className="permissions-cell">
+                      {u.isAdmin ? (
+                        (() => {
+                          const perms = u.permissions || {}
+                          const grantedCount = Object.values(perms).filter(Boolean).length
+                          const totalCount = Object.keys(ADMIN_PERMISSIONS).length
+                          return (
+                            <span className="permissions-summary">
+                              <span className={`permissions-count ${grantedCount === totalCount ? 'all-perms' : grantedCount > 0 ? 'some-perms' : 'no-perms'}`}>
+                                {grantedCount}/{totalCount}
+                              </span>
+                              {!hardcoded && (
+                                <button
+                                  className="permissions-edit-button"
+                                  onClick={() => setPermissionsUser(u)}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              {hardcoded && <span className="permissions-locked">All</span>}
                             </span>
-                            {canManageAdmins && !hardcoded && (
-                              <button
-                                className="permissions-edit-button"
-                                onClick={() => setPermissionsUser(u)}
-                              >
-                                Edit
-                              </button>
-                            )}
-                            {hardcoded && <span className="permissions-locked">All</span>}
-                          </span>
-                        )
-                      })()
-                    ) : (
-                      <span className="permissions-na">—</span>
-                    )}
-                  </td>
+                          )
+                        })()
+                      ) : (
+                        <span className="permissions-na">—</span>
+                      )}
+                    </td>
+                  )}
                   <td>
                     <span className={`verified-status ${u.emailVerified ? 'is-verified' : 'not-verified'}`}>
                       {u.emailVerified ? 'Yes' : 'No'}
@@ -272,6 +284,15 @@ function AccountManagement() {
           onClose={() => setMessagingUser(null)}
           senderUid={user?.uid}
           senderUsername={userDoc?.username || 'Admin'}
+        />
+      )}
+
+      {showMessageAll && (
+        <SendMessageAllModal
+          users={users}
+          onClose={() => setShowMessageAll(false)}
+          currentUid={user?.uid}
+          currentUsername={userDoc?.username || 'Admin'}
         />
       )}
 

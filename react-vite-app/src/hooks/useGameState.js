@@ -437,6 +437,7 @@ export function useGameState() {
     viewFinalResults,
     resetGame,
     setMode,
-    setLobbyDocId
+    setLobbyDocId,
+    setDifficulty
   };
 }

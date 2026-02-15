@@ -206,6 +206,58 @@
   white-space: pre-wrap;
 }
 
+/* ===== Lobby Invite Card ===== */
+.chat-invite-card {
+  max-width: 75%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(108, 181, 45, 0.12) 0%, rgba(52, 211, 153, 0.10) 100%);
+  border: 1px solid rgba(108, 181, 45, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.chat-invite-icon {
+  font-size: 1.6rem;
+}
+
+.chat-invite-text {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e0e6f0;
+  line-height: 1.4;
+}
+
+.chat-invite-join-btn {
+  padding: 8px 24px;
+  background: linear-gradient(135deg, #6cb52d 0%, #5a9e24 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(108, 181, 45, 0.25);
+  margin-top: 2px;
+}
+
+.chat-invite-join-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(108, 181, 45, 0.35);
+}
+
+.chat-invite-sent-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6cb52d;
+  opacity: 0.8;
+}
+
 /* ===== Input Area ===== */
 .chat-input-area {
   display: flex;
