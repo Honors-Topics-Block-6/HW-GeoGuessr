@@ -12,7 +12,8 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "test:emulator": "vitest run src/services/lobbyService.emulator.test.js"
   },
   "dependencies": {
     "firebase": "^12.9.0",
