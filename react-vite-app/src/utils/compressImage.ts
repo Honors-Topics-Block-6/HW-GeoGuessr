@@ -1,0 +1,60 @@
+/**
+ * Compresses an image file using canvas and returns a Base64 data URL.
+ * Resizes to fit within maxWidth/maxHeight while maintaining aspect ratio,
+ * then compresses as JPEG at the given quality.
+ *
+ * @param file - The image file to compress
+ * @param options - Compression options
+ * @returns Base64 data URL of the compressed image
+ */
+
+export interface CompressImageOptions {
+  /** Max width in pixels (default 800) */
+  maxWidth?: number;
+  /** Max height in pixels (default 800) */
+  maxHeight?: number;
+  /** JPEG quality 0-1 (default 0.7) */
+  quality?: number;
+}
+
+export function compressImage(
+  file: File,
+  { maxWidth = 800, maxHeight = 800, quality = 0.7 }: CompressImageOptions = {}
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = (event: ProgressEvent<FileReader>) => {
+      const img = new Image()
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+
+        let { width, height } = img
+
+        // Scale down to fit within max dimensions while keeping aspect ratio
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height)
+          width = Math.round(width * ratio)
+          height = Math.round(height * ratio)
+        }
+
+        canvas.width = width
+        canvas.height = height
+
+        const ctx = canvas.getContext('2d')
+        ctx!.drawImage(img, 0, 0, width, height)
+
+        // Convert to JPEG data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', quality)
+        resolve(dataUrl)
+      }
+
+      img.onerror = () => reject(new Error('Failed to load image for compression'))
+      img.src = event.target!.result as string
+    }
+
+    reader.onerror = () => reject(new Error('Failed to read image file'))
+    reader.readAsDataURL(file)
+  })
+}
