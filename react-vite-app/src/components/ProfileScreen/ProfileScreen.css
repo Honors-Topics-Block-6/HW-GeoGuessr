@@ -295,6 +295,16 @@
   flex-wrap: wrap;
 }
 
+.profile-username-note {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  width: 100%;
+}
+
 .profile-input {
   flex: 1;
   min-width: 0;
