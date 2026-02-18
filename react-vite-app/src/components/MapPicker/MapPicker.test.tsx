@@ -38,6 +38,36 @@ describe('MapPicker', () => {
       expect(mapImage).toBeInTheDocument();
       expect(mapImage).toHaveAttribute('src', '/FINAL_MAP.png');
     });
+
+    it('should render fullscreen toggle button', () => {
+      render(<MapPicker {...defaultProps} />);
+
+      expect(screen.getByLabelText('Enter fullscreen map')).toBeInTheDocument();
+    });
+  });
+
+  describe('fullscreen behavior', () => {
+    it('should open and close fullscreen when toggle is clicked', () => {
+      const { container } = render(<MapPicker {...defaultProps} />);
+      const toggle = screen.getByLabelText('Enter fullscreen map');
+
+      fireEvent.click(toggle);
+      expect(container.querySelector('.map-picker-container')).toHaveClass('is-fullscreen');
+      expect(document.body).toHaveClass('map-fullscreen-open');
+
+      fireEvent.click(screen.getByLabelText('Exit fullscreen map'));
+      expect(container.querySelector('.map-picker-container')).not.toHaveClass('is-fullscreen');
+      expect(document.body).not.toHaveClass('map-fullscreen-open');
+    });
+
+    it('should close fullscreen on Escape key', () => {
+      const { container } = render(<MapPicker {...defaultProps} />);
+      fireEvent.click(screen.getByLabelText('Enter fullscreen map'));
+      expect(container.querySelector('.map-picker-container')).toHaveClass('is-fullscreen');
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(container.querySelector('.map-picker-container')).not.toHaveClass('is-fullscreen');
+    });
   });
 
   describe('marker display', () => {
