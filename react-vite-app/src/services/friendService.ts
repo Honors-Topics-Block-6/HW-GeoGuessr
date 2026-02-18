@@ -106,8 +106,21 @@ export async function getUserByEmail(email: string): Promise<UserLookup | null> 
 }
 
 /**
- * Resolve a user by UID or email.
- * If input contains '@', treats as email; otherwise treats as UID.
+ * Look up a user document by username (exact match, usernames are unique).
+ */
+export async function getUserByUsername(username: string): Promise<UserLookup | null> {
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('username', '==', username.trim()));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+  const docSnap = snapshot.docs[0];
+  const data = docSnap.data();
+  return { uid: docSnap.id, username: data.username, email: data.email };
+}
+
+/**
+ * Resolve a user by UID, email, or username.
+ * If input contains '@', treats as email; otherwise tries UID first, then username.
  */
 export async function getUserByIdOrEmail(input: string): Promise<UserLookup | null> {
   const trimmed = input.trim();
@@ -115,7 +128,9 @@ export async function getUserByIdOrEmail(input: string): Promise<UserLookup | nu
   if (trimmed.includes('@')) {
     return getUserByEmail(trimmed);
   }
-  return getUserByUid(trimmed);
+  const byUid = await getUserByUid(trimmed);
+  if (byUid) return byUid;
+  return getUserByUsername(trimmed);
 }
 
 /**
@@ -158,7 +173,7 @@ async function hasPendingRequest(fromUid: string, toUid: string): Promise<boolea
 /**
  * Send a friend request.
  * Validates: not self, not already friends, no duplicate pending request.
- * Accepts targetIdOrEmail: either a user UID or an email address.
+ * Accepts targetIdOrEmail: a user UID, username, or email address.
  */
 export async function sendFriendRequest(
   fromUid: string,
@@ -168,7 +183,7 @@ export async function sendFriendRequest(
   // Resolve target (UID or email) to user
   const targetUser = await getUserByIdOrEmail(targetIdOrEmail);
   if (!targetUser) {
-    throw new Error('No user found with that User ID or email.');
+    throw new Error('No user found with that User ID, username, or email.');
   }
 
   const toUid = targetUser.uid;
