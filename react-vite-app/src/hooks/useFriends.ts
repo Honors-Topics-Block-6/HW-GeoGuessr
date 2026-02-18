@@ -5,6 +5,7 @@ import {
   sendFriendRequest,
   acceptFriendRequest,
   declineFriendRequest,
+  cancelOutgoingFriendRequest,
   removeFriend as removeFriendService,
   getOutgoingRequests,
   type FriendDoc,
@@ -24,6 +25,7 @@ export interface UseFriendsReturn {
   sendRequest: (targetUid: string) => Promise<void>;
   acceptRequest: (requestId: string) => Promise<void>;
   declineRequest: (requestId: string) => Promise<void>;
+  cancelOutgoingRequest: (requestId: string) => Promise<void>;
   removeFriend: (friendUid: string) => Promise<void>;
   refreshOutgoing: () => Promise<void>;
   loading: boolean;
@@ -133,6 +135,19 @@ export function useFriends(uid: string | null | undefined, username: string): Us
     }
   }, []);
 
+  // Cancel an outgoing request (delete the friendRequests doc)
+  const cancelOutgoingRequest = useCallback(async (requestId: string): Promise<void> => {
+    if (!uid) return;
+    setError(null);
+    try {
+      await cancelOutgoingFriendRequest(requestId, uid);
+      await refreshOutgoing();
+    } catch (err) {
+      setError((err as Error).message);
+      throw err;
+    }
+  }, [uid, refreshOutgoing]);
+
   // Remove a friend
   const removeFriend = useCallback(async (friendUid: string): Promise<void> => {
     if (!uid) return;
@@ -152,9 +167,10 @@ export function useFriends(uid: string | null | undefined, username: string): Us
     sendRequest,
     acceptRequest,
     declineRequest,
+    cancelOutgoingRequest,
     removeFriend,
     refreshOutgoing,
     loading,
     error
-  }), [friends, incomingRequests, outgoingRequests, sendRequest, acceptRequest, declineRequest, removeFriend, refreshOutgoing, loading, error]);
+  }), [friends, incomingRequests, outgoingRequests, sendRequest, acceptRequest, declineRequest, cancelOutgoingRequest, removeFriend, refreshOutgoing, loading, error]);
 }

@@ -208,6 +208,33 @@ export async function declineFriendRequest(requestId: string): Promise<void> {
 }
 
 /**
+ * Cancel (delete) an outgoing pending friend request that YOU sent.
+ * This removes it from the recipient's "incoming requests" list as well.
+ */
+export async function cancelOutgoingFriendRequest(
+  requestId: string,
+  fromUid: string
+): Promise<void> {
+  const requestRef = doc(db, 'friendRequests', requestId);
+  const requestSnap = await getDoc(requestRef);
+
+  if (!requestSnap.exists()) {
+    // Already cancelled/handled; treat as success for idempotency
+    return;
+  }
+
+  const request = requestSnap.data() as { fromUid?: string; status?: FriendRequestStatus };
+  if (request.status !== 'pending') {
+    throw new Error('This request is no longer pending.');
+  }
+  if (request.fromUid !== fromUid) {
+    throw new Error('You can only cancel friend requests you sent.');
+  }
+
+  await deleteDoc(requestRef);
+}
+
+/**
  * Remove a friend (delete the friends document).
  */
 export async function removeFriend(uid1: string, uid2: string): Promise<void> {

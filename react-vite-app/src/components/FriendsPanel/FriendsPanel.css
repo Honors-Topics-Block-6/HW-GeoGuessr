@@ -436,6 +436,29 @@
   cursor: not-allowed;
 }
 
+.request-cancel {
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #b0b8cc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.25s ease;
+}
+
+.request-cancel:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+.request-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .request-pending-badge {
   padding: 5px 12px;
   background: rgba(251, 191, 36, 0.12);
