@@ -6,6 +6,14 @@ interface FirebaseError extends Error {
   code?: string;
 }
 
+function getSuggestionsFromError(err: unknown): string[] | null {
+  if (!err || typeof err !== 'object') return null;
+  const maybe = err as { suggestions?: unknown };
+  return Array.isArray(maybe.suggestions) && maybe.suggestions.every(s => typeof s === 'string')
+    ? (maybe.suggestions as string[])
+    : null;
+}
+
 function LoginScreen(): React.ReactElement {
   const { login, signup, loginWithGoogle, needsUsername, completeGoogleSignUp } = useAuth();
 
@@ -15,11 +23,14 @@ function LoginScreen(): React.ReactElement {
   const [username, setUsername] = useState<string>('');
   const [googleUsername, setGoogleUsername] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
+  const [googleUsernameSuggestions, setGoogleUsernameSuggestions] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setError('');
+    setUsernameSuggestions([]);
     setIsSubmitting(true);
 
     try {
@@ -35,7 +46,13 @@ function LoginScreen(): React.ReactElement {
         await login(email, password);
       }
     } catch (err) {
-      setError(getErrorMessage(err as FirebaseError));
+      const suggestions = getSuggestionsFromError(err);
+      if (suggestions) {
+        setUsernameSuggestions(suggestions);
+        setError('');
+      } else {
+        setError((err as Error)?.message ? String((err as Error).message) : getErrorMessage(err as FirebaseError));
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -43,6 +60,7 @@ function LoginScreen(): React.ReactElement {
 
   const handleGoogleSignIn = async (): Promise<void> => {
     setError('');
+    setGoogleUsernameSuggestions([]);
     setIsSubmitting(true);
 
     try {
@@ -57,6 +75,7 @@ function LoginScreen(): React.ReactElement {
   const handleGoogleUsernameSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setError('');
+    setGoogleUsernameSuggestions([]);
     setIsSubmitting(true);
 
     try {
@@ -68,7 +87,13 @@ function LoginScreen(): React.ReactElement {
       }
       await completeGoogleSignUp(googleUsername.trim());
     } catch (err) {
-      setError(getErrorMessage(err as FirebaseError));
+      const suggestions = getSuggestionsFromError(err);
+      if (suggestions) {
+        setGoogleUsernameSuggestions(suggestions);
+        setError('');
+      } else {
+        setError((err as Error)?.message ? String((err as Error).message) : getErrorMessage(err as FirebaseError));
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -77,6 +102,8 @@ function LoginScreen(): React.ReactElement {
   const toggleMode = (): void => {
     setIsSignUp(!isSignUp);
     setError('');
+    setUsernameSuggestions([]);
+    setGoogleUsernameSuggestions([]);
   };
 
   // If user signed in with Google but needs to set a username
@@ -102,12 +129,40 @@ function LoginScreen(): React.ReactElement {
                 id="google-username"
                 type="text"
                 value={googleUsername}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGoogleUsername(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setGoogleUsername(e.target.value);
+                  setGoogleUsernameSuggestions([]);
+                }}
                 placeholder="Pick a username"
                 autoFocus
                 disabled={isSubmitting}
               />
             </div>
+
+            {googleUsernameSuggestions.length > 0 && (
+              <div className="username-suggestions" role="alert" aria-live="polite">
+                <div className="username-suggestions-title">
+                  This username is taken. Try one of these instead:
+                </div>
+                <div className="username-suggestions-list">
+                  {googleUsernameSuggestions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className="username-suggestion-button"
+                      onClick={() => {
+                        setGoogleUsername(s);
+                        setGoogleUsernameSuggestions([]);
+                        setError('');
+                      }}
+                      disabled={isSubmitting}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <button type="submit" className="login-submit-button" disabled={isSubmitting}>
               {isSubmitting ? (
@@ -149,10 +204,38 @@ function LoginScreen(): React.ReactElement {
                 id="username"
                 type="text"
                 value={username}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setUsername(e.target.value);
+                  setUsernameSuggestions([]);
+                }}
                 placeholder="Choose a username"
                 disabled={isSubmitting}
               />
+            </div>
+          )}
+
+          {isSignUp && usernameSuggestions.length > 0 && (
+            <div className="username-suggestions" role="alert" aria-live="polite">
+              <div className="username-suggestions-title">
+                This username is taken. Try one of these instead:
+              </div>
+              <div className="username-suggestions-list">
+                {usernameSuggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className="username-suggestion-button"
+                    onClick={() => {
+                      setUsername(s);
+                      setUsernameSuggestions([]);
+                      setError('');
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
