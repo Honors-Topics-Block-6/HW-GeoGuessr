@@ -20,7 +20,7 @@
 .map-picker {
   position: relative;
   width: 100%;
-  background-color: var(--bg-secondary);
+  background-color: rgba(15, 23, 42, 0.04);
   border-radius: 12px;
   overflow: hidden;
   cursor: crosshair;
@@ -29,7 +29,7 @@
 }
 
 .map-picker:hover {
-  border-color: var(--accent-green);
+  border-color: rgba(20, 184, 166, 0.6);
 }
 
 .map-image {
@@ -50,10 +50,10 @@
 .marker-pin {
   width: 24px;
   height: 24px;
-  background: linear-gradient(135deg, var(--marker-color) 0%, #ff6b81 100%);
+  background: linear-gradient(135deg, var(--marker-color) 0%, #60a5fa 100%);
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
-  box-shadow: 0 4px 12px rgba(255, 71, 87, 0.5);
+  box-shadow: 0 10px 24px rgba(99, 102, 241, 0.25);
   border: 2px solid white;
   animation: dropIn 0.3s ease-out;
 }
@@ -117,10 +117,14 @@
   pointer-events: none;
 }
 
+.playing-area-border {
+  stroke: var(--accent-green);
+}
+
 /* Click rejected feedback */
 .map-picker.click-rejected {
   animation: rejectShake 0.4s ease-in-out;
-  border-color: #e74c3c !important;
+  border-color: var(--error-red) !important;
 }
 
 @keyframes rejectShake {
@@ -143,7 +147,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(231, 76, 60, 0.2);
+  background-color: rgba(244, 63, 94, 0.14);
   pointer-events: none;
   animation: rejectFlash 0.4s ease-out forwards;
 }

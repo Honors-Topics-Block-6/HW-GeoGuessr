@@ -37,14 +37,14 @@
 }
 
 .floor-button:hover {
-  border-color: var(--accent-green);
-  background-color: rgba(108, 181, 45, 0.1);
+  border-color: var(--accent-cyan);
+  background-color: rgba(14, 165, 233, 0.08);
 }
 
 .floor-button.selected {
   border-color: var(--accent-green);
   background-color: var(--accent-green);
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 .floor-number {

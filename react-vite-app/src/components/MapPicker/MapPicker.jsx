@@ -70,9 +70,9 @@ function MapPicker({ markerPosition, onMapClick, clickRejected = false, playingA
             <polygon
               points={playingArea.polygon.map(p => `${p.x},${p.y}`).join(' ')}
               fill="none"
-              stroke="#27ae60"
+              className="playing-area-border"
               strokeWidth="0.4"
-              strokeOpacity="0.8"
+              strokeOpacity="0.85"
             />
           </svg>
         )}
