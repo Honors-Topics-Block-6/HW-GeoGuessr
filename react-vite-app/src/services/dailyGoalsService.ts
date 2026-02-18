@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, type FieldValue, type Timestamp as FirestoreTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, increment, type FieldValue, type Timestamp as FirestoreTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
   selectRandomGoals,
@@ -34,6 +34,7 @@ export interface DailyGoalsDoc {
 export interface GoalProgressResult {
   updated: boolean;
   allCompleted: boolean;
+  completedGoalsDelta: number;
 }
 
 export interface GoalProgressParams {
@@ -106,22 +107,23 @@ export async function recordGoalProgress(
   const snapshot = await getDoc(goalsRef);
 
   if (!snapshot.exists()) {
-    return { updated: false, allCompleted: false };
+    return { updated: false, allCompleted: false, completedGoalsDelta: 0 };
   }
 
   const data = snapshot.data() as DailyGoalsDoc;
 
   // Don't update stale goals
   if (data.date !== today) {
-    return { updated: false, allCompleted: false };
+    return { updated: false, allCompleted: false, completedGoalsDelta: 0 };
   }
 
   // Already all completed + bonus awarded — no further updates needed
   if (data.allCompleted && data.bonusXpAwarded) {
-    return { updated: false, allCompleted: true };
+    return { updated: false, allCompleted: true, completedGoalsDelta: 0 };
   }
 
   let anyUpdated = false;
+  let newlyCompletedCount = 0;
   const updatedGoals = data.goals.map(goal => {
     if (goal.type !== goalType) return goal;
     if (goal.completed) return goal;
@@ -142,7 +144,11 @@ export async function recordGoalProgress(
     }
 
     if (updated.current >= goal.target) {
+      const goalWasCompleted = goal.completed;
       updated.completed = true;
+      if (!goalWasCompleted) {
+        newlyCompletedCount += 1;
+      }
     }
 
     anyUpdated = true;
@@ -150,7 +156,7 @@ export async function recordGoalProgress(
   });
 
   if (!anyUpdated) {
-    return { updated: false, allCompleted: data.allCompleted };
+    return { updated: false, allCompleted: data.allCompleted, completedGoalsDelta: 0 };
   }
 
   const allCompleted = updatedGoals.every(g => g.completed);
@@ -166,9 +172,18 @@ export async function recordGoalProgress(
 
   await updateDoc(goalsRef, updatePayload);
 
+  if (newlyCompletedCount > 0) {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, {
+      dailyGoalWins: increment(newlyCompletedCount),
+      lastDailyGoalWinAt: serverTimestamp()
+    });
+  }
+
   return {
     updated: true,
     allCompleted,
+    completedGoalsDelta: newlyCompletedCount,
   };
 }
 

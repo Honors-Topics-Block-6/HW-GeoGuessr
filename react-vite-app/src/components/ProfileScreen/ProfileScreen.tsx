@@ -55,6 +55,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
 
   const progressPercent: number = Math.round(levelInfo.progress * 100);
   const gamesPlayed: number = userDoc?.gamesPlayed ?? 0;
+  const dailyGoalWins: number = userDoc?.dailyGoalWins ?? 0;
 
   return (
     <div className="profile-screen">
@@ -111,6 +112,10 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
             <div className="profile-xp-stat">
               <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
               <span className="profile-xp-stat-label">XP to Next Level</span>
+            </div>
+            <div className="profile-xp-stat">
+              <span className="profile-xp-stat-value">{dailyGoalWins.toLocaleString()}</span>
+              <span className="profile-xp-stat-label">Daily Goal Wins</span>
             </div>
           </div>
         </div>

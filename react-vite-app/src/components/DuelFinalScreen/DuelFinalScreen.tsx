@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { STARTING_HEALTH } from '../../services/duelService';
 import { useDailyGoals } from '../../hooks/useDailyGoals';
 import { GOAL_TYPES } from '../../utils/dailyGoalDefinitions';
+import { useAuth } from '../../contexts/AuthContext';
 import './DuelFinalScreen.css';
 
 const CONFETTI_COLORS: string[] = ['#6cb52d', '#ffc107', '#ff4757', '#3498db', '#9b59b6', '#e74c3c'];
@@ -63,7 +64,15 @@ function DuelFinalScreen({
   onBackToTitle
 }: DuelFinalScreenProps): React.ReactElement {
   const [animationComplete, setAnimationComplete] = useState<boolean>(false);
-  const { recordProgress } = useDailyGoals(myUid);
+  const { refreshUserDoc } = useAuth();
+  const { recordProgress } = useDailyGoals(myUid, {
+    onGoalCompleted: async (_completedCount: number) => {
+      await refreshUserDoc();
+    },
+    onAllCompleted: async () => {
+      await refreshUserDoc();
+    }
+  });
   const goalsRecorded = useRef<boolean>(false);
 
   const confettiPieces = useMemo(() => generateConfettiData(40), []);

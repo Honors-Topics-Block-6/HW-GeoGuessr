@@ -33,6 +33,7 @@ export interface DailyGoalsData {
 export interface RecordProgressResult {
   updated: boolean;
   allCompleted: boolean;
+  completedGoalsDelta: number;
 }
 
 export interface RecordProgressParams {
@@ -53,13 +54,20 @@ export interface UseDailyGoalsReturn {
   GOAL_TYPES: typeof GOAL_TYPES;
 }
 
+export interface UseDailyGoalsOptions {
+  onAllCompleted?: () => void | Promise<void>;
+  onGoalCompleted?: (completedCount: number) => void | Promise<void>;
+}
+
 /**
  * Hook for managing daily goals state.
  */
-export function useDailyGoals(uid: string | null): UseDailyGoalsReturn {
+export function useDailyGoals(uid: string | null, options?: UseDailyGoalsOptions): UseDailyGoalsReturn {
   const [goalsData, setGoalsData] = useState<DailyGoalsData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const onAllCompleted = options?.onAllCompleted;
+  const onGoalCompleted = options?.onGoalCompleted;
 
   // Fetch/create goals on mount and when uid changes
   const refreshGoals = useCallback(async (): Promise<void> => {
@@ -91,17 +99,32 @@ export function useDailyGoals(uid: string | null): UseDailyGoalsReturn {
     params: RecordProgressParams = {}
   ): Promise<RecordProgressResult | undefined> => {
     if (!uid) return;
+    const wasCompleted = goalsData?.allCompleted || false;
     try {
       const result = await recordGoalProgress(uid, goalType, value, params);
       if (result.updated) {
         // Refresh local state to reflect changes
         await refreshGoals();
       }
+      if (result.completedGoalsDelta > 0) {
+        try {
+          await onGoalCompleted?.(result.completedGoalsDelta);
+        } catch (err) {
+          console.error('onGoalCompleted callback failed:', err);
+        }
+      }
+      if (!wasCompleted && result.allCompleted) {
+        try {
+          await onAllCompleted?.();
+        } catch (err) {
+          console.error('onAllCompleted callback failed:', err);
+        }
+      }
       return result;
     } catch (err) {
       console.error('Failed to record goal progress:', err);
     }
-  }, [uid, refreshGoals]);
+  }, [uid, refreshGoals, goalsData?.allCompleted, onAllCompleted, onGoalCompleted]);
 
   /**
    * Claim the bonus XP when all goals are completed.

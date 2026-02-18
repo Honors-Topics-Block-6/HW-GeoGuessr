@@ -77,7 +77,14 @@ export interface FinalResultsScreenProps {
 
 function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: FinalResultsScreenProps): React.ReactElement {
   const { user, totalXp, refreshUserDoc } = useAuth();
-  const { recordProgress } = useDailyGoals(user?.uid ?? null);
+  const { recordProgress } = useDailyGoals(user?.uid ?? null, {
+    onGoalCompleted: async (_completedCount: number) => {
+      await refreshUserDoc();
+    },
+    onAllCompleted: async () => {
+      await refreshUserDoc();
+    }
+  });
   const [animationComplete, setAnimationComplete] = useState<boolean>(false);
   const [displayedTotal, setDisplayedTotal] = useState<number>(0);
   const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
