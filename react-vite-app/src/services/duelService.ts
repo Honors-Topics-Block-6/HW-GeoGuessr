@@ -99,6 +99,7 @@ export interface DuelData {
   updatedAt: Timestamp | FieldValue | null;
   players: DuelPlayer[];
   difficulty: string;
+  timePenaltyEnabled?: boolean;
 }
 
 // ────── Constants ──────
@@ -180,7 +181,7 @@ export async function submitDuelGuess(
   guessData: GuessData,
   currentImage: DuelImage,
   roundStartedAt?: RoundStartedAt | null,
-  difficulty?: string
+  timePenaltyEnabled?: boolean
 ): Promise<void> {
   let score = 0;
   let locationScore = 0;
@@ -206,7 +207,7 @@ export async function submitDuelGuess(
   // Apply time decay only in hard mode: score decreases as player takes longer
   let timeTakenSeconds: number | undefined;
   let timePenalty: number | undefined;
-  if (difficulty === 'hard' && roundStartedAt != null && score > 0) {
+  if (timePenaltyEnabled && roundStartedAt != null && score > 0) {
     const roundStartMs =
       typeof roundStartedAt === 'object' && roundStartedAt?.toMillis
         ? roundStartedAt.toMillis()

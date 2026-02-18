@@ -75,6 +75,7 @@ function App(): React.ReactElement {
     difficulty,
     mode: _mode,
     lobbyDocId,
+    timePenaltyEnabled,
     setScreen,
     startGame,
     placeMarker,
@@ -308,8 +309,8 @@ function App(): React.ReactElement {
   /**
    * Handle starting the game from difficulty select
    */
-  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string): void => {
-    startGame(selectedDifficulty, selectedMode);
+  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string, timePenalty: boolean): void => {
+    startGame(selectedDifficulty, selectedMode, timePenalty);
   };
 
   /**
@@ -375,6 +376,7 @@ function App(): React.ReactElement {
       {screen === 'multiplayerLobby' && !inDuel && (
         <MultiplayerLobby
           difficulty={difficulty as React.ComponentProps<typeof MultiplayerLobby>['difficulty']}
+          timePenaltyEnabled={timePenaltyEnabled}
           userUid={user.uid}
           userUsername={userDoc?.username as string}
           onJoinedLobby={(docId: string) => {

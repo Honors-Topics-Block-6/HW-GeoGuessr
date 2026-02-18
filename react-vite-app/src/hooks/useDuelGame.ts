@@ -352,7 +352,7 @@ export function useDuelGame(
         floor: localGuessFloor,
         timedOut: true,
         noGuess: false
-      }, currentImage, duelState?.roundStartedAt ?? undefined, difficulty).catch((err: unknown) => console.error('Auto-submit failed:', err));
+      }, currentImage, duelState?.roundStartedAt ?? undefined, duelState?.timePenaltyEnabled).catch((err: unknown) => console.error('Auto-submit failed:', err));
       setHasSubmitted(true); // eslint-disable-line react-hooks/set-state-in-effect -- Intentional: timer expiry auto-submit
     } else {
       // No guess — submit empty
@@ -361,10 +361,10 @@ export function useDuelGame(
         floor: null,
         timedOut: true,
         noGuess: true
-      }, currentImage, duelState?.roundStartedAt ?? undefined, difficulty).catch((err: unknown) => console.error('No-guess submit failed:', err));
+      }, currentImage, duelState?.roundStartedAt ?? undefined, duelState?.timePenaltyEnabled).catch((err: unknown) => console.error('No-guess submit failed:', err));
       setHasSubmitted(true);
     }
-  }, [phase, timeRemaining, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, duelState?.roundStartedAt, difficulty]);
+  }, [phase, timeRemaining, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, duelState?.roundStartedAt, duelState?.timePenaltyEnabled]);
 
   // --- Host processes round when both have guessed ---
   useEffect(() => {
@@ -430,12 +430,12 @@ export function useDuelGame(
         floor: localGuessFloor,
         timedOut: false,
         noGuess: false
-      }, currentImage, duelState?.roundStartedAt ?? undefined, difficulty);
+      }, currentImage, duelState?.roundStartedAt ?? undefined, duelState?.timePenaltyEnabled);
     } catch (err) {
       console.error('Submit guess failed:', err);
       setHasSubmitted(false); // Allow retry
     }
-  }, [hasSubmitted, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, duelState?.roundStartedAt, difficulty]);
+  }, [hasSubmitted, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, duelState?.roundStartedAt, duelState?.timePenaltyEnabled]);
 
   /**
    * Advance to next round (host only, after viewing results)

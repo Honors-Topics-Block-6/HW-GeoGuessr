@@ -70,10 +70,11 @@ export interface UseGameStateReturn {
   difficulty: Difficulty;
   mode: GameMode;
   lobbyDocId: string | null;
+  timePenaltyEnabled: boolean;
 
   // Actions
   setScreen: React.Dispatch<React.SetStateAction<ScreenState>>;
-  startGame: (selectedDifficulty: string, selectedMode?: string) => Promise<void>;
+  startGame: (selectedDifficulty: string, selectedMode?: string, timePenaltyEnabled?: boolean) => Promise<void>;
   placeMarker: (coords: MapCoords) => boolean;
   selectFloor: (floor: number) => void;
   submitGuess: () => void;
@@ -168,6 +169,9 @@ export function useGameState(): UseGameStateReturn {
   // Game mode: 'singleplayer' or 'multiplayer'
   const [mode, setMode] = useState<GameMode>(null);
 
+  // Time penalty: slower guesses = fewer points (toggle in difficulty select)
+  const [timePenaltyEnabled, setTimePenaltyEnabled] = useState<boolean>(false);
+
   // Current lobby document ID (when in multiplayer)
   const [lobbyDocId, setLobbyDocId] = useState<string | null>(null);
 
@@ -215,13 +219,14 @@ export function useGameState(): UseGameStateReturn {
   /**
    * Start a new game - reset everything and fetch first image
    */
-  const startGame = useCallback(async (selectedDifficulty: string, selectedMode: string = 'singleplayer'): Promise<void> => {
+  const startGame = useCallback(async (selectedDifficulty: string, selectedMode: string = 'singleplayer', timePenalty: boolean = false): Promise<void> => {
     setCurrentRound(1);
     setRoundResults([]);
     setCurrentResult(null);
     setDifficulty(selectedDifficulty as Difficulty);
     setMode(selectedMode as GameMode);
     setLobbyDocId(null);
+    setTimePenaltyEnabled(timePenalty);
 
     // Multiplayer: go to lobby screen instead of starting a game
     if (selectedMode === 'multiplayer') {
@@ -362,9 +367,9 @@ export function useGameState(): UseGameStateReturn {
         : Math.round(locationScore * 0.8);
     }
 
-    // Hard mode: apply time decay (points decrease as player takes longer)
-    let timePenalty: number | undefined;
-    if (difficulty === 'hard' && totalScore > 0) {
+    // Apply time decay when enabled (points decrease as player takes longer)
+    let timePenaltyAmount: number | undefined;
+    if (timePenaltyEnabled && totalScore > 0) {
       const timeMultiplier = computeTimeMultiplier(
         timeTakenSeconds,
         ROUND_TIME_SECONDS,
@@ -372,7 +377,7 @@ export function useGameState(): UseGameStateReturn {
       );
       const scoreBeforeTime = totalScore;
       totalScore = Math.round(totalScore * timeMultiplier);
-      timePenalty = scoreBeforeTime - totalScore;
+      timePenaltyAmount = scoreBeforeTime - totalScore;
     }
 
     // Create result object
@@ -389,7 +394,7 @@ export function useGameState(): UseGameStateReturn {
       score: totalScore,
       timeTakenSeconds,
       timedOut: timedOutRef.current,
-      ...(timePenalty !== undefined && timePenalty > 0 && { timePenalty })
+      ...(timePenaltyAmount !== undefined && timePenaltyAmount > 0 && { timePenalty: timePenaltyAmount })
     };
 
     timedOutRef.current = false;
@@ -400,7 +405,7 @@ export function useGameState(): UseGameStateReturn {
 
     // Show result screen
     setScreen('result');
-  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, difficulty]);
+  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, timePenaltyEnabled]);
 
   const submitGuessRef = useRef<() => void>(submitGuess);
   submitGuessRef.current = submitGuess;
@@ -517,6 +522,7 @@ export function useGameState(): UseGameStateReturn {
     difficulty,
     mode,
     lobbyDocId,
+    timePenaltyEnabled,
 
     // Actions
     setScreen,

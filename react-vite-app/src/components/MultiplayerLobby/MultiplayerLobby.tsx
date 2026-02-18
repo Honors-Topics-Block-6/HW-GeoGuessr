@@ -22,13 +22,14 @@ export type GameVisibility = 'public' | 'private';
 
 export interface MultiplayerLobbyProps {
   difficulty: Difficulty;
+  timePenaltyEnabled: boolean;
   userUid: string;
   userUsername: string;
   onJoinedLobby: (docId: string) => void;
   onBack: () => void;
 }
 
-function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
+function MultiplayerLobby({ difficulty, timePenaltyEnabled, userUid, userUsername, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
   const [visibility, setVisibility] = useState<GameVisibility>('public');
   const {
     publicLobbies,
@@ -39,7 +40,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     joinByCode,
     joinPublicGame,
     clearError
-  } = useLobby(userUid, userUsername, difficulty);
+  } = useLobby(userUid, userUsername, difficulty, timePenaltyEnabled);
 
   const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[difficulty] || DIFFICULTY_LABELS.all;
 

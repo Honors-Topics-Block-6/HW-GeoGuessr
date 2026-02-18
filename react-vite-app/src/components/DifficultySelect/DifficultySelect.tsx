@@ -39,7 +39,7 @@ const DIFFICULTIES: DifficultyOption[] = [
 ];
 
 export interface DifficultySelectProps {
-  onStart: (difficulty: DifficultyId, mode: GameMode) => void;
+  onStart: (difficulty: DifficultyId, mode: GameMode, timePenaltyEnabled: boolean) => void;
   onBack: () => void;
   isLoading: boolean;
 }
@@ -47,10 +47,11 @@ export interface DifficultySelectProps {
 function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyId | null>(null);
   const [selectedMode, setSelectedMode] = useState<GameMode>('singleplayer');
+  const [timePenaltyEnabled, setTimePenaltyEnabled] = useState<boolean>(false);
 
   const handleStart = (): void => {
     if (selectedDifficulty) {
-      onStart(selectedDifficulty, selectedMode);
+      onStart(selectedDifficulty, selectedMode, timePenaltyEnabled);
     }
   };
 
@@ -80,6 +81,20 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
               <span className="difficulty-card-desc">{diff.description}</span>
             </button>
           ))}
+        </div>
+
+        <h2 className="mode-heading">Options</h2>
+
+        <div className="time-penalty-toggle">
+          <label className="time-penalty-label">
+            <input
+              type="checkbox"
+              checked={timePenaltyEnabled}
+              onChange={(e) => setTimePenaltyEnabled(e.target.checked)}
+              className="time-penalty-checkbox"
+            />
+            <span className="time-penalty-text">Time penalty (slower guesses = fewer points)</span>
+          </label>
         </div>
 
         <h2 className="mode-heading">Game Mode</h2>
