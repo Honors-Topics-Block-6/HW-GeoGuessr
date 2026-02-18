@@ -30,6 +30,16 @@ export interface UserDoc {
   createdAt: unknown;
   permissions?: PermissionsMap;
   lastGameAt?: unknown;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
 }
 
 export interface UserDocWithId extends UserDoc {
@@ -44,7 +54,34 @@ export interface UserProfileUpdates {
   totalXp?: number;
   gamesPlayed?: number;
   lastGameAt?: Date | string | null;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
   [key: string]: unknown;
+}
+
+export interface BuildingStat {
+  building: string;
+  floor: number | null;
+  totalScore: number;
+  count: number;
+}
+
+export interface DailyStatBucket {
+  gamesPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
+  photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
 }
 
 // ────── Constants ──────
@@ -117,7 +154,17 @@ export async function createUserDoc(uid: string, email: string, username: string
     emailVerified: false,
     totalXp: 0,
     gamesPlayed: 0,
-    createdAt: serverTimestamp()
+    createdAt: serverTimestamp(),
+    totalScore: 0,
+    totalGuessTimeSeconds: 0,
+    fiveKCount: 0,
+    twentyFiveKCount: 0,
+    photosSubmittedCount: 0,
+    followersCount: 0,
+    buildingStats: {},
+    lastOnline: serverTimestamp(),
+    dailyStats: {},
+    dailyStatsByDifficulty: {}
   };
   // Hardcoded admin gets all permissions on creation
   if (isAdmin) {

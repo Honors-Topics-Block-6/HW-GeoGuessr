@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, increment } from 'firebase/firestore'
 import { db } from '../../firebase'
+import { useAuth } from '../../contexts/AuthContext'
+import { getUserDoc, updateUserDoc } from '../../services/userService'
 import { compressImage } from '../../utils/compressImage'
 import { getRegions, getPlayingArea, getFloorsForPoint, isPointInPlayingArea } from '../../services/regionService'
 import type { Point, Region as RegionData, PlayingArea as PlayingAreaData } from '../../services/regionService'
@@ -20,6 +22,13 @@ type MapCoords = MapCoordinates
 export interface SubmissionFormProps {}
 
 function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
+  const { user } = useAuth()
+  const getLocalDateKey = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = `${date.getMonth() + 1}`.padStart(2, '0')
+    const day = `${date.getDate()}`.padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
   const [photo, setPhoto] = useState<File | null>(null)
   const [location, setLocation] = useState<MapCoords | null>(null)
   const [floor, setFloor] = useState<number | null>(null)
@@ -172,9 +181,35 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
         floor: floor ?? null,
         difficulty: difficulty,
         status: 'pending', // pending, approved, denied
+        submitterUid: user?.uid ?? null,
         createdAt: serverTimestamp(),
         reviewedAt: null
       })
+
+      if (user?.uid) {
+        const userDoc = await getUserDoc(user.uid)
+        const todayKey = getLocalDateKey(new Date())
+        const existingDailyStats = userDoc?.dailyStats ?? {}
+        const dayStats = existingDailyStats[todayKey] ?? {
+          gamesPlayed: 0,
+          totalScore: 0,
+          totalGuessTimeSeconds: 0,
+          fiveKCount: 0,
+          twentyFiveKCount: 0,
+          photosSubmittedCount: 0,
+          buildingStats: {}
+        }
+        await updateUserDoc(user.uid, {
+          photosSubmittedCount: increment(1),
+          dailyStats: {
+            ...existingDailyStats,
+            [todayKey]: {
+              ...dayStats,
+              photosSubmittedCount: dayStats.photosSubmittedCount + 1
+            }
+          }
+        })
+      }
 
       setSubmitSuccess(true)
       resetForm()

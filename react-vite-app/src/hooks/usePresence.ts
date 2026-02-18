@@ -1,10 +1,12 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { serverTimestamp } from 'firebase/firestore';
 import {
   setPresenceOnline,
   setPresenceOffline,
   updatePresenceActivity,
   updatePresenceHeartbeat
 } from '../services/presenceService';
+import { updateUserDoc } from '../services/userService';
 
 const HEARTBEAT_INTERVAL_MS = 60 * 1000; // 60 seconds
 
@@ -70,6 +72,11 @@ export function usePresence(
   const activityRef = useRef<string>('');
 
   const currentActivity = getActivityString(screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard, showFriends, showChat);
+  const setLastOnline = useCallback((uid: string): void => {
+    updateUserDoc(uid, { lastOnline: serverTimestamp() }).catch(() => {
+      // Best-effort update; ignore failures on unload
+    });
+  }, []);
 
   // Set presence online when user logs in, offline when they log out
   useEffect(() => {
@@ -79,6 +86,7 @@ export function usePresence(
     // User logged out — mark previous user offline
     if (prevUid && prevUid !== uid) {
       setPresenceOffline(prevUid);
+      setLastOnline(prevUid);
     }
 
     // User logged in — mark online
@@ -120,8 +128,9 @@ export function usePresence(
     const uid = user?.uid;
     if (uid) {
       setPresenceOffline(uid);
+      setLastOnline(uid);
     }
-  }, [user?.uid]);
+  }, [user?.uid, setLastOnline]);
 
   useEffect(() => {
     const uid = user?.uid;
@@ -133,6 +142,7 @@ export function usePresence(
       window.removeEventListener('beforeunload', handleBeforeUnload);
       // On unmount, set offline (handles navigation away, StrictMode re-mount, etc.)
       setPresenceOffline(uid);
+      setLastOnline(uid);
     };
-  }, [user?.uid, handleBeforeUnload]);
+  }, [user?.uid, handleBeforeUnload, setLastOnline]);
 }

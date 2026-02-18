@@ -94,6 +94,36 @@
   margin-bottom: 1.5rem;
 }
 
+.profile-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.profile-tab {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-tab:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+}
+
+.profile-tab.active {
+  background: rgba(108, 181, 45, 0.2);
+  border-color: rgba(108, 181, 45, 0.4);
+  color: var(--accent-green);
+}
+
 .profile-error {
   background: rgba(231, 76, 60, 0.15);
   border: 1px solid rgba(231, 76, 60, 0.3);
@@ -211,6 +241,87 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+.profile-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.profile-stats-interval {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(42, 42, 74, 0.5);
+}
+
+.profile-stats-interval-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.profile-stats-interval-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.profile-stats-interval-button {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-stats-interval-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+}
+
+.profile-stats-interval-button.active {
+  background: rgba(108, 181, 45, 0.2);
+  border-color: rgba(108, 181, 45, 0.4);
+  color: var(--accent-green);
+}
+
+.profile-stat-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(42, 42, 74, 0.5);
+}
+
+.profile-stat-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.profile-stat-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  max-width: 45%;
+}
+
+.profile-stat-value {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  text-align: right;
+  word-break: break-word;
 }
 
 .profile-field {

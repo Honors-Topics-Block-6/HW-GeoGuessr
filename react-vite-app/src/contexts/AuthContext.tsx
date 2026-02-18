@@ -36,6 +36,33 @@ export interface UserDoc {
   createdAt: unknown; // Firestore Timestamp or serverTimestamp sentinel
   permissions?: AdminPermissions;
   lastGameAt?: unknown;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
+}
+
+export interface BuildingStat {
+  building: string;
+  floor: number | null;
+  totalScore: number;
+  count: number;
+}
+
+export interface DailyStatBucket {
+  gamesPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
+  photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
 }
 
 /**

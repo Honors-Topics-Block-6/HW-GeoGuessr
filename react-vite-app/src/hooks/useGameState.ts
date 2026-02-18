@@ -30,6 +30,7 @@ export interface PlayingArea {
 export interface RoundResult {
   roundNumber: number;
   imageUrl: string;
+  imageDescription?: string | null;
   guessLocation: MapCoords | null;
   actualLocation: MapCoords;
   guessFloor: number | null;
@@ -363,6 +364,7 @@ export function useGameState(): UseGameStateReturn {
     const result: RoundResult = {
       roundNumber: currentRound,
       imageUrl: currentImage.url,
+      imageDescription: currentImage.description ?? null,
       guessLocation,
       actualLocation,
       guessFloor,
@@ -413,6 +415,7 @@ export function useGameState(): UseGameStateReturn {
       const result: RoundResult = {
         roundNumber: currentRound,
         imageUrl: currentImage.url,
+      imageDescription: currentImage.description ?? null,
         guessLocation: null,
         actualLocation,
         guessFloor: null,

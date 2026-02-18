@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { awardXp } from '../../services/xpService';
+import { updateUserDoc } from '../../services/userService';
+import { increment } from 'firebase/firestore';
 import { calculateXpGain, getLevelTitle } from '../../utils/xpLevelling';
 import { useDailyGoals } from '../../hooks/useDailyGoals';
 import { GOAL_TYPES } from '../../utils/dailyGoalDefinitions';
@@ -31,6 +33,9 @@ interface RoundData {
   locationScore: number;
   imageUrl: string;
   floorCorrect: boolean | null;
+  timeTakenSeconds?: number;
+  actualFloor?: number | null;
+  imageDescription?: string | null;
   noGuess?: boolean;
 }
 
@@ -76,7 +81,7 @@ export interface FinalResultsScreenProps {
 }
 
 function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: FinalResultsScreenProps): React.ReactElement {
-  const { user, totalXp, refreshUserDoc } = useAuth();
+  const { user, userDoc, totalXp, refreshUserDoc } = useAuth();
   const { recordProgress } = useDailyGoals(user?.uid ?? null);
   const [animationComplete, setAnimationComplete] = useState<boolean>(false);
   const [displayedTotal, setDisplayedTotal] = useState<number>(0);
@@ -86,6 +91,17 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
   const totalScore = rounds.reduce((sum: number, round: RoundData) => sum + round.score, 0);
   const maxPossible = rounds.length * 5000;
   const performance = getPerformanceRating(totalScore, maxPossible);
+  const totalGuessTimeSeconds = rounds.reduce((sum: number, round: RoundData) => sum + (round.timeTakenSeconds ?? 0), 0);
+  const isPerfectRound = (round: RoundData): boolean =>
+    round.locationScore === 5000 && round.floorCorrect !== false;
+  const fiveKCount = rounds.filter(isPerfectRound).length;
+  const twentyFiveKCount = rounds.length > 0 && rounds.every(isPerfectRound) ? 1 : 0;
+  const getLocalDateKey = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   // Snapshot the totalXp at mount so it doesn't shift after the Firestore refresh.
   // useState initializer only runs once, so this captures the pre-award value.
@@ -107,7 +123,114 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
 
     // Persist to Firestore, then refresh local user doc
     awardXp(user.uid, totalScore)
-      .then(() => refreshUserDoc())
+      .then(async () => {
+        const existingBuildingStats = userDoc?.buildingStats ?? {};
+        const updatedBuildingStats: typeof existingBuildingStats = { ...existingBuildingStats };
+        const todayKey = getLocalDateKey(new Date());
+        const difficultyKey = difficulty ?? 'all';
+        const existingDailyStats = userDoc?.dailyStats ?? {};
+        const existingDailyStatsByDifficulty = userDoc?.dailyStatsByDifficulty ?? {};
+        const dayStats = existingDailyStats[todayKey] ?? {
+          gamesPlayed: 0,
+          totalScore: 0,
+          totalGuessTimeSeconds: 0,
+          fiveKCount: 0,
+          twentyFiveKCount: 0,
+          photosSubmittedCount: 0,
+          buildingStats: {}
+        };
+        const dayStatsByDifficulty = existingDailyStatsByDifficulty[todayKey]?.[difficultyKey] ?? {
+          gamesPlayed: 0,
+          totalScore: 0,
+          totalGuessTimeSeconds: 0,
+          fiveKCount: 0,
+          twentyFiveKCount: 0,
+          photosSubmittedCount: 0,
+          buildingStats: {}
+        };
+        const updatedDayBuildingStats = { ...dayStats.buildingStats };
+        const updatedDayBuildingStatsByDifficulty = { ...dayStatsByDifficulty.buildingStats };
+
+        for (const round of rounds) {
+          const building = round.imageDescription ?? 'Unknown';
+          const floor = round.actualFloor ?? null;
+          const key = `${building}::${floor ?? 'unknown'}`;
+          const current = updatedBuildingStats[key] ?? {
+            building,
+            floor,
+            totalScore: 0,
+            count: 0
+          };
+          updatedBuildingStats[key] = {
+            building: current.building,
+            floor: current.floor ?? floor,
+            totalScore: current.totalScore + round.score,
+            count: current.count + 1
+          };
+
+          const dayCurrent = updatedDayBuildingStats[key] ?? {
+            building,
+            floor,
+            totalScore: 0,
+            count: 0
+          };
+          updatedDayBuildingStats[key] = {
+            building: dayCurrent.building,
+            floor: dayCurrent.floor ?? floor,
+            totalScore: dayCurrent.totalScore + round.score,
+            count: dayCurrent.count + 1
+          };
+
+          const dayDiffCurrent = updatedDayBuildingStatsByDifficulty[key] ?? {
+            building,
+            floor,
+            totalScore: 0,
+            count: 0
+          };
+          updatedDayBuildingStatsByDifficulty[key] = {
+            building: dayDiffCurrent.building,
+            floor: dayDiffCurrent.floor ?? floor,
+            totalScore: dayDiffCurrent.totalScore + round.score,
+            count: dayDiffCurrent.count + 1
+          };
+        }
+
+        await updateUserDoc(user.uid, {
+          totalScore: increment(totalScore),
+          totalGuessTimeSeconds: increment(totalGuessTimeSeconds),
+          fiveKCount: increment(fiveKCount),
+          twentyFiveKCount: increment(twentyFiveKCount),
+          buildingStats: updatedBuildingStats,
+          dailyStats: {
+            ...existingDailyStats,
+            [todayKey]: {
+              gamesPlayed: dayStats.gamesPlayed + 1,
+              totalScore: dayStats.totalScore + totalScore,
+              totalGuessTimeSeconds: dayStats.totalGuessTimeSeconds + totalGuessTimeSeconds,
+              fiveKCount: dayStats.fiveKCount + fiveKCount,
+              twentyFiveKCount: dayStats.twentyFiveKCount + twentyFiveKCount,
+              photosSubmittedCount: dayStats.photosSubmittedCount,
+              buildingStats: updatedDayBuildingStats
+            }
+          },
+          dailyStatsByDifficulty: {
+            ...existingDailyStatsByDifficulty,
+            [todayKey]: {
+              ...(existingDailyStatsByDifficulty[todayKey] ?? {}),
+              [difficultyKey]: {
+                gamesPlayed: dayStatsByDifficulty.gamesPlayed + 1,
+                totalScore: dayStatsByDifficulty.totalScore + totalScore,
+                totalGuessTimeSeconds: dayStatsByDifficulty.totalGuessTimeSeconds + totalGuessTimeSeconds,
+                fiveKCount: dayStatsByDifficulty.fiveKCount + fiveKCount,
+                twentyFiveKCount: dayStatsByDifficulty.twentyFiveKCount + twentyFiveKCount,
+                photosSubmittedCount: dayStatsByDifficulty.photosSubmittedCount,
+                buildingStats: updatedDayBuildingStatsByDifficulty
+              }
+            }
+          }
+        });
+        await refreshUserDoc();
+      })
       .catch((err: Error) => console.error('Failed to award XP:', err));
 
     // --- Daily Goals Progress ---
@@ -137,7 +260,7 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
     if (xpResult.levelsGained > 0) {
       setTimeout(() => setShowLevelUp(true), 2000);
     }
-  }, [user, totalScore, refreshUserDoc, xpResult, rounds, difficulty, recordProgress]);
+  }, [user, userDoc, totalScore, refreshUserDoc, xpResult, rounds, difficulty, recordProgress, totalGuessTimeSeconds, fiveKCount, twentyFiveKCount]);
 
   // Spacebar to play again
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
