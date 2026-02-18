@@ -42,6 +42,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
     sendRequest,
     acceptRequest,
     declineRequest,
+    cancelRequest,
     removeFriend,
     loading,
     error: friendsError
@@ -118,6 +119,17 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
       await declineRequest(requestId);
     } catch (err) {
       console.error('Decline failed:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancel = async (requestId: string): Promise<void> => {
+    setActionLoading(requestId);
+    try {
+      await cancelRequest(requestId);
+    } catch (err) {
+      console.error('Cancel failed:', err);
     } finally {
       setActionLoading(null);
     }
@@ -289,7 +301,13 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                         <span className="request-username">{req.toUsername}</span>
                         <span className="request-uid">{req.toUid}</span>
                       </div>
-                      <span className="request-pending-badge">Pending</span>
+                      <button
+                        className="request-cancel"
+                        onClick={() => handleCancel(req.id)}
+                        disabled={actionLoading === req.id}
+                      >
+                        {actionLoading === req.id ? '...' : 'Cancel'}
+                      </button>
                     </div>
                   ))}
                 </div>
