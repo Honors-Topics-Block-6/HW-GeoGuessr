@@ -171,15 +171,16 @@ export type RoundStartedAt = Timestamp | number;
 
 /**
  * Submit a player's guess for the current round.
- * Calculates score client-side using the same formula as singleplayer,
- * with time decay: points decrease as the player takes longer to guess.
+ * Calculates score client-side using the same formula as singleplayer.
+ * Time decay (points decrease as player takes longer) applies only in hard mode.
  */
 export async function submitDuelGuess(
   docId: string,
   playerUid: string,
   guessData: GuessData,
   currentImage: DuelImage,
-  roundStartedAt?: RoundStartedAt | null
+  roundStartedAt?: RoundStartedAt | null,
+  difficulty?: string
 ): Promise<void> {
   let score = 0;
   let locationScore = 0;
@@ -202,10 +203,10 @@ export async function submitDuelGuess(
     }
   }
 
-  // Apply time decay: score decreases as player takes longer
+  // Apply time decay only in hard mode: score decreases as player takes longer
   let timeTakenSeconds: number | undefined;
   let timePenalty: number | undefined;
-  if (roundStartedAt != null && score > 0) {
+  if (difficulty === 'hard' && roundStartedAt != null && score > 0) {
     const roundStartMs =
       typeof roundStartedAt === 'object' && roundStartedAt?.toMillis
         ? roundStartedAt.toMillis()
