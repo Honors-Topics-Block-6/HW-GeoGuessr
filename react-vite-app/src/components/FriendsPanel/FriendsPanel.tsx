@@ -82,7 +82,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
 
     const trimmed = addUid.trim();
     if (!trimmed) {
-      setAddError('Please enter a user ID.');
+      setAddError('Please enter a User ID, username, or email.');
       return;
     }
 
@@ -182,7 +182,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
               <div className="friends-empty">
                 <span className="friends-empty-icon">👥</span>
                 <p>No friends yet</p>
-                <p className="friends-empty-hint">Add friends by their user ID!</p>
+                <p className="friends-empty-hint">Add friends by their User ID, username, or email!</p>
               </div>
             ) : (
               <div className="friends-list">
@@ -301,7 +301,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
         {tab === 'add' && (
           <div className="friends-add-section">
             <div className="add-friend-info">
-              <p>Add a friend by entering their User ID.</p>
+              <p>Add a friend by entering their User ID, username, or email address.</p>
               <div className="your-uid-box">
                 <span className="your-uid-label">Your User ID:</span>
                 <code className="your-uid-value">{user?.uid}</code>
@@ -323,7 +323,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
               <input
                 type="text"
                 className="add-friend-input"
-                placeholder="Enter friend's User ID..."
+                placeholder="Enter User ID, username, or email..."
                 value={addUid}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => {
                   setAddUid(e.target.value);

@@ -112,6 +112,7 @@ export async function createUserDoc(uid: string, email: string, username: string
   const userData: Record<string, unknown> = {
     uid,
     email,
+    emailLower: email.toLowerCase(),
     username,
     isAdmin,
     emailVerified: false,
@@ -287,6 +288,11 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
       throw new Error('Last game date is invalid.');
     }
     updates.lastGameAt = date;
+  }
+
+  // Keep emailLower in sync when email is updated
+  if ('email' in updates && typeof updates.email === 'string') {
+    updates.emailLower = updates.email.toLowerCase();
   }
 
   await updateUserDoc(uid, updates as Record<string, unknown>);
