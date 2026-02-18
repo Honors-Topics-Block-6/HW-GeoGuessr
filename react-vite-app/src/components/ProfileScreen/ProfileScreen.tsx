@@ -8,13 +8,54 @@ export interface ProfileScreenProps {
 }
 
 function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.ReactElement {
-  const { user, userDoc, updateUsername, totalXp, levelInfo, levelTitle, emailVerified } = useAuth();
+  const {
+    user,
+    userDoc,
+    updateUsername,
+    updateProfileImage,
+    totalXp,
+    levelInfo,
+    levelTitle,
+    emailVerified
+  } = useAuth();
 
   const [newUsername, setNewUsername] = useState<string>(userDoc?.username || '');
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+
+  const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = e.target.files?.[0];
+    // Reset input so selecting the same file again still triggers onChange.
+    e.target.value = '';
+    if (!file) return;
+
+    setError('');
+    setSuccess('');
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image must be smaller than 10MB.');
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      await updateProfileImage(file);
+      setSuccess('Profile picture updated!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError((err as Error).message || 'Failed to upload profile image.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const handleSave = async (): Promise<void> => {
     setError('');
@@ -67,7 +108,24 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
         </button>
 
         <div className="profile-avatar">
-          <span className="profile-avatar-icon">👤</span>
+          {userDoc?.photoURL ? (
+            <img
+              className="profile-avatar-image"
+              src={userDoc.photoURL}
+              alt={`${userDoc.username}'s profile`}
+            />
+          ) : (
+            <span className="profile-avatar-icon">👤</span>
+          )}
+          <label className={`profile-photo-upload ${isUploadingPhoto ? 'disabled' : ''}`}>
+            {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              disabled={isUploadingPhoto}
+            />
+          </label>
         </div>
 
         <h1 className="profile-title">Your Profile</h1>
@@ -128,6 +186,9 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
                   autoFocus
                   disabled={isSaving}
                 />
+                <div className="profile-username-note">
+                  Changing your username is allowed once every 30 days.
+                </div>
                 <button
                   className="profile-save-button"
                   onClick={handleSave}

@@ -79,11 +79,56 @@
   text-align: center;
   margin-bottom: 1rem;
   margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 .profile-avatar-icon {
   font-size: 4rem;
   display: block;
+}
+
+.profile-avatar-image {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.profile-photo-upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(108, 181, 45, 0.15);
+  border: 1px solid rgba(108, 181, 45, 0.35);
+  border-radius: 999px;
+  color: var(--accent-green-light);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-photo-upload:hover {
+  background: rgba(108, 181, 45, 0.22);
+}
+
+.profile-photo-upload.disabled {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.profile-photo-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .profile-title {
@@ -293,6 +338,16 @@
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.profile-username-note {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  width: 100%;
 }
 
 .profile-input {
