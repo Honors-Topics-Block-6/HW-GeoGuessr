@@ -76,6 +76,33 @@ export async function getUserByUid(uid: string): Promise<UserLookup | null> {
 }
 
 /**
+ * Look up a user document by email.
+ * Returns { uid, username, email } or null.
+ */
+export async function getUserByEmail(email: string): Promise<UserLookup | null> {
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('email', '==', email.trim()));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+  const docSnap = snapshot.docs[0];
+  const data = docSnap.data();
+  return { uid: docSnap.id, username: data.username, email: data.email };
+}
+
+/**
+ * Resolve a user by UID or email.
+ * If input contains '@', treats as email; otherwise treats as UID.
+ */
+export async function getUserByIdOrEmail(input: string): Promise<UserLookup | null> {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes('@')) {
+    return getUserByEmail(trimmed);
+  }
+  return getUserByUid(trimmed);
+}
+
+/**
  * Check if two users are already friends.
  */
 export async function areFriends(uid1: string, uid2: string): Promise<boolean> {
@@ -115,20 +142,22 @@ async function hasPendingRequest(fromUid: string, toUid: string): Promise<boolea
 /**
  * Send a friend request.
  * Validates: not self, not already friends, no duplicate pending request.
+ * Accepts targetIdOrEmail: either a user UID or an email address.
  */
 export async function sendFriendRequest(
   fromUid: string,
   fromUsername: string,
-  toUid: string
+  targetIdOrEmail: string
 ): Promise<void> {
-  if (fromUid === toUid) {
-    throw new Error('You cannot add yourself as a friend.');
+  // Resolve target (UID or email) to user
+  const targetUser = await getUserByIdOrEmail(targetIdOrEmail);
+  if (!targetUser) {
+    throw new Error('No user found with that User ID or email.');
   }
 
-  // Check target user exists
-  const targetUser = await getUserByUid(toUid);
-  if (!targetUser) {
-    throw new Error('No user found with that UID.');
+  const toUid = targetUser.uid;
+  if (fromUid === toUid) {
+    throw new Error('You cannot add yourself as a friend.');
   }
 
   // Check not already friends
