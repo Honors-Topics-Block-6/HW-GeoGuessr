@@ -268,6 +268,31 @@ export async function declineFriendRequest(requestId: string): Promise<void> {
 }
 
 /**
+ * Cancel/delete an outgoing friend request.
+ * Only the sender can cancel their own request.
+ */
+export async function cancelFriendRequest(requestId: string, senderUid: string): Promise<void> {
+  const requestRef = doc(db, 'friendRequests', requestId);
+  const requestSnap = await getDoc(requestRef);
+  
+  if (!requestSnap.exists()) {
+    throw new Error('Friend request not found.');
+  }
+  
+  const request = requestSnap.data() as { fromUid: string; status: FriendRequestStatus };
+  
+  if (request.fromUid !== senderUid) {
+    throw new Error('You can only cancel your own friend requests.');
+  }
+  
+  if (request.status !== 'pending') {
+    throw new Error('This request has already been responded to.');
+  }
+  
+  await deleteDoc(requestRef);
+}
+
+/**
  * Remove a friend (delete the friends document).
  */
 export async function removeFriend(uid1: string, uid2: string): Promise<void> {
@@ -345,6 +370,35 @@ export function subscribeFriendRequests(
   const q = query(
     requestsRef,
     where('toUid', '==', uid),
+    where('status', '==', 'pending')
+  );
+  return onSnapshot(q, (snapshot) => {
+    const requests = snapshot.docs.map(docSnap => ({
+      id: docSnap.id,
+      ...docSnap.data()
+    })) as FriendRequestDoc[];
+    // Sort client-side (in case index isn't set up)
+    requests.sort((a, b) => {
+      const aTime = (a.createdAt as FirestoreTimestamp | null)?.toMillis?.() || 0;
+      const bTime = (b.createdAt as FirestoreTimestamp | null)?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
+    callback(requests);
+  });
+}
+
+/**
+ * Subscribe to outgoing pending friend requests (real-time).
+ * Returns unsubscribe function.
+ */
+export function subscribeOutgoingRequests(
+  uid: string,
+  callback: (requests: FriendRequestDoc[]) => void
+): () => void {
+  const requestsRef = collection(db, 'friendRequests');
+  const q = query(
+    requestsRef,
+    where('fromUid', '==', uid),
     where('status', '==', 'pending')
   );
   return onSnapshot(q, (snapshot) => {
