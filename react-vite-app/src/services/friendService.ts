@@ -157,7 +157,7 @@ export async function sendFriendRequest(
 
 /**
  * Accept a friend request.
- * Updates request status and creates a friends document.
+ * Creates a friends document and deletes the request.
  */
 export async function acceptFriendRequest(requestId: string): Promise<void> {
   const requestRef = doc(db, 'friendRequests', requestId);
@@ -177,12 +177,6 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
     throw new Error('This request has already been responded to.');
   }
 
-  // Update request status
-  await updateDoc(requestRef, {
-    status: 'accepted',
-    respondedAt: serverTimestamp()
-  });
-
   // Create friends document
   const pairId = getFriendPairId(request.fromUid, request.toUid);
   const friendRef = doc(db, 'friends', pairId);
@@ -194,6 +188,9 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
     },
     since: serverTimestamp()
   });
+
+  // Delete the friend request document
+  await deleteDoc(requestRef);
 }
 
 /**
