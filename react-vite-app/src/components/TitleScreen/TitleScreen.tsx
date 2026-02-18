@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { isTestAchievementUnlocked, toggleTestAchievementUnlocked, ACHIEVEMENTS_UPDATED_EVENT } from '../../services/achievementService';
 import './TitleScreen.css';
 
 export interface TitleScreenProps {
@@ -16,6 +17,7 @@ export interface TitleScreenProps {
 function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, onOpenBugReport, onOpenDailyGoals, isLoading }: TitleScreenProps): React.ReactElement {
   const { userDoc, logout, levelInfo, levelTitle: _levelTitle } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isTestAchievementOn, setIsTestAchievementOn] = useState<boolean>(() => isTestAchievementUnlocked());
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async (): Promise<void> => {
@@ -35,6 +37,16 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const syncToggleState = (): void => setIsTestAchievementOn(isTestAchievementUnlocked());
+    window.addEventListener(ACHIEVEMENTS_UPDATED_EVENT, syncToggleState);
+    window.addEventListener('storage', syncToggleState);
+    return () => {
+      window.removeEventListener(ACHIEVEMENTS_UPDATED_EVENT, syncToggleState);
+      window.removeEventListener('storage', syncToggleState);
+    };
   }, []);
 
   return (
@@ -70,6 +82,12 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
           )}
         </div>
         <div className="title-top-actions">
+          <button
+            className={`title-test-achievement-button ${isTestAchievementOn ? 'active' : ''}`}
+            onClick={() => setIsTestAchievementOn(toggleTestAchievementUnlocked())}
+          >
+            {isTestAchievementOn ? 'Remove Test Badge' : 'Unlock Test Badge'}
+          </button>
           <button className="submit-photo-button" onClick={onOpenSubmission}>
             Submit Photo
           </button>

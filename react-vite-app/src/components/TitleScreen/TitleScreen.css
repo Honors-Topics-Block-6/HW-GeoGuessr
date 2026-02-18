@@ -127,6 +127,30 @@
   gap: 10px;
 }
 
+.title-test-achievement-button {
+  padding: 8px 14px;
+  background: rgba(99, 102, 241, 0.16);
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  color: #c7d2fe;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.title-test-achievement-button:hover {
+  background: rgba(99, 102, 241, 0.26);
+  color: #e0e7ff;
+  transform: translateY(-1px);
+}
+
+.title-test-achievement-button.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.42);
+  color: #6ee7b7;
+}
+
 .title-leaderboard-button {
   padding: 8px 16px;
   background: rgba(255, 215, 0, 0.1);
@@ -377,7 +401,8 @@
 
   .title-leaderboard-button,
   .submit-photo-button,
-  .title-bug-report-button {
+  .title-bug-report-button,
+  .title-test-achievement-button {
     font-size: 12px;
     padding: 6px 12px;
   }

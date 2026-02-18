@@ -253,6 +253,162 @@
   gap: 1rem;
 }
 
+.profile-achievement-toast {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: min(92vw, 430px);
+  background: rgba(13, 19, 38, 0.9);
+  border: 1px solid rgba(108, 181, 45, 0.4);
+  border-radius: 14px;
+  padding: 0.7rem 0.9rem;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  animation: achievement-toast-in 220ms ease-out;
+}
+
+.profile-achievement-toast-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  background: radial-gradient(circle, rgba(108, 181, 45, 0.35) 0%, rgba(108, 181, 45, 0.16) 100%);
+  border: 2px solid rgba(108, 181, 45, 0.65);
+  box-shadow: 0 0 16px rgba(108, 181, 45, 0.35);
+  flex-shrink: 0;
+}
+
+.profile-achievement-toast-text {
+  min-width: 0;
+}
+
+.profile-achievement-toast-title {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.profile-achievement-toast-description {
+  margin-top: 0.2rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  opacity: 0;
+  animation: achievement-description-fade 300ms ease-out 360ms forwards;
+}
+
+.profile-achievements-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.profile-achievements-summary {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.profile-achievements-strip {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+  padding: 0.25rem 0.15rem 0.35rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.profile-achievement-chip {
+  min-width: 112px;
+  max-width: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.3rem;
+  flex-shrink: 0;
+  position: relative;
+  border-radius: 12px;
+  cursor: default;
+}
+
+.profile-achievement-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(20, 20, 42, 0.75);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.profile-achievement-chip.unlocked .profile-achievement-circle {
+  border-color: rgba(108, 181, 45, 0.68);
+  box-shadow: 0 0 14px rgba(108, 181, 45, 0.34);
+}
+
+.profile-achievement-chip.locked .profile-achievement-circle {
+  opacity: 0.7;
+  filter: grayscale(0.3);
+}
+
+.profile-achievement-icon {
+  font-size: 1.75rem;
+}
+
+.profile-achievement-chip:hover .profile-achievement-circle {
+  transform: translateY(-2px);
+}
+
+.profile-achievement-hover-card {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 11, 24, 0.96);
+  border: 1px solid rgba(108, 181, 45, 0.34);
+  border-radius: 12px;
+  padding: 0.45rem 0.55rem;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  line-height: 1.35;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+  z-index: 4;
+}
+
+.profile-achievement-chip:hover .profile-achievement-hover-card {
+  opacity: 1;
+}
+
+.profile-achievement-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.profile-achievement-progress {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
 .profile-edit-button {
   background: rgba(108, 181, 45, 0.15);
   border: 1px solid rgba(108, 181, 45, 0.3);
@@ -359,6 +515,28 @@
   cursor: not-allowed;
 }
 
+@keyframes achievement-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes achievement-description-fade {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Email Verification Badge */
 .profile-verification-badge {
   display: inline-block;
@@ -407,5 +585,10 @@
   .profile-edit-row .profile-cancel-button {
     width: 100%;
     text-align: center;
+  }
+
+  .profile-achievement-toast {
+    width: calc(100vw - 1rem);
+    top: 0.55rem;
   }
 }
