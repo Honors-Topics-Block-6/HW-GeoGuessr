@@ -186,6 +186,9 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
                   autoFocus
                   disabled={isSaving}
                 />
+                <div className="profile-username-note">
+                  Changing your username is allowed once every 30 days.
+                </div>
                 <button
                   className="profile-save-button"
                   onClick={handleSave}
