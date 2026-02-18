@@ -270,8 +270,9 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
     const lastChange = existing.lastUsernameChange as { toDate?: () => Date } | Date | undefined;
     if (lastChange) {
-      const lastDate = typeof lastChange === 'object' && 'toDate' in lastChange
-        ? lastChange.toDate()
+      const hasToDate = typeof (lastChange as { toDate?: unknown }).toDate === 'function';
+      const lastDate = hasToDate
+        ? (lastChange as { toDate: () => Date }).toDate()
         : (lastChange as Date);
       const now = Date.now();
       if (lastDate instanceof Date && !isNaN(lastDate.getTime())) {

@@ -102,39 +102,47 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      setUser(firebaseUser);
-      const authVerified = firebaseUser?.emailVerified ?? false;
+      try {
+        setUser(firebaseUser);
+        const authVerified = firebaseUser?.emailVerified ?? false;
 
-      if (firebaseUser) {
-        // Fetch the user's Firestore document
-        const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
-        if (doc) {
-          // Verified if either Firebase Auth or Firestore says so
-          // (admin can set emailVerified in Firestore, user can verify via email link)
-          const isVerified = authVerified || doc.emailVerified === true;
-          setEmailVerified(isVerified);
+        if (firebaseUser) {
+          // Fetch the user's Firestore document
+          const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
+          if (doc) {
+            // Verified if either Firebase Auth or Firestore says so
+            // (admin can set emailVerified in Firestore, user can verify via email link)
+            const isVerified = authVerified || doc.emailVerified === true;
+            setEmailVerified(isVerified);
 
-          // Sync Firebase Auth -> Firestore when user verifies via email link
-          if (authVerified && !doc.emailVerified) {
-            await updateUserDoc(firebaseUser.uid, { emailVerified: true });
-            doc.emailVerified = true;
+            // Sync Firebase Auth -> Firestore when user verifies via email link
+            if (authVerified && !doc.emailVerified) {
+              await updateUserDoc(firebaseUser.uid, { emailVerified: true });
+              doc.emailVerified = true;
+            }
+
+            setUserDoc(doc);
+            setNeedsUsername(false);
+          } else {
+            setEmailVerified(authVerified);
+            // User exists in Auth but not in Firestore (Google sign-in, first time)
+            setUserDoc(null);
+            setNeedsUsername(true);
           }
-
-          setUserDoc(doc);
-          setNeedsUsername(false);
         } else {
-          setEmailVerified(authVerified);
-          // User exists in Auth but not in Firestore (Google sign-in, first time)
+          setEmailVerified(false);
           setUserDoc(null);
-          setNeedsUsername(true);
+          setNeedsUsername(false);
         }
-      } else {
+      } catch (err) {
+        // Avoid app-wide infinite spinner when auth/profile fetch fails.
+        console.error('Failed to initialize auth state:', err);
         setEmailVerified(false);
         setUserDoc(null);
         setNeedsUsername(false);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return unsubscribe;

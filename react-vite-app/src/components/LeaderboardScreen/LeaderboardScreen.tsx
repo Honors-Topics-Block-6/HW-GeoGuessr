@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getLeaderboard, getUserRank } from '../../services/leaderboardService';
-import type { LeaderboardMetric } from '../../services/leaderboardService';
 import './LeaderboardScreen.css';
 
 interface LeaderboardEntry {
@@ -20,6 +19,8 @@ interface LevelInfo {
   xpIntoLevel: number;
   currentLevelXp: number;
 }
+
+type LeaderboardSort = 'totalXp' | 'gamesPlayed';
 
 interface UserDoc {
   username?: string;
@@ -44,19 +45,16 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
   const [myRank, setMyRank] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
-  const [metric, setMetric] = useState<LeaderboardMetric>('totalXp');
+  const [sortBy, setSortBy] = useState<LeaderboardSort>('totalXp');
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchLeaderboard(): Promise<void> {
       try {
-        const userMetricValue = metric === 'gamesPlayed'
-          ? (userDoc?.gamesPlayed ?? 0)
-          : totalXp;
         const [leaderboard, rank] = await Promise.all([
-          getLeaderboard(50, metric),
-          user ? getUserRank(user.uid, userMetricValue, metric) : Promise.resolve(null)
+          getLeaderboard(50),
+          user ? getUserRank(user.uid, totalXp) : Promise.resolve(null)
         ]);
 
         if (!cancelled) {
@@ -75,10 +73,34 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
 
     fetchLeaderboard();
     return () => { cancelled = true; };
-  }, [user, userDoc?.gamesPlayed, totalXp, metric]);
+  }, [user, totalXp]);
 
   const isCurrentUser = (uid: string): boolean => user?.uid === uid;
-  const userInTop = entries.some((e: LeaderboardEntry) => isCurrentUser(e.uid));
+  const displayEntries = useMemo(() => {
+    const sorted = [...entries].sort((a, b) => {
+      if (sortBy === 'gamesPlayed') {
+        if (b.gamesPlayed !== a.gamesPlayed) return b.gamesPlayed - a.gamesPlayed;
+        if (b.totalXp !== a.totalXp) return b.totalXp - a.totalXp;
+        return a.username.localeCompare(b.username);
+      }
+
+      if (b.totalXp !== a.totalXp) return b.totalXp - a.totalXp;
+      if (b.gamesPlayed !== a.gamesPlayed) return b.gamesPlayed - a.gamesPlayed;
+      return a.username.localeCompare(b.username);
+    });
+
+    return sorted.map((entry, index) => ({
+      ...entry,
+      rank: index + 1
+    }));
+  }, [entries, sortBy]);
+
+  const userInTop = displayEntries.some((e: LeaderboardEntry) => isCurrentUser(e.uid));
+  const myDisplayRank = useMemo(() => {
+    const inList = displayEntries.find((e: LeaderboardEntry) => isCurrentUser(e.uid));
+    if (inList) return inList.rank;
+    return sortBy === 'totalXp' ? myRank : null;
+  }, [displayEntries, myRank, sortBy, user]);
 
   const getMedalEmoji = (rank: number): string | null => {
     if (rank === 1) return '🥇';
@@ -101,20 +123,9 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
         <div className="leaderboard-header">
           <span className="leaderboard-icon">🏆</span>
           <h1 className="leaderboard-title">Leaderboard</h1>
-          <div className="leaderboard-filter">
-            <label htmlFor="leaderboard-metric">Sort by</label>
-            <select
-              id="leaderboard-metric"
-              value={metric}
-              onChange={(e) => setMetric(e.target.value as LeaderboardMetric)}
-            >
-              <option value="totalXp">Total XP</option>
-              <option value="gamesPlayed">Games Played</option>
-            </select>
-          </div>
-          {myRank && (
+          {myDisplayRank && (
             <p className="leaderboard-my-rank">
-              Your Rank: <strong>#{myRank}</strong>
+              Your Rank: <strong>#{myDisplayRank}</strong>
             </p>
           )}
         </div>
@@ -138,6 +149,22 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
 
         {!loading && !error && entries.length > 0 && (
           <div className="leaderboard-list">
+            <div className="leaderboard-controls">
+              <label htmlFor="leaderboard-sort" className="leaderboard-sort-label">
+                Sort by
+              </label>
+              <select
+                id="leaderboard-sort"
+                className="leaderboard-sort-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as LeaderboardSort)}
+                aria-label="Sort leaderboard by"
+              >
+                <option value="totalXp">Total XP</option>
+                <option value="gamesPlayed">Games Played</option>
+              </select>
+            </div>
+
             <div className="leaderboard-list-header">
               <span className="leaderboard-col-rank">Rank</span>
               <span className="leaderboard-col-player">Player</span>
@@ -146,7 +173,7 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
               <span className="leaderboard-col-games">Games</span>
             </div>
 
-            {entries.map((entry: LeaderboardEntry) => {
+            {displayEntries.map((entry: LeaderboardEntry) => {
               const medal = getMedalEmoji(entry.rank);
               const isMeClass = isCurrentUser(entry.uid) ? ' leaderboard-row-me' : '';
               const topClass = entry.rank <= 3 ? ` leaderboard-row-top${entry.rank}` : '';
@@ -185,14 +212,14 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
             })}
 
             {/* Show current user's position if they're not in the top list */}
-            {!userInTop && myRank && (
+            {!userInTop && sortBy === 'totalXp' && myDisplayRank && (
               <>
                 <div className="leaderboard-separator">
                   <span>...</span>
                 </div>
                 <div className="leaderboard-row leaderboard-row-me">
                   <span className="leaderboard-col-rank">
-                    <span className="leaderboard-rank-num">#{myRank}</span>
+                    <span className="leaderboard-rank-num">#{myDisplayRank}</span>
                   </span>
                   <span className="leaderboard-col-player">
                     <span className="leaderboard-username">{userDoc?.username ?? 'You'}</span>

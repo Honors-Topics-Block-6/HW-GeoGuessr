@@ -107,29 +107,6 @@
   font-weight: 700;
 }
 
-.leaderboard-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.65rem;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
-.leaderboard-filter select {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  border-radius: 8px;
-  padding: 0.35rem 0.55rem;
-  font-size: 0.85rem;
-}
-
-.leaderboard-filter select:focus {
-  outline: 2px solid rgba(108, 181, 45, 0.45);
-  outline-offset: 1px;
-}
-
 /* ── Loading ── */
 .leaderboard-loading {
   display: flex;
@@ -164,6 +141,36 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+.leaderboard-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.leaderboard-sort-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.leaderboard-sort-select {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+}
+
+.leaderboard-sort-select:focus {
+  outline: 2px solid rgba(108, 181, 45, 0.5);
+  outline-offset: 1px;
 }
 
 .leaderboard-list-header {
@@ -328,6 +335,10 @@
   .leaderboard-icon {
     font-size: 2.5rem;
   }
+
+  .leaderboard-controls {
+    justify-content: center;
+  }
 }
 
 @media (max-width: 480px) {
@@ -376,5 +387,14 @@
   .leaderboard-back-button {
     font-size: 0.8rem;
     padding: 0.4rem 0.75rem;
+  }
+
+  .leaderboard-sort-label {
+    font-size: 0.75rem;
+  }
+
+  .leaderboard-sort-select {
+    font-size: 0.78rem;
+    padding: 0.3rem 0.5rem;
   }
 }

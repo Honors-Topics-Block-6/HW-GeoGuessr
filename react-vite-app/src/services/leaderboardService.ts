@@ -23,20 +23,15 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
-export type LeaderboardMetric = 'totalXp' | 'gamesPlayed';
-
 // ────── Functions ──────
 
 /**
  * Fetch the top players ordered by totalXp descending.
  * Each entry includes computed level info.
  */
-export async function getLeaderboard(
-  limitCount: number = 50,
-  metric: LeaderboardMetric = 'totalXp'
-): Promise<LeaderboardEntry[]> {
+export async function getLeaderboard(limitCount: number = 50): Promise<LeaderboardEntry[]> {
   const usersRef = collection(db, 'users');
-  const q = query(usersRef, orderBy(metric, 'desc'), limit(limitCount));
+  const q = query(usersRef, orderBy('totalXp', 'desc'), limit(limitCount));
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((docSnap, index) => {
@@ -62,13 +57,9 @@ export async function getLeaderboard(
  * Get the rank of a specific user (1-based).
  * Counts how many users have more XP, then adds 1.
  */
-export async function getUserRank(
-  _uid: string,
-  userMetricValue: number,
-  metric: LeaderboardMetric = 'totalXp'
-): Promise<number> {
+export async function getUserRank(_uid: string, userTotalXp: number): Promise<number> {
   const usersRef = collection(db, 'users');
-  const q = query(usersRef, where(metric, '>', userMetricValue));
+  const q = query(usersRef, where('totalXp', '>', userTotalXp));
 
   try {
     const countSnap = await getCountFromServer(q);
