@@ -76,17 +76,33 @@ export async function getUserByUid(uid: string): Promise<UserLookup | null> {
 }
 
 /**
- * Look up a user document by email.
- * Returns { uid, username, email } or null.
+ * Look up a user document by email (case-insensitive).
+ * First tries emailLower for new users, then falls back to exact email for existing users.
  */
 export async function getUserByEmail(email: string): Promise<UserLookup | null> {
   const usersRef = collection(db, 'users');
-  const q = query(usersRef, where('email', '==', email.trim()));
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  const docSnap = snapshot.docs[0];
-  const data = docSnap.data();
-  return { uid: docSnap.id, username: data.username, email: data.email };
+  const trimmed = email.trim();
+  const lower = trimmed.toLowerCase();
+
+  // Try emailLower first (case-insensitive, for users created with emailLower)
+  const qLower = query(usersRef, where('emailLower', '==', lower));
+  const snapLower = await getDocs(qLower);
+  if (!snapLower.empty) {
+    const docSnap = snapLower.docs[0];
+    const data = docSnap.data();
+    return { uid: docSnap.id, username: data.username, email: data.email };
+  }
+
+  // Fallback: exact email match (for existing users without emailLower)
+  const qExact = query(usersRef, where('email', '==', trimmed));
+  const snapExact = await getDocs(qExact);
+  if (!snapExact.empty) {
+    const docSnap = snapExact.docs[0];
+    const data = docSnap.data();
+    return { uid: docSnap.id, username: data.username, email: data.email };
+  }
+
+  return null;
 }
 
 /**
