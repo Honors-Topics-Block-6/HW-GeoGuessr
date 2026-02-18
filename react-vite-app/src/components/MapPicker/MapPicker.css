@@ -61,11 +61,24 @@
 }
 
 /* ===== Marker ===== */
+/*
+ * Pin geometry: 26×26 square with border-radius: 50% 50% 50% 0, rotated -45deg.
+ * The sharp corner (bottom-left before rotation) ends up pointing straight down.
+ * After rotation around the center, the tip is at (13, 13 + 13√2) ≈ (13, 31.4)
+ * relative to the 26×26 layout box. That's ~5.4px below the layout bottom.
+ *
+ * translate(-50%, -100%) offsets by (-13px, -26px), placing the layout-box bottom
+ * at the click point. We add an extra calc offset to bring the visual tip to the
+ * click point: 13px × (√2 − 1) ≈ 5.4px.
+ */
 .marker {
   position: absolute;
-  transform: translate(-50%, -100%);
   z-index: 10;
   pointer-events: none;
+  width: 26px;
+  height: 26px;
+  /* Shift so the rotated pin tip (not just the layout box bottom) sits on the click point */
+  transform: translate(-50%, calc(-100% - 5.4px));
 }
 
 .marker-pin {
@@ -91,9 +104,10 @@
   border-radius: 50%;
 }
 
+/* Shadow ellipse sits at the bottom of the marker (the click point) */
 .marker-pulse {
   position: absolute;
-  bottom: -4px;
+  bottom: -5.4px;
   left: 50%;
   transform: translateX(-50%);
   width: 12px;
@@ -236,6 +250,13 @@
     border-radius: 14px;
   }
 
+  .marker {
+    width: 22px;
+    height: 22px;
+    /* 22px pin: tip offset = 11×(√2−1) ≈ 4.6px */
+    transform: translate(-50%, calc(-100% - 4.6px));
+  }
+
   .marker-pin {
     width: 22px;
     height: 22px;
@@ -244,6 +265,10 @@
   .marker-pin::after {
     width: 6px;
     height: 6px;
+  }
+
+  .marker-pulse {
+    bottom: -4.6px;
   }
 
   .zoom-btn {
