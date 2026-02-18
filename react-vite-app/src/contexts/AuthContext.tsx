@@ -29,6 +29,7 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
+  avatarURL?: string | null;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
@@ -70,6 +71,7 @@ export interface AuthContextType {
   completeGoogleSignUp: (username: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
+  updateAvatarURL: (avatarURL: string | null) => Promise<void>;
   refreshUserDoc: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
 }
@@ -283,6 +285,15 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   }, [user]);
 
   /**
+   * Update profile avatar URL (stored on the Firestore user doc)
+   */
+  const updateAvatarURL = useCallback(async (avatarURL: string | null): Promise<void> => {
+    if (!user) throw new Error('No authenticated user');
+    await updateUserDoc(user.uid, { avatarURL: avatarURL ?? null });
+    setUserDoc(prev => prev ? { ...prev, avatarURL: avatarURL ?? null } : prev);
+  }, [user]);
+
+  /**
    * Re-fetch the user doc from Firestore (e.g. after XP is awarded)
    */
   const refreshUserDoc = useCallback(async (): Promise<void> => {
@@ -334,6 +345,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     completeGoogleSignUp,
     logout,
     updateUsername,
+    updateAvatarURL,
     refreshUserDoc,
     sendVerificationEmail: sendVerificationEmailToUser
   };

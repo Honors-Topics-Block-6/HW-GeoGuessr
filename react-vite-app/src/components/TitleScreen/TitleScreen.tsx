@@ -47,7 +47,17 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
             aria-expanded={userMenuOpen}
             aria-haspopup="true"
           >
-            <span className="title-user-icon">👤</span>
+            <span className="title-user-avatar" aria-hidden="true">
+              {userDoc?.avatarURL ? (
+                <img
+                  src={userDoc.avatarURL}
+                  alt=""
+                  className="title-user-avatar-image"
+                />
+              ) : (
+                <span className="title-user-icon">👤</span>
+              )}
+            </span>
             <span className="title-username">{userDoc?.username}</span>
             <span className="title-level-badge">Lvl {levelInfo.level}</span>
             <span className={`title-user-chevron ${userMenuOpen ? 'open' : ''}`}>▾</span>

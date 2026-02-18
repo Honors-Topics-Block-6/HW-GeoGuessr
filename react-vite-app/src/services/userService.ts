@@ -23,6 +23,7 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
+  avatarURL?: string | null;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;

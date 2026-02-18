@@ -1,5 +1,6 @@
-import { useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { compressImage } from '../../utils/compressImage';
 import './ProfileScreen.css';
 
 export interface ProfileScreenProps {
@@ -8,13 +9,77 @@ export interface ProfileScreenProps {
 }
 
 function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.ReactElement {
-  const { user, userDoc, updateUsername, totalXp, levelInfo, levelTitle, emailVerified } = useAuth();
+  const { user, userDoc, updateUsername, updateAvatarURL, totalXp, levelInfo, levelTitle, emailVerified } = useAuth();
 
   const [newUsername, setNewUsername] = useState<string>(userDoc?.username || '');
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isAvatarSaving, setIsAvatarSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const clearAvatarInput = (): void => {
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
+  };
+
+  const handleChooseAvatar = (): void => {
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    setError('');
+    setSuccess('');
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file.');
+      clearAvatarInput();
+      return;
+    }
+
+    // Keep this conservative: storing as Base64 in Firestore can get large.
+    // (We still compress further below to keep it small.)
+    const maxBytes = 10 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setError('Please choose an image smaller than 10MB.');
+      clearAvatarInput();
+      return;
+    }
+
+    setIsAvatarSaving(true);
+    try {
+      const avatarURL = await compressImage(file, { maxWidth: 256, maxHeight: 256, quality: 0.8 });
+      await updateAvatarURL(avatarURL);
+      setSuccess('Profile picture updated!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Failed to update profile picture:', err);
+      setError((err as Error).message || 'Failed to update profile picture.');
+    } finally {
+      setIsAvatarSaving(false);
+      clearAvatarInput();
+    }
+  };
+
+  const handleRemoveAvatar = async (): Promise<void> => {
+    setError('');
+    setSuccess('');
+    setIsAvatarSaving(true);
+    try {
+      await updateAvatarURL(null);
+      setSuccess('Profile picture removed.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Failed to remove profile picture:', err);
+      setError((err as Error).message || 'Failed to remove profile picture.');
+    } finally {
+      setIsAvatarSaving(false);
+      clearAvatarInput();
+    }
+  };
 
   const handleSave = async (): Promise<void> => {
     setError('');
@@ -67,7 +132,47 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
         </button>
 
         <div className="profile-avatar">
-          <span className="profile-avatar-icon">👤</span>
+          <div className="profile-avatar-circle">
+            {userDoc?.avatarURL ? (
+              <img
+                src={userDoc.avatarURL}
+                alt="Profile"
+                className="profile-avatar-image"
+              />
+            ) : (
+              <span className="profile-avatar-icon">👤</span>
+            )}
+          </div>
+
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleAvatarChange}
+            className="profile-avatar-input"
+            disabled={isAvatarSaving}
+          />
+
+          <div className="profile-avatar-actions">
+            <button
+              type="button"
+              className="profile-avatar-button"
+              onClick={handleChooseAvatar}
+              disabled={isAvatarSaving}
+            >
+              {isAvatarSaving ? 'Updating...' : 'Upload Photo'}
+            </button>
+            {userDoc?.avatarURL && (
+              <button
+                type="button"
+                className="profile-avatar-remove"
+                onClick={handleRemoveAvatar}
+                disabled={isAvatarSaving}
+              >
+                Remove
+              </button>
+            )}
+          </div>
         </div>
 
         <h1 className="profile-title">Your Profile</h1>
