@@ -77,7 +77,7 @@
 }
 
 .polygon-vertex:hover {
-  r: 10;
+  r: 1.5;
   fill: #8b5cf6;
 }
 
