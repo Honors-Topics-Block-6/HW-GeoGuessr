@@ -107,6 +107,29 @@
   font-weight: 700;
 }
 
+.leaderboard-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.leaderboard-filter select {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.85rem;
+}
+
+.leaderboard-filter select:focus {
+  outline: 2px solid rgba(108, 181, 45, 0.45);
+  outline-offset: 1px;
+}
+
 /* ── Loading ── */
 .leaderboard-loading {
   display: flex;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getLeaderboard, getUserRank } from '../../services/leaderboardService';
+import type { LeaderboardMetric } from '../../services/leaderboardService';
 import './LeaderboardScreen.css';
 
 interface LeaderboardEntry {
@@ -43,15 +44,19 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
   const [myRank, setMyRank] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
+  const [metric, setMetric] = useState<LeaderboardMetric>('totalXp');
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchLeaderboard(): Promise<void> {
       try {
+        const userMetricValue = metric === 'gamesPlayed'
+          ? (userDoc?.gamesPlayed ?? 0)
+          : totalXp;
         const [leaderboard, rank] = await Promise.all([
-          getLeaderboard(50),
-          user ? getUserRank(user.uid, totalXp) : Promise.resolve(null)
+          getLeaderboard(50, metric),
+          user ? getUserRank(user.uid, userMetricValue, metric) : Promise.resolve(null)
         ]);
 
         if (!cancelled) {
@@ -70,7 +75,7 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
 
     fetchLeaderboard();
     return () => { cancelled = true; };
-  }, [user, totalXp]);
+  }, [user, userDoc?.gamesPlayed, totalXp, metric]);
 
   const isCurrentUser = (uid: string): boolean => user?.uid === uid;
   const userInTop = entries.some((e: LeaderboardEntry) => isCurrentUser(e.uid));
@@ -96,6 +101,17 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
         <div className="leaderboard-header">
           <span className="leaderboard-icon">🏆</span>
           <h1 className="leaderboard-title">Leaderboard</h1>
+          <div className="leaderboard-filter">
+            <label htmlFor="leaderboard-metric">Sort by</label>
+            <select
+              id="leaderboard-metric"
+              value={metric}
+              onChange={(e) => setMetric(e.target.value as LeaderboardMetric)}
+            >
+              <option value="totalXp">Total XP</option>
+              <option value="gamesPlayed">Games Played</option>
+            </select>
+          </div>
           {myRank && (
             <p className="leaderboard-my-rank">
               Your Rank: <strong>#{myRank}</strong>
