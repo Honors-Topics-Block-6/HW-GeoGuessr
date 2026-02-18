@@ -8,6 +8,7 @@ import {
   subscribePublicLobbies,
   sendHeartbeat,
   removeStalePlayersFromLobby,
+  setPlayerReady,
   type LobbyDoc
 } from '../services/lobbyService';
 
@@ -50,6 +51,7 @@ export interface UseWaitingRoomReturn {
   isLoading: boolean;
   error: string | null;
   leave: () => Promise<void>;
+  toggleReady: (ready: boolean) => Promise<void>;
 }
 
 /**
@@ -247,10 +249,23 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     }
   }, [lobbyDocId, userUid]);
 
+  /**
+   * Toggle the player's ready status.
+   */
+  const toggleReady = useCallback(async (ready: boolean): Promise<void> => {
+    if (!lobbyDocId || !userUid) return;
+    try {
+      await setPlayerReady(lobbyDocId, userUid, ready);
+    } catch (err) {
+      console.error('Failed to update ready status:', err);
+    }
+  }, [lobbyDocId, userUid]);
+
   return {
     lobby,
     isLoading,
     error,
-    leave
+    leave,
+    toggleReady
   };
 }
