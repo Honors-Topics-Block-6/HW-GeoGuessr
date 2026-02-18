@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getRandomImage, type GameImage as ServiceGameImage } from '../services/imageService';
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } from '../services/regionService';
+import { saveUserGuess } from '../services/guessSubmissionService';
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
@@ -29,6 +30,7 @@ export interface PlayingArea {
 
 export interface RoundResult {
   roundNumber: number;
+  imageId: string | null;
   imageUrl: string;
   guessLocation: MapCoords | null;
   actualLocation: MapCoords;
@@ -360,8 +362,10 @@ export function useGameState(): UseGameStateReturn {
     }
 
     // Create result object
+    const imageId = currentImage.id || currentImage.url || null;
     const result: RoundResult = {
       roundNumber: currentRound,
+      imageId,
       imageUrl: currentImage.url,
       guessLocation,
       actualLocation,
@@ -380,6 +384,20 @@ export function useGameState(): UseGameStateReturn {
     // Save result
     setCurrentResult(result);
     setRoundResults(prev => [...prev, result]);
+
+    // Persist this guess for per-image heatmap history.
+    saveUserGuess({
+      imageId,
+      guessLocation,
+      guessFloor,
+      actualLocation,
+      actualFloor,
+      distance,
+      score: totalScore,
+      roundNumber: currentRound
+    }).catch((error) => {
+      console.warn('Failed to save guess to Firestore:', error);
+    });
 
     // Show result screen
     setScreen('result');
@@ -412,6 +430,7 @@ export function useGameState(): UseGameStateReturn {
 
       const result: RoundResult = {
         roundNumber: currentRound,
+        imageId: currentImage.id || currentImage.url || null,
         imageUrl: currentImage.url,
         guessLocation: null,
         actualLocation,

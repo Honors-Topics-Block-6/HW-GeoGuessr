@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useGameState } from './useGameState';
 
 // Mock the imageService
 vi.mock('../services/imageService', () => ({
   getRandomImage: vi.fn()
+}));
+
+vi.mock('../services/guessSubmissionService', () => ({
+  saveUserGuess: vi.fn().mockResolvedValue('guess-doc-id')
 }));
 
 // Mock the regionService to return a region with floors
@@ -29,6 +32,8 @@ vi.mock('../services/regionService', () => ({
 }));
 
 import { getRandomImage } from '../services/imageService';
+import { saveUserGuess } from '../services/guessSubmissionService';
+import { useGameState } from './useGameState';
 
 const mockedGetRandomImage = vi.mocked(getRandomImage);
 
@@ -359,6 +364,33 @@ describe('useGameState', () => {
       });
 
       expect(result.current.screen).toBe('result');
+    });
+
+    it('should persist guess data for heatmap history', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 50, y: 50 });
+      });
+
+      act(() => {
+        result.current.selectFloor(2);
+      });
+
+      act(() => {
+        result.current.submitGuess();
+      });
+
+      expect(saveUserGuess).toHaveBeenCalledWith(
+        expect.objectContaining({
+          imageId: mockImage.id,
+          guessLocation: { x: 50, y: 50 }
+        })
+      );
     });
 
     it('should calculate correct score for perfect guess', async () => {

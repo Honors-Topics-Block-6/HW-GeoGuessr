@@ -418,6 +418,7 @@ function App(): React.ReactElement {
 
       {screen === 'result' && currentResult && !inDuel && (
         <ResultScreen
+          imageId={currentResult.imageId}
           guessLocation={currentResult.guessLocation}
           guessFloor={currentResult.guessFloor}
           actualLocation={currentResult.actualLocation}
