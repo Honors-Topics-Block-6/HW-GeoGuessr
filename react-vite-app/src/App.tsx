@@ -429,6 +429,7 @@ function App(): React.ReactElement {
           timeTakenSeconds={currentResult.timeTakenSeconds}
           timedOut={currentResult.timedOut}
           noGuess={currentResult.noGuess ?? false}
+          timePenalty={currentResult.timePenalty}
           roundNumber={currentRound}
           totalRounds={totalRounds}
           onNextRound={nextRound}

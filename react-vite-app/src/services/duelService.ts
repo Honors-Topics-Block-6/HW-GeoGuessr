@@ -10,6 +10,7 @@ import {
 import { db } from '../firebase';
 import { getRandomImage } from './imageService';
 import { calculateDistance, calculateLocationScore } from '../hooks/useGameState';
+import { computeTimeMultiplier } from '../utils/timeScoring';
 
 // ────── Types ──────
 
@@ -40,6 +41,9 @@ export interface DuelGuess {
   timedOut: boolean;
   noGuess: boolean;
   submittedAt: Timestamp;
+  timeTakenSeconds?: number;
+  /** Points deducted due to time */
+  timePenalty?: number;
 }
 
 export interface GuessData {
@@ -58,6 +62,9 @@ export interface RoundPlayerResult {
   floorCorrect: boolean | null;
   timedOut: boolean;
   noGuess: boolean;
+  timeTakenSeconds?: number;
+  /** Points deducted due to time */
+  timePenalty?: number;
 }
 
 export interface RoundHistoryEntry {
@@ -101,6 +108,9 @@ export const STARTING_HEALTH = 6000;
 
 /** Round time in seconds */
 export const DUEL_ROUND_TIME_SECONDS = 20;
+
+/** Minimum score multiplier at round end (0.5 = 50% of accuracy score at 20s) */
+export const DUEL_TIME_MIN_MULTIPLIER = 0.5;
 
 // ────── Functions ──────
 
@@ -156,15 +166,20 @@ export async function startDuel(
   });
 }
 
+/** RoundStartedAt can be a Firestore Timestamp or millisecond number */
+export type RoundStartedAt = Timestamp | number;
+
 /**
  * Submit a player's guess for the current round.
- * Calculates score client-side using the same formula as singleplayer.
+ * Calculates score client-side using the same formula as singleplayer,
+ * with time decay: points decrease as the player takes longer to guess.
  */
 export async function submitDuelGuess(
   docId: string,
   playerUid: string,
   guessData: GuessData,
-  currentImage: DuelImage
+  currentImage: DuelImage,
+  roundStartedAt?: RoundStartedAt | null
 ): Promise<void> {
   let score = 0;
   let locationScore = 0;
@@ -187,19 +202,48 @@ export async function submitDuelGuess(
     }
   }
 
+  // Apply time decay: score decreases as player takes longer
+  let timeTakenSeconds: number | undefined;
+  let timePenalty: number | undefined;
+  if (roundStartedAt != null && score > 0) {
+    const roundStartMs =
+      typeof roundStartedAt === 'object' && roundStartedAt?.toMillis
+        ? roundStartedAt.toMillis()
+        : (roundStartedAt as number);
+    timeTakenSeconds = Math.max(
+      0,
+      Math.min(DUEL_ROUND_TIME_SECONDS, (Date.now() - roundStartMs) / 1000)
+    );
+    const timeMultiplier = computeTimeMultiplier(
+      timeTakenSeconds,
+      DUEL_ROUND_TIME_SECONDS,
+      DUEL_TIME_MIN_MULTIPLIER
+    );
+    const scoreBeforeTime = score;
+    score = Math.round(score * timeMultiplier);
+    timePenalty = scoreBeforeTime - score;
+  }
+
   const lobbyRef = doc(db, 'lobbies', docId);
+  const guessPayload: Record<string, unknown> = {
+    location: guessData.location,
+    floor: guessData.floor ?? null,
+    score,
+    locationScore,
+    distance,
+    floorCorrect,
+    timedOut: guessData.timedOut || false,
+    noGuess: guessData.noGuess || false,
+    submittedAt: Timestamp.now()
+  };
+  if (timeTakenSeconds !== undefined) {
+    guessPayload.timeTakenSeconds = timeTakenSeconds;
+  }
+  if (timePenalty !== undefined && timePenalty > 0) {
+    guessPayload.timePenalty = timePenalty;
+  }
   await updateDoc(lobbyRef, {
-    [`guesses.${playerUid}`]: {
-      location: guessData.location,
-      floor: guessData.floor ?? null,
-      score,
-      locationScore,
-      distance,
-      floorCorrect,
-      timedOut: guessData.timedOut || false,
-      noGuess: guessData.noGuess || false,
-      submittedAt: Timestamp.now()
-    },
+    [`guesses.${playerUid}`]: guessPayload,
     updatedAt: serverTimestamp()
   });
 }
@@ -264,7 +308,9 @@ export async function processRound(docId: string): Promise<void> {
         distance: guess1.distance,
         floorCorrect: guess1.floorCorrect,
         timedOut: guess1.timedOut || false,
-        noGuess: guess1.noGuess || false
+        noGuess: guess1.noGuess || false,
+        ...(guess1.timeTakenSeconds !== undefined && { timeTakenSeconds: guess1.timeTakenSeconds }),
+        ...(guess1.timePenalty !== undefined && guess1.timePenalty > 0 && { timePenalty: guess1.timePenalty })
       },
       [uid2]: {
         location: guess2.location,
@@ -274,7 +320,9 @@ export async function processRound(docId: string): Promise<void> {
         distance: guess2.distance,
         floorCorrect: guess2.floorCorrect,
         timedOut: guess2.timedOut || false,
-        noGuess: guess2.noGuess || false
+        noGuess: guess2.noGuess || false,
+        ...(guess2.timeTakenSeconds !== undefined && { timeTakenSeconds: guess2.timeTakenSeconds }),
+        ...(guess2.timePenalty !== undefined && guess2.timePenalty > 0 && { timePenalty: guess2.timePenalty })
       }
     },
     damage: rawDamage,

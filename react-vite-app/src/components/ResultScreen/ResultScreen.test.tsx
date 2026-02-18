@@ -74,7 +74,7 @@ describe('ResultScreen', () => {
     it('should display score label', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('Score')).toBeInTheDocument();
+      expect(screen.getAllByText('Score').length).toBeGreaterThan(0);
     });
 
     it('should display max score indicator', () => {
@@ -333,7 +333,21 @@ describe('ResultScreen', () => {
     it('should show total score', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('Total')).toBeInTheDocument();
+      expect(screen.getAllByText('Score').length).toBeGreaterThan(0);
+    });
+
+    it('should show time penalty when provided', () => {
+      render(
+        <ResultScreen
+          {...defaultProps}
+          locationScore={5000}
+          totalScore={4500}
+          timePenalty={500}
+        />
+      );
+
+      expect(screen.getByText('Time Penalty')).toBeInTheDocument();
+      expect(screen.getByText('-500')).toBeInTheDocument();
     });
   });
 

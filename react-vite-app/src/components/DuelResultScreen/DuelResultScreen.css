@@ -305,6 +305,33 @@
   color: var(--text-muted);
 }
 
+.duel-score-breakdown {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color);
+  text-align: left;
+  font-size: 0.75rem;
+}
+
+.duel-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.2rem 0;
+  color: var(--text-secondary);
+}
+
+.duel-breakdown-row.penalty {
+  color: var(--error-red, #e74c3c);
+}
+
+.duel-breakdown-row.total {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px dashed var(--border-color);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
 .duel-score-vs {
   font-size: 0.8rem;
   font-weight: 800;

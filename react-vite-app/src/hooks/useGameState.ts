@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getRandomImage, type GameImage as ServiceGameImage } from '../services/imageService';
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } from '../services/regionService';
+import { computeTimeMultiplier } from '../utils/timeScoring';
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
@@ -41,6 +42,8 @@ export interface RoundResult {
   timeTakenSeconds: number;
   timedOut: boolean;
   noGuess?: boolean;
+  /** Points deducted due to time (hard mode only) */
+  timePenalty?: number;
 }
 
 export type ScreenState = 'title' | 'game' | 'result' | 'finalResults' | 'multiplayerLobby' | 'waitingRoom' | 'difficultySelect' | 'duelGame';
@@ -359,6 +362,19 @@ export function useGameState(): UseGameStateReturn {
         : Math.round(locationScore * 0.8);
     }
 
+    // Hard mode: apply time decay (points decrease as player takes longer)
+    let timePenalty: number | undefined;
+    if (difficulty === 'hard' && totalScore > 0) {
+      const timeMultiplier = computeTimeMultiplier(
+        timeTakenSeconds,
+        ROUND_TIME_SECONDS,
+        0.5
+      );
+      const scoreBeforeTime = totalScore;
+      totalScore = Math.round(totalScore * timeMultiplier);
+      timePenalty = scoreBeforeTime - totalScore;
+    }
+
     // Create result object
     const result: RoundResult = {
       roundNumber: currentRound,
@@ -372,7 +388,8 @@ export function useGameState(): UseGameStateReturn {
       floorCorrect,
       score: totalScore,
       timeTakenSeconds,
-      timedOut: timedOutRef.current
+      timedOut: timedOutRef.current,
+      ...(timePenalty !== undefined && timePenalty > 0 && { timePenalty })
     };
 
     timedOutRef.current = false;
@@ -383,7 +400,7 @@ export function useGameState(): UseGameStateReturn {
 
     // Show result screen
     setScreen('result');
-  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime]);
+  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, difficulty]);
 
   const submitGuessRef = useRef<() => void>(submitGuess);
   submitGuessRef.current = submitGuess;
