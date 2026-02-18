@@ -55,6 +55,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
   const [presenceMap, setPresenceMap] = useState<PresenceMap>({});
   const [tab, setTab] = useState<FriendsTab>('friends');
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [copiedUid, setCopiedUid] = useState<boolean>(false);
 
   // Subscribe to presence for online status
   useEffect(() => {
@@ -309,9 +310,11 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                   className="copy-uid-button"
                   onClick={() => {
                     navigator.clipboard.writeText(user?.uid || '');
+                    setCopiedUid(true);
+                    setTimeout(() => setCopiedUid(false), 2000);
                   }}
                 >
-                  Copy
+                  {copiedUid ? '✓' : 'Copy'}
                 </button>
               </div>
             </div>

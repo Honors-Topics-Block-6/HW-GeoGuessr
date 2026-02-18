@@ -303,6 +303,34 @@
   border-radius: 6px;
 }
 
+.waiting-player-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.waiting-player-ready {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.waiting-player-ready.ready {
+  color: var(--accent-green);
+  background: rgba(108, 181, 45, 0.1);
+  border: 1px solid rgba(108, 181, 45, 0.3);
+}
+
+.waiting-player-ready.not-ready {
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+}
+
 /* Waiting Dots Animation */
 .waiting-dots-container {
   display: flex;
@@ -343,11 +371,49 @@
 }
 
 /* Ready State */
+.waiting-ready-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 1.2rem;
+  gap: 1rem;
+}
+
+.waiting-ready-btn {
+  padding: 0.8rem 2rem;
+  background: rgba(108, 181, 45, 0.12);
+  border: 2px solid rgba(108, 181, 45, 0.3);
+  color: var(--accent-green);
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.waiting-ready-btn:hover {
+  background: rgba(108, 181, 45, 0.18);
+  border-color: var(--accent-green);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(108, 181, 45, 0.3);
+}
+
+.waiting-ready-btn.ready {
+  background: rgba(108, 181, 45, 0.2);
+  border-color: var(--accent-green);
+  box-shadow: 0 0 20px rgba(108, 181, 45, 0.3);
+  animation: readyPulse 2s ease-in-out infinite;
+}
+
 .waiting-ready-container {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   margin-top: 1.2rem;
+  gap: 0.3rem;
 }
 
 .waiting-ready-text {
@@ -356,6 +422,11 @@
   color: var(--accent-green);
   text-shadow: 0 0 10px rgba(108, 181, 45, 0.3);
   animation: readyPulse 1.5s ease-in-out infinite;
+}
+
+.waiting-ready-subtext {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 @keyframes readyPulse {
