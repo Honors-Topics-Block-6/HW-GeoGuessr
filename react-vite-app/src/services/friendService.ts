@@ -198,13 +198,11 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
 
 /**
  * Decline a friend request.
+ * Deletes the request document from Firestore.
  */
 export async function declineFriendRequest(requestId: string): Promise<void> {
   const requestRef = doc(db, 'friendRequests', requestId);
-  await updateDoc(requestRef, {
-    status: 'declined',
-    respondedAt: serverTimestamp()
-  });
+  await deleteDoc(requestRef);
 }
 
 /**
