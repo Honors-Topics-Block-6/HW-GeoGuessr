@@ -28,7 +28,14 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
       <div className="title-top-bar">
         <div className="title-user-info">
           <span className="title-user-icon">👤</span>
-          <span className="title-username">{userDoc?.username}</span>
+          <button
+            type="button"
+            className="title-username"
+            onClick={onOpenProfile}
+            title="Open profile"
+          >
+            {userDoc?.username}
+          </button>
           <span className="title-level-badge">Lvl {levelInfo.level}</span>
         </div>
         <div className="title-top-actions">
