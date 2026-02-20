@@ -24,6 +24,7 @@ export interface DuelPlayer {
 }
 
 export interface DuelImage {
+  id?: string;
   url: string;
   correctLocation: MapLocation;
   correctFloor: number | null;
@@ -62,6 +63,7 @@ export interface RoundPlayerResult {
 
 export interface RoundHistoryEntry {
   roundNumber: number;
+  imageId?: string;
   imageUrl: string;
   actualLocation: MapLocation;
   actualFloor: number | null;
@@ -128,6 +130,9 @@ export async function startDuel(
   difficulty: string
 ): Promise<void> {
   const image = await getRandomImage(difficulty);
+  if (!image) {
+    throw new Error('No approved images are available to start a duel.');
+  }
 
   const health: Record<string, number> = {};
   players.forEach(p => {
@@ -140,10 +145,11 @@ export async function startDuel(
     phase: 'guessing',
     currentRound: 1,
     currentImage: {
-      url: image!.url,
-      correctLocation: image!.correctLocation || { x: 50, y: 50 },
-      correctFloor: image!.correctFloor ?? null,
-      difficulty: image!.difficulty || difficulty
+      id: image.id,
+      url: image.url,
+      correctLocation: image.correctLocation || { x: 50, y: 50 },
+      correctFloor: image.correctFloor ?? null,
+      difficulty: image.difficulty || difficulty
     },
     roundStartedAt: Timestamp.now(),
     guesses: {},
@@ -252,6 +258,7 @@ export async function processRound(docId: string): Promise<void> {
   // Build round history entry
   const roundEntry: RoundHistoryEntry = {
     roundNumber: currentRound,
+    imageId: currentImage.id,
     imageUrl: currentImage.url,
     actualLocation: currentImage.correctLocation,
     actualFloor: currentImage.correctFloor ?? null,
@@ -318,21 +325,46 @@ export async function processRound(docId: string): Promise<void> {
  * Only the host should call this.
  */
 export async function advanceToNextRound(docId: string, difficulty: string): Promise<void> {
-  const image = await getRandomImage(difficulty);
-
   const lobbyRef = doc(db, 'lobbies', docId);
   const lobbySnap = await getDoc(lobbyRef);
   if (!lobbySnap.exists()) return;
 
   const lobby = lobbySnap.data() as DuelData;
+  const usedImageIds: string[] = [];
+  const usedImageUrls: string[] = [];
+
+  if (lobby.currentImage?.id) {
+    usedImageIds.push(lobby.currentImage.id);
+  }
+  if (lobby.currentImage?.url) {
+    usedImageUrls.push(lobby.currentImage.url);
+  }
+  (lobby.roundHistory || []).forEach((entry) => {
+    if (entry.imageId) usedImageIds.push(entry.imageId);
+    if (entry.imageUrl) usedImageUrls.push(entry.imageUrl);
+  });
+
+  let image = await getRandomImage(difficulty, {
+    excludeImageIds: usedImageIds,
+    excludeImageUrls: usedImageUrls
+  });
+  // If all images have already been seen in this duel, fall back to full pool
+  // so the match can continue instead of getting stuck.
+  if (!image) {
+    image = await getRandomImage(difficulty);
+  }
+  if (!image) {
+    throw new Error('No approved images are available to continue this duel.');
+  }
 
   await updateDoc(lobbyRef, {
     currentRound: (lobby.currentRound || 1) + 1,
     currentImage: {
-      url: image!.url,
-      correctLocation: image!.correctLocation || { x: 50, y: 50 },
-      correctFloor: image!.correctFloor ?? null,
-      difficulty: image!.difficulty || difficulty
+      id: image.id,
+      url: image.url,
+      correctLocation: image.correctLocation || { x: 50, y: 50 },
+      correctFloor: image.correctFloor ?? null,
+      difficulty: image.difficulty || difficulty
     },
     roundStartedAt: Timestamp.now(),
     guesses: {},
