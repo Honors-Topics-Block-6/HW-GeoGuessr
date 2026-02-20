@@ -4,7 +4,7 @@ import { useGameState, type Difficulty } from './hooks/useGameState';
 import { useDuelGame } from './hooks/useDuelGame';
 import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
-import { STARTING_HEALTH } from './services/duelService';
+import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { joinLobby } from './services/lobbyService';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
@@ -186,6 +186,26 @@ function App(): React.ReactElement {
     setLobbyDocId(null);
     resetGame();
   }, [setLobbyDocId, resetGame]);
+
+  /**
+   * Forfeit duel: award win to opponent, then exit to title.
+   * The opponent will see DuelFinalScreen with "You win! [You] forfeited."
+   */
+  const handleDuelForfeit = useCallback(async (): Promise<void> => {
+    const docId = duelLobbyDocId;
+    const opponentUid = duel.opponentUid;
+    const myUid = user?.uid;
+
+    if (docId && opponentUid && myUid) {
+      try {
+        await handleOpponentDisconnect(docId, opponentUid, myUid, myUid);
+      } catch (err) {
+        console.error('Forfeit update failed:', err);
+      }
+    }
+
+    handleDuelBackToTitle();
+  }, [duelLobbyDocId, duel.opponentUid, user?.uid, handleDuelBackToTitle]);
 
   // Show loading spinner while checking auth state
   if (loading) {
@@ -434,6 +454,7 @@ function App(): React.ReactElement {
           onNextRound={nextRound}
           onViewFinalResults={viewFinalResults}
           isLastRound={currentRound >= totalRounds}
+          onBackToTitle={resetGame}
         />
       )}
 
@@ -464,7 +485,7 @@ function App(): React.ReactElement {
           onMapClick={duel.placeMarker}
           onFloorSelect={duel.selectFloor}
           onSubmitGuess={duel.submitGuess}
-          onBackToTitle={handleDuelBackToTitle}
+          onBackToTitle={handleDuelForfeit}
           currentRound={duel.currentRound}
           clickRejected={duel.clickRejected}
           playingArea={duel.playingArea as React.ComponentProps<typeof DuelGameScreen>['playingArea']}
@@ -499,6 +520,7 @@ function App(): React.ReactElement {
           isHost={duel.isHost}
           onNextRound={duel.nextRound}
           onViewFinalResults={() => {/* Will auto-transition via phase */}}
+          onLeaveDuel={handleDuelForfeit}
           isGameOver={false}
         />
       )}
@@ -511,6 +533,7 @@ function App(): React.ReactElement {
           players={duel.players}
           roundHistory={duel.roundHistory}
           health={duel.duelState?.health || {}}
+          forfeitBy={duel.duelState?.forfeitBy ?? null}
           onPlayAgain={handleExitDuel}
           onBackToTitle={handleDuelBackToTitle}
         />

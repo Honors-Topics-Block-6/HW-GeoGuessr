@@ -78,7 +78,7 @@ describe('GameScreen', () => {
   });
 
   describe('back button', () => {
-    it('should call onBackToTitle when clicked', async () => {
+    it('should open confirmation modal when Back clicked', async () => {
       const user = userEvent.setup();
       const onBackToTitle = vi.fn();
 
@@ -86,7 +86,33 @@ describe('GameScreen', () => {
 
       await user.click(screen.getByText('Back'));
 
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Leave Game?')).toBeInTheDocument();
+      expect(onBackToTitle).not.toHaveBeenCalled();
+    });
+
+    it('should call onBackToTitle when Leave Game confirmed in modal', async () => {
+      const user = userEvent.setup();
+      const onBackToTitle = vi.fn();
+
+      render(<GameScreen {...defaultProps} onBackToTitle={onBackToTitle} />);
+
+      await user.click(screen.getByText('Back'));
+      await user.click(screen.getByText('Leave Game'));
+
       expect(onBackToTitle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not call onBackToTitle when Cancel clicked in modal', async () => {
+      const user = userEvent.setup();
+      const onBackToTitle = vi.fn();
+
+      render(<GameScreen {...defaultProps} onBackToTitle={onBackToTitle} />);
+
+      await user.click(screen.getByText('Back'));
+      await user.click(screen.getByText('Cancel'));
+
+      expect(onBackToTitle).not.toHaveBeenCalled();
     });
   });
 
