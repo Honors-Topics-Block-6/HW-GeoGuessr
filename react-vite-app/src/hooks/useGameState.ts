@@ -124,9 +124,11 @@ export function useGameState(): UseGameStateReturn {
 
   // Current image being shown
   const [currentImage, setCurrentImage] = useState<GameImage | null>(null);
-  // Image IDs used in this game session to prevent repeats within a run
+  // Image IDs/URLs used in this game session to prevent repeats within a run
   const [usedImageIds, setUsedImageIds] = useState<string[]>([]);
   const [usedImageUrls, setUsedImageUrls] = useState<string[]>([]);
+  const usedInThisGameIdsRef = useRef<string[]>([]);
+  const usedInThisGameUrlsRef = useRef<string[]>([]);
   const seenImageIdsRef = useRef<string[]>([]);
   const seenImageUrlsRef = useRef<string[]>([]);
 
@@ -251,7 +253,8 @@ export function useGameState(): UseGameStateReturn {
         excludeImageIds: excludeIds,
         excludeImageUrls: excludeUrls
       });
-      if (!image) {
+      // Only allow a repeat when there are no other images (exhausted pool)
+      if (!image && (excludeIds.length > 0 || excludeUrls.length > 0)) {
         image = await getRandomImage(difficulty);
       }
       if (!image) {
@@ -261,9 +264,11 @@ export function useGameState(): UseGameStateReturn {
       }
       setCurrentImage(image as GameImage | null);
       if (image?.id) {
+        usedInThisGameIdsRef.current = [...usedInThisGameIdsRef.current, image.id].filter((id, i, arr) => arr.indexOf(id) === i);
         setUsedImageIds((prev) => (prev.includes(image.id) ? prev : [...prev, image.id]));
       }
       if (image?.url) {
+        usedInThisGameUrlsRef.current = [...usedInThisGameUrlsRef.current, image.url].filter((url, i, arr) => arr.indexOf(url) === i);
         setUsedImageUrls((prev) => (prev.includes(image.url) ? prev : [...prev, image.url]));
       }
       trackSeenImage(image as GameImage);
@@ -293,6 +298,8 @@ export function useGameState(): UseGameStateReturn {
     setLobbyDocId(null);
     setUsedImageIds([]);
     setUsedImageUrls([]);
+    usedInThisGameIdsRef.current = [];
+    usedInThisGameUrlsRef.current = [];
 
     // Multiplayer: go to lobby screen instead of starting a game
     if (selectedMode === 'multiplayer') {
@@ -325,9 +332,11 @@ export function useGameState(): UseGameStateReturn {
       setRegions(fetchedRegions);
       setCurrentImage(image as GameImage | null);
       if (image?.id) {
+        usedInThisGameIdsRef.current = [image.id];
         setUsedImageIds([image.id]);
       }
       if (image?.url) {
+        usedInThisGameUrlsRef.current = [image.url];
         setUsedImageUrls([image.url]);
       }
       trackSeenImage(image as GameImage);
@@ -533,14 +542,13 @@ export function useGameState(): UseGameStateReturn {
       return;
     }
 
+    // Exclude all images already shown this game (ref is authoritative, updated synchronously)
     const excludeIds = Array.from(new Set([
-      ...seenImageIdsRef.current,
-      ...usedImageIds,
+      ...usedInThisGameIdsRef.current,
       ...(currentImage?.id ? [currentImage.id] : [])
     ]));
     const excludeUrls = Array.from(new Set([
-      ...seenImageUrlsRef.current,
-      ...usedImageUrls,
+      ...usedInThisGameUrlsRef.current,
       ...(currentImage?.url ? [currentImage.url] : [])
     ]));
     const didLoad = await loadNewImage(excludeIds, excludeUrls);
@@ -551,7 +559,7 @@ export function useGameState(): UseGameStateReturn {
     setTimeRemaining(ROUND_TIME_SECONDS);
     setRoundStartTime(performance.now());
     setScreen('game');
-  }, [currentRound, currentImage?.id, currentImage?.url, usedImageIds, usedImageUrls, loadNewImage]);
+  }, [currentRound, currentImage?.id, currentImage?.url, loadNewImage]);
 
   /**
    * View final results (called from last round's result screen)
@@ -580,6 +588,8 @@ export function useGameState(): UseGameStateReturn {
     setLobbyDocId(null);
     setUsedImageIds([]);
     setUsedImageUrls([]);
+    usedInThisGameIdsRef.current = [];
+    usedInThisGameUrlsRef.current = [];
   }, []);
 
   return {
