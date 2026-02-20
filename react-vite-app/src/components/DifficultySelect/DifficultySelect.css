@@ -195,6 +195,89 @@
   font-weight: 700;
 }
 
+/* Settings */
+.game-settings {
+  width: 100%;
+  max-width: 650px;
+  margin-top: 2rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 1.25rem;
+}
+
+.game-settings-heading {
+  margin: 0 0 0.9rem 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: 0.4px;
+}
+
+.game-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.game-setting-wide {
+  grid-column: 1 / -1;
+}
+
+.game-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  text-align: left;
+}
+
+.game-setting-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.game-setting-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.game-setting-select.small {
+  width: auto;
+  min-width: 90px;
+}
+
+.game-setting-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.game-setting-subrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 0.35rem;
+}
+
+.game-setting-subtext {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.game-setting-hint {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
 /* Play Button */
 .play-button {
   margin-top: 2.5rem;
@@ -240,6 +323,10 @@
   .mode-options {
     flex-direction: column;
     align-items: center;
+  }
+
+  .game-settings-grid {
+    grid-template-columns: 1fr;
   }
 
   .difficulty-card,

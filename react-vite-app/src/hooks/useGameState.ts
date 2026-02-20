@@ -2,9 +2,23 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { getRandomImage, type GameImage as ServiceGameImage } from '../services/imageService';
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } from '../services/regionService';
 
-const TOTAL_ROUNDS = 5;
+const DEFAULT_TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
-export const ROUND_TIME_SECONDS = 20;
+export const ROUND_TIME_SECONDS = 20; // legacy default (used as initial value)
+
+export type MultiplayerTimingRule = 'simultaneous' | 'afterFirstGuess';
+
+export interface MultiplayerSettings {
+  roundTimeSeconds: number;
+  timingRule: MultiplayerTimingRule;
+  afterFirstGuessSeconds: number;
+}
+
+export interface GameSetupSettings {
+  totalRounds: number;
+  roundTimeSeconds: number;
+  multiplayer: MultiplayerSettings;
+}
 
 export interface MapCoords {
   x: number;
@@ -67,10 +81,17 @@ export interface UseGameStateReturn {
   difficulty: Difficulty;
   mode: GameMode;
   lobbyDocId: string | null;
+  settings: GameSetupSettings;
 
   // Actions
   setScreen: React.Dispatch<React.SetStateAction<ScreenState>>;
-  startGame: (selectedDifficulty: string, selectedMode?: string) => Promise<void>;
+  startGame: (
+    selectedDifficulty: string,
+    selectedMode?: string,
+    setup?: Partial<Pick<GameSetupSettings, 'totalRounds' | 'roundTimeSeconds'>> & {
+      multiplayer?: Partial<MultiplayerSettings>
+    }
+  ) => Promise<void>;
   placeMarker: (coords: MapCoords) => boolean;
   selectFloor: (floor: number) => void;
   submitGuess: () => void;
@@ -121,6 +142,9 @@ export function useGameState(): UseGameStateReturn {
   // Current round number (1-5)
   const [currentRound, setCurrentRound] = useState<number>(1);
 
+  // Total rounds for the current game (singleplayer)
+  const [totalRounds, setTotalRounds] = useState<number>(DEFAULT_TOTAL_ROUNDS);
+
   // Current image being shown
   const [currentImage, setCurrentImage] = useState<GameImage | null>(null);
 
@@ -152,6 +176,7 @@ export function useGameState(): UseGameStateReturn {
   const [availableFloors, setAvailableFloors] = useState<number[] | null>(null);
 
   // Round timer state (seconds remaining in this guessing phase)
+  const [roundTimeSeconds, setRoundTimeSeconds] = useState<number>(ROUND_TIME_SECONDS);
   const [timeRemaining, setTimeRemaining] = useState<number>(ROUND_TIME_SECONDS);
   const [roundStartTime, setRoundStartTime] = useState<number | null>(null);
   const timedOutRef = useRef<boolean>(false);
@@ -167,6 +192,13 @@ export function useGameState(): UseGameStateReturn {
 
   // Current lobby document ID (when in multiplayer)
   const [lobbyDocId, setLobbyDocId] = useState<string | null>(null);
+
+  // Multiplayer setup settings (used when creating a lobby / starting a duel)
+  const [multiplayerSettings, setMultiplayerSettings] = useState<MultiplayerSettings>({
+    roundTimeSeconds: ROUND_TIME_SECONDS,
+    timingRule: 'simultaneous',
+    afterFirstGuessSeconds: 10
+  });
 
   // Load regions and playing area on mount
   useEffect(() => {
@@ -212,13 +244,27 @@ export function useGameState(): UseGameStateReturn {
   /**
    * Start a new game - reset everything and fetch first image
    */
-  const startGame = useCallback(async (selectedDifficulty: string, selectedMode: string = 'singleplayer'): Promise<void> => {
+  const startGame = useCallback(async (
+    selectedDifficulty: string,
+    selectedMode: string = 'singleplayer',
+    setup?: Partial<Pick<GameSetupSettings, 'totalRounds' | 'roundTimeSeconds'>> & {
+      multiplayer?: Partial<MultiplayerSettings>
+    }
+  ): Promise<void> => {
     setCurrentRound(1);
     setRoundResults([]);
     setCurrentResult(null);
     setDifficulty(selectedDifficulty as Difficulty);
     setMode(selectedMode as GameMode);
     setLobbyDocId(null);
+    setTotalRounds(setup?.totalRounds ?? DEFAULT_TOTAL_ROUNDS);
+    setRoundTimeSeconds(setup?.roundTimeSeconds ?? ROUND_TIME_SECONDS);
+    setMultiplayerSettings(prev => ({
+      ...prev,
+      ...(setup?.multiplayer || {}),
+      // If a roundTimeSeconds was provided, it should also become the multiplayer round time by default.
+      ...(setup?.roundTimeSeconds ? { roundTimeSeconds: setup.roundTimeSeconds } : {})
+    }));
 
     // Multiplayer: go to lobby screen instead of starting a game
     if (selectedMode === 'multiplayer') {
@@ -243,7 +289,8 @@ export function useGameState(): UseGameStateReturn {
       setGuessLocation(null);
       setGuessFloor(null);
       setAvailableFloors(null);
-      setTimeRemaining(ROUND_TIME_SECONDS);
+      const secs = setup?.roundTimeSeconds ?? ROUND_TIME_SECONDS;
+      setTimeRemaining(secs);
       setRoundStartTime(performance.now());
       setScreen('game');
     } catch (err) {
@@ -266,7 +313,7 @@ export function useGameState(): UseGameStateReturn {
 
     const interval = setInterval(() => {
       const elapsedSeconds = (performance.now() - roundStartTime) / 1000;
-      const remaining = Math.max(0, ROUND_TIME_SECONDS - elapsedSeconds);
+      const remaining = Math.max(0, roundTimeSeconds - elapsedSeconds);
       setTimeRemaining(remaining);
 
       if (remaining <= 0) {
@@ -275,7 +322,7 @@ export function useGameState(): UseGameStateReturn {
     }, 50);
 
     return () => clearInterval(interval);
-  }, [screen, roundStartTime]);
+  }, [screen, roundStartTime, roundTimeSeconds]);
 
   /**
    * Place a marker on the map
@@ -342,7 +389,7 @@ export function useGameState(): UseGameStateReturn {
     let timeTakenSeconds = 0;
     if (roundStartTime) {
       timeTakenSeconds = Math.min(
-        ROUND_TIME_SECONDS,
+        roundTimeSeconds,
         (performance.now() - roundStartTime) / 1000
       );
     }
@@ -421,7 +468,7 @@ export function useGameState(): UseGameStateReturn {
         locationScore: 0,
         floorCorrect: null,
         score: 0,
-        timeTakenSeconds: ROUND_TIME_SECONDS,
+        timeTakenSeconds: roundTimeSeconds,
         timedOut: true,
         noGuess: true
       };
@@ -436,7 +483,7 @@ export function useGameState(): UseGameStateReturn {
    * Proceed to the next round
    */
   const nextRound = useCallback(async (): Promise<void> => {
-    if (currentRound >= TOTAL_ROUNDS) {
+    if (currentRound >= totalRounds) {
       // Show final results
       setScreen('finalResults');
       return;
@@ -445,13 +492,13 @@ export function useGameState(): UseGameStateReturn {
     // Increment round
     setCurrentRound(prev => prev + 1);
     setCurrentResult(null);
-    setTimeRemaining(ROUND_TIME_SECONDS);
+    setTimeRemaining(roundTimeSeconds);
     setRoundStartTime(performance.now());
 
     // Load new image
     await loadNewImage();
     setScreen('game');
-  }, [currentRound, loadNewImage]);
+  }, [currentRound, totalRounds, loadNewImage, roundTimeSeconds]);
 
   /**
    * View final results (called from last round's result screen)
@@ -466,6 +513,7 @@ export function useGameState(): UseGameStateReturn {
   const resetGame = useCallback((): void => {
     setScreen('title');
     setCurrentRound(1);
+    setTotalRounds(DEFAULT_TOTAL_ROUNDS);
     setCurrentImage(null);
     setGuessLocation(null);
     setGuessFloor(null);
@@ -473,6 +521,7 @@ export function useGameState(): UseGameStateReturn {
     setCurrentResult(null);
     setRoundResults([]);
     setError(null);
+    setRoundTimeSeconds(ROUND_TIME_SECONDS);
     setTimeRemaining(ROUND_TIME_SECONDS);
     setRoundStartTime(null);
     setDifficulty(null);
@@ -480,11 +529,17 @@ export function useGameState(): UseGameStateReturn {
     setLobbyDocId(null);
   }, []);
 
+  const settings: GameSetupSettings = {
+    totalRounds,
+    roundTimeSeconds,
+    multiplayer: multiplayerSettings
+  };
+
   return {
     // State
     screen,
     currentRound,
-    totalRounds: TOTAL_ROUNDS,
+    totalRounds,
     currentImage,
     guessLocation,
     guessFloor,
@@ -496,10 +551,11 @@ export function useGameState(): UseGameStateReturn {
     clickRejected,
     playingArea,
     timeRemaining,
-    roundTimeSeconds: ROUND_TIME_SECONDS,
+    roundTimeSeconds,
     difficulty,
     mode,
     lobbyDocId,
+    settings,
 
     // Actions
     setScreen,

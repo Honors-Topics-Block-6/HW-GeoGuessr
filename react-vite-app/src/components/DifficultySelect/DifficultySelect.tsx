@@ -3,6 +3,14 @@ import './DifficultySelect.css';
 
 type DifficultyId = 'all' | 'easy' | 'medium' | 'hard';
 type GameMode = 'singleplayer' | 'multiplayer';
+type MultiplayerTimingRule = 'simultaneous' | 'afterFirstGuess';
+
+export interface GameSetupSettings {
+  totalRounds: number;
+  roundTimeSeconds: number;
+  multiplayerTimingRule: MultiplayerTimingRule;
+  afterFirstGuessSeconds: number;
+}
 
 interface DifficultyOption {
   id: DifficultyId;
@@ -39,7 +47,7 @@ const DIFFICULTIES: DifficultyOption[] = [
 ];
 
 export interface DifficultySelectProps {
-  onStart: (difficulty: DifficultyId, mode: GameMode) => void;
+  onStart: (difficulty: DifficultyId, mode: GameMode, settings: GameSetupSettings) => void;
   onBack: () => void;
   isLoading: boolean;
 }
@@ -47,10 +55,19 @@ export interface DifficultySelectProps {
 function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyId | null>(null);
   const [selectedMode, setSelectedMode] = useState<GameMode>('singleplayer');
+  const [roundTimeSeconds, setRoundTimeSeconds] = useState<number>(20);
+  const [totalRounds, setTotalRounds] = useState<number>(5);
+  const [multiplayerTimingRule, setMultiplayerTimingRule] = useState<MultiplayerTimingRule>('simultaneous');
+  const [afterFirstGuessSeconds, setAfterFirstGuessSeconds] = useState<number>(10);
 
   const handleStart = (): void => {
     if (selectedDifficulty) {
-      onStart(selectedDifficulty, selectedMode);
+      onStart(selectedDifficulty, selectedMode, {
+        totalRounds,
+        roundTimeSeconds,
+        multiplayerTimingRule,
+        afterFirstGuessSeconds
+      });
     }
   };
 
@@ -100,6 +117,83 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
             <span className="mode-card-icon">👥</span>
             <span className="mode-card-label">Multiplayer</span>
           </button>
+        </div>
+
+        {/* Settings */}
+        <div className="game-settings">
+          <h3 className="game-settings-heading">Game Settings</h3>
+
+          <div className="game-settings-grid">
+            <div className="game-setting">
+              <label className="game-setting-label" htmlFor="round-time">
+                Time per round
+              </label>
+              <select
+                id="round-time"
+                className="game-setting-select"
+                value={roundTimeSeconds}
+                onChange={(e) => setRoundTimeSeconds(Number(e.target.value))}
+              >
+                {[10, 15, 20, 30, 45, 60].map((s) => (
+                  <option key={s} value={s}>{s}s</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="game-setting">
+              <label className="game-setting-label" htmlFor="round-count">
+                Rounds (singleplayer)
+              </label>
+              <select
+                id="round-count"
+                className="game-setting-select"
+                value={totalRounds}
+                onChange={(e) => setTotalRounds(Number(e.target.value))}
+                disabled={selectedMode !== 'singleplayer'}
+                title={selectedMode !== 'singleplayer' ? 'Rounds only apply to singleplayer games' : undefined}
+              >
+                {[3, 5, 10].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="game-setting game-setting-wide">
+              <label className="game-setting-label" htmlFor="mp-timing">
+                Multiplayer timing
+              </label>
+              <select
+                id="mp-timing"
+                className="game-setting-select"
+                value={multiplayerTimingRule}
+                onChange={(e) => setMultiplayerTimingRule(e.target.value as MultiplayerTimingRule)}
+                disabled={selectedMode !== 'multiplayer'}
+                title={selectedMode !== 'multiplayer' ? 'Multiplayer timing only applies to multiplayer games' : undefined}
+              >
+                <option value="simultaneous">Same timer for everyone</option>
+                <option value="afterFirstGuess">Start countdown after first guess</option>
+              </select>
+              {selectedMode === 'multiplayer' && multiplayerTimingRule === 'afterFirstGuess' && (
+                <div className="game-setting-subrow">
+                  <span className="game-setting-subtext">Countdown length:</span>
+                  <select
+                    className="game-setting-select small"
+                    value={afterFirstGuessSeconds}
+                    onChange={(e) => setAfterFirstGuessSeconds(Number(e.target.value))}
+                  >
+                    {[5, 10, 15, 20].map((s) => (
+                      <option key={s} value={s}>{s}s</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {selectedMode === 'multiplayer' && multiplayerTimingRule === 'afterFirstGuess' && (
+                <p className="game-setting-hint">
+                  The round has no visible countdown until someone submits. Once the first guess is in, the other player gets a short countdown.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         <button

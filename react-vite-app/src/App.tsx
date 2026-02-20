@@ -9,7 +9,7 @@ import { joinLobby } from './services/lobbyService';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
-import DifficultySelect from './components/DifficultySelect/DifficultySelect';
+import DifficultySelect, { type GameSetupSettings as DifficultySelectSettings } from './components/DifficultySelect/DifficultySelect';
 import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
@@ -73,6 +73,7 @@ function App(): React.ReactElement {
     timeRemaining,
     roundTimeSeconds,
     difficulty,
+    settings: gameSettings,
     mode: _mode,
     lobbyDocId,
     setScreen,
@@ -308,8 +309,15 @@ function App(): React.ReactElement {
   /**
    * Handle starting the game from difficulty select
    */
-  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string): void => {
-    startGame(selectedDifficulty, selectedMode);
+  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string, settings: DifficultySelectSettings): void => {
+    startGame(selectedDifficulty, selectedMode, {
+      totalRounds: settings.totalRounds,
+      roundTimeSeconds: settings.roundTimeSeconds,
+      multiplayer: {
+        timingRule: settings.multiplayerTimingRule,
+        afterFirstGuessSeconds: settings.afterFirstGuessSeconds,
+      }
+    });
   };
 
   /**
@@ -377,6 +385,7 @@ function App(): React.ReactElement {
           difficulty={difficulty as React.ComponentProps<typeof MultiplayerLobby>['difficulty']}
           userUid={user.uid}
           userUsername={userDoc?.username as string}
+          settings={gameSettings.multiplayer}
           onJoinedLobby={(docId: string) => {
             setLobbyDocId(docId);
             setScreen('waitingRoom');
@@ -469,7 +478,9 @@ function App(): React.ReactElement {
           clickRejected={duel.clickRejected}
           playingArea={duel.playingArea as React.ComponentProps<typeof DuelGameScreen>['playingArea']}
           timeRemaining={duel.timeRemaining}
-          timeLimitSeconds={duel.roundTimeSeconds}
+          timeLimitSeconds={duel.activeTimeLimitSeconds}
+          timerStatus={duel.timerStatus}
+          maxRoundTimeSeconds={duel.maxRoundTimeSeconds}
           hasSubmitted={duel.hasSubmitted}
           opponentHasSubmitted={duel.opponentHasSubmitted}
           opponentUsername={duel.opponentUsername}

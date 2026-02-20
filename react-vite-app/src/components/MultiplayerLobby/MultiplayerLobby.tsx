@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLobby } from '../../hooks/useLobby';
 import GameCodeInput from './GameCodeInput';
 import PublicGameList from './PublicGameList';
+import type { MultiplayerSettings } from '../../hooks/useGameState';
 import './MultiplayerLobby.css';
 
 export type Difficulty = 'all' | 'easy' | 'medium' | 'hard';
@@ -24,11 +25,12 @@ export interface MultiplayerLobbyProps {
   difficulty: Difficulty;
   userUid: string;
   userUsername: string;
+  settings: MultiplayerSettings;
   onJoinedLobby: (docId: string) => void;
   onBack: () => void;
 }
 
-function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
+function MultiplayerLobby({ difficulty, userUid, userUsername, settings, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
   const [visibility, setVisibility] = useState<GameVisibility>('public');
   const {
     publicLobbies,
@@ -39,7 +41,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     joinByCode,
     joinPublicGame,
     clearError
-  } = useLobby(userUid, userUsername, difficulty);
+  } = useLobby(userUid, userUsername, difficulty, settings);
 
   const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[difficulty] || DIFFICULTY_LABELS.all;
 

@@ -40,6 +40,10 @@ export interface LobbyDoc {
   players: LobbyPlayer[];
   heartbeats: Record<string, Timestamp>;
   maxPlayers: number;
+  // Optional game settings (used by duels)
+  roundTimeSeconds?: number;
+  timingRule?: 'simultaneous' | 'afterFirstGuess';
+  afterFirstGuessSeconds?: number;
   createdAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
 }
@@ -77,7 +81,12 @@ export async function createLobby(
   hostUid: string,
   hostUsername: string,
   difficulty: string,
-  visibility: LobbyVisibility
+  visibility: LobbyVisibility,
+  settings?: {
+    roundTimeSeconds?: number;
+    timingRule?: 'simultaneous' | 'afterFirstGuess';
+    afterFirstGuessSeconds?: number;
+  }
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
@@ -98,6 +107,9 @@ export async function createLobby(
       [hostUid]: Timestamp.now()
     },
     maxPlayers: 2,
+    roundTimeSeconds: settings?.roundTimeSeconds ?? 20,
+    timingRule: settings?.timingRule ?? 'simultaneous',
+    afterFirstGuessSeconds: settings?.afterFirstGuessSeconds ?? 10,
     createdAt: now,
     updatedAt: now
   };

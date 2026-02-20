@@ -117,6 +117,16 @@
   color: var(--accent-green);
 }
 
+/* Timer (shared class names with GameScreen.css, but add duel-specific tweaks) */
+.round-timer.waiting .timer-value {
+  color: var(--text-secondary);
+}
+
+.timer-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 /* ── Main Game Layout ── */
 .duel-game-main {
   display: flex;
