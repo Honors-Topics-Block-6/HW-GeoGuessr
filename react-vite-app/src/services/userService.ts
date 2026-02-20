@@ -111,11 +111,13 @@ export function getNoPermissions(): PermissionsMap {
 export async function createUserDoc(uid: string, email: string, username: string): Promise<void> {
   const userRef = doc(db, 'users', uid);
   const isAdmin = uid === HARDCODED_ADMIN_UID;
+  const trimmedUsername = username.trim();
   const userData: Record<string, unknown> = {
     uid,
     email,
     emailLower: email.toLowerCase(),
-    username,
+    username: trimmedUsername,
+    usernameLower: trimmedUsername.toLowerCase(),
     isAdmin,
     emailVerified: false,
     totalXp: 0,
@@ -164,17 +166,36 @@ export async function updateUserDoc(uid: string, data: Record<string, unknown>):
  */
 export async function isUsernameTaken(username: string, excludeUid: string | null = null): Promise<boolean> {
   const usersRef = collection(db, 'users');
-  const q = query(usersRef, where('username', '==', username));
-  const snapshot = await getDocs(q);
+  const trimmed = username.trim();
+  const lower = trimmed.toLowerCase();
 
-  if (snapshot.empty) return false;
-
-  // If we're excluding a uid, check if the only match is that user
-  if (excludeUid) {
-    return snapshot.docs.some(docSnap => docSnap.id !== excludeUid);
+  // Prefer case-insensitive index when available
+  const qLower = query(usersRef, where('usernameLower', '==', lower));
+  const snapLower = await getDocs(qLower);
+  if (!snapLower.empty) {
+    if (excludeUid) {
+      return snapLower.docs.some(docSnap => docSnap.id !== excludeUid);
+    }
+    return true;
   }
 
-  return true;
+  // Fallback: exact username match (for users without usernameLower)
+  const qExact = query(usersRef, where('username', '==', trimmed));
+  const snapshot = await getDocs(qExact);
+  if (!snapshot.empty) {
+    if (excludeUid) {
+      return snapshot.docs.some(docSnap => docSnap.id !== excludeUid);
+    }
+    return true;
+  }
+
+  // Final fallback: scan and compare case-insensitively for legacy users
+  const allSnap = await getDocs(usersRef);
+  const match = allSnap.docs.find(docSnap => {
+    const data = docSnap.data() as { username?: string };
+    return (data.username || '').toLowerCase() === lower && docSnap.id !== excludeUid;
+  });
+  return !!match;
 }
 
 /**
@@ -192,11 +213,11 @@ export async function checkEmailVerificationStatus(email: string): Promise<{ exi
   const usersRef = collection(db, 'users');
   const q = query(usersRef, where('emailLower', '==', email.toLowerCase()));
   const snapshot = await getDocs(q);
-  
+
   if (snapshot.empty) {
     return { exists: false, verified: false };
   }
-  
+
   const userDoc = snapshot.docs[0].data() as UserDoc;
   return { exists: true, verified: userDoc.emailVerified === true };
 }
@@ -305,6 +326,7 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
       throw new Error('Username is already taken. Please choose another.');
     }
     updates.username = trimmed;
+    updates.usernameLower = trimmed.toLowerCase();
     updates.lastUsernameChange = serverTimestamp();
   }
 
@@ -364,12 +386,12 @@ async function propagateUsernameChange(uid: string, newUsername: string): Promis
       let changed = false;
       const next: typeof data.players = Array.isArray(data.players)
         ? data.players.map(p => {
-            if (p.uid === uid && p.username !== newUsername) {
-              changed = true;
-              return { ...p, username: newUsername };
-            }
-            return p;
-          })
+          if (p.uid === uid && p.username !== newUsername) {
+            changed = true;
+            return { ...p, username: newUsername };
+          }
+          return p;
+        })
         : [];
 
       if (data.hostUid === uid && data.hostUsername !== newUsername) {
