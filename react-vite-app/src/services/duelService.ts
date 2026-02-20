@@ -10,6 +10,7 @@ import {
 import { db } from '../firebase';
 import { getRandomImage } from './imageService';
 import { calculateDistance, calculateLocationScore } from '../hooks/useGameState';
+import { getRegions, getRegionForPoint } from './regionService';
 
 // ────── Types ──────
 
@@ -177,10 +178,15 @@ export async function submitDuelGuess(
     locationScore = calculateLocationScore(distance);
 
     const actualFloor = currentImage.correctFloor ?? null;
+    const regions = await getRegions();
+    const guessedRegion = getRegionForPoint(guessData.location, regions);
+    const actualRegion = getRegionForPoint(actualLocation, regions);
+    const isCorrectBuilding = guessedRegion !== null && actualRegion !== null && guessedRegion.id === actualRegion.id;
 
-    // Floor scoring logic (same as singleplayer)
+    // Floor scoring logic (same as singleplayer):
+    // floor only counts if both building and floor are correct.
     if (guessData.floor !== null && guessData.floor !== undefined && actualFloor !== null) {
-      floorCorrect = guessData.floor === actualFloor;
+      floorCorrect = isCorrectBuilding && guessData.floor === actualFloor;
       score = floorCorrect ? locationScore : Math.round(locationScore * 0.8);
     } else {
       score = locationScore;
