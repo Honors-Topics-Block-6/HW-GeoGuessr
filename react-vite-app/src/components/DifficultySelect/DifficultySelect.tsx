@@ -3,6 +3,7 @@ import './DifficultySelect.css';
 
 type DifficultyId = 'all' | 'easy' | 'medium' | 'hard';
 type GameMode = 'singleplayer' | 'multiplayer';
+type SingleplayerVariant = 'classic' | 'endless';
 
 interface DifficultyOption {
   id: DifficultyId;
@@ -39,7 +40,7 @@ const DIFFICULTIES: DifficultyOption[] = [
 ];
 
 export interface DifficultySelectProps {
-  onStart: (difficulty: DifficultyId, mode: GameMode) => void;
+  onStart: (difficulty: DifficultyId, mode: GameMode, singleplayerVariant?: SingleplayerVariant) => void;
   onBack: () => void;
   isLoading: boolean;
 }
@@ -47,10 +48,15 @@ export interface DifficultySelectProps {
 function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyId | null>(null);
   const [selectedMode, setSelectedMode] = useState<GameMode>('singleplayer');
+  const [selectedSingleplayerVariant, setSelectedSingleplayerVariant] = useState<SingleplayerVariant>('classic');
 
   const handleStart = (): void => {
     if (selectedDifficulty) {
-      onStart(selectedDifficulty, selectedMode);
+      onStart(
+        selectedDifficulty,
+        selectedMode,
+        selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined
+      );
     }
   };
 
@@ -101,6 +107,30 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
             <span className="mode-card-label">Multiplayer</span>
           </button>
         </div>
+
+        {selectedMode === 'singleplayer' && (
+          <>
+            <h2 className="mode-heading">Singleplayer Mode</h2>
+            <div className="mode-options">
+              <button
+                className={`mode-card mode-classic ${selectedSingleplayerVariant === 'classic' ? 'selected' : ''}`}
+                onClick={() => setSelectedSingleplayerVariant('classic')}
+              >
+                <span className="mode-card-icon">📋</span>
+                <span className="mode-card-label">Classic</span>
+                <span className="mode-card-desc">5 rounds</span>
+              </button>
+              <button
+                className={`mode-card mode-endless ${selectedSingleplayerVariant === 'endless' ? 'selected' : ''}`}
+                onClick={() => setSelectedSingleplayerVariant('endless')}
+              >
+                <span className="mode-card-icon">♾️</span>
+                <span className="mode-card-label">Endless</span>
+                <span className="mode-card-desc">HP until you run out</span>
+              </button>
+            </div>
+          </>
+        )}
 
         <button
           className="play-button"

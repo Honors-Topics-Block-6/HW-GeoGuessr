@@ -27,6 +27,9 @@ export interface GameScreenProps {
   playingArea?: PlayingArea | null;
   timeRemaining?: number;
   timeLimitSeconds?: number;
+  isEndlessMode?: boolean;
+  currentHp?: number;
+  maxHp?: number;
 }
 
 function GameScreen({
@@ -43,7 +46,10 @@ function GameScreen({
   clickRejected = false,
   playingArea = null,
   timeRemaining,
-  timeLimitSeconds = 20
+  timeLimitSeconds = 20,
+  isEndlessMode = false,
+  currentHp = 6000,
+  maxHp = 6000
 }: GameScreenProps): React.ReactElement {
   const mapPickerRef = useRef<MapPickerHandle>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -97,9 +103,22 @@ function GameScreen({
           </button>
           <h2 className="panel-title">Make Your Guess</h2>
           <div className="round-badge">
-            {currentRound} / {totalRounds}
+            {isEndlessMode ? `Round ${currentRound}` : `${currentRound} / ${totalRounds}`}
           </div>
         </div>
+
+        {isEndlessMode && (
+          <div className="endless-hp-bar">
+            <span className="endless-hp-label">HP</span>
+            <div className="endless-hp-track">
+              <div
+                className={`endless-hp-fill ${(currentHp / maxHp) * 100 <= 25 ? 'critical' : ''}`}
+                style={{ width: `${Math.max(0, (currentHp / maxHp) * 100)}%` }}
+              />
+            </div>
+            <span className="endless-hp-value">{currentHp.toLocaleString()}</span>
+          </div>
+        )}
 
         {typeof timeRemaining === 'number' && (
           <div className="round-timer">
