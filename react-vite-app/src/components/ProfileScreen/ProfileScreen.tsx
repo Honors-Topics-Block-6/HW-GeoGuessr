@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent } from 'react';
 import { useAuth, type BuildingStat, type DailyStatBucket } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
+import { getFavoriteAndWorstBuildings } from '../../utils/buildingStats';
 import './ProfileScreen.css';
 
 export interface ProfileScreenProps {
@@ -247,32 +248,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   const averageGuessTime = filteredStats.gamesPlayed > 0 ? filteredStats.totalGuessTimeSeconds / (filteredStats.gamesPlayed * 5) : 0;
   const friendsToFollowerRatio = followersCount > 0 ? (friends.length / followersCount) : null;
 
-  const buildingEntries = Object.values(filteredStats.buildingStats);
-  let favoriteBuilding = 'N/A';
-  let worstBuilding = 'N/A';
-  if (buildingEntries.length > 0) {
-    let best = buildingEntries[0];
-    let worst = buildingEntries[0];
-    let bestAvg = best.count > 0 ? best.totalScore / best.count : 0;
-    let worstAvg = worst.count > 0 ? worst.totalScore / worst.count : 0;
-    for (const entry of buildingEntries) {
-      const avg = entry.count > 0 ? entry.totalScore / entry.count : 0;
-      if (avg > bestAvg) {
-        best = entry;
-        bestAvg = avg;
-      }
-      if (avg < worstAvg) {
-        worst = entry;
-        worstAvg = avg;
-      }
-    }
-    const formatBuilding = (entry: typeof best): string => {
-      const floorLabel = entry.floor !== null ? `Floor ${entry.floor}` : 'Floor N/A';
-      return `${entry.building} (${floorLabel})`;
-    };
-    favoriteBuilding = formatBuilding(best);
-    worstBuilding = formatBuilding(worst);
-  }
+  const { favoriteBuilding, worstBuilding } = getFavoriteAndWorstBuildings(filteredStats.buildingStats);
 
   return (
     <div className="profile-screen">
@@ -573,10 +549,12 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
               <span className="profile-stat-value">{filteredStats.twentyFiveKCount.toLocaleString()}</span>
             </div>
             <div className="profile-stat-row">
-              <span className="profile-stat-label">Favorite / Worst Building</span>
-              <span className="profile-stat-value">
-                Favorite: {favoriteBuilding} / Worst: {worstBuilding}
-              </span>
+              <span className="profile-stat-label">Favorite Building</span>
+              <span className="profile-stat-value">{favoriteBuilding}</span>
+            </div>
+            <div className="profile-stat-row">
+              <span className="profile-stat-label">Worst Building</span>
+              <span className="profile-stat-value">{worstBuilding}</span>
             </div>
             <div className="profile-stat-row">
               <span className="profile-stat-label">Average Guess Time</span>

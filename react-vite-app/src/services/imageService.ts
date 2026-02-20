@@ -118,7 +118,7 @@ export async function getAllApprovedImages(difficulty: string | null = null): Pr
         correctLocation: data.location as { x: number; y: number },
         correctFloor: data.floor as number | null,
         difficulty: (data.difficulty as string) || null,
-        description: (data.photoName as string) || null
+        description: (data.building as string) || null
       };
     });
 
