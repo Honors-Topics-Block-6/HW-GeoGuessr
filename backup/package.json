@@ -1,0 +1,13 @@
+{
+  "name": "hw-geogessr-firestore-backup",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Firestore backup and restore utilities for HW GeoGuessr",
+  "scripts": {
+    "backup": "node firestore_backup.js",
+    "restore": "node firestore_restore.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}
