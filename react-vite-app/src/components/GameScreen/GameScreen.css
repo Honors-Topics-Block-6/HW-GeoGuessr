@@ -31,6 +31,56 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+/* Endless mode HP bar */
+.endless-hp-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.endless-hp-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 24px;
+}
+
+.endless-hp-track {
+  flex: 1;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.endless-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a9c20 0%, #6cb52d 100%);
+  border-radius: 6px;
+  transition: width 0.8s ease-out;
+}
+
+.endless-hp-fill.critical {
+  animation: endlessHpPulse 1s ease-in-out infinite;
+}
+
+@keyframes endlessHpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.endless-hp-value {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  min-width: 45px;
+  text-align: right;
+}
+
 .round-timer {
   display: flex;
   flex-direction: column;

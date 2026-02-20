@@ -95,6 +95,9 @@ function App(): React.ReactElement {
     difficulty,
     mode: _mode,
     lobbyDocId,
+    isEndlessMode,
+    currentHp,
+    startingHp,
     setScreen,
     startGame,
     placeMarker,
@@ -451,8 +454,13 @@ function App(): React.ReactElement {
   /**
    * Handle starting the game from difficulty select
    */
-  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string, roundTimeSeconds?: number): void => {
-    startGame(selectedDifficulty, selectedMode, roundTimeSeconds);
+  const handleStartFromDifficulty = (
+    selectedDifficulty: string,
+    selectedMode: string,
+    singleplayerVariant?: 'classic' | 'endless',
+    roundTimeSeconds?: number
+  ): void => {
+    startGame(selectedDifficulty, selectedMode, singleplayerVariant, roundTimeSeconds);
   };
 
   /**
@@ -566,6 +574,9 @@ function App(): React.ReactElement {
           playingArea={playingArea as React.ComponentProps<typeof GameScreen>['playingArea']}
           timeRemaining={roundTimeSeconds > 0 ? timeRemaining : undefined}
           timeLimitSeconds={roundTimeSeconds}
+          isEndlessMode={isEndlessMode}
+          currentHp={currentHp}
+          maxHp={startingHp}
         />
       )}
 
@@ -586,8 +597,12 @@ function App(): React.ReactElement {
           totalRounds={totalRounds}
           onNextRound={nextRound}
           onViewFinalResults={viewFinalResults}
-          isLastRound={currentRound >= totalRounds}
+          isLastRound={isEndlessMode ? currentHp <= 0 : currentRound >= totalRounds}
           onBackToTitle={resetGame}
+          isEndlessMode={isEndlessMode}
+          currentHp={currentHp}
+          maxHp={startingHp}
+          hpLost={currentResult.hpLost}
         />
       )}
 
@@ -597,6 +612,7 @@ function App(): React.ReactElement {
           onPlayAgain={() => setScreen('difficultySelect')}
           onBackToTitle={resetGame}
           difficulty={difficulty}
+          isEndlessMode={isEndlessMode}
         />
       )}
 
@@ -666,7 +682,7 @@ function App(): React.ReactElement {
           players={duel.players}
           roundHistory={duel.roundHistory}
           health={duel.duelState?.health || {}}
-          forfeitBy={duel.duelState?.forfeitBy ?? null}
+          forfeitBy={typeof duel.duelState?.forfeitBy === 'string' ? duel.duelState.forfeitBy : null}
           onPlayAgain={handleExitDuel}
           onBackToTitle={handleDuelBackToTitle}
         />

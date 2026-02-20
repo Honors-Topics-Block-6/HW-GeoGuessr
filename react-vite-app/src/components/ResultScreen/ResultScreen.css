@@ -28,6 +28,62 @@
   gap: 0.4rem;
 }
 
+/* Endless mode HP section */
+.result-hp-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.6rem 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.result-hp-bar {
+  flex: 1;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.result-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a9c20 0%, #6cb52d 100%);
+  border-radius: 6px;
+  transition: width 0.8s ease-out;
+}
+
+.result-hp-fill.critical {
+  animation: resultHpPulse 1s ease-in-out infinite;
+}
+
+@keyframes resultHpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.result-hp-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 120px;
+}
+
+.result-hp-value {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.result-hp-lost {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ff4757;
+}
+
 .round-indicator {
   font-size: 1rem;
   color: var(--text-secondary);
