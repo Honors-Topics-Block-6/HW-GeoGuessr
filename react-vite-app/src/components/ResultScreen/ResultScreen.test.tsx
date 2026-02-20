@@ -12,6 +12,7 @@ describe('ResultScreen', () => {
     imageUrl: 'https://example.com/image.jpg',
     locationScore: 5000,
     floorCorrect: true as boolean | null,
+    exactSpotBonus: 0,
     totalScore: 5000,
     timeTakenSeconds: 30 as number | null,
     timedOut: false,
@@ -80,7 +81,7 @@ describe('ResultScreen', () => {
     it('should display max score indicator', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('/ 5,000')).toBeInTheDocument();
+      expect(screen.getByText('/ 5,500')).toBeInTheDocument();
     });
 
     it('should show score after animation completes', () => {
@@ -309,8 +310,8 @@ describe('ResultScreen', () => {
       expect(screen.getByText(/\d+ ft away/)).toBeInTheDocument();
     });
 
-    it('should show "Perfect!" for distance within 10 ft', () => {
-      // Distance is 1, * 2 = 2 ft which is <= 10 ft
+    it('should show feet away for small non-zero distance', () => {
+      // Distance is 1, * 2 = 2 ft
       render(
         <ResultScreen
           {...defaultProps}
@@ -319,7 +320,7 @@ describe('ResultScreen', () => {
         />
       );
 
-      expect(screen.getAllByText('Perfect!').length).toBeGreaterThan(0);
+      expect(screen.getByText('2 ft away')).toBeInTheDocument();
     });
   });
 
@@ -334,6 +335,13 @@ describe('ResultScreen', () => {
       render(<ResultScreen {...defaultProps} />);
 
       expect(screen.getByText('Total')).toBeInTheDocument();
+    });
+
+    it('should show exact spot bonus when present', () => {
+      render(<ResultScreen {...defaultProps} exactSpotBonus={500} totalScore={5500} />);
+
+      expect(screen.getByText('Exact Spot Bonus')).toBeInTheDocument();
+      expect(screen.getByText('+500')).toBeInTheDocument();
     });
   });
 
@@ -427,9 +435,9 @@ describe('ResultScreen', () => {
 
       const detailsPanel = container.querySelector('.result-details');
       const observers = (global as Record<string, unknown>)._resizeObserverInstances as Array<{ observe: ReturnType<typeof vi.fn> }>;
-      const lastObserver = observers[observers.length - 1];
+      const observingDetails = observers.some((obs) => obs.observe.mock.calls.some(([arg]) => arg === detailsPanel));
 
-      expect(lastObserver.observe).toHaveBeenCalledWith(detailsPanel);
+      expect(observingDetails).toBe(true);
     });
 
     it('should update map height when details panel resizes', () => {

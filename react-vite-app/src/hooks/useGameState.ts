@@ -3,7 +3,9 @@ import { getRandomImage, type GameImage as ServiceGameImage } from '../services/
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, getRegionForPoint } from '../services/regionService';
 
 const TOTAL_ROUNDS = 5;
-const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
+const EXACT_SPOT_BONUS_POINTS = 500;
+const EXACT_SPOT_MAX_DISTANCE = 1; // map units (~2 ft)
+const MAX_SCORE_PER_ROUND = 5500; // 5000 location + 500 exact-spot bonus
 export const ROUND_TIME_SECONDS = 20;
 const SINGLEPLAYER_SEEN_HISTORY_KEY = 'singleplayerSeenImageHistory.v1';
 
@@ -38,6 +40,7 @@ export interface RoundResult {
   distance: number | null;
   locationScore: number;
   floorCorrect: boolean | null;
+  exactSpotBonus: number;
   score: number;
   timeTakenSeconds: number;
   timedOut: boolean;
@@ -94,20 +97,19 @@ export function calculateDistance(guess: MapCoords, actual: MapCoords): number {
 
 /**
  * Calculate location score based on distance (0-5000 points)
- * Uses a steep exponential decay formula: 5000 * e^(-100 * (d/D)^2)
- * At 10 ft (distance=5 in map coords) or closer, the player gets 5000.
- * Score drops very dramatically with distance, rewarding precise guesses.
+ * Uses exponential decay so closer clicks score higher.
+ * Only an exact click yields 5000; even small offsets reduce the score a bit.
  */
 export function calculateLocationScore(distance: number): number {
   const maxScore = 5000;
-  const perfectRadius = 5; // 10 ft = 5 percentage units (distance * 2 = feet)
-  const maxDistance = Math.sqrt(100 * 100 + 100 * 100) - perfectRadius; // ~136.42
+  const clampedDistance = Math.max(0, distance);
+  // Display uses 1 map unit ≈ 2 feet.
+  const feet = clampedDistance * 2;
+  // Tunable: smaller = harsher, larger = more forgiving.
+  const falloffFeet = 40;
 
-  if (distance <= perfectRadius) return maxScore;
-
-  const effectiveDistance = distance - perfectRadius;
-  const ratio = effectiveDistance / maxDistance;
-  const score = Math.round(maxScore * Math.exp(-100 * ratio * ratio));
+  const ratio = feet / falloffFeet;
+  const score = Math.round(maxScore * Math.exp(-(ratio * ratio)));
   return Math.max(0, Math.min(maxScore, score));
 }
 
@@ -444,6 +446,7 @@ export function useGameState(): UseGameStateReturn {
     // Floor scoring only applies when in a region AND the photo has a floor set.
     // A floor is only "correct" when BOTH building (region) and floor match.
     let floorCorrect: boolean | null = null;
+    let exactSpotBonus = 0;
     let totalScore = locationScore;
 
     if (isInRegion && guessFloor !== null && actualFloor !== null) {
@@ -455,6 +458,12 @@ export function useGameState(): UseGameStateReturn {
       totalScore = floorCorrect
         ? locationScore
         : Math.round(locationScore * 0.8);
+
+      // Exact-spot bonus applies only when floor is correct and pin is very close.
+      if (floorCorrect && distance <= EXACT_SPOT_MAX_DISTANCE) {
+        exactSpotBonus = EXACT_SPOT_BONUS_POINTS;
+        totalScore += exactSpotBonus;
+      }
     }
 
     // Create result object
@@ -468,6 +477,7 @@ export function useGameState(): UseGameStateReturn {
       distance,
       locationScore,
       floorCorrect,
+      exactSpotBonus,
       score: totalScore,
       timeTakenSeconds,
       timedOut: timedOutRef.current
@@ -518,6 +528,7 @@ export function useGameState(): UseGameStateReturn {
         distance: null,
         locationScore: 0,
         floorCorrect: null,
+        exactSpotBonus: 0,
         score: 0,
         timeTakenSeconds: ROUND_TIME_SECONDS,
         timedOut: true,
