@@ -202,13 +202,15 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
             </svg>
           )}
 
-          {/* Marker - positioned relative to the container which matches image size */}
+          {/* Marker - positioned relative to the container; scale inversely with zoom so pin stays same visual size */}
           {markerPosition && (
             <div
               className="marker"
               style={{
                 left: `${markerPosition.x}%`,
-                top: `${markerPosition.y}%`
+                top: `${markerPosition.y}%`,
+                transform: `translate(-50%, calc(-100% - 5.4px)) scale(${1 / scale})`,
+                transformOrigin: '50% 31.4px'
               }}
             >
               <div className="marker-pin"></div>

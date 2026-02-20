@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from 'react';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { checkEmailVerificationStatus } from '../../services/userService';
 import './LoginScreen.css';
 
 interface FirebaseError extends Error {
@@ -16,6 +19,9 @@ function LoginScreen(): React.ReactElement {
   const [googleUsername, setGoogleUsername] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showForgotPassword, setShowForgotPassword] = useState<boolean>(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState<string>('');
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState<string>('');
 
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -77,6 +83,51 @@ function LoginScreen(): React.ReactElement {
   const toggleMode = (): void => {
     setIsSignUp(!isSignUp);
     setError('');
+    setShowForgotPassword(false);
+    setForgotPasswordSuccess('');
+  };
+
+  const handleForgotPassword = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    setError('');
+    setForgotPasswordSuccess('');
+    setIsSubmitting(true);
+
+    try {
+      if (!forgotPasswordEmail.trim()) {
+        throw new Error('Please enter your email address.');
+      }
+
+      // Check if the account exists and is verified
+      const { exists, verified } = await checkEmailVerificationStatus(forgotPasswordEmail.trim());
+
+      if (!exists) {
+        throw new Error('No account found with this email address.');
+      }
+
+      if (!verified) {
+        throw new Error('This account has not been verified. Please verify your email before requesting a password reset.');
+      }
+
+      // Account is verified, send the password reset email
+      await sendPasswordResetEmail(auth, forgotPasswordEmail.trim());
+      setForgotPasswordSuccess('Password reset email sent! Check your inbox.');
+      setForgotPasswordEmail('');
+    } catch (err) {
+      setError(getErrorMessage(err as FirebaseError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const toggleForgotPassword = (): void => {
+    setShowForgotPassword(!showForgotPassword);
+    setError('');
+    setForgotPasswordSuccess('');
+    // Pre-fill the email if they've already entered it
+    if (!showForgotPassword && email) {
+      setForgotPasswordEmail(email);
+    }
   };
 
   // If user signed in with Google but needs to set a username
@@ -180,6 +231,16 @@ function LoginScreen(): React.ReactElement {
             />
           </div>
 
+          {!isSignUp && (
+            <button
+              type="button"
+              className="forgot-password-link"
+              onClick={toggleForgotPassword}
+            >
+              Forgot Password?
+            </button>
+          )}
+
           <button type="submit" className="login-submit-button" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
@@ -191,6 +252,61 @@ function LoginScreen(): React.ReactElement {
             )}
           </button>
         </form>
+
+        {showForgotPassword && (
+          <div className="forgot-password-panel">
+            <h3 className="forgot-password-title">Reset Password</h3>
+            <p className="forgot-password-description">
+              Enter your email address and we&apos;ll send you a link to reset your password.
+              <br />
+              <strong>Note:</strong> Your account must be verified to request a password reset.
+            </p>
+
+            {forgotPasswordSuccess && (
+              <div className="login-success">{forgotPasswordSuccess}</div>
+            )}
+
+            <form onSubmit={handleForgotPassword} className="forgot-password-form">
+              <div className="form-group">
+                <label htmlFor="forgot-email">Email</label>
+                <input
+                  id="forgot-email"
+                  type="email"
+                  value={forgotPasswordEmail}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForgotPasswordEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  disabled={isSubmitting}
+                  autoFocus
+                />
+              </div>
+
+              <div className="forgot-password-buttons">
+                <button
+                  type="button"
+                  className="forgot-password-cancel"
+                  onClick={toggleForgotPassword}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="forgot-password-submit"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="login-spinner"></span>
+                      Sending...
+                    </>
+                  ) : (
+                    'Send Reset Email'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         <div className="login-divider">
           <span>or</span>
