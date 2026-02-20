@@ -381,7 +381,8 @@ describe('useGameState', () => {
         result.current.submitGuess();
       });
 
-      expect(result.current.currentResult!.score).toBe(5000);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(500);
+      expect(result.current.currentResult!.score).toBe(5500);
       expect(result.current.currentResult!.floorCorrect).toBe(true);
     });
 
@@ -405,7 +406,32 @@ describe('useGameState', () => {
       });
 
       expect(result.current.currentResult!.floorCorrect).toBe(false);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
       expect(result.current.currentResult!.score).toBe(4000); // 5000 * 0.8
+    });
+
+    it('should not award exact spot bonus when guess is not very close', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 53, y: 50 }); // distance 3 (> exact-spot threshold)
+      });
+
+      act(() => {
+        result.current.selectFloor(2); // Correct floor
+      });
+
+      act(() => {
+        result.current.submitGuess();
+      });
+
+      expect(result.current.currentResult!.floorCorrect).toBe(true);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
+      expect(result.current.currentResult!.score).toBe(5000);
     });
 
     it('should store result in roundResults', async () => {

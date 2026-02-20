@@ -3,7 +3,9 @@ import { getRandomImage, type GameImage as ServiceGameImage } from '../services/
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } from '../services/regionService';
 
 const TOTAL_ROUNDS = 5;
-const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
+const EXACT_SPOT_BONUS_POINTS = 500;
+const EXACT_SPOT_MAX_DISTANCE = 1; // map units (~2 ft)
+const MAX_SCORE_PER_ROUND = 5500; // 5000 location + 500 exact-spot bonus
 export const ROUND_TIME_SECONDS = 20;
 const SINGLEPLAYER_SEEN_HISTORY_KEY = 'singleplayerSeenImageHistory.v1';
 
@@ -38,6 +40,7 @@ export interface RoundResult {
   distance: number | null;
   locationScore: number;
   floorCorrect: boolean | null;
+  exactSpotBonus: number;
   score: number;
   timeTakenSeconds: number;
   timedOut: boolean;
@@ -440,6 +443,7 @@ export function useGameState(): UseGameStateReturn {
 
     // Floor scoring only applies when in a region AND the photo has a floor set
     let floorCorrect: boolean | null = null;
+    let exactSpotBonus = 0;
     let totalScore = locationScore;
 
     if (isInRegion && guessFloor !== null && actualFloor !== null) {
@@ -448,6 +452,12 @@ export function useGameState(): UseGameStateReturn {
       totalScore = floorCorrect
         ? locationScore
         : Math.round(locationScore * 0.8);
+
+      // Exact-spot bonus applies only when floor is correct and pin is very close.
+      if (floorCorrect && distance <= EXACT_SPOT_MAX_DISTANCE) {
+        exactSpotBonus = EXACT_SPOT_BONUS_POINTS;
+        totalScore += exactSpotBonus;
+      }
     }
 
     // Create result object
@@ -461,6 +471,7 @@ export function useGameState(): UseGameStateReturn {
       distance,
       locationScore,
       floorCorrect,
+      exactSpotBonus,
       score: totalScore,
       timeTakenSeconds,
       timedOut: timedOutRef.current
@@ -511,6 +522,7 @@ export function useGameState(): UseGameStateReturn {
         distance: null,
         locationScore: 0,
         floorCorrect: null,
+        exactSpotBonus: 0,
         score: 0,
         timeTakenSeconds: ROUND_TIME_SECONDS,
         timedOut: true,
