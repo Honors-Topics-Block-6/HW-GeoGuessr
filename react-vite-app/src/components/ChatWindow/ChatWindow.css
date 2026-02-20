@@ -268,6 +268,79 @@
   align-items: flex-end;
 }
 
+.chat-emoji-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.chat-emoji-button {
+  height: 38px;
+  width: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e0e6f0;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.chat-emoji-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.chat-emoji-picker {
+  position: absolute;
+  bottom: 46px;
+  left: 0;
+  background: rgba(15, 18, 30, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+  z-index: 5;
+  width: 252px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.chat-emoji-picker::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-emoji-picker::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-emoji-picker::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+}
+
+.chat-emoji-item {
+  height: 32px;
+  width: 32px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: transform 0.1s ease, background 0.2s ease;
+  color: #e0e6f0;
+}
+
+.chat-emoji-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
 .chat-input {
   flex: 1;
   padding: 10px 14px;
