@@ -4,7 +4,8 @@ import { db } from '../../firebase'
 import { useAuth } from '../../contexts/AuthContext'
 import { getUserDoc, updateUserDoc } from '../../services/userService'
 import { compressImage } from '../../utils/compressImage'
-import { getRegions, getPlayingArea, getFloorsForPoint, isPointInPlayingArea } from '../../services/regionService'
+import { getRegions, getPlayingArea, getFloorsForPoint, getRegionForPoint, isPointInPlayingArea, isPointInPolygon } from '../../services/regionService'
+import { getBuildingNameForPoint } from '../../utils/buildingPolygons'
 import type { Point, Region as RegionData, PlayingArea as PlayingAreaData } from '../../services/regionService'
 import MapPicker from '../MapPicker/MapPicker'
 import type { MapCoordinates } from '../MapPicker/MapPicker'
@@ -18,10 +19,13 @@ const ALL_FLOORS: number[] = [1, 2, 3]
 const DIFFICULTY_OPTIONS: string[] = ['easy', 'medium', 'hard']
 const BUILDING_OPTIONS: string[] = [
   'Copses Family Pool',
+  'Pool',
+  'Pool House',
   'Taper Athletic Pavilion',
   'Ted Slavin Field',
-  'Pool House',
+  'Field',
   'Harvard Westlake Driveway',
+  'Driveway',
   'Munger Science Center',
   'Sprague Plaza',
   'Ahmanson Lecture Hall',
@@ -34,13 +38,40 @@ const BUILDING_OPTIONS: string[] = [
   'Learning Center',
   'Mudd Library',
   "St. Saviour's Chapel",
+  'Chapel',
   'Feldman-Horn',
+  'Feldman Horn',
   'Rugby Hall',
   'Rugby Tower',
   'Drama Lab',
   'Chalmers Hall',
-  'Weiler Hall'
+  'Weiler Hall',
+  'Advancement House'
 ]
+
+/** Normalize for matching: lowercase, collapse spaces, ignore hyphens/apostrophes */
+function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[''-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Find a building option that matches the region name (flexible: exact or contains). */
+function matchBuildingFromRegionName(regionName: string): string | null {
+  const n = normalizeForMatch(regionName)
+  if (!n) return null
+  // Exact match first
+  const exact = BUILDING_OPTIONS.find(b => normalizeForMatch(b) === n)
+  if (exact) return exact
+  // Region name contains building (e.g. region "Pool House" vs option "Pool")
+  const contained = BUILDING_OPTIONS.find(b => {
+    const bn = normalizeForMatch(b)
+    return bn && (n.includes(bn) || bn.includes(n))
+  })
+  return contained ?? null
+}
 
 type MapCoords = MapCoordinates
 
@@ -120,6 +151,28 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
 
     setLocation(coords)
     setClickRejected(false)
+
+    // Auto-fill building: first from region hitbox, then from static building polygons
+    let buildingSet = false
+    const region = getRegionForPoint(coords, regions)
+    if (region?.name) {
+      const regionName = (region.name as string).trim()
+      const matchingBuilding = matchBuildingFromRegionName(regionName)
+      if (matchingBuilding) {
+        setBuilding(matchingBuilding)
+        buildingSet = true
+      } else {
+        setBuilding(regionName)
+        buildingSet = true
+      }
+    }
+    if (!buildingSet) {
+      const buildingName = getBuildingNameForPoint(coords, isPointInPolygon)
+      if (buildingName) {
+        const matchingBuilding = matchBuildingFromRegionName(buildingName) ?? buildingName
+        setBuilding(matchingBuilding)
+      }
+    }
 
     if (overrideRestrictions) {
       // In override mode, always show all floors
@@ -314,6 +367,9 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
             <label className="building-selector-label" htmlFor="buildingSelect">
               Building / Location
             </label>
+            <p className="building-selector-hint">
+              Click on the map inside a building/area to auto-fill. Built-in areas: Field, Pool, Pool House, Driveway, Chapel, Feldman-Horn, Drama Lab, Advancement House, etc.
+            </p>
             <button
               id="buildingSelect"
               type="button"
@@ -326,6 +382,19 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
             </button>
             {isBuildingOpen && (
               <div className="building-selector-menu" role="listbox">
+                {/* Show current building in list if it's not in BUILDING_OPTIONS (e.g. from region name) */}
+                {building && !BUILDING_OPTIONS.includes(building) && (
+                  <button
+                    key={`custom-${building}`}
+                    type="button"
+                    role="option"
+                    aria-selected={true}
+                    className="building-selector-option selected"
+                    onClick={() => setIsBuildingOpen(false)}
+                  >
+                    {building}
+                  </button>
+                )}
                 {BUILDING_OPTIONS.map((option) => (
                   <button
                     key={option}
