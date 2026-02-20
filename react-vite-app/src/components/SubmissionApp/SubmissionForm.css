@@ -154,6 +154,13 @@
   color: #c4c9d6;
 }
 
+.building-selector-hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.35;
+}
+
 .building-selector-button {
   width: 100%;
   padding: 12px 14px;
