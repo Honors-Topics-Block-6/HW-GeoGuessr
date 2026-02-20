@@ -4,11 +4,20 @@ import './DifficultySelect.css';
 type DifficultyId = 'all' | 'easy' | 'medium' | 'hard';
 type GameMode = 'singleplayer' | 'multiplayer';
 
+/** 0 means "no time limit" */
+export type RoundTimeSeconds = number;
+
 interface DifficultyOption {
   id: DifficultyId;
   label: string;
   icon: string;
   description: string;
+}
+
+/** Preset time options shown as buttons. 0 = no limit. */
+interface TimePreset {
+  value: number;
+  label: string;
 }
 
 const DIFFICULTIES: DifficultyOption[] = [
@@ -38,8 +47,18 @@ const DIFFICULTIES: DifficultyOption[] = [
   },
 ];
 
+const TIME_PRESETS: TimePreset[] = [
+  { value: 10, label: '10s' },
+  { value: 20, label: '20s' },
+  { value: 30, label: '30s' },
+  { value: 0, label: 'No Limit' },
+];
+
+const CUSTOM_TIME_MIN = 3;
+const CUSTOM_TIME_MAX = 600;
+
 export interface DifficultySelectProps {
-  onStart: (difficulty: DifficultyId, mode: GameMode) => void;
+  onStart: (difficulty: DifficultyId, mode: GameMode, roundTimeSeconds: RoundTimeSeconds) => void;
   onBack: () => void;
   isLoading: boolean;
 }
@@ -48,9 +67,34 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyId | null>(null);
   const [selectedMode, setSelectedMode] = useState<GameMode>('singleplayer');
 
+  // Time setting: preset value or 'custom'
+  const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
+  const [customTime, setCustomTime] = useState<string>('60');
+
+  /** Resolve the actual round time in seconds (0 = no limit) */
+  const resolvedTime: number =
+    timeSelection === 'custom'
+      ? Math.max(CUSTOM_TIME_MIN, Math.min(CUSTOM_TIME_MAX, parseInt(customTime, 10) || CUSTOM_TIME_MIN))
+      : timeSelection;
+
   const handleStart = (): void => {
     if (selectedDifficulty) {
-      onStart(selectedDifficulty, selectedMode);
+      onStart(selectedDifficulty, selectedMode, resolvedTime);
+    }
+  };
+
+  const handleCustomTimeChange = (value: string): void => {
+    // Allow only digits while typing
+    const digits = value.replace(/\D/g, '');
+    setCustomTime(digits);
+  };
+
+  const handleCustomTimeBlur = (): void => {
+    const parsed = parseInt(customTime, 10);
+    if (isNaN(parsed) || parsed < CUSTOM_TIME_MIN) {
+      setCustomTime(String(CUSTOM_TIME_MIN));
+    } else if (parsed > CUSTOM_TIME_MAX) {
+      setCustomTime(String(CUSTOM_TIME_MAX));
     }
   };
 
@@ -101,6 +145,55 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
             <span className="mode-card-label">Multiplayer</span>
           </button>
         </div>
+
+        {selectedMode === 'singleplayer' && (
+          <>
+            <h2 className="time-heading">Round Time</h2>
+            <p className="time-subheading">How long each round lasts</p>
+
+            <div className="time-options">
+              {TIME_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  className={`time-card ${timeSelection === preset.value ? 'selected' : ''}`}
+                  onClick={() => setTimeSelection(preset.value)}
+                >
+                  <span className="time-card-icon">
+                    {preset.value === 0 ? '∞' : '⏱'}
+                  </span>
+                  <span className="time-card-label">{preset.label}</span>
+                </button>
+              ))}
+              <button
+                className={`time-card ${timeSelection === 'custom' ? 'selected' : ''}`}
+                onClick={() => setTimeSelection('custom')}
+              >
+                <span className="time-card-icon">✏️</span>
+                <span className="time-card-label">Custom</span>
+              </button>
+            </div>
+
+            {timeSelection === 'custom' && (
+              <div className="time-custom-input-wrapper">
+                <label className="time-custom-label" htmlFor="custom-time-input">
+                  Seconds ({CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX})
+                </label>
+                <input
+                  id="custom-time-input"
+                  className="time-custom-input"
+                  type="text"
+                  inputMode="numeric"
+                  value={customTime}
+                  onChange={(e) => handleCustomTimeChange(e.target.value)}
+                  onBlur={handleCustomTimeBlur}
+                  min={CUSTOM_TIME_MIN}
+                  max={CUSTOM_TIME_MAX}
+                  placeholder="e.g. 60"
+                />
+              </div>
+            )}
+          </>
+        )}
 
         <button
           className="play-button"

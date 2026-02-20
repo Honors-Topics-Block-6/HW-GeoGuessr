@@ -20,6 +20,22 @@ const DIFFICULTY_LABELS: Record<Difficulty, DifficultyInfo> = {
 
 export type GameVisibility = 'public' | 'private';
 
+/** Preset time options shown as buttons. 0 = no limit. */
+interface TimePreset {
+  value: number;
+  label: string;
+}
+
+const TIME_PRESETS: TimePreset[] = [
+  { value: 10, label: '10s' },
+  { value: 20, label: '20s' },
+  { value: 30, label: '30s' },
+  { value: 0, label: 'No Limit' },
+];
+
+const CUSTOM_TIME_MIN = 3;
+const CUSTOM_TIME_MAX = 600;
+
 export interface MultiplayerLobbyProps {
   difficulty: Difficulty;
   userUid: string;
@@ -30,6 +46,28 @@ export interface MultiplayerLobbyProps {
 
 function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
   const [visibility, setVisibility] = useState<GameVisibility>('public');
+  const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
+  const [customTime, setCustomTime] = useState<string>('60');
+
+  /** Resolve the actual round time in seconds (0 = no limit) */
+  const resolvedTime: number =
+    timeSelection === 'custom'
+      ? Math.max(CUSTOM_TIME_MIN, Math.min(CUSTOM_TIME_MAX, parseInt(customTime, 10) || CUSTOM_TIME_MIN))
+      : timeSelection;
+
+  const handleCustomTimeChange = (value: string): void => {
+    const digits = value.replace(/\D/g, '');
+    setCustomTime(digits);
+  };
+
+  const handleCustomTimeBlur = (): void => {
+    const parsed = parseInt(customTime, 10);
+    if (isNaN(parsed) || parsed < CUSTOM_TIME_MIN) {
+      setCustomTime(String(CUSTOM_TIME_MIN));
+    } else if (parsed > CUSTOM_TIME_MAX) {
+      setCustomTime(String(CUSTOM_TIME_MAX));
+    }
+  };
   const {
     publicLobbies,
     isCreating,
@@ -44,7 +82,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
   const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[difficulty] || DIFFICULTY_LABELS.all;
 
   const handleHost = async (): Promise<void> => {
-    const result = await hostGame(visibility);
+    const result = await hostGame(visibility, resolvedTime);
     if (result) {
       onJoinedLobby(result.docId);
     }
@@ -109,6 +147,44 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
                 <span className="lobby-vis-icon">🔒</span>
                 Private
               </button>
+            </div>
+
+            {/* Round Time */}
+            <div className="lobby-time-section">
+              <p className="lobby-time-label">Round Time</p>
+              <div className="lobby-time-options">
+                {TIME_PRESETS.map((preset) => (
+                  <button
+                    key={preset.value}
+                    className={`lobby-time-btn ${timeSelection === preset.value ? 'selected' : ''}`}
+                    onClick={() => setTimeSelection(preset.value)}
+                  >
+                    {preset.value === 0 ? '∞' : `${preset.label}`}
+                  </button>
+                ))}
+                <button
+                  className={`lobby-time-btn ${timeSelection === 'custom' ? 'selected' : ''}`}
+                  onClick={() => setTimeSelection('custom')}
+                >
+                  ✏️
+                </button>
+              </div>
+              {timeSelection === 'custom' && (
+                <div className="lobby-time-custom">
+                  <input
+                    className="lobby-time-custom-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={customTime}
+                    onChange={(e) => handleCustomTimeChange(e.target.value)}
+                    onBlur={handleCustomTimeBlur}
+                    placeholder="e.g. 60"
+                  />
+                  <span className="lobby-time-custom-hint">
+                    {CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX}s
+                  </span>
+                </div>
+              )}
             </div>
 
             <button
