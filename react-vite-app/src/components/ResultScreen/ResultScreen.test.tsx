@@ -12,6 +12,7 @@ describe('ResultScreen', () => {
     imageUrl: 'https://example.com/image.jpg',
     locationScore: 5000,
     floorCorrect: true as boolean | null,
+    exactSpotBonus: 0,
     totalScore: 5000,
     timeTakenSeconds: 30 as number | null,
     timedOut: false,
@@ -80,7 +81,7 @@ describe('ResultScreen', () => {
     it('should display max score indicator', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('/ 5,000')).toBeInTheDocument();
+      expect(screen.getByText('/ 5,500')).toBeInTheDocument();
     });
 
     it('should show score after animation completes', () => {
@@ -334,6 +335,13 @@ describe('ResultScreen', () => {
       render(<ResultScreen {...defaultProps} />);
 
       expect(screen.getByText('Total')).toBeInTheDocument();
+    });
+
+    it('should show exact spot bonus when present', () => {
+      render(<ResultScreen {...defaultProps} exactSpotBonus={500} totalScore={5500} />);
+
+      expect(screen.getByText('Exact Spot Bonus')).toBeInTheDocument();
+      expect(screen.getByText('+500')).toBeInTheDocument();
     });
   });
 
