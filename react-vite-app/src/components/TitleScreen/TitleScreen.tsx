@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import './TitleScreen.css';
 
@@ -14,6 +15,8 @@ export interface TitleScreenProps {
 
 function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, onOpenBugReport, onOpenDailyGoals, isLoading }: TitleScreenProps): React.ReactElement {
   const { userDoc, logout, levelInfo, levelTitle: _levelTitle } = useAuth();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async (): Promise<void> => {
     try {
@@ -23,35 +26,58 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
     }
   };
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <div className="title-screen">
       <div className="title-top-bar">
-        <div className="title-user-info">
-          <span className="title-user-icon">👤</span>
-          <span className="title-username">{userDoc?.username}</span>
-          <span className="title-level-badge">Lvl {levelInfo.level}</span>
+        <div className="title-user-menu-wrapper" ref={userMenuRef}>
+          <button
+            className="title-user-info-button"
+            onClick={() => setUserMenuOpen((prev) => !prev)}
+            aria-expanded={userMenuOpen}
+            aria-haspopup="true"
+          >
+            <span className="title-user-icon">👤</span>
+            <span className="title-username">{userDoc?.username}</span>
+            <span className="title-level-badge">Lvl {levelInfo.level}</span>
+            <span className={`title-user-chevron ${userMenuOpen ? 'open' : ''}`}>▾</span>
+          </button>
+          {userMenuOpen && (
+            <div className="title-user-dropdown">
+              <button className="title-dropdown-item" onClick={() => { onOpenProfile(); setUserMenuOpen(false); }}>
+                Profile
+              </button>
+              <button className="title-dropdown-item" onClick={() => { onOpenFriends(); setUserMenuOpen(false); }}>
+                Friends
+              </button>
+              <button className="title-dropdown-item" onClick={() => { onOpenDailyGoals(); setUserMenuOpen(false); }}>
+                Daily Goals
+              </button>
+              <button className="title-dropdown-item title-dropdown-logout" onClick={() => { handleLogout(); setUserMenuOpen(false); }}>
+                Log Out
+              </button>
+            </div>
+          )}
         </div>
         <div className="title-top-actions">
-          <button className="title-daily-goals-button" onClick={onOpenDailyGoals}>
-            Daily Goals
-          </button>
-          <button className="title-leaderboard-button" onClick={onOpenLeaderboard}>
-            Leaderboard
-          </button>
-          <button className="title-profile-button" onClick={onOpenProfile}>
-            Profile
-          </button>
-          <button className="title-friends-button" onClick={onOpenFriends}>
-            Friends
-          </button>
           <button className="submit-photo-button" onClick={onOpenSubmission}>
             Submit Photo
           </button>
           <button className="title-bug-report-button" onClick={onOpenBugReport}>
             Report Bug
           </button>
-          <button className="title-logout-button" onClick={handleLogout}>
-            Log Out
+          <button className="title-leaderboard-button" onClick={onOpenLeaderboard}>
+            Leaderboard
           </button>
         </div>
       </div>

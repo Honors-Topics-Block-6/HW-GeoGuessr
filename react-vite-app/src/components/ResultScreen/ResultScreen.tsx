@@ -49,6 +49,61 @@ function formatDistance(distance: number | null): string {
   return `${feet} ft away`;
 }
 
+/**
+ * Compute the actual rendered bounds of an image using object-fit: contain.
+ * Returns the offset and scale as percentages of the container so that
+ * image-space percentages (0-100) can be mapped to container-space percentages.
+ *
+ * containerPct = offsetPct + imagePct * (renderedSize / containerSize) * 100
+ */
+interface ImageFit {
+  offsetXPct: number;   // horizontal offset of image within container (%)
+  offsetYPct: number;   // vertical offset of image within container (%)
+  scaleX: number;       // rendered image width / container width
+  scaleY: number;       // rendered image height / container height
+}
+
+function computeContainFit(img: HTMLImageElement): ImageFit {
+  const { naturalWidth, naturalHeight, clientWidth, clientHeight } = img;
+  if (!naturalWidth || !naturalHeight || !clientWidth || !clientHeight) {
+    return { offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 };
+  }
+
+  const containerAR = clientWidth / clientHeight;
+  const imageAR = naturalWidth / naturalHeight;
+
+  let renderedW: number;
+  let renderedH: number;
+
+  if (imageAR > containerAR) {
+    // Image is wider than container — fits width, letterbox top/bottom
+    renderedW = clientWidth;
+    renderedH = clientWidth / imageAR;
+  } else {
+    // Image is taller than container — fits height, letterbox left/right
+    renderedH = clientHeight;
+    renderedW = clientHeight * imageAR;
+  }
+
+  const offsetX = (clientWidth - renderedW) / 2;
+  const offsetY = (clientHeight - renderedH) / 2;
+
+  return {
+    offsetXPct: (offsetX / clientWidth) * 100,
+    offsetYPct: (offsetY / clientHeight) * 100,
+    scaleX: renderedW / clientWidth,
+    scaleY: renderedH / clientHeight,
+  };
+}
+
+/** Map a point from image-percentage space to container-percentage space. */
+function toContainerPct(point: MapPoint, fit: ImageFit): MapPoint {
+  return {
+    x: fit.offsetXPct + (point.x / 100) * fit.scaleX * 100,
+    y: fit.offsetYPct + (point.y / 100) * fit.scaleY * 100,
+  };
+}
+
 function ResultScreen({
   guessLocation,
   guessFloor,
@@ -71,8 +126,10 @@ function ResultScreen({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
   const mapOuterRef = useRef<HTMLDivElement>(null);
+  const mapImageRef = useRef<HTMLImageElement>(null);
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [displayedScore, setDisplayedScore] = useState<number>(0);
+  const [imageFit, setImageFit] = useState<ImageFit>({ offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 });
 
   // Sync map container height to match the details panel height
   useEffect(() => {
@@ -96,6 +153,37 @@ function ResultScreen({
 
     return () => observer.disconnect();
   }, []);
+
+  // Recompute image fit whenever the container or image dimensions change
+  const updateImageFit = useCallback((): void => {
+    const img = mapImageRef.current;
+    if (img && img.naturalWidth) {
+      setImageFit(computeContainFit(img));
+    }
+  }, []);
+
+  useEffect(() => {
+    const img = mapImageRef.current;
+    if (!img) return;
+
+    // Recalculate once the image has loaded
+    img.addEventListener('load', updateImageFit);
+    // Also recalculate if already cached
+    if (img.complete) updateImageFit();
+
+    // Recalculate when the container resizes (height sync, window resize, etc.)
+    const observer = new ResizeObserver(updateImageFit);
+    observer.observe(img);
+
+    return () => {
+      img.removeEventListener('load', updateImageFit);
+      observer.disconnect();
+    };
+  }, [updateImageFit]);
+
+  // Map coordinates from image-space to container-space
+  const mappedGuess: MapPoint | null = guessLocation ? toContainerPct(guessLocation, imageFit) : null;
+  const mappedActual: MapPoint = toContainerPct(actualLocation, imageFit);
 
   const {
     scale,
@@ -209,6 +297,7 @@ function ResultScreen({
               {/* Map Image */}
               <img
                 className="map-image"
+                ref={mapImageRef}
                 src="/FINAL_MAP.png"
                 alt="Campus Map"
                 draggable="false"
@@ -216,7 +305,7 @@ function ResultScreen({
               />
 
               {/* Line between guess and actual (Phase 2+) */}
-              {guessLocation && animationPhase >= 2 && (
+              {mappedGuess && animationPhase >= 2 && (
                 <svg
                   className="result-line-svg"
                   style={{
@@ -230,10 +319,10 @@ function ResultScreen({
                 >
                   <line
                     className="result-line"
-                    x1={`${guessLocation.x}%`}
-                    y1={`${guessLocation.y}%`}
-                    x2={`${actualLocation.x}%`}
-                    y2={`${actualLocation.y}%`}
+                    x1={`${mappedGuess.x}%`}
+                    y1={`${mappedGuess.y}%`}
+                    x2={`${mappedActual.x}%`}
+                    y2={`${mappedActual.y}%`}
                     stroke="#ffc107"
                     strokeWidth="3"
                     strokeDasharray="8,4"
@@ -242,12 +331,12 @@ function ResultScreen({
               )}
 
               {/* Guess marker (only when a guess was made) */}
-              {guessLocation && (
+              {mappedGuess && (
                 <div
                   className="result-marker guess-marker"
                   style={{
-                    left: `${guessLocation.x}%`,
-                    top: `${guessLocation.y}%`
+                    left: `${mappedGuess.x}%`,
+                    top: `${mappedGuess.y}%`
                   }}
                 >
                   <div className="marker-pin guess-pin"></div>
@@ -260,8 +349,8 @@ function ResultScreen({
                 <div
                   className="result-marker actual-marker"
                   style={{
-                    left: `${actualLocation.x}%`,
-                    top: `${actualLocation.y}%`
+                    left: `${mappedActual.x}%`,
+                    top: `${mappedActual.y}%`
                   }}
                 >
                   <div className="marker-pin actual-pin"></div>

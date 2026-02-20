@@ -31,6 +31,7 @@ export interface SubmissionItem {
   floor?: number | null
   difficulty?: string | null
   photoName?: string
+  buildingName?: string | null
   status: string
   _source: SubmissionSource
   description?: string
@@ -41,6 +42,7 @@ export interface SubmissionItem {
 export interface EditFormState {
   description: string
   photoName: string
+  buildingName: string
   location: Location | null
   floor: number | null
   difficulty: string | null
@@ -174,6 +176,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     setEditForm({
       description: selectedSubmission.description || '',
       photoName: selectedSubmission.photoName || '',
+      buildingName: selectedSubmission.buildingName || '',
       location: selectedSubmission.location ? { ...selectedSubmission.location } : { x: 0, y: 0 },
       floor: selectedSubmission.floor,
       difficulty: selectedSubmission.difficulty || null,
@@ -222,6 +225,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         await updateDoc(doc(db, 'submissions', selectedSubmission.id), {
           description: editForm.description,
           photoName: editForm.photoName,
+          buildingName: (editForm.buildingName || '').trim() || null,
           location: editForm.location,
           floor: editForm.floor,
           difficulty: editForm.difficulty || null,
@@ -452,6 +456,12 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               </div>
 
               <div className="card-details">
+                {submission.buildingName && (
+                  <div className="detail-row">
+                    <strong>Building:</strong>
+                    <span>{submission.buildingName}</span>
+                  </div>
+                )}
                 {submission.description && (
                   <div className="detail-row">
                     <strong>Description:</strong>
@@ -615,6 +625,19 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                     />
                   </div>
 
+                  {/* Building Name (submissions only) */}
+                  {selectedSubmission._source === 'submission' && (
+                    <div className="edit-field">
+                      <label htmlFor="edit-buildingname">Building Name</label>
+                      <input
+                        id="edit-buildingname"
+                        type="text"
+                        value={editForm.buildingName || ''}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, buildingName: e.target.value }))}
+                      />
+                    </div>
+                  )}
+
                   {/* Photo Name (submissions only) */}
                   {selectedSubmission._source === 'submission' && (
                     <div className="edit-field">
@@ -755,6 +778,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                       {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'No difficulty'}
                     </span>
                   </div>
+
+                  {/* Building Name card */}
+                  {selectedSubmission.buildingName && (
+                    <div className="detail-card">
+                      <div className="detail-card-label">Building Name</div>
+                      <div className="detail-card-value">{selectedSubmission.buildingName}</div>
+                    </div>
+                  )}
 
                   {/* Description card */}
                   {selectedSubmission.description && (

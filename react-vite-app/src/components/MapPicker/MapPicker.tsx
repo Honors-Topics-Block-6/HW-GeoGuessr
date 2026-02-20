@@ -1,4 +1,12 @@
-import { useRef, useImperativeHandle, forwardRef, useCallback, type Ref } from 'react';
+import {
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+  useCallback,
+  useState,
+  useEffect,
+  type Ref
+} from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import './MapPicker.css';
 
@@ -34,6 +42,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const coordsFromClientPos = useCallback((clientX: number, clientY: number): MapCoordinates | null => {
     if (!imageRef.current) return null;
@@ -74,6 +83,29 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     if (handlers.onMouseLeave) handlers.onMouseLeave();
   };
 
+  const toggleFullscreen = (event: React.MouseEvent<HTMLButtonElement>): void => {
+    event.stopPropagation();
+    setIsFullscreen((prev) => !prev);
+  };
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const handleEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        setIsFullscreen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    document.body.classList.toggle('map-fullscreen-open', isFullscreen);
+    return () => document.body.classList.remove('map-fullscreen-open');
+  }, [isFullscreen]);
+
   /**
    * Expose clickAtCursor() — places a marker at the current mouse position.
    * Returns false if the cursor isn't over the map.
@@ -95,13 +127,23 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
   const isZoomed = scale > 1;
 
   return (
-    <div className="map-picker-container">
+    <div className={`map-picker-container ${isFullscreen ? 'is-fullscreen' : ''}`}>
       <div className="map-header">
-        <span className="map-icon">🗺️</span>
-        <span>Click & drag to pan • Click to place your guess</span>
+        <div className="map-header-left">
+          <span className="map-icon">🗺️</span>
+          <span>Click & drag to pan • Click to place your guess</span>
+        </div>
+        <button
+          className="map-fullscreen-toggle"
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? 'Exit fullscreen map' : 'Enter fullscreen map'}
+          title={isFullscreen ? 'Exit fullscreen' : 'Expand map'}
+        >
+          {isFullscreen ? '⤡' : '⤢'}
+        </button>
       </div>
       <div
-        className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''}`}
+        className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
         ref={containerRef}
         onClick={handleClick}
         onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
@@ -160,13 +202,15 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
             </svg>
           )}
 
-          {/* Marker - positioned relative to the container which matches image size */}
+          {/* Marker - positioned relative to the container; scale inversely with zoom so pin stays same visual size */}
           {markerPosition && (
             <div
               className="marker"
               style={{
                 left: `${markerPosition.x}%`,
-                top: `${markerPosition.y}%`
+                top: `${markerPosition.y}%`,
+                transform: `translate(-50%, calc(-100% - 5.4px)) scale(${1 / scale})`,
+                transformOrigin: '50% 31.4px'
               }}
             >
               <div className="marker-pin"></div>
