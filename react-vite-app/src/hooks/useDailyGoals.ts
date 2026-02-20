@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
 import {
   getOrCreateDailyGoals,
   recordGoalProgress,
-  markBonusXpAwarded
+  markBonusXpAwarded,
+  getTodayDateString
 } from '../services/dailyGoalsService';
-import { awardXp } from '../services/xpService';
+import { awardBonusXp } from '../services/xpService';
 import { GOAL_TYPES } from '../utils/dailyGoalDefinitions';
 
 export interface DailyGoal {
@@ -81,6 +84,36 @@ export function useDailyGoals(uid: string | null): UseDailyGoalsReturn {
     refreshGoals();
   }, [refreshGoals]);
 
+  // Keep daily goals state in sync across screens/components.
+  // This ensures global UI (like the completion popup) reacts immediately.
+  useEffect(() => {
+    if (!uid) return;
+
+    const goalsRef = doc(db, 'dailyGoals', uid);
+    const unsubscribe = onSnapshot(goalsRef, (snapshot) => {
+      if (!snapshot.exists()) return;
+      setGoalsData(snapshot.data() as DailyGoalsData);
+    });
+
+    return () => unsubscribe();
+  }, [uid]);
+
+  // Refresh at local midnight so day rollover logic runs (including auto-claim).
+  useEffect(() => {
+    if (!uid) return;
+
+    const now = new Date();
+    const nextMidnight = new Date(now);
+    nextMidnight.setHours(24, 0, 5, 0);
+    const msUntilMidnight = Math.max(0, nextMidnight.getTime() - now.getTime());
+
+    const timeoutId = window.setTimeout(() => {
+      refreshGoals();
+    }, msUntilMidnight);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [uid, refreshGoals]);
+
   /**
    * Record progress toward a goal type.
    * Called by integration points (FinalResultsScreen, DuelFinalScreen, etc.)
@@ -110,7 +143,7 @@ export function useDailyGoals(uid: string | null): UseDailyGoalsReturn {
   const claimBonusXp = useCallback(async (): Promise<number | undefined> => {
     if (!uid || !goalsData?.allCompleted || goalsData?.bonusXpAwarded) return;
     try {
-      await awardXp(uid, goalsData.bonusXpAmount);
+      await awardBonusXp(uid, goalsData.bonusXpAmount);
       await markBonusXpAwarded(uid);
       await refreshGoals();
       return goalsData.bonusXpAmount;
@@ -125,11 +158,13 @@ export function useDailyGoals(uid: string | null): UseDailyGoalsReturn {
   const allCompleted = goalsData?.allCompleted || false;
   const bonusXpAwarded = goalsData?.bonusXpAwarded || false;
   const bonusXpAmount = goalsData?.bonusXpAmount || 0;
+  const currentDate = getTodayDateString();
+  const isTodayGoals = goalsData?.date === currentDate;
 
   return useMemo(() => ({
-    goals,
-    allCompleted,
-    bonusXpAwarded,
+    goals: isTodayGoals ? goals : [],
+    allCompleted: isTodayGoals ? allCompleted : false,
+    bonusXpAwarded: isTodayGoals ? bonusXpAwarded : false,
     bonusXpAmount,
     loading,
     error,
@@ -137,5 +172,5 @@ export function useDailyGoals(uid: string | null): UseDailyGoalsReturn {
     recordProgress,
     claimBonusXp,
     GOAL_TYPES
-  }), [goals, allCompleted, bonusXpAwarded, bonusXpAmount, loading, error, refreshGoals, recordProgress, claimBonusXp]);
+  }), [goals, isTodayGoals, allCompleted, bonusXpAwarded, bonusXpAmount, loading, error, refreshGoals, recordProgress, claimBonusXp]);
 }
