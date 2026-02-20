@@ -41,6 +41,9 @@ const BUILDING_OPTIONS: string[] = [
   'Chalmers Hall',
   'Weiler Hall'
 ]
+const SORTED_BUILDING_OPTIONS = [...BUILDING_OPTIONS].sort((a, b) => (
+  a.localeCompare(b, 'en', { sensitivity: 'base' })
+))
 
 type MapCoords = MapCoordinates
 
@@ -326,7 +329,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
             </button>
             {isBuildingOpen && (
               <div className="building-selector-menu" role="listbox">
-                {BUILDING_OPTIONS.map((option) => (
+                {SORTED_BUILDING_OPTIONS.map((option) => (
                   <button
                     key={option}
                     type="button"
