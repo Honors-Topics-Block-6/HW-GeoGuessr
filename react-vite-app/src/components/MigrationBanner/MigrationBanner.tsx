@@ -1,31 +1,17 @@
-import React from 'react';
-import './MigrationBanner.css';
-
-const NEW_SITE_URL = 'https://hwgeoguessr.web.app/';
+const NEW_SITE_URL = 'https://hwgeoguessr.web.app';
 const OLD_HOSTNAME = 'geogessr-a4adc.web.app';
 
 /**
- * Permanent banner shown only on the old domain (geogessr-a4adc.web.app)
- * informing users the app has moved to hwgeoguessr.web.app.
+ * Redirects users from the old domain (geogessr-a4adc.web.app) to the new one
+ * (hwgeoguessr.web.app), preserving the current path and query string.
  */
-function MigrationBanner(): React.ReactElement | null {
-  if (window.location.hostname !== OLD_HOSTNAME) {
-    return null;
+function MigrationBanner(): null {
+  if (window.location.hostname === OLD_HOSTNAME) {
+    window.location.replace(
+      `${NEW_SITE_URL}${window.location.pathname}${window.location.search}${window.location.hash}`
+    );
   }
-
-  return (
-    <a
-      href={NEW_SITE_URL}
-      className="migration-banner"
-      aria-label="This app has moved to hwgeoguessr.web.app — click to go there"
-    >
-      <span className="migration-banner-text">
-        This app has moved to{' '}
-        <span className="migration-banner-link">hwgeoguessr.web.app</span>
-        {' '}— click here to go there
-      </span>
-    </a>
-  );
+  return null;
 }
 
 export default MigrationBanner;
