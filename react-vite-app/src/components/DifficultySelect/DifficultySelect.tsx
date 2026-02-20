@@ -59,9 +59,7 @@ const CUSTOM_TIME_MIN = 3;
 const CUSTOM_TIME_MAX = 600;
 
 export interface DifficultySelectProps {
-  onStart: (difficulty: DifficultyId, mode: GameMode, singleplayerVariant?: SingleplayerVariant, roundTimeSeconds: RoundTimeSeconds) => void;
-  onStart: (difficulty: DifficultyId, mode: GameMode, singleplayerVariant?: SingleplayerVariant) => void;
-  onStart: (difficulty: DifficultyId, mode: GameMode, roundTimeSeconds: RoundTimeSeconds) => void;
+  onStart: (difficulty: DifficultyId, mode: GameMode, singleplayerVariant?: SingleplayerVariant, roundTimeSeconds?: RoundTimeSeconds) => void;
   onBack: () => void;
   isLoading: boolean;
 }
@@ -83,14 +81,12 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
 
   const handleStart = (): void => {
     if (selectedDifficulty) {
-        selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
-        resolvedTime
       onStart(
         selectedDifficulty,
         selectedMode,
-        selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined
+        selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
+        selectedMode === 'singleplayer' ? resolvedTime : undefined
       );
-      onStart(selectedDifficulty, selectedMode, resolvedTime);
     }
   };
 

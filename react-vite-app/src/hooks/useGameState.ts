@@ -303,7 +303,8 @@ export function useGameState(): UseGameStateReturn {
   const startGame = useCallback(async (
     selectedDifficulty: string,
     selectedMode: string = 'singleplayer',
-    singleplayerVariant: 'classic' | 'endless' = 'classic'
+    singleplayerVariant: 'classic' | 'endless' = 'classic',
+    roundTimeSeconds?: number
   ): Promise<void> => {
     setCurrentRound(1);
     setRoundResults([]);
@@ -316,6 +317,8 @@ export function useGameState(): UseGameStateReturn {
     const endless = selectedMode === 'singleplayer' && singleplayerVariant === 'endless';
     setIsEndlessMode(endless);
     setCurrentHp(endless ? STARTING_HEALTH : STARTING_HEALTH);
+    const effectiveRoundTime = roundTimeSeconds ?? ROUND_TIME_SECONDS;
+    setRoundTimeSetting(effectiveRoundTime);
 
     // Multiplayer: go to lobby screen instead of starting a game
     if (selectedMode === 'multiplayer') {
