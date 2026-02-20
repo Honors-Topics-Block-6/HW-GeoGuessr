@@ -9,6 +9,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   onSnapshot,
   serverTimestamp,
@@ -73,6 +74,31 @@ export async function getUserByUid(uid: string): Promise<UserLookup | null> {
   if (!snapshot.exists()) return null;
   const data = snapshot.data();
   return { uid: snapshot.id, username: data.username, email: data.email };
+}
+
+/**
+ * Look up user(s) by username.
+ * Returns an array to support disambiguation if duplicates ever exist.
+ */
+export async function searchUsersByUsername(
+  username: string,
+  maxResults: number = 10
+): Promise<UserLookup[]> {
+  const trimmed = username.trim();
+  if (!trimmed) return [];
+
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('username', '==', trimmed), limit(maxResults));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map(docSnap => {
+    const data = docSnap.data() as { username?: string; email?: string };
+    return {
+      uid: docSnap.id,
+      username: data.username || '',
+      email: data.email || ''
+    };
+  });
 }
 
 /**

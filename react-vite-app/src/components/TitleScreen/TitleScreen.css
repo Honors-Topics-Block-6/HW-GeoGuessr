@@ -48,9 +48,25 @@
 }
 
 .title-username {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
   color: var(--text-primary);
   font-size: 0.95rem;
   font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.title-username:hover {
+  text-decoration: underline;
+}
+
+.title-username:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.6);
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
 .title-user-chevron {

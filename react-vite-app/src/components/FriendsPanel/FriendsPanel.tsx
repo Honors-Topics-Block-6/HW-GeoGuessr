@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
 import { subscribeToAllPresence, type PresenceMap, type PresenceData } from '../../services/presenceService';
+import { searchUsersByUsername, type UserLookup } from '../../services/friendService';
 import './FriendsPanel.css';
 
 interface FirestoreTimestamp {
@@ -27,6 +28,7 @@ interface OutgoingRequest {
 }
 
 type FriendsTab = 'friends' | 'requests' | 'add';
+type AddFriendMode = 'uid' | 'username';
 
 export interface FriendsPanelProps {
   onBack: () => void;
@@ -49,9 +51,13 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
   } = useFriends(user?.uid, userDoc?.username ?? '');
 
   const [addUid, setAddUid] = useState<string>('');
+  const [addUsername, setAddUsername] = useState<string>('');
+  const [addMode, setAddMode] = useState<AddFriendMode>('uid');
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState<boolean>(false);
+  const [searchLoading, setSearchLoading] = useState<boolean>(false);
+  const [searchResults, setSearchResults] = useState<UserLookup[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [presenceMap, setPresenceMap] = useState<PresenceMap>({});
   const [tab, setTab] = useState<FriendsTab>('friends');
@@ -82,15 +88,15 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
     setAddError(null);
     setAddSuccess(null);
 
-    const trimmed = addUid.trim();
-    if (!trimmed) {
-      setAddError('Please enter a User ID, username, or email.');
-      return;
-    }
-
     setAddLoading(true);
     try {
-      await sendRequest(trimmed);
+      const trimmedUid = addUid.trim();
+      if (!trimmedUid) {
+        setAddError('Please enter a user ID.');
+        return;
+      }
+
+      await sendRequest(trimmedUid);
       setAddSuccess('Friend request sent!');
       setAddUid('');
       setTimeout(() => setAddSuccess(null), 3000);
@@ -99,6 +105,53 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
       setAddError(message);
     } finally {
       setAddLoading(false);
+    }
+  };
+
+  const handleSearchByUsername = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    setAddError(null);
+    setAddSuccess(null);
+    setSearchResults([]);
+
+    const trimmed = addUsername.trim();
+    if (!trimmed) {
+      setAddError('Please enter a User ID, username, or email.');
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const results = await searchUsersByUsername(trimmed, 10);
+      // Never show the current user as a search target
+      const filtered = results.filter(r => r.uid !== user?.uid);
+      setSearchResults(filtered);
+      if (filtered.length === 0) {
+        setAddError('No users found with that username.');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to search users.';
+      setAddError(message);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleSendFromSearch = async (targetUid: string): Promise<void> => {
+    setActionLoading(targetUid);
+    setAddError(null);
+    setAddSuccess(null);
+    try {
+      await sendRequest(targetUid);
+      setAddSuccess('Friend request sent!');
+      // Optimistically remove from results to avoid double-sends
+      setSearchResults(prev => prev.filter(r => r.uid !== targetUid));
+      setTimeout(() => setAddSuccess(null), 3000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to send request.';
+      setAddError(message);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -349,17 +402,91 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                 onChange={(e: ChangeEvent<HTMLInputElement>) => {
                   setAddUid(e.target.value);
                   setAddError(null);
+                  setAddSuccess(null);
+                  setSearchResults([]);
                 }}
-                disabled={addLoading}
-              />
-              <button
-                type="submit"
-                className="add-friend-submit"
-                disabled={addLoading || !addUid.trim()}
               >
-                {addLoading ? 'Sending...' : 'Send Request'}
+                By User ID
               </button>
-            </form>
+              <button
+                type="button"
+                className={`add-friend-mode-button ${addMode === 'username' ? 'active' : ''}`}
+                onClick={() => {
+                  setAddMode('username');
+                  setAddError(null);
+                  setAddSuccess(null);
+                }}
+              >
+                By Username
+              </button>
+            </div>
+
+            {addMode === 'uid' ? (
+              <form onSubmit={handleAddFriend} className="add-friend-form">
+                <input
+                  type="text"
+                  className="add-friend-input"
+                  placeholder="Enter friend's User ID..."
+                  value={addUid}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    setAddUid(e.target.value);
+                    setAddError(null);
+                  }}
+                  disabled={addLoading}
+                />
+                <button
+                  type="submit"
+                  className="add-friend-submit"
+                  disabled={addLoading || !addUid.trim()}
+                >
+                  {addLoading ? 'Sending...' : 'Send Request'}
+                </button>
+              </form>
+            ) : (
+              <>
+                <form onSubmit={handleSearchByUsername} className="add-friend-form">
+                  <input
+                    type="text"
+                    className="add-friend-input"
+                    placeholder="Search username (exact match)..."
+                    value={addUsername}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      setAddUsername(e.target.value);
+                      setAddError(null);
+                    }}
+                    disabled={searchLoading}
+                  />
+                  <button
+                    type="submit"
+                    className="add-friend-submit"
+                    disabled={searchLoading || !addUsername.trim()}
+                  >
+                    {searchLoading ? 'Searching...' : 'Search'}
+                  </button>
+                </form>
+
+                {searchResults.length > 0 && (
+                  <div className="add-friend-results">
+                    {searchResults.map((u) => (
+                      <div key={u.uid} className="add-friend-result-item">
+                        <div className="add-friend-result-info">
+                          <span className="add-friend-result-username">{u.username}</span>
+                          <span className="add-friend-result-uid">{u.uid}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="add-friend-result-send"
+                          onClick={() => handleSendFromSearch(u.uid)}
+                          disabled={actionLoading === u.uid}
+                        >
+                          {actionLoading === u.uid ? '...' : 'Send Request'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
