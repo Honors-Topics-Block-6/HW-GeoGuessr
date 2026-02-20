@@ -43,7 +43,7 @@ function formatDistance(distance: number | null): string {
   if (distance === null) return 'No guess';
   // Convert percentage distance to feet (1 percentage unit = 2 feet)
   const feet = Math.round(distance * 2);
-  if (feet <= 10) return 'Perfect!';
+  if (feet === 0) return 'Perfect!';
   return `${feet} ft away`;
 }
 

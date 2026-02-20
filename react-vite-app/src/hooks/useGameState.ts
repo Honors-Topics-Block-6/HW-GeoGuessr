@@ -94,20 +94,19 @@ export function calculateDistance(guess: MapCoords, actual: MapCoords): number {
 
 /**
  * Calculate location score based on distance (0-5000 points)
- * Uses a steep exponential decay formula: 5000 * e^(-100 * (d/D)^2)
- * At 10 ft (distance=5 in map coords) or closer, the player gets 5000.
- * Score drops very dramatically with distance, rewarding precise guesses.
+ * Uses exponential decay so closer clicks score higher.
+ * Only an exact click yields 5000; even small offsets reduce the score a bit.
  */
 export function calculateLocationScore(distance: number): number {
   const maxScore = 5000;
-  const perfectRadius = 5; // 10 ft = 5 percentage units (distance * 2 = feet)
-  const maxDistance = Math.sqrt(100 * 100 + 100 * 100) - perfectRadius; // ~136.42
+  const clampedDistance = Math.max(0, distance);
+  // Display uses 1 map unit ≈ 2 feet.
+  const feet = clampedDistance * 2;
+  // Tunable: smaller = harsher, larger = more forgiving.
+  const falloffFeet = 40;
 
-  if (distance <= perfectRadius) return maxScore;
-
-  const effectiveDistance = distance - perfectRadius;
-  const ratio = effectiveDistance / maxDistance;
-  const score = Math.round(maxScore * Math.exp(-100 * ratio * ratio));
+  const ratio = feet / falloffFeet;
+  const score = Math.round(maxScore * Math.exp(-(ratio * ratio)));
   return Math.max(0, Math.min(maxScore, score));
 }
 

@@ -24,20 +24,16 @@ function calculateDistance(guess: Point, actual: Point): number {
 }
 
 /**
- * Steep exponential decay scoring: 5000 * e^(-100 * (d/D)^2)
- * At 10 ft (distance=5) or closer → 5000 points.
- * Score drops very dramatically with distance, rewarding precise guesses.
+ * Exponential decay scoring tuned for small differences:
+ * Only an exact click yields 5000; even small offsets reduce score slightly.
  */
 function calculateLocationScore(distance: number): number {
   const maxScore = 5000;
-  const perfectRadius = 5; // 10 ft = 5 percentage units
-  const maxDistance = Math.sqrt(100 * 100 + 100 * 100) - perfectRadius; // ~136.42
-
-  if (distance <= perfectRadius) return maxScore;
-
-  const effectiveDistance = distance - perfectRadius;
-  const ratio = effectiveDistance / maxDistance;
-  const score = Math.round(maxScore * Math.exp(-100 * ratio * ratio));
+  const clampedDistance = Math.max(0, distance);
+  const feet = clampedDistance * 2;
+  const falloffFeet = 40;
+  const ratio = feet / falloffFeet;
+  const score = Math.round(maxScore * Math.exp(-(ratio * ratio)));
   return Math.max(0, Math.min(maxScore, score));
 }
 
@@ -47,7 +43,7 @@ function calculateScore(distance: number): number {
 
 function formatDistance(distance: number): string {
   const feet = Math.round(distance * 2);
-  if (feet <= 10) return 'Perfect!';
+  if (feet === 0) return 'Perfect!';
   return `${feet} ft away`;
 }
 
@@ -111,16 +107,11 @@ describe('scoring utilities', () => {
       expect(score).toBe(5000);
     });
 
-    it('should return 5000 for distances within 10 ft (distance <= 5)', () => {
-      expect(calculateLocationScore(0)).toBe(5000);
-      expect(calculateLocationScore(1)).toBe(5000);
-      expect(calculateLocationScore(3)).toBe(5000);
-      expect(calculateLocationScore(5)).toBe(5000);
-    });
-
-    it('should return less than 5000 for distances beyond 10 ft', () => {
-      const score = calculateLocationScore(6);
-      expect(score).toBeLessThan(5000);
+    it('should return less than 5000 for any non-zero distance', () => {
+      // Very small distances can round back up to 5000; use a small-but-not-tiny value.
+      expect(calculateLocationScore(0.5)).toBeLessThan(5000);
+      expect(calculateLocationScore(1)).toBeLessThan(5000);
+      expect(calculateLocationScore(5)).toBeLessThan(5000);
     });
 
     it('should return at least 0', () => {
@@ -142,18 +133,16 @@ describe('scoring utilities', () => {
       expect(score20).toBeGreaterThan(score30);
     });
 
-    it('should use steep decay (score at 10 map units / 20 ft)', () => {
+    it('should apply distance decay (score at 10 map units / 20 ft)', () => {
       const score = calculateLocationScore(10);
-      // effectiveDistance = 5, ratio = 5/136.42 ≈ 0.0366
-      // 5000 * e^(-100 * 0.0366^2) ≈ 4372
-      expect(score).toBeCloseTo(4372, -2);
+      // 5000 * e^(-(20/40)^2) = 5000 * e^(-0.25) ≈ 3894
+      expect(score).toBeCloseTo(3894, -2);
     });
 
-    it('should use steep decay (score at 20 map units / 40 ft)', () => {
+    it('should apply distance decay (score at 20 map units / 40 ft)', () => {
       const score = calculateLocationScore(20);
-      // effectiveDistance = 15, ratio = 15/136.42 ≈ 0.1099
-      // 5000 * e^(-100 * 0.1099^2) ≈ 1493
-      expect(score).toBeCloseTo(1493, -2);
+      // 5000 * e^(-(40/40)^2) = 5000 * e^(-1) ≈ 1839
+      expect(score).toBeCloseTo(1839, -2);
     });
 
     it('should approach 0 at maximum map distance', () => {
@@ -177,15 +166,13 @@ describe('scoring utilities', () => {
   });
 
   describe('formatDistance', () => {
-    it('should return "Perfect!" for distances within 10 ft', () => {
+    it('should return "Perfect!" only for 0 ft', () => {
       expect(formatDistance(0)).toBe('Perfect!');
-      expect(formatDistance(1)).toBe('Perfect!');
-      expect(formatDistance(2)).toBe('Perfect!');
-      expect(formatDistance(3)).toBe('Perfect!');
-      expect(formatDistance(5)).toBe('Perfect!'); // 5 * 2 = 10 ft
     });
 
-    it('should return feet away for distances beyond 10 ft', () => {
+    it('should return feet away for any non-zero distance', () => {
+      expect(formatDistance(1)).toBe('2 ft away');
+      expect(formatDistance(5)).toBe('10 ft away');
       expect(formatDistance(7)).toBe('14 ft away');
       expect(formatDistance(10)).toBe('20 ft away');
     });

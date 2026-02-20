@@ -939,10 +939,9 @@ describe('useGameState', () => {
         result.current.submitGuess();
       });
 
-      // Steep decay: distance=10, perfectRadius=5, effectiveDistance=5
-      // maxDistance = sqrt(100^2+100^2) - 5 ≈ 136.42
-      // ratio = 5/136.42 ≈ 0.0366, score = 5000 * e^(-100 * 0.0366^2) ≈ 4372
-      expect(result.current.currentResult!.locationScore).toBeCloseTo(4372, -2);
+      // 10 map units ≈ 20 ft
+      // 5000 * e^(-(20/40)^2) = 5000 * e^(-0.25) ≈ 3894
+      expect(result.current.currentResult!.locationScore).toBeCloseTo(3894, -2);
     });
   });
 
