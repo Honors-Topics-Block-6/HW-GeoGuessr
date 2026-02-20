@@ -17,6 +17,7 @@ function FloorSelector({ selectedFloor, onFloorSelect, floors = [1, 2, 3] }: Flo
         {floors.map((floor: number) => (
           <button
             key={floor}
+            type="button"
             className={`floor-button ${selectedFloor === floor ? 'selected' : ''}`}
             onClick={() => onFloorSelect(floor)}
           >
