@@ -2,6 +2,61 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+// Mock Firestore to prevent runtime errors in unit tests.
+// Individual tests can override these mocks when they need specific behavior.
+vi.mock('firebase/firestore', () => {
+  const Timestamp = {
+    now: () => ({
+      toMillis: () => Date.now(),
+    }),
+  };
+
+  const makeSnapshot = (data: unknown = null) => ({
+    exists: () => data !== null && data !== undefined,
+    data: () => data,
+    id: 'mock-id',
+  });
+
+  return {
+    Timestamp,
+    doc: (...args: unknown[]) => ({ __type: 'doc', args }),
+    collection: (...args: unknown[]) => ({ __type: 'collection', args }),
+    query: (...args: unknown[]) => ({ __type: 'query', args }),
+    where: (...args: unknown[]) => ({ __type: 'where', args }),
+    orderBy: (...args: unknown[]) => ({ __type: 'orderBy', args }),
+    onSnapshot: (_ref: unknown, onNext: (snap: unknown) => void, _onError?: (err: unknown) => void) => {
+      onNext(makeSnapshot(null));
+      return () => {};
+    },
+    getDoc: async () => makeSnapshot(null),
+    getDocs: async () => ({ empty: true, docs: [] as unknown[] }),
+    addDoc: async () => ({ id: 'mock-doc-id' }),
+    setDoc: async () => {},
+    updateDoc: async () => {},
+    deleteDoc: async () => {},
+    arrayUnion: (...items: unknown[]) => ({ __type: 'arrayUnion', items }),
+    arrayRemove: (...items: unknown[]) => ({ __type: 'arrayRemove', items }),
+    increment: (n: number) => ({ __type: 'increment', n }),
+    serverTimestamp: () => ({ __type: 'serverTimestamp' }),
+  };
+});
+
+// Mock daily goals hook to avoid Firestore access in unit tests
+vi.mock('../hooks/useDailyGoals', () => ({
+  useDailyGoals: vi.fn(() => ({
+    goals: [],
+    allCompleted: false,
+    bonusXpAwarded: false,
+    bonusXpAmount: 0,
+    loading: false,
+    error: null,
+    refreshGoals: vi.fn(async () => {}),
+    recordProgress: vi.fn(async () => ({ updated: false, allCompleted: false })),
+    claimBonusXp: vi.fn(async () => 0),
+    GOAL_TYPES: {}
+  }))
+}));
+
 // Mock matchMedia for components that use it
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

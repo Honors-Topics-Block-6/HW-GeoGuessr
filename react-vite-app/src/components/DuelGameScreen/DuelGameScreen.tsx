@@ -28,11 +28,15 @@ export interface DuelGameScreenProps {
   timeRemaining?: number;
   timeLimitSeconds?: number;
   hasSubmitted?: boolean;
-  opponentHasSubmitted?: boolean;
-  opponentUsername?: string;
+  opponentHasSubmitted?: boolean; // legacy 1v1
+  opponentUsername?: string; // legacy 1v1
   myHealth: number;
-  opponentHealth: number;
+  opponentHealth?: number; // legacy 1v1
   myUsername?: string;
+  activeGuessesCount?: number;
+  activePlayerCount?: number;
+  totalPlayerCount?: number;
+  allActiveGuessed?: boolean;
 }
 
 function DuelGameScreen({
@@ -53,8 +57,12 @@ function DuelGameScreen({
   opponentHasSubmitted = false,
   opponentUsername = 'Opponent',
   myHealth,
-  opponentHealth,
-  myUsername = 'You'
+  opponentHealth = STARTING_HEALTH,
+  myUsername = 'You',
+  activeGuessesCount = 0,
+  activePlayerCount = 2,
+  totalPlayerCount = 2,
+  allActiveGuessed = false
 }: DuelGameScreenProps): React.ReactElement {
   const mapPickerRef = useRef<MapPickerHandle>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -93,6 +101,7 @@ function DuelGameScreen({
 
   const myHealthPct = Math.max(0, (myHealth / STARTING_HEALTH) * 100);
   const opponentHealthPct = Math.max(0, (opponentHealth / STARTING_HEALTH) * 100);
+  const isTwoPlayer = totalPlayerCount === 2;
 
   return (
     <div className="duel-game-screen">
@@ -114,16 +123,23 @@ function DuelGameScreen({
           <span className="duel-round-number">{currentRound}</span>
         </div>
 
-        <div className="duel-health-player duel-health-right">
-          <span className="duel-health-name">{opponentUsername}</span>
-          <div className="duel-health-bar">
-            <div
-              className={`duel-health-fill duel-health-fill-red ${opponentHealthPct <= 25 ? 'critical' : ''}`}
-              style={{ width: `${opponentHealthPct}%` }}
-            />
+        {isTwoPlayer ? (
+          <div className="duel-health-player duel-health-right">
+            <span className="duel-health-name">{opponentUsername}</span>
+            <div className="duel-health-bar">
+              <div
+                className={`duel-health-fill duel-health-fill-red ${opponentHealthPct <= 25 ? 'critical' : ''}`}
+                style={{ width: `${opponentHealthPct}%` }}
+              />
+            </div>
+            <span className="duel-health-value">{opponentHealth.toLocaleString()}</span>
           </div>
-          <span className="duel-health-value">{opponentHealth.toLocaleString()}</span>
-        </div>
+        ) : (
+          <div className="duel-top-right">
+            <span className="duel-top-pill">👥 {activePlayerCount}/{totalPlayerCount} Alive</span>
+            <span className="duel-top-pill">✅ {activeGuessesCount}/{Math.max(1, activePlayerCount)} Guessed</span>
+          </div>
+        )}
       </div>
 
       {/* Main Game Layout */}
@@ -187,20 +203,20 @@ function DuelGameScreen({
             <div className="duel-waiting-overlay">
               <div className="duel-waiting-content">
                 <div className="duel-waiting-icon">
-                  {opponentHasSubmitted ? '✓' : '⏳'}
+                  {allActiveGuessed ? '✓' : '⏳'}
                 </div>
                 <p className="duel-waiting-text">
-                  {opponentHasSubmitted
-                    ? 'Both guesses in! Processing...'
-                    : 'Waiting for opponent...'}
+                  {allActiveGuessed
+                    ? 'All guesses in! Processing...'
+                    : `Waiting for other players... (${activeGuessesCount}/${Math.max(1, activePlayerCount)})`}
                 </p>
                 <div className="duel-waiting-dots">
                   <span className="duel-dot"></span>
                   <span className="duel-dot"></span>
                   <span className="duel-dot"></span>
                 </div>
-                {opponentHasSubmitted && (
-                  <p className="duel-waiting-sub">{opponentUsername} has guessed</p>
+                {!allActiveGuessed && activeGuessesCount > 0 && (
+                  <p className="duel-waiting-sub">{activeGuessesCount} player{activeGuessesCount !== 1 ? 's' : ''} guessed</p>
                 )}
               </div>
             </div>
@@ -248,9 +264,9 @@ function DuelGameScreen({
           )}
 
           {/* Opponent status indicator */}
-          {!hasSubmitted && opponentHasSubmitted && (
+          {!hasSubmitted && (isTwoPlayer ? opponentHasSubmitted : activeGuessesCount > 0) && (
             <div className="duel-opponent-guessed">
-              {opponentUsername} has made their guess!
+              {isTwoPlayer ? `${opponentUsername} has made their guess!` : `${activeGuessesCount} player${activeGuessesCount !== 1 ? 's have' : ' has'} guessed!`}
             </div>
           )}
         </div>

@@ -134,6 +134,16 @@
   gap: 1rem;
 }
 
+.duel-final-summary-multi {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.duel-final-summary-multi .duel-final-player-card {
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
 .duel-final-player-card {
   flex: 1;
   display: flex;

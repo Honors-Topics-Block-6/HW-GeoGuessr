@@ -180,7 +180,7 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
   const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[lobby.difficulty as Difficulty] || DIFFICULTY_LABELS.all;
   const isHost: boolean = lobby.hostUid === userUid;
   const playerCount: number = lobby.players?.length || 0;
-  const maxPlayers: number = lobby.maxPlayers || 2;
+  const maxPlayers: number = Math.max(2, Math.min(10, Math.trunc(lobby.maxPlayers ?? 2)));
   const isFull: boolean = playerCount >= maxPlayers;
   
   const readyStatus = lobby.readyStatus || {};

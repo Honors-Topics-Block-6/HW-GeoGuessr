@@ -9,11 +9,16 @@ interface MapPosition {
   y: number;
 }
 
-interface GuessData {
+interface RoundGuessData {
   location?: MapPosition | null;
   score?: number;
   distance?: number | null;
   noGuess?: boolean;
+}
+
+interface DuelPlayer {
+  uid: string;
+  username: string;
 }
 
 /**
@@ -30,14 +35,10 @@ export interface DuelResultScreenProps {
   roundNumber: number;
   imageUrl: string;
   actualLocation: MapPosition;
-  myGuess: GuessData | null;
-  opponentGuess: GuessData | null;
-  myUsername: string;
-  opponentUsername: string;
-  myHealth: number;
-  opponentHealth: number;
-  myHealthBefore: number;
-  opponentHealthBefore: number;
+  players: DuelPlayer[];
+  roundGuessesByUid: Record<string, RoundGuessData>;
+  healthAfter: Record<string, number>;
+  healthBefore?: Record<string, number>;
   damage: number;
   multiplier: number;
   damagedPlayer: string | null;
@@ -46,21 +47,37 @@ export interface DuelResultScreenProps {
   onNextRound: () => void;
   onViewFinalResults: () => void;
   onLeaveDuel?: () => void;
-  isGameOver: boolean;
+  isGameOver?: boolean;
+}
+
+const PLAYER_COLORS: string[] = [
+  '#ff4757', '#3498db', '#9b59b6', '#f39c12', '#2ecc71',
+  '#e74c3c', '#1abc9c', '#e056fd', '#686de0', '#95afc0'
+];
+
+function colorForUid(uid: string): string {
+  let hash = 0;
+  for (let i = 0; i < uid.length; i++) hash = (hash * 31 + uid.charCodeAt(i)) >>> 0;
+  return PLAYER_COLORS[hash % PLAYER_COLORS.length];
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '').trim();
+  if (h.length !== 6) return `rgba(255,255,255,${alpha})`;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function DuelResultScreen({
   roundNumber,
   imageUrl,
   actualLocation,
-  myGuess,
-  opponentGuess,
-  myUsername,
-  opponentUsername,
-  myHealth,
-  opponentHealth,
-  myHealthBefore,
-  opponentHealthBefore,
+  players,
+  roundGuessesByUid,
+  healthAfter,
+  healthBefore = {},
   damage,
   multiplier,
   damagedPlayer,
@@ -69,25 +86,20 @@ function DuelResultScreen({
   onNextRound,
   onViewFinalResults,
   onLeaveDuel,
-  isGameOver
+  isGameOver = false
 }: DuelResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
   const mapOuterRef = useRef<HTMLDivElement>(null);
   const [animationPhase, setAnimationPhase] = useState<number>(0);
-  const [displayedMyScore, setDisplayedMyScore] = useState<number>(0);
-  const [displayedOpScore, setDisplayedOpScore] = useState<number>(0);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
-  const myScore = myGuess?.score ?? 0;
-  const opScore = opponentGuess?.score ?? 0;
-
-  const myLocation = myGuess?.location || null;
-  const opLocation = opponentGuess?.location || null;
-
-  const iWon = myScore > opScore;
-  const iLost = myScore < opScore;
-  const isTie = myScore === opScore;
+  const sortedByScore = [...players]
+    .map(p => ({ ...p, score: roundGuessesByUid[p.uid]?.score ?? 0 }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.username.localeCompare(b.username);
+    });
   const iTookDamage = damagedPlayer === myUid;
 
   // Sync map container height to details panel
@@ -140,37 +152,9 @@ function DuelResultScreen({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Animate score counters
-  useEffect(() => {
-    if (animationPhase >= 3) {
-      const duration = 800;
-      const steps = 25;
-      const myInc = myScore / steps;
-      const opInc = opScore / steps;
-      let currentMy = 0;
-      let currentOp = 0;
-
-      const interval = setInterval(() => {
-        currentMy += myInc;
-        currentOp += opInc;
-
-        if (currentMy >= myScore) setDisplayedMyScore(myScore);
-        else setDisplayedMyScore(Math.round(currentMy));
-
-        if (currentOp >= opScore) setDisplayedOpScore(opScore);
-        else setDisplayedOpScore(Math.round(currentOp));
-
-        if (currentMy >= myScore && currentOp >= opScore) {
-          clearInterval(interval);
-        }
-      }, duration / steps);
-
-      return () => clearInterval(interval);
-    }
-  }, [animationPhase, myScore, opScore]);
-
-  const myHealthPct = Math.max(0, (myHealth / STARTING_HEALTH) * 100);
-  const opHealthPct = Math.max(0, (opponentHealth / STARTING_HEALTH) * 100);
+  const damageTargetName = damagedPlayer
+    ? (players.find(p => p.uid === damagedPlayer)?.username || 'A player')
+    : null;
 
   return (
     <div className="duel-result-screen">
@@ -205,46 +189,47 @@ function DuelResultScreen({
                     width: '100%', height: '100%', pointerEvents: 'none'
                   }}
                 >
-                  {myLocation && (
-                    <line
-                      className="duel-result-line"
-                      x1={`${myLocation.x}%`} y1={`${myLocation.y}%`}
-                      x2={`${actualLocation.x}%`} y2={`${actualLocation.y}%`}
-                      stroke="#ff6b6b" strokeWidth="2" strokeDasharray="6,4"
-                    />
-                  )}
-                  {opLocation && (
-                    <line
-                      className="duel-result-line duel-result-line-delayed"
-                      x1={`${opLocation.x}%`} y1={`${opLocation.y}%`}
-                      x2={`${actualLocation.x}%`} y2={`${actualLocation.y}%`}
-                      stroke="#74b9ff" strokeWidth="2" strokeDasharray="6,4"
-                    />
-                  )}
+                  {players.map((p) => {
+                    const loc = roundGuessesByUid[p.uid]?.location ?? null;
+                    if (!loc) return null;
+                    const color = colorForUid(p.uid);
+                    return (
+                      <line
+                        key={p.uid}
+                        className="duel-result-line"
+                        x1={`${loc.x}%`} y1={`${loc.y}%`}
+                        x2={`${actualLocation.x}%`} y2={`${actualLocation.y}%`}
+                        stroke={color}
+                        strokeWidth="2"
+                        strokeDasharray="6,4"
+                      />
+                    );
+                  })}
                 </svg>
               )}
 
-              {/* My guess marker (red) */}
-              {myLocation && (
-                <div
-                  className="result-marker duel-my-marker"
-                  style={{ left: `${myLocation.x}%`, top: `${myLocation.y}%` }}
-                >
-                  <div className="marker-pin duel-pin-red"></div>
-                  <div className="marker-label">{myUsername}</div>
-                </div>
-              )}
-
-              {/* Opponent guess marker (blue) - Phase 1+ */}
-              {opLocation && animationPhase >= 1 && (
-                <div
-                  className="result-marker duel-opponent-marker"
-                  style={{ left: `${opLocation.x}%`, top: `${opLocation.y}%` }}
-                >
-                  <div className="marker-pin duel-pin-blue"></div>
-                  <div className="marker-label">{opponentUsername}</div>
-                </div>
-              )}
+              {/* Player guess markers */}
+              {players.map((p) => {
+                const loc = roundGuessesByUid[p.uid]?.location ?? null;
+                if (!loc) return null;
+                const color = colorForUid(p.uid);
+                return (
+                  <div
+                    key={p.uid}
+                    className="result-marker"
+                    style={{ left: `${loc.x}%`, top: `${loc.y}%` }}
+                  >
+                    <div
+                      className="marker-pin"
+                      style={{
+                        background: `linear-gradient(135deg, ${color} 0%, ${hexToRgba(color, 0.85)} 100%)`,
+                        boxShadow: `0 4px 12px ${hexToRgba(color, 0.45)}`
+                      }}
+                    />
+                    <div className="marker-label">{p.username}{p.uid === myUid ? ' (You)' : ''}</div>
+                  </div>
+                );
+              })}
 
               {/* Actual location marker (green) - Phase 1+ */}
               {animationPhase >= 1 && (
@@ -278,24 +263,26 @@ function DuelResultScreen({
             <img src={imageUrl} alt="Location" />
           </div>
 
-          {/* Score comparison */}
-          <div className={`duel-score-comparison ${animationPhase >= 3 ? 'visible' : ''}`}>
-            <div className={`duel-score-player ${iWon ? 'winner' : iLost ? 'loser' : ''}`}>
-              <span className="duel-score-name">{myUsername}</span>
-              <span className="duel-score-value">{displayedMyScore.toLocaleString()}</span>
-              <span className="duel-score-sub">
-                {myGuess?.noGuess ? 'No guess' : formatDistance(myGuess?.distance)}
-              </span>
-            </div>
-
-            <div className="duel-score-vs">VS</div>
-
-            <div className={`duel-score-player ${!iWon && !isTie ? 'winner' : !iLost && !isTie ? 'loser' : ''}`}>
-              <span className="duel-score-name">{opponentUsername}</span>
-              <span className="duel-score-value">{displayedOpScore.toLocaleString()}</span>
-              <span className="duel-score-sub">
-                {opponentGuess?.noGuess ? 'No guess' : formatDistance(opponentGuess?.distance)}
-              </span>
+          {/* Round leaderboard */}
+          <div className={`duel-score-comparison duel-scoreboard ${animationPhase >= 3 ? 'visible' : ''}`}>
+            <div className="duel-scoreboard-title">Round Scores</div>
+            <div className="duel-scoreboard-list">
+              {sortedByScore.map((p, idx) => {
+                const g = roundGuessesByUid[p.uid] || {};
+                return (
+                  <div key={p.uid} className={`duel-scoreboard-row ${p.uid === myUid ? 'me' : ''}`}>
+                    <span className="duel-scoreboard-rank">#{idx + 1}</span>
+                    <span className="duel-scoreboard-name">
+                      <span className="duel-scoreboard-dot" style={{ backgroundColor: colorForUid(p.uid) }} />
+                      {p.username}{p.uid === myUid ? ' (You)' : ''}
+                    </span>
+                    <span className="duel-scoreboard-score">{(g.score ?? 0).toLocaleString()}</span>
+                    <span className="duel-scoreboard-sub">
+                      {g.noGuess ? 'No guess' : formatDistance(g.distance)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -308,7 +295,7 @@ function DuelResultScreen({
               <div className="duel-damage-info">
                 <span className="duel-damage-value">-{damage.toLocaleString()} HP</span>
                 <span className="duel-damage-target">
-                  {iTookDamage ? `${myUsername} takes damage` : `${opponentUsername} takes damage`}
+                  {damageTargetName ? `${damageTargetName} takes damage` : 'Damage dealt'}
                 </span>
                 {multiplier > 1 && (
                   <span className="duel-damage-mult">{multiplier}x multiplier</span>
@@ -329,26 +316,29 @@ function DuelResultScreen({
 
           {/* Health bars */}
           <div className="duel-result-health">
-            <div className="duel-result-health-row">
-              <span className="duel-rh-name">{myUsername}</span>
-              <div className="duel-rh-bar">
-                <div
-                  className={`duel-rh-fill duel-rh-fill-green ${animationPhase >= 4 ? 'animated' : ''}`}
-                  style={{ width: `${animationPhase >= 4 ? myHealthPct : (myHealthBefore / STARTING_HEALTH) * 100}%` }}
-                />
-              </div>
-              <span className="duel-rh-value">{animationPhase >= 4 ? myHealth.toLocaleString() : myHealthBefore.toLocaleString()}</span>
-            </div>
-            <div className="duel-result-health-row">
-              <span className="duel-rh-name">{opponentUsername}</span>
-              <div className="duel-rh-bar">
-                <div
-                  className={`duel-rh-fill duel-rh-fill-red ${animationPhase >= 4 ? 'animated' : ''}`}
-                  style={{ width: `${animationPhase >= 4 ? opHealthPct : (opponentHealthBefore / STARTING_HEALTH) * 100}%` }}
-                />
-              </div>
-              <span className="duel-rh-value">{animationPhase >= 4 ? opponentHealth.toLocaleString() : opponentHealthBefore.toLocaleString()}</span>
-            </div>
+            {players.map((p) => {
+              const after = healthAfter?.[p.uid] ?? STARTING_HEALTH;
+              const before = healthBefore?.[p.uid] ?? after;
+              const pctAfter = Math.max(0, (after / STARTING_HEALTH) * 100);
+              const pctBefore = Math.max(0, (before / STARTING_HEALTH) * 100);
+              const color = colorForUid(p.uid);
+              return (
+                <div key={p.uid} className="duel-result-health-row">
+                  <span className="duel-rh-name">{p.username}{p.uid === myUid ? ' (You)' : ''}</span>
+                  <div className="duel-rh-bar">
+                    <div
+                      className={`duel-rh-fill ${animationPhase >= 4 ? 'animated' : ''}`}
+                      style={{
+                        width: `${animationPhase >= 4 ? pctAfter : pctBefore}%`,
+                        background: `linear-gradient(90deg, ${hexToRgba(color, 0.85)} 0%, ${color} 100%)`,
+                        boxShadow: `0 0 6px ${hexToRgba(color, 0.25)}`
+                      }}
+                    />
+                  </div>
+                  <span className="duel-rh-value">{(animationPhase >= 4 ? after : before).toLocaleString()}</span>
+                </div>
+              );
+            })}
           </div>
 
           {/* KO indicator */}

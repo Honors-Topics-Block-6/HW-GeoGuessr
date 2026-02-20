@@ -203,6 +203,7 @@
   font-size: 1rem;
 }
 
+<<<<<<< Updated upstream
 /* Round Time Section (Host panel) */
 .lobby-time-section {
   width: 100%;
@@ -286,6 +287,42 @@
   font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
+=======
+/* Max Players */
+.lobby-max-players {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+.lobby-max-players-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.lobby-max-players-select {
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.55rem 0.75rem;
+  min-width: 88px;
+}
+
+.lobby-max-players-select:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: 0 0 0 3px rgba(108, 181, 45, 0.15);
+>>>>>>> Stashed changes
 }
 
 /* Create Game Button */

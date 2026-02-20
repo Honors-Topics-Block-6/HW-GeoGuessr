@@ -118,6 +118,10 @@ export async function recordGoalProgress(
     data = snapshot.data() as DailyGoalsDoc;
   }
 
+  if (!data) {
+    return { updated: false, allCompleted: false };
+  }
+
   // Already all completed + bonus awarded — no further updates needed
   if (data.allCompleted && data.bonusXpAwarded) {
     return { updated: false, allCompleted: true };

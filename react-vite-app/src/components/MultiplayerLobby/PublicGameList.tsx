@@ -81,7 +81,7 @@ function PublicGameList({ lobbies, selectedDifficulty, onJoin, isJoining }: Publ
                       {lobby.hostUsername}
                     </span>
                     <span className="public-game-players">
-                      {lobby.players?.length || 1}/{lobby.maxPlayers || 8} players
+                      {(lobby.players?.length || 1)}/{Math.max(2, Math.min(10, Math.trunc(lobby.maxPlayers ?? 2)))} players
                     </span>
                   </div>
                   <button

@@ -46,6 +46,7 @@ export interface MultiplayerLobbyProps {
 
 function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
   const [visibility, setVisibility] = useState<GameVisibility>('public');
+<<<<<<< Updated upstream
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
   const [customTime, setCustomTime] = useState<string>('60');
 
@@ -68,6 +69,9 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
       setCustomTime(String(CUSTOM_TIME_MAX));
     }
   };
+=======
+  const [maxPlayers, setMaxPlayers] = useState<number>(2);
+>>>>>>> Stashed changes
   const {
     publicLobbies,
     isCreating,
@@ -82,7 +86,11 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
   const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[difficulty] || DIFFICULTY_LABELS.all;
 
   const handleHost = async (): Promise<void> => {
+<<<<<<< Updated upstream
     const result = await hostGame(visibility, resolvedTime);
+=======
+    const result = await hostGame(visibility, maxPlayers);
+>>>>>>> Stashed changes
     if (result) {
       onJoinedLobby(result.docId);
     }
@@ -149,6 +157,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
               </button>
             </div>
 
+<<<<<<< Updated upstream
             {/* Round Time */}
             <div className="lobby-time-section">
               <p className="lobby-time-label">Round Time</p>
@@ -185,6 +194,25 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
                   </span>
                 </div>
               )}
+=======
+            <div className="lobby-max-players">
+              <label className="lobby-max-players-label" htmlFor="lobby-max-players-select">
+                Players
+              </label>
+              <select
+                id="lobby-max-players-select"
+                className="lobby-max-players-select"
+                value={maxPlayers}
+                onChange={(e) => setMaxPlayers(parseInt(e.target.value, 10))}
+                disabled={isCreating}
+              >
+                {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+>>>>>>> Stashed changes
             </div>
 
             <button

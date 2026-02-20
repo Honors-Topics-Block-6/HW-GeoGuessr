@@ -314,6 +314,89 @@
   border-radius: 6px;
 }
 
+/* ── Multi-player scoreboard ── */
+.duel-scoreboard {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+
+.duel-scoreboard-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.duel-scoreboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.duel-scoreboard-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 110px;
+  grid-template-areas:
+    "rank name score"
+    "rank sub  score";
+  gap: 0.1rem 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.duel-scoreboard-row.me {
+  border-color: rgba(108, 181, 45, 0.3);
+  background: rgba(108, 181, 45, 0.06);
+}
+
+.duel-scoreboard-rank {
+  grid-area: rank;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.duel-scoreboard-name {
+  grid-area: name;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.duel-scoreboard-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
+  flex: 0 0 auto;
+}
+
+.duel-scoreboard-score {
+  grid-area: score;
+  justify-self: end;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--text-primary);
+}
+
+.duel-scoreboard-sub {
+  grid-area: sub;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Damage Display ── */
 .duel-damage-display {
   display: flex;

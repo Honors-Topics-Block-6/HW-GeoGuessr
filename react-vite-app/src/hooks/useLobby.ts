@@ -41,7 +41,11 @@ export interface UseLobbyReturn {
   isCreating: boolean;
   isJoining: boolean;
   error: string | null;
+<<<<<<< Updated upstream
   hostGame: (visibility: 'public' | 'private', roundTimeSeconds?: number) => Promise<HostGameResult | null>;
+=======
+  hostGame: (visibility: 'public' | 'private', maxPlayers: number) => Promise<HostGameResult | null>;
+>>>>>>> Stashed changes
   joinByCode: (gameId: string) => Promise<JoinByCodeResult | null>;
   joinPublicGame: (docId: string) => Promise<boolean>;
   clearError: () => void;
@@ -81,11 +85,19 @@ export function useLobby(
   /**
    * Host a new game.
    */
+<<<<<<< Updated upstream
   const hostGame = useCallback(async (visibility: 'public' | 'private', roundTimeSeconds?: number): Promise<HostGameResult | null> => {
     setIsCreating(true);
     setError(null);
     try {
       const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, roundTimeSeconds);
+=======
+  const hostGame = useCallback(async (visibility: 'public' | 'private', maxPlayers: number): Promise<HostGameResult | null> => {
+    setIsCreating(true);
+    setError(null);
+    try {
+      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, maxPlayers);
+>>>>>>> Stashed changes
       return result;
     } catch (err) {
       console.error('Failed to create lobby:', err);
