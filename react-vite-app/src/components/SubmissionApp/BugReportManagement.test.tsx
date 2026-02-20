@@ -97,10 +97,11 @@ describe('BugReportManagement', () => {
       expect(screen.getByText('Bug Reports')).toBeInTheDocument();
     });
 
-    it('should render the report count', () => {
+    it('should render the report count (default: open + in-progress only)', () => {
       render(<BugReportManagement />);
 
-      expect(screen.getByText(/3 reports/)).toBeInTheDocument();
+      // By default, only open & in-progress statuses are shown (2 of 3 reports)
+      expect(screen.getByText(/2 reports/)).toBeInTheDocument();
     });
 
     it('should show critical count', () => {
@@ -109,16 +110,20 @@ describe('BugReportManagement', () => {
       expect(screen.getByText(/1 critical/)).toBeInTheDocument();
     });
 
-    it('should render filter dropdowns', () => {
+    it('should render filter pills and sort dropdown', () => {
       const { container } = render(<BugReportManagement />);
 
-      // Filter labels are rendered as .bug-mgmt-filter-label spans
+      // 4 filter labels: Status, Category, Severity, Sort By
       const filterLabels = container.querySelectorAll('.bug-mgmt-filter-label');
       expect(filterLabels.length).toBe(4);
 
-      // Filter selects are rendered as .bug-mgmt-filter-select
+      // 3 pill groups (Status, Category, Severity)
+      const pillGroups = container.querySelectorAll('.bug-mgmt-filter-pills');
+      expect(pillGroups.length).toBe(3);
+
+      // 1 remaining select (Sort By)
       const filterSelects = container.querySelectorAll('.bug-mgmt-filter-select');
-      expect(filterSelects.length).toBe(4);
+      expect(filterSelects.length).toBe(1);
     });
   });
 
@@ -135,58 +140,78 @@ describe('BugReportManagement', () => {
       expect(headerTexts).toContain('Actions');
     });
 
-    it('should render report rows', () => {
+    it('should render report rows (default: open + in-progress only)', () => {
       render(<BugReportManagement />);
 
+      // report-1 (open) and report-3 (open) are visible; report-2 (resolved) is hidden by default
       expect(screen.getByText('Map marker offset bug')).toBeInTheDocument();
-      expect(screen.getByText('UI glitch on mobile')).toBeInTheDocument();
+      expect(screen.queryByText('UI glitch on mobile')).not.toBeInTheDocument();
       expect(screen.getByText('Critical crash in multiplayer')).toBeInTheDocument();
     });
 
-    it('should render reporter names', () => {
+    it('should render reporter names for visible reports', () => {
       render(<BugReportManagement />);
 
       expect(screen.getByText('Player1')).toBeInTheDocument();
-      expect(screen.getByText('Player2')).toBeInTheDocument();
+      expect(screen.queryByText('Player2')).not.toBeInTheDocument(); // resolved, hidden by default
       expect(screen.getByText('Player3')).toBeInTheDocument();
     });
 
-    it('should render View buttons for each report', () => {
+    it('should render View buttons for visible reports', () => {
       render(<BugReportManagement />);
 
       const viewButtons = screen.getAllByText('View');
-      expect(viewButtons).toHaveLength(3);
+      expect(viewButtons).toHaveLength(2); // only 2 open reports shown by default
     });
   });
 
   describe('filtering', () => {
-    it('should filter by status', async () => {
+    it('should toggle status pills to show resolved reports', async () => {
       const user = userEvent.setup();
-      const { container } = render(<BugReportManagement />);
+      render(<BugReportManagement />);
 
-      // Find the status filter select (first .bug-mgmt-filter-select)
-      const filterSelects = container.querySelectorAll('.bug-mgmt-filter-select');
-      const statusSelect = filterSelects[0]; // First select is status
+      // By default, resolved reports are hidden
+      expect(screen.queryByText('UI glitch on mobile')).not.toBeInTheDocument();
 
-      await user.selectOptions(statusSelect, 'resolved');
+      // Click the "Resolved" pill to enable it
+      await user.click(screen.getByRole('button', { name: /Resolved/i }));
 
-      // Only resolved report should be visible
+      // Now resolved report should also be visible
       expect(screen.getByText('UI glitch on mobile')).toBeInTheDocument();
-      expect(screen.queryByText('Map marker offset bug')).not.toBeInTheDocument();
-      expect(screen.queryByText('Critical crash in multiplayer')).not.toBeInTheDocument();
+      expect(screen.getByText('Map marker offset bug')).toBeInTheDocument();
     });
 
-    it('should filter by severity', async () => {
+    it('should deselect a severity pill to hide matching reports', async () => {
+      const user = userEvent.setup();
+      render(<BugReportManagement />);
+
+      // Both open reports visible by default
+      expect(screen.getByText('Critical crash in multiplayer')).toBeInTheDocument();
+      expect(screen.getByText('Map marker offset bug')).toBeInTheDocument();
+
+      // Deselect "Critical" severity pill
+      await user.click(screen.getByRole('button', { name: /Critical/i }));
+
+      // The critical report should now be hidden
+      expect(screen.queryByText('Critical crash in multiplayer')).not.toBeInTheDocument();
+      expect(screen.getByText('Map marker offset bug')).toBeInTheDocument();
+    });
+
+    it('should use "All" pill to toggle all values for a filter group', async () => {
       const user = userEvent.setup();
       const { container } = render(<BugReportManagement />);
 
-      const filterSelects = container.querySelectorAll('.bug-mgmt-filter-select');
-      const severitySelect = filterSelects[2]; // Third select is severity
+      // Find the Status "All" pill (first toggle-all button)
+      const allButtons = container.querySelectorAll('.bug-mgmt-pill.toggle-all');
+      const statusAllBtn = allButtons[0]; // Status "All"
 
-      await user.selectOptions(severitySelect, 'critical');
+      // Click "All" for Status — selects all (currently only open+in-progress selected)
+      await user.click(statusAllBtn);
 
+      // Now all reports should be visible including resolved
+      expect(screen.getByText('UI glitch on mobile')).toBeInTheDocument();
+      expect(screen.getByText('Map marker offset bug')).toBeInTheDocument();
       expect(screen.getByText('Critical crash in multiplayer')).toBeInTheDocument();
-      expect(screen.queryByText('Map marker offset bug')).not.toBeInTheDocument();
     });
   });
 

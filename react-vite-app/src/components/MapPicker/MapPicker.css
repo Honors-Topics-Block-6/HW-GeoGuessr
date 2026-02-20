@@ -6,9 +6,26 @@
   gap: 10px;
 }
 
+body.map-fullscreen-open {
+  overflow: hidden;
+}
+
+.map-picker-container.is-fullscreen {
+  position: fixed;
+  inset: 2.5vh 2.5vw;
+  z-index: 1200;
+  padding: 0.75rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 10, 18, 0.95);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+
 .map-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   font-size: 0.95rem;
   font-weight: 600;
@@ -16,8 +33,40 @@
   padding: 0 4px;
 }
 
+.map-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .map-icon {
   font-size: 1.05rem;
+}
+
+.map-fullscreen-toggle {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(15, 12, 41, 0.75);
+  color: #d0d4e2;
+  font-size: 0.95rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.map-fullscreen-toggle:hover {
+  background: rgba(99, 102, 241, 0.25);
+  color: #fff;
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.map-fullscreen-toggle:active {
+  transform: scale(0.95);
 }
 
 .map-picker {
@@ -36,6 +85,15 @@
   -ms-user-select: none;
 }
 
+.map-picker.fullscreen {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .map-picker:hover {
   border-color: rgba(139, 92, 246, 0.3);
   box-shadow: 0 0 20px rgba(139, 92, 246, 0.06);
@@ -49,11 +107,22 @@
   transform-origin: 0 0;
 }
 
+.map-picker.fullscreen .map-zoom-content {
+  width: fit-content;
+  height: 100%;
+}
+
 .map-image {
   position: relative;
   width: 100%;
   height: auto;
   display: block;
+}
+
+.map-picker.fullscreen .map-image {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
 }
 
 .map-picker.zoomed {
@@ -77,8 +146,10 @@
   pointer-events: none;
   width: 26px;
   height: 26px;
-  /* Shift so the rotated pin tip (not just the layout box bottom) sits on the click point */
-  transform: translate(-50%, calc(-100% - 5.4px));
+  /* Shift so the rotated pin tip (not just the layout box bottom) sits on the click point.
+   * Scale with zoom is applied inline so the pin stays the same visual size when zoomed.
+   * Origin at pin tip (26 + 5.4 = 31.4px from top) so scaling keeps tip on the point. */
+  transform-origin: 50% 31.4px;
 }
 
 .marker-pin {
@@ -253,8 +324,8 @@
   .marker {
     width: 22px;
     height: 22px;
-    /* 22px pin: tip offset = 11×(√2−1) ≈ 4.6px */
-    transform: translate(-50%, calc(-100% - 4.6px));
+    /* 22px pin: tip offset = 11×(√2−1) ≈ 4.6px; origin at tip = 26.6px from top */
+    transform-origin: 50% 26.6px;
   }
 
   .marker-pin {

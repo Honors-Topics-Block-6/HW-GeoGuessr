@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChat, type ChatMessage } from '../../hooks/useChat';
+import { censorText } from '../../utils/chatCensor';
 import './ChatWindow.css';
 
 interface FirestoreTimestamp {
@@ -139,7 +140,7 @@ function ChatWindow({ friendUid, friendUsername, onBack, onJoinLobby }: ChatWind
                       <div className={`chat-message ${isMe ? 'mine' : 'theirs'}`}>
                         <div className="chat-invite-card">
                           <div className="chat-invite-icon">⚔️</div>
-                          <p className="chat-invite-text">{msg.text}</p>
+                          <p className="chat-invite-text">{censorText(msg.text)}</p>
                           {!isMe && onJoinLobby && (
                             <button
                               className="chat-invite-join-btn"
@@ -157,7 +158,7 @@ function ChatWindow({ friendUid, friendUsername, onBack, onJoinLobby }: ChatWind
                       /* ── Normal Message Bubble ── */
                       <div className={`chat-message ${isMe ? 'mine' : 'theirs'}`}>
                         <div className={`chat-bubble ${isMe ? 'mine' : 'theirs'}`}>
-                          <p className="chat-bubble-text">{msg.text}</p>
+                          <p className="chat-bubble-text">{censorText(msg.text)}</p>
                         </div>
                       </div>
                     )}

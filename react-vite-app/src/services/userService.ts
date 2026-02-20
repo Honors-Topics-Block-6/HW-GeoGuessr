@@ -23,6 +23,7 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
+  photoURL?: string;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
@@ -30,6 +31,7 @@ export interface UserDoc {
   createdAt: unknown;
   permissions?: PermissionsMap;
   lastGameAt?: unknown;
+  lastUsernameChange?: unknown;
 }
 
 export interface UserDocWithId extends UserDoc {
@@ -118,7 +120,9 @@ export async function createUserDoc(uid: string, email: string, username: string
     emailVerified: false,
     totalXp: 0,
     gamesPlayed: 0,
-    createdAt: serverTimestamp()
+    createdAt: serverTimestamp(),
+    // Track when the username was last set to enforce change frequency
+    lastUsernameChange: serverTimestamp()
   };
   // Hardcoded admin gets all permissions on creation
   if (isAdmin) {
@@ -178,6 +182,23 @@ export async function isUsernameTaken(username: string, excludeUid: string | nul
  */
 export function isHardcodedAdmin(uid: string): boolean {
   return uid === HARDCODED_ADMIN_UID;
+}
+
+/**
+ * Check if an account with the given email exists and is verified.
+ * Returns { exists: boolean, verified: boolean }
+ */
+export async function checkEmailVerificationStatus(email: string): Promise<{ exists: boolean; verified: boolean }> {
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('emailLower', '==', email.toLowerCase()));
+  const snapshot = await getDocs(q);
+  
+  if (snapshot.empty) {
+    return { exists: false, verified: false };
+  }
+  
+  const userDoc = snapshot.docs[0].data() as UserDoc;
+  return { exists: true, verified: userDoc.emailVerified === true };
 }
 
 /**
@@ -249,6 +270,11 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
 
   // Validate username if being changed
   if ('username' in updates) {
+    const existing = await getUserDoc(uid);
+    if (!existing) {
+      throw new Error('User not found.');
+    }
+
     const trimmed = (updates.username as string).trim();
     if (!trimmed) {
       throw new Error('Username cannot be empty.');
@@ -256,11 +282,30 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
     if (trimmed.length < 3) {
       throw new Error('Username must be at least 3 characters.');
     }
+
+    // Enforce one username change per 30 days
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const lastChange = existing.lastUsernameChange as { toDate?: () => Date } | Date | undefined;
+    if (lastChange) {
+      const lastDate = typeof lastChange === 'object' && 'toDate' in lastChange
+        ? lastChange.toDate()
+        : (lastChange as Date);
+      const now = Date.now();
+      if (lastDate instanceof Date && !isNaN(lastDate.getTime())) {
+        const diff = now - lastDate.getTime();
+        if (diff < THIRTY_DAYS_MS) {
+          const daysRemaining = Math.ceil((THIRTY_DAYS_MS - diff) / (24 * 60 * 60 * 1000));
+          throw new Error(`Username can only be changed once every 30 days. Try again in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}.`);
+        }
+      }
+    }
+
     const taken = await isUsernameTaken(trimmed, uid);
     if (taken) {
       throw new Error('Username is already taken. Please choose another.');
     }
     updates.username = trimmed;
+    updates.lastUsernameChange = serverTimestamp();
   }
 
   // Validate totalXp if being changed
@@ -296,4 +341,92 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
   }
 
   await updateUserDoc(uid, updates as Record<string, unknown>);
+
+  // If username changed, propagate to denormalized copies in other collections
+  if ('username' in updates) {
+    const newUsername = updates.username as string;
+    await propagateUsernameChange(uid, newUsername);
+  }
+}
+
+/**
+ * Update denormalized username fields across collections so others see the change.
+ */
+async function propagateUsernameChange(uid: string, newUsername: string): Promise<void> {
+  const tasks: Promise<unknown>[] = [];
+
+  // Update lobbies: hostUsername and players[].username
+  tasks.push((async () => {
+    const lobbiesSnap = await getDocs(collection(db, 'lobbies'));
+    const updates: Promise<unknown>[] = [];
+    lobbiesSnap.forEach(docSnap => {
+      const data = docSnap.data() as { hostUid?: string; hostUsername?: string; players?: Array<{ uid: string; username: string }> };
+      let changed = false;
+      const next: typeof data.players = Array.isArray(data.players)
+        ? data.players.map(p => {
+            if (p.uid === uid && p.username !== newUsername) {
+              changed = true;
+              return { ...p, username: newUsername };
+            }
+            return p;
+          })
+        : [];
+
+      if (data.hostUid === uid && data.hostUsername !== newUsername) {
+        changed = true;
+      }
+
+      if (changed) {
+        const payload: Record<string, unknown> = { players: next };
+        if (data.hostUid === uid) {
+          payload.hostUsername = newUsername;
+        }
+        updates.push(updateDoc(doc(db, 'lobbies', docSnap.id), payload));
+      }
+    });
+    await Promise.all(updates);
+  })());
+
+  // Update friend requests: fromUsername / toUsername
+  tasks.push((async () => {
+    const requestsRef = collection(db, 'friendRequests');
+    const [fromSnap, toSnap] = await Promise.all([
+      getDocs(query(requestsRef, where('fromUid', '==', uid))),
+      getDocs(query(requestsRef, where('toUid', '==', uid)))
+    ]);
+
+    const updates: Promise<unknown>[] = [];
+    fromSnap.forEach(docSnap => {
+      const data = docSnap.data() as { fromUsername?: string };
+      if (data.fromUsername !== newUsername) {
+        updates.push(updateDoc(docSnap.ref, { fromUsername: newUsername }));
+      }
+    });
+    toSnap.forEach(docSnap => {
+      const data = docSnap.data() as { toUsername?: string };
+      if (data.toUsername !== newUsername) {
+        updates.push(updateDoc(docSnap.ref, { toUsername: newUsername }));
+      }
+    });
+
+    await Promise.all(updates);
+  })());
+
+  // Update friendships: usernames map entry
+  tasks.push((async () => {
+    const friendshipsRef = collection(db, 'friendships');
+    const friendshipsSnap = await getDocs(query(friendshipsRef, where('users', 'array-contains', uid)));
+    const updates: Promise<unknown>[] = [];
+    friendshipsSnap.forEach(docSnap => {
+      const data = docSnap.data() as { usernames?: Record<string, string> };
+      const usernames = { ...(data.usernames || {}) };
+      if (usernames[uid] !== newUsername) {
+        usernames[uid] = newUsername;
+        updates.push(updateDoc(docSnap.ref, { usernames }));
+      }
+    });
+    await Promise.all(updates);
+  })());
+
+  await Promise.all(tasks);
 }

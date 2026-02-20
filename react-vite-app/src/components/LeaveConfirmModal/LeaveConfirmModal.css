@@ -1,0 +1,107 @@
+.leave-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+  animation: leaveModalOverlayIn 0.2s ease-out;
+}
+
+@keyframes leaveModalOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.leave-confirm-modal {
+  background: linear-gradient(145deg, #1e1e3a 0%, #161630 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  max-width: 420px;
+  width: 100%;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+  animation: leaveModalSlideIn 0.3s ease-out;
+}
+
+@keyframes leaveModalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.leave-confirm-body {
+  padding: 24px;
+}
+
+.leave-confirm-title {
+  margin: 0 0 10px 0;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.leave-confirm-message {
+  margin: 0 0 20px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.leave-confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.leave-confirm-cancel {
+  flex: 1;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.leave-confirm-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.leave-confirm-leave {
+  flex: 1;
+  padding: 12px;
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.25);
+}
+
+.leave-confirm-leave:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+}
