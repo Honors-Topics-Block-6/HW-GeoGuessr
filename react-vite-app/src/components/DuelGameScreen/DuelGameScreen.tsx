@@ -24,7 +24,7 @@ export interface DuelGameScreenProps {
   currentRound: number;
   clickRejected?: boolean;
   playingArea?: PlayingArea | null;
-  timeRemaining: number;
+  timeRemaining?: number;
   timeLimitSeconds?: number;
   hasSubmitted?: boolean;
   opponentHasSubmitted?: boolean;

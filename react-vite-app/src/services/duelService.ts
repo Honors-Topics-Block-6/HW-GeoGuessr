@@ -95,6 +95,8 @@ export interface DuelData {
   updatedAt: Timestamp | FieldValue | null;
   players: DuelPlayer[];
   difficulty: string;
+  /** Round time in seconds. 0 = no time limit. Falls back to DUEL_ROUND_TIME_SECONDS if absent. */
+  roundTimeSeconds?: number;
 }
 
 // ────── Constants ──────

@@ -76,6 +76,8 @@ export interface DuelState {
   loser: string | null;
   difficulty: string;
   roundStartedAt: { toMillis?: () => number } | number | null;
+  /** Round time in seconds. 0 = no time limit. */
+  roundTimeSeconds?: number;
   [key: string]: unknown;
 }
 
@@ -270,6 +272,10 @@ export function useDuelGame(
   const winner = duelState?.winner || null;
   const loser = duelState?.loser || null;
   const difficulty = duelState?.difficulty || 'all';
+  /** Round time from the lobby document. 0 = no time limit. Falls back to DUEL_ROUND_TIME_SECONDS. */
+  const lobbyRoundTime: number = duelState?.roundTimeSeconds != null
+    ? duelState.roundTimeSeconds
+    : DUEL_ROUND_TIME_SECONDS;
 
   // Find opponent
   const opponent = players.find(p => p.uid !== userUid);
@@ -301,14 +307,16 @@ export function useDuelGame(
         setLocalAvailableFloors(null);
         setHasSubmitted(false);
         timedOutRef.current = false;
-        setTimeRemaining(DUEL_ROUND_TIME_SECONDS);
+        setTimeRemaining(lobbyRoundTime > 0 ? lobbyRoundTime : 0);
         processedRoundRef.current = 0;
       }
     }
-  }, [phase, currentRound]);
+  }, [phase, currentRound, lobbyRoundTime]);
 
   // --- Timer effect ---
   useEffect(() => {
+    // No timer when there's no time limit
+    if (lobbyRoundTime === 0) return;
     if (phase !== 'guessing' || !duelState?.roundStartedAt) {
       return;
     }
@@ -321,7 +329,7 @@ export function useDuelGame(
 
     const interval = setInterval(() => {
       const elapsedSeconds = (Date.now() - roundStartMs) / 1000;
-      const remaining = Math.max(0, DUEL_ROUND_TIME_SECONDS - elapsedSeconds);
+      const remaining = Math.max(0, lobbyRoundTime - elapsedSeconds);
       setTimeRemaining(remaining);
 
       if (remaining <= 0) {
@@ -330,10 +338,11 @@ export function useDuelGame(
     }, 50);
 
     return () => clearInterval(interval);
-  }, [phase, duelState?.roundStartedAt]);
+  }, [phase, duelState?.roundStartedAt, lobbyRoundTime]);
 
   // --- Auto-submit / timeout handling ---
   useEffect(() => {
+    if (lobbyRoundTime === 0) return; // No auto-submit for unlimited time
     if (phase !== 'guessing') return;
     if (timeRemaining > 0) return;
     if (hasSubmittedRef.current) return;
@@ -364,7 +373,7 @@ export function useDuelGame(
       }, currentImage).catch((err: unknown) => console.error('No-guess submit failed:', err));
       setHasSubmitted(true);
     }
-  }, [phase, timeRemaining, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid]);
+  }, [phase, timeRemaining, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, lobbyRoundTime]);
 
   // --- Host processes round when both have guessed ---
   useEffect(() => {
@@ -479,8 +488,8 @@ export function useDuelGame(
     opponentHasSubmitted,
 
     // Timer
-    timeRemaining,
-    roundTimeSeconds: DUEL_ROUND_TIME_SECONDS,
+    timeRemaining: lobbyRoundTime > 0 ? timeRemaining : 0,
+    roundTimeSeconds: lobbyRoundTime,
 
     // Health
     myHealth,

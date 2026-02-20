@@ -41,6 +41,8 @@ export interface LobbyDoc {
   heartbeats: Record<string, Timestamp>;
   readyStatus: Record<string, boolean>;
   maxPlayers: number;
+  /** Round time in seconds. 0 = no time limit. */
+  roundTimeSeconds: number;
   createdAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
 }
@@ -78,7 +80,8 @@ export async function createLobby(
   hostUid: string,
   hostUsername: string,
   difficulty: string,
-  visibility: LobbyVisibility
+  visibility: LobbyVisibility,
+  roundTimeSeconds: number = 20
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
@@ -102,6 +105,7 @@ export async function createLobby(
       [hostUid]: false
     },
     maxPlayers: 2,
+    roundTimeSeconds,
     createdAt: now,
     updatedAt: now
   };
@@ -388,6 +392,21 @@ export async function removeStalePlayersFromLobby(
   }
 
   return false;
+}
+
+/**
+ * Update the round time setting on a lobby document.
+ * Only the host should call this (enforce in the UI).
+ */
+export async function updateLobbyRoundTime(
+  docId: string,
+  roundTimeSeconds: number
+): Promise<void> {
+  const lobbyRef = doc(db, 'lobbies', docId);
+  await updateDoc(lobbyRef, {
+    roundTimeSeconds,
+    updatedAt: serverTimestamp()
+  });
 }
 
 /**
