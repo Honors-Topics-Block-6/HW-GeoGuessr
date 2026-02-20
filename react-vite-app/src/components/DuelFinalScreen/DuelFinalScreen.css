@@ -197,6 +197,14 @@
   gap: 0.3rem;
 }
 
+.duel-final-card-health-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+
 .duel-final-card-health-bar {
   width: 100%;
   height: 10px;

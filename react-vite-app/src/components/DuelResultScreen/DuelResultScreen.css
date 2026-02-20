@@ -378,6 +378,26 @@
   border: 1px solid var(--border-color);
 }
 
+.duel-result-health-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.duel-result-health-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+}
+
+.duel-result-health-max {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
 .duel-result-health-row {
   display: flex;
   align-items: center;

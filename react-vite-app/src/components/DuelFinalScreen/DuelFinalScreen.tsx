@@ -88,6 +88,8 @@ function DuelFinalScreen({
   // Final health
   const myFinalHealth = health?.[myUid] ?? 0;
   const opFinalHealth = health?.[opponentUid || ''] ?? 0;
+  const myFinalHealthPct = Math.max(0, Math.min(100, (myFinalHealth / STARTING_HEALTH) * 100));
+  const opFinalHealthPct = Math.max(0, Math.min(100, (opFinalHealth / STARTING_HEALTH) * 100));
 
   // Spacebar to play again
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -171,13 +173,21 @@ function DuelFinalScreen({
             <span className="duel-final-card-score">{myTotalScore.toLocaleString()}</span>
             <span className="duel-final-card-sub">Total Points</span>
             <div className="duel-final-card-health">
+              <span className="duel-final-card-health-label">❤️ Health</span>
               <div className="duel-final-card-health-bar">
                 <div
                   className="duel-final-card-health-fill green"
-                  style={{ width: `${(myFinalHealth / STARTING_HEALTH) * 100}%` }}
+                  role="progressbar"
+                  aria-label={`Health for ${myUsername}`}
+                  aria-valuemin={0}
+                  aria-valuemax={STARTING_HEALTH}
+                  aria-valuenow={myFinalHealth}
+                  style={{ width: `${myFinalHealthPct}%` }}
                 />
               </div>
-              <span className="duel-final-card-health-value">{myFinalHealth.toLocaleString()} HP</span>
+              <span className="duel-final-card-health-value">
+                {myFinalHealth.toLocaleString()} / {STARTING_HEALTH.toLocaleString()} HP
+              </span>
             </div>
           </div>
 
@@ -191,13 +201,21 @@ function DuelFinalScreen({
             <span className="duel-final-card-score">{opTotalScore.toLocaleString()}</span>
             <span className="duel-final-card-sub">Total Points</span>
             <div className="duel-final-card-health">
+              <span className="duel-final-card-health-label">❤️ Health</span>
               <div className="duel-final-card-health-bar">
                 <div
                   className="duel-final-card-health-fill red"
-                  style={{ width: `${(opFinalHealth / STARTING_HEALTH) * 100}%` }}
+                  role="progressbar"
+                  aria-label={`Health for ${opponentUsername}`}
+                  aria-valuemin={0}
+                  aria-valuemax={STARTING_HEALTH}
+                  aria-valuenow={opFinalHealth}
+                  style={{ width: `${opFinalHealthPct}%` }}
                 />
               </div>
-              <span className="duel-final-card-health-value">{opFinalHealth.toLocaleString()} HP</span>
+              <span className="duel-final-card-health-value">
+                {opFinalHealth.toLocaleString()} / {STARTING_HEALTH.toLocaleString()} HP
+              </span>
             </div>
           </div>
         </div>
@@ -251,19 +269,29 @@ function DuelFinalScreen({
                       <div className="duel-frh-bar">
                         <div
                           className="duel-frh-fill green"
-                          style={{ width: `${(myHealthAfter / STARTING_HEALTH) * 100}%` }}
+                          role="progressbar"
+                          aria-label={`Health for ${myUsername} after round ${round.roundNumber}`}
+                          aria-valuemin={0}
+                          aria-valuemax={STARTING_HEALTH}
+                          aria-valuenow={myHealthAfter}
+                          style={{ width: `${Math.max(0, Math.min(100, (myHealthAfter / STARTING_HEALTH) * 100))}%` }}
                         />
                       </div>
-                      <span className="duel-frh-val">{myHealthAfter.toLocaleString()}</span>
+                      <span className="duel-frh-val">{myHealthAfter.toLocaleString()} HP</span>
                     </div>
                     <div className="duel-frh-bar-wrapper">
                       <div className="duel-frh-bar">
                         <div
                           className="duel-frh-fill red"
-                          style={{ width: `${(opHealthAfter / STARTING_HEALTH) * 100}%` }}
+                          role="progressbar"
+                          aria-label={`Health for ${opponentUsername} after round ${round.roundNumber}`}
+                          aria-valuemin={0}
+                          aria-valuemax={STARTING_HEALTH}
+                          aria-valuenow={opHealthAfter}
+                          style={{ width: `${Math.max(0, Math.min(100, (opHealthAfter / STARTING_HEALTH) * 100))}%` }}
                         />
                       </div>
-                      <span className="duel-frh-val">{opHealthAfter.toLocaleString()}</span>
+                      <span className="duel-frh-val">{opHealthAfter.toLocaleString()} HP</span>
                     </div>
                   </div>
                 </div>

@@ -325,25 +325,43 @@ function DuelResultScreen({
 
           {/* Health bars */}
           <div className="duel-result-health">
+            <div className="duel-result-health-header">
+              <span className="duel-result-health-title">❤️ Health</span>
+              <span className="duel-result-health-max">/ {STARTING_HEALTH.toLocaleString()} HP</span>
+            </div>
             <div className="duel-result-health-row">
               <span className="duel-rh-name">{myUsername}</span>
               <div className="duel-rh-bar">
                 <div
                   className={`duel-rh-fill duel-rh-fill-green ${animationPhase >= 4 ? 'animated' : ''}`}
+                  role="progressbar"
+                  aria-label={`Health for ${myUsername}`}
+                  aria-valuemin={0}
+                  aria-valuemax={STARTING_HEALTH}
+                  aria-valuenow={animationPhase >= 4 ? myHealth : myHealthBefore}
                   style={{ width: `${animationPhase >= 4 ? myHealthPct : (myHealthBefore / STARTING_HEALTH) * 100}%` }}
                 />
               </div>
-              <span className="duel-rh-value">{animationPhase >= 4 ? myHealth.toLocaleString() : myHealthBefore.toLocaleString()}</span>
+              <span className="duel-rh-value">
+                {(animationPhase >= 4 ? myHealth : myHealthBefore).toLocaleString()} HP
+              </span>
             </div>
             <div className="duel-result-health-row">
               <span className="duel-rh-name">{opponentUsername}</span>
               <div className="duel-rh-bar">
                 <div
                   className={`duel-rh-fill duel-rh-fill-red ${animationPhase >= 4 ? 'animated' : ''}`}
+                  role="progressbar"
+                  aria-label={`Health for ${opponentUsername}`}
+                  aria-valuemin={0}
+                  aria-valuemax={STARTING_HEALTH}
+                  aria-valuenow={animationPhase >= 4 ? opponentHealth : opponentHealthBefore}
                   style={{ width: `${animationPhase >= 4 ? opHealthPct : (opponentHealthBefore / STARTING_HEALTH) * 100}%` }}
                 />
               </div>
-              <span className="duel-rh-value">{animationPhase >= 4 ? opponentHealth.toLocaleString() : opponentHealthBefore.toLocaleString()}</span>
+              <span className="duel-rh-value">
+                {(animationPhase >= 4 ? opponentHealth : opponentHealthBefore).toLocaleString()} HP
+              </span>
             </div>
           </div>
 
