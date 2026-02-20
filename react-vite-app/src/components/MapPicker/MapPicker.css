@@ -105,6 +105,12 @@ body.map-fullscreen-open {
   width: 100%;
   will-change: transform;
   transform-origin: 0 0;
+  transition: transform 0.12s linear;
+}
+
+/* No transition during touch (pinch/pan) so two-finger zoom feels instant and responsive */
+.map-picker.touch-active .map-zoom-content {
+  transition: none !important;
 }
 
 .map-picker.fullscreen .map-zoom-content {
