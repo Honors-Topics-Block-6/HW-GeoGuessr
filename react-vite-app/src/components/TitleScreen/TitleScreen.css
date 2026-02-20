@@ -21,10 +21,26 @@
   background: linear-gradient(180deg, rgba(12, 12, 15, 0.7) 0%, transparent 100%);
 }
 
-.title-user-info {
+/* User menu dropdown wrapper */
+.title-user-menu-wrapper {
+  position: relative;
+}
+
+.title-user-info-button {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.title-user-info-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .title-user-icon {
@@ -53,28 +69,78 @@
   border-radius: 6px;
 }
 
+.title-user-chevron {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  transition: transform 0.2s ease;
+  margin-left: 2px;
+}
+
+.title-user-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown menu */
+.title-user-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  background: rgba(30, 30, 40, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 0;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  animation: dropdownFadeIn 0.15s ease;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.title-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 18px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.title-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.title-dropdown-logout {
+  color: #e74c3c;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.title-dropdown-logout:hover {
+  background: rgba(231, 76, 60, 0.12);
+  color: #ff6b5a;
+}
+
 .title-top-actions {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.title-daily-goals-button {
-  padding: 8px 16px;
-  background: rgba(255, 193, 7, 0.15);
-  border: 1px solid rgba(255, 193, 7, 0.3);
-  color: #ffc107;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.title-daily-goals-button:hover {
-  background: rgba(255, 193, 7, 0.25);
-  color: #ffca28;
-  transform: translateY(-1px);
 }
 
 .title-leaderboard-button {
@@ -92,41 +158,6 @@
 .title-leaderboard-button:hover {
   background: rgba(255, 215, 0, 0.2);
   color: #ffe44d;
-}
-
-.title-profile-button {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.title-profile-button:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: var(--text-primary);
-}
-
-.title-friends-button {
-  padding: 8px 16px;
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  color: #a78bfa;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.title-friends-button:hover {
-  background: rgba(139, 92, 246, 0.25);
-  color: #c4b5fd;
-  transform: translateY(-1px);
 }
 
 .submit-photo-button {
@@ -164,22 +195,6 @@
   background: rgba(251, 146, 60, 0.25);
   color: #fdba74;
   transform: translateY(-1px);
-}
-
-.title-logout-button {
-  padding: 8px 16px;
-  background: rgba(231, 76, 60, 0.15);
-  border: 1px solid rgba(231, 76, 60, 0.3);
-  color: #e74c3c;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.title-logout-button:hover {
-  background: rgba(231, 76, 60, 0.25);
 }
 
 .title-background {
@@ -376,14 +391,19 @@
     gap: 6px;
   }
 
-  .title-daily-goals-button,
   .title-leaderboard-button,
-  .title-profile-button,
-  .title-friends-button,
   .submit-photo-button,
-  .title-bug-report-button,
-  .title-logout-button {
+  .title-bug-report-button {
     font-size: 12px;
     padding: 6px 12px;
+  }
+
+  .title-user-info-button {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .title-user-dropdown {
+    min-width: 150px;
   }
 }

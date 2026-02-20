@@ -1,6 +1,7 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import ImageViewer from '../ImageViewer/ImageViewer';
 import MapPicker from '../MapPicker/MapPicker';
+import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
 import type { MapPickerHandle, PlayingArea } from '../MapPicker/MapPicker';
 import FloorSelector from '../FloorSelector/FloorSelector';
 import GuessButton from '../GuessButton/GuessButton';
@@ -45,6 +46,7 @@ function GameScreen({
   timeLimitSeconds = 20
 }: GameScreenProps): React.ReactElement {
   const mapPickerRef = useRef<MapPickerHandle>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Can submit if location is selected AND either:
   // - not in a region (availableFloors is null), OR
@@ -89,7 +91,7 @@ function GameScreen({
       {/* Right panel - Guess controls */}
       <div className="guess-panel">
         <div className="guess-panel-header">
-          <button className="back-button" onClick={onBackToTitle}>
+          <button className="back-button" onClick={() => setShowLeaveConfirm(true)}>
             <span>←</span>
             <span>Back</span>
           </button>
@@ -175,6 +177,17 @@ function GameScreen({
           )}
         </div>
       </div>
+
+      {showLeaveConfirm && (
+        <LeaveConfirmModal
+          onConfirm={() => {
+            setShowLeaveConfirm(false);
+            onBackToTitle();
+          }}
+          onCancel={() => setShowLeaveConfirm(false)}
+          isDuel={false}
+        />
+      )}
     </div>
   );
 }

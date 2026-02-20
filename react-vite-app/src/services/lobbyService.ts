@@ -39,6 +39,7 @@ export interface LobbyDoc {
   gameId: string;
   players: LobbyPlayer[];
   heartbeats: Record<string, Timestamp>;
+  readyStatus: Record<string, boolean>;
   maxPlayers: number;
   createdAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
@@ -96,6 +97,9 @@ export async function createLobby(
     }],
     heartbeats: {
       [hostUid]: Timestamp.now()
+    },
+    readyStatus: {
+      [hostUid]: false
     },
     maxPlayers: 2,
     createdAt: now,
@@ -168,6 +172,7 @@ export async function joinLobby(
       joinedAt: new Date().toISOString()
     }),
     [`heartbeats.${playerUid}`]: Timestamp.now(),
+    [`readyStatus.${playerUid}`]: false,
     updatedAt: serverTimestamp()
   });
 }
@@ -199,6 +204,17 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
     players: arrayRemove(player),
     updatedAt: serverTimestamp()
   };
+
+  // Clean up ready status
+  const newReadyStatus: Record<string, boolean> = { ...(lobby.readyStatus || {}) };
+  delete newReadyStatus[playerUid];
+  
+  // Reset all remaining players to not ready when someone leaves
+  remainingPlayers.forEach(p => {
+    newReadyStatus[p.uid] = false;
+  });
+  
+  updates.readyStatus = newReadyStatus;
 
   // Transfer host if the leaving player was the host
   if (lobby.hostUid === playerUid) {
@@ -357,6 +373,11 @@ export async function removeStalePlayersFromLobby(
     delete newHeartbeats[stalePlayer.uid];
     updates.heartbeats = newHeartbeats;
 
+    // Clean up ready status
+    const newReadyStatus: Record<string, boolean> = { ...(fresh.readyStatus || {}) };
+    delete newReadyStatus[stalePlayer.uid];
+    updates.readyStatus = newReadyStatus;
+
     // Transfer host if needed
     if (fresh.hostUid === stalePlayer.uid) {
       updates.hostUid = remaining[0].uid;
@@ -367,4 +388,19 @@ export async function removeStalePlayersFromLobby(
   }
 
   return false;
+}
+
+/**
+ * Toggle a player's ready status in the lobby.
+ */
+export async function setPlayerReady(
+  docId: string,
+  playerUid: string,
+  ready: boolean
+): Promise<void> {
+  const lobbyRef = doc(db, 'lobbies', docId);
+  await updateDoc(lobbyRef, {
+    [`readyStatus.${playerUid}`]: ready,
+    updatedAt: serverTimestamp()
+  });
 }

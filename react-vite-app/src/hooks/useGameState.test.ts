@@ -24,13 +24,22 @@ vi.mock('../services/regionService', () => ({
   ]),
   getPlayingArea: vi.fn().mockResolvedValue(null),
   getFloorsForPoint: vi.fn().mockReturnValue([1, 2, 3]),
+  getRegionForPoint: vi.fn().mockReturnValue({ id: 'test-region' }),
   isPointInPlayingArea: vi.fn().mockReturnValue(true),
   isPointInPolygon: vi.fn().mockReturnValue(true)
 }));
 
 import { getRandomImage } from '../services/imageService';
+import { getRegionForPoint } from '../services/regionService';
 
 const mockedGetRandomImage = vi.mocked(getRandomImage);
+const mockedGetRegionForPoint = vi.mocked(getRegionForPoint);
+
+const mockRegion = {
+  id: 'test-region',
+  polygon: [],
+  floors: [1, 2, 3]
+};
 
 import type { GameImage } from '../services/imageService';
 
@@ -46,7 +55,9 @@ const mockImage: GameImage = {
 describe('useGameState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     mockedGetRandomImage.mockResolvedValue(mockImage);
+    mockedGetRegionForPoint.mockReturnValue(mockRegion);
   });
 
   afterEach(() => {
@@ -407,6 +418,42 @@ describe('useGameState', () => {
       expect(result.current.currentResult!.score).toBe(4000); // 5000 * 0.8
     });
 
+    it('should apply floor penalty when floor matches but building is wrong', async () => {
+      const imageInDifferentBuilding: GameImage = {
+        ...mockImage,
+        correctLocation: { x: 75, y: 50 }, // Building B
+        correctFloor: 2
+      };
+      mockedGetRandomImage.mockResolvedValue(imageInDifferentBuilding);
+      mockedGetRegionForPoint.mockImplementation((point) => {
+        if (point.x < 50) {
+          return { id: 'building-a', polygon: [], floors: [1, 2, 3] };
+        }
+        return { id: 'building-b', polygon: [], floors: [1, 2, 3] };
+      });
+
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 25, y: 50 }); // Building A
+      });
+
+      act(() => {
+        result.current.selectFloor(2); // Correct floor number, wrong building
+      });
+
+      act(() => {
+        result.current.submitGuess();
+      });
+
+      expect(result.current.currentResult!.floorCorrect).toBe(false);
+      expect(result.current.currentResult!.score).toBeLessThan(result.current.currentResult!.locationScore);
+    });
+
     it('should store result in roundResults', async () => {
       const { result } = renderHook(() => useGameState());
 
@@ -495,6 +542,90 @@ describe('useGameState', () => {
       });
 
       expect(result.current.currentImage).toEqual(newImage);
+    });
+
+    it('should request a non-repeating image for subsequent rounds', async () => {
+      const secondImage = { ...mockImage, id: 'test-2', url: 'https://example.com/image-2.jpg' };
+      mockedGetRandomImage.mockResolvedValueOnce(mockImage).mockResolvedValueOnce(secondImage);
+
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 50, y: 50 });
+        result.current.selectFloor(2);
+        result.current.submitGuess();
+      });
+
+      await act(async () => {
+        await result.current.nextRound();
+      });
+
+      expect(mockedGetRandomImage).toHaveBeenNthCalledWith(2, 'medium', {
+        excludeImageIds: ['test-1'],
+        excludeImageUrls: ['https://example.com/image.jpg']
+      });
+      expect(result.current.currentImage?.id).toBe('test-2');
+    });
+
+    it('should reuse images as fallback when history exhausts the pool', async () => {
+      const firstImage = { ...mockImage, id: 'test-1', url: 'https://example.com/image-1.jpg' };
+      mockedGetRandomImage
+        .mockResolvedValueOnce(firstImage)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(firstImage);
+
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.resetGame();
+      });
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      expect(mockedGetRandomImage).toHaveBeenNthCalledWith(2, 'medium', {
+        excludeImageIds: ['test-1'],
+        excludeImageUrls: ['https://example.com/image-1.jpg']
+      });
+      expect(mockedGetRandomImage).toHaveBeenNthCalledWith(3, 'medium');
+      expect(result.current.currentImage?.id).toBe('test-1');
+      expect(result.current.screen).toBe('game');
+    });
+
+    it('should try to avoid repeats across multiple singleplayer games', async () => {
+      const secondImage = { ...mockImage, id: 'test-2', url: 'https://example.com/image-2.jpg' };
+      mockedGetRandomImage
+        .mockResolvedValueOnce(mockImage)
+        .mockResolvedValueOnce(secondImage);
+
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.resetGame();
+      });
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      expect(mockedGetRandomImage).toHaveBeenNthCalledWith(2, 'medium', {
+        excludeImageIds: ['test-1'],
+        excludeImageUrls: ['https://example.com/image.jpg']
+      });
+      expect(result.current.currentImage?.id).toBe('test-2');
     });
 
     it('should clear guess location and floor', async () => {

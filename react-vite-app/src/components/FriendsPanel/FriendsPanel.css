@@ -447,6 +447,28 @@
   letter-spacing: 0.3px;
 }
 
+.request-cancel {
+  padding: 7px 14px;
+  background: rgba(248, 113, 113, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.15);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.25s ease;
+}
+
+.request-cancel:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.18);
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.request-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ===== Add Friend ===== */
 .friends-add-section {
   display: flex;

@@ -44,6 +44,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
     sendRequest,
     acceptRequest,
     declineRequest,
+    cancelRequest,
     removeFriend,
     loading,
     error: friendsError
@@ -61,6 +62,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
   const [presenceMap, setPresenceMap] = useState<PresenceMap>({});
   const [tab, setTab] = useState<FriendsTab>('friends');
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [copiedUid, setCopiedUid] = useState<boolean>(false);
 
   // Subscribe to presence for online status
   useEffect(() => {
@@ -114,7 +116,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
 
     const trimmed = addUsername.trim();
     if (!trimmed) {
-      setAddError('Please enter a username.');
+      setAddError('Please enter a User ID, username, or email.');
       return;
     }
 
@@ -170,6 +172,17 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
       await declineRequest(requestId);
     } catch (err) {
       console.error('Decline failed:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancel = async (requestId: string): Promise<void> => {
+    setActionLoading(requestId);
+    try {
+      await cancelRequest(requestId);
+    } catch (err) {
+      console.error('Cancel failed:', err);
     } finally {
       setActionLoading(null);
     }
@@ -235,7 +248,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
               <div className="friends-empty">
                 <span className="friends-empty-icon">👥</span>
                 <p>No friends yet</p>
-                <p className="friends-empty-hint">Add friends by their user ID!</p>
+                <p className="friends-empty-hint">Add friends by their User ID, username, or email!</p>
               </div>
             ) : (
               <div className="friends-list">
@@ -341,7 +354,13 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                         <span className="request-username">{req.toUsername}</span>
                         <span className="request-uid">{req.toUid}</span>
                       </div>
-                      <span className="request-pending-badge">Pending</span>
+                      <button
+                        className="request-cancel"
+                        onClick={() => handleCancel(req.id)}
+                        disabled={actionLoading === req.id}
+                      >
+                        {actionLoading === req.id ? '...' : 'Cancel'}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -354,7 +373,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
         {tab === 'add' && (
           <div className="friends-add-section">
             <div className="add-friend-info">
-              <p>Add a friend by entering their User ID, or search by username.</p>
+              <p>Add a friend by entering their User ID, username, or email address.</p>
               <div className="your-uid-box">
                 <span className="your-uid-label">Your User ID:</span>
                 <code className="your-uid-value">{user?.uid}</code>
@@ -362,9 +381,11 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                   className="copy-uid-button"
                   onClick={() => {
                     navigator.clipboard.writeText(user?.uid || '');
+                    setCopiedUid(true);
+                    setTimeout(() => setCopiedUid(false), 2000);
                   }}
                 >
-                  Copy
+                  {copiedUid ? '✓' : 'Copy'}
                 </button>
               </div>
             </div>
@@ -372,12 +393,14 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
             {addError && <div className="add-friend-error">{addError}</div>}
             {addSuccess && <div className="add-friend-success">{addSuccess}</div>}
 
-            <div className="add-friend-mode">
-              <button
-                type="button"
-                className={`add-friend-mode-button ${addMode === 'uid' ? 'active' : ''}`}
-                onClick={() => {
-                  setAddMode('uid');
+            <form onSubmit={handleAddFriend} className="add-friend-form">
+              <input
+                type="text"
+                className="add-friend-input"
+                placeholder="Enter User ID, username, or email..."
+                value={addUid}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  setAddUid(e.target.value);
                   setAddError(null);
                   setAddSuccess(null);
                   setSearchResults([]);

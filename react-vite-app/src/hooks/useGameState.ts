@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getRandomImage, type GameImage as ServiceGameImage } from '../services/imageService';
-import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } from '../services/regionService';
+import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, getRegionForPoint } from '../services/regionService';
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
 export const ROUND_TIME_SECONDS = 20;
+const SINGLEPLAYER_SEEN_HISTORY_KEY = 'singleplayerSeenImageHistory.v1';
 
 export interface MapCoords {
   x: number;
@@ -123,6 +124,11 @@ export function useGameState(): UseGameStateReturn {
 
   // Current image being shown
   const [currentImage, setCurrentImage] = useState<GameImage | null>(null);
+  // Image IDs used in this game session to prevent repeats within a run
+  const [usedImageIds, setUsedImageIds] = useState<string[]>([]);
+  const [usedImageUrls, setUsedImageUrls] = useState<string[]>([]);
+  const seenImageIdsRef = useRef<string[]>([]);
+  const seenImageUrlsRef = useRef<string[]>([]);
 
   // User's guess location on the map (x, y in percentages)
   const [guessLocation, setGuessLocation] = useState<MapCoords | null>(null);
@@ -187,27 +193,96 @@ export function useGameState(): UseGameStateReturn {
     loadData();
   }, []);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SINGLEPLAYER_SEEN_HISTORY_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { ids?: string[]; urls?: string[] };
+      seenImageIdsRef.current = Array.isArray(parsed.ids) ? parsed.ids : [];
+      seenImageUrlsRef.current = Array.isArray(parsed.urls) ? parsed.urls : [];
+    } catch (err) {
+      console.warn('Failed to parse singleplayer seen-image history:', err);
+      seenImageIdsRef.current = [];
+      seenImageUrlsRef.current = [];
+    }
+  }, []);
+
+  const persistSeenHistory = useCallback((): void => {
+    try {
+      window.localStorage.setItem(
+        SINGLEPLAYER_SEEN_HISTORY_KEY,
+        JSON.stringify({
+          ids: seenImageIdsRef.current,
+          urls: seenImageUrlsRef.current
+        })
+      );
+    } catch (err) {
+      console.warn('Failed to persist singleplayer seen-image history:', err);
+    }
+  }, []);
+
+  const trackSeenImage = useCallback((image: GameImage): void => {
+    let changed = false;
+    if (image.id && !seenImageIdsRef.current.includes(image.id)) {
+      seenImageIdsRef.current = [...seenImageIdsRef.current, image.id];
+      changed = true;
+    }
+    if (image.url && !seenImageUrlsRef.current.includes(image.url)) {
+      seenImageUrlsRef.current = [...seenImageUrlsRef.current, image.url];
+      changed = true;
+    }
+    if (changed) {
+      persistSeenHistory();
+    }
+  }, [persistSeenHistory]);
+
   /**
    * Load a new image for the current round
    */
-  const loadNewImage = useCallback(async (): Promise<void> => {
+  const loadNewImage = useCallback(async (
+    excludeIds: string[] = usedImageIds,
+    excludeUrls: string[] = usedImageUrls
+  ): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const image = await getRandomImage(difficulty);
+      let image = await getRandomImage(difficulty, {
+        excludeImageIds: excludeIds,
+        excludeImageUrls: excludeUrls
+      });
+      // Only fall back to no excludes when we didn't exclude anything (avoid repeats in same game)
+      if (!image && excludeIds.length === 0 && excludeUrls.length === 0) {
+        image = await getRandomImage(difficulty);
+      }
+      if (!image) {
+        setError(excludeIds.length > 0 || excludeUrls.length > 0
+          ? 'No more unique images for this game. Try again with a different difficulty.'
+          : 'No approved images are available yet.');
+        setCurrentImage(null);
+        return false;
+      }
       setCurrentImage(image as GameImage | null);
+      if (image?.id) {
+        setUsedImageIds((prev) => (prev.includes(image.id) ? prev : [...prev, image.id]));
+      }
+      if (image?.url) {
+        setUsedImageUrls((prev) => (prev.includes(image.url) ? prev : [...prev, image.url]));
+      }
+      trackSeenImage(image as GameImage);
       setGuessLocation(null);
       setGuessFloor(null);
       setAvailableFloors(null);
       // Timer will be (re)started when the game screen is shown for this image
+      return true;
     } catch (err) {
       console.error('Failed to load image:', err);
       setError('Failed to load image. Please try again.');
+      return false;
     } finally {
       setIsLoading(false);
     }
-  }, [difficulty]);
+  }, [difficulty, usedImageIds, usedImageUrls, trackSeenImage]);
 
   /**
    * Start a new game - reset everything and fetch first image
@@ -219,6 +294,8 @@ export function useGameState(): UseGameStateReturn {
     setDifficulty(selectedDifficulty as Difficulty);
     setMode(selectedMode as GameMode);
     setLobbyDocId(null);
+    setUsedImageIds([]);
+    setUsedImageUrls([]);
 
     // Multiplayer: go to lobby screen instead of starting a game
     if (selectedMode === 'multiplayer') {
@@ -231,15 +308,32 @@ export function useGameState(): UseGameStateReturn {
 
     try {
       // Reload playing area and regions in case they were updated in the editor
-      const [image, fetchedPlayingArea, fetchedRegions] = await Promise.all([
-        getRandomImage(selectedDifficulty),
+      let image = await getRandomImage(selectedDifficulty, {
+        excludeImageIds: seenImageIdsRef.current,
+        excludeImageUrls: seenImageUrlsRef.current
+      });
+      if (!image) {
+        image = await getRandomImage(selectedDifficulty);
+      }
+      const [fetchedPlayingArea, fetchedRegions] = await Promise.all([
         getPlayingArea(),
         getRegions()
       ]);
+      if (!image) {
+        setError('No approved images are available yet.');
+        return;
+      }
 
       setPlayingArea(fetchedPlayingArea);
       setRegions(fetchedRegions);
       setCurrentImage(image as GameImage | null);
+      if (image?.id) {
+        setUsedImageIds([image.id]);
+      }
+      if (image?.url) {
+        setUsedImageUrls([image.url]);
+      }
+      trackSeenImage(image as GameImage);
       setGuessLocation(null);
       setGuessFloor(null);
       setAvailableFloors(null);
@@ -252,7 +346,7 @@ export function useGameState(): UseGameStateReturn {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [trackSeenImage]);
 
   /**
    * Timer effect for each guessing phase.
@@ -347,12 +441,16 @@ export function useGameState(): UseGameStateReturn {
       );
     }
 
-    // Floor scoring only applies when in a region AND the photo has a floor set
+    // Floor scoring only applies when in a region AND the photo has a floor set.
+    // A floor is only "correct" when BOTH building (region) and floor match.
     let floorCorrect: boolean | null = null;
     let totalScore = locationScore;
 
     if (isInRegion && guessFloor !== null && actualFloor !== null) {
-      floorCorrect = guessFloor === actualFloor;
+      const guessedRegion = getRegionForPoint(guessLocation, regions);
+      const actualRegion = getRegionForPoint(actualLocation, regions);
+      const isCorrectBuilding = guessedRegion !== null && actualRegion !== null && guessedRegion.id === actualRegion.id;
+      floorCorrect = isCorrectBuilding && guessFloor === actualFloor;
       // Multiply by 0.8 for incorrect floor instead of bonus system
       totalScore = floorCorrect
         ? locationScore
@@ -383,7 +481,7 @@ export function useGameState(): UseGameStateReturn {
 
     // Show result screen
     setScreen('result');
-  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime]);
+  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, regions]);
 
   const submitGuessRef = useRef<() => void>(submitGuess);
   submitGuessRef.current = submitGuess;
@@ -442,16 +540,25 @@ export function useGameState(): UseGameStateReturn {
       return;
     }
 
-    // Increment round
+    // Exclude only images already used in this game (no repeats within same game).
+    // Do not exclude seen refs here — images may repeat across different games.
+    const excludeIds = Array.from(new Set([
+      ...usedImageIds,
+      ...(currentImage?.id ? [currentImage.id] : [])
+    ]));
+    const excludeUrls = Array.from(new Set([
+      ...usedImageUrls,
+      ...(currentImage?.url ? [currentImage.url] : [])
+    ]));
+    const didLoad = await loadNewImage(excludeIds, excludeUrls);
+    if (!didLoad) return;
+
     setCurrentRound(prev => prev + 1);
     setCurrentResult(null);
     setTimeRemaining(ROUND_TIME_SECONDS);
     setRoundStartTime(performance.now());
-
-    // Load new image
-    await loadNewImage();
     setScreen('game');
-  }, [currentRound, loadNewImage]);
+  }, [currentRound, currentImage?.id, currentImage?.url, usedImageIds, usedImageUrls, loadNewImage]);
 
   /**
    * View final results (called from last round's result screen)
@@ -478,6 +585,8 @@ export function useGameState(): UseGameStateReturn {
     setDifficulty(null);
     setMode(null);
     setLobbyDocId(null);
+    setUsedImageIds([]);
+    setUsedImageUrls([]);
   }, []);
 
   return {

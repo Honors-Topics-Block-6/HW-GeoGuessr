@@ -14,6 +14,7 @@ import {
   type FieldValue
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { censorText } from '../utils/chatCensor';
 
 // ────── Types ──────
 
@@ -55,11 +56,13 @@ export async function sendChatMessage(
     throw new Error('Message is too long (max 1000 characters).');
   }
 
+  const censored = censorText(trimmed);
+
   const messagesRef = collection(db, 'chats', chatId, 'messages');
   await addDoc(messagesRef, {
     senderUid,
     senderUsername,
-    text: trimmed,
+    text: censored,
     sentAt: serverTimestamp(),
     read: false
   });

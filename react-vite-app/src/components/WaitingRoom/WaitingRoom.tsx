@@ -29,6 +29,7 @@ export interface LobbyData {
   visibility: 'public' | 'private';
   hostUid: string;
   players?: LobbyPlayer[];
+  readyStatus?: Record<string, boolean>;
   maxPlayers?: number;
   status?: string;
 }
@@ -41,7 +42,7 @@ export interface WaitingRoomProps {
 }
 
 function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomProps): React.ReactElement {
-  const { lobby, isLoading, error, leave } = useWaitingRoom(lobbyDocId, userUid);
+  const { lobby, isLoading, error, leave, toggleReady } = useWaitingRoom(lobbyDocId, userUid);
   const [copied, setCopied] = useState<boolean>(false);
   const [isStarting, setIsStarting] = useState<boolean>(false);
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
@@ -128,7 +129,15 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
   const playerCount: number = lobby.players?.length || 0;
   const maxPlayers: number = lobby.maxPlayers || 2;
   const isFull: boolean = playerCount >= maxPlayers;
-  const canStart: boolean = isHost && isFull && !isStarting;
+  
+  const readyStatus = lobby.readyStatus || {};
+  const isCurrentUserReady = readyStatus[userUid] || false;
+  const allPlayersReady = lobby.players?.every(p => readyStatus[p.uid]) || false;
+  const canStart: boolean = isHost && isFull && allPlayersReady && !isStarting;
+
+  const handleToggleReady = async (): Promise<void> => {
+    await toggleReady(!isCurrentUserReady);
+  };
 
   return (
     <div className="waiting-screen">
@@ -172,25 +181,35 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
         <div className="waiting-players">
           <h2 className="waiting-players-heading">Players</h2>
           <div className="waiting-players-list">
-            {lobby.players?.map((player: LobbyPlayer) => (
-              <div
-                key={player.uid}
-                className={`waiting-player ${player.uid === lobby.hostUid ? 'host' : ''} ${player.uid === userUid ? 'you' : ''}`}
-              >
-                <div className="waiting-player-info">
-                  <span className="waiting-player-icon">
-                    {player.uid === lobby.hostUid ? '👑' : '👤'}
-                  </span>
-                  <span className="waiting-player-name">
-                    {player.username}
-                    {player.uid === userUid && <span className="waiting-player-you"> (You)</span>}
-                  </span>
+            {lobby.players?.map((player: LobbyPlayer) => {
+              const isReady = readyStatus[player.uid] || false;
+              return (
+                <div
+                  key={player.uid}
+                  className={`waiting-player ${player.uid === lobby.hostUid ? 'host' : ''} ${player.uid === userUid ? 'you' : ''}`}
+                >
+                  <div className="waiting-player-info">
+                    <span className="waiting-player-icon">
+                      {player.uid === lobby.hostUid ? '👑' : '👤'}
+                    </span>
+                    <span className="waiting-player-name">
+                      {player.username}
+                      {player.uid === userUid && <span className="waiting-player-you"> (You)</span>}
+                    </span>
+                  </div>
+                  <div className="waiting-player-status">
+                    {player.uid === lobby.hostUid && (
+                      <span className="waiting-player-role">Host</span>
+                    )}
+                    {isFull && (
+                      <span className={`waiting-player-ready ${isReady ? 'ready' : 'not-ready'}`}>
+                        {isReady ? '✓ Ready' : '⏳ Not Ready'}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {player.uid === lobby.hostUid && (
-                  <span className="waiting-player-role">Host</span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Waiting animation */}
@@ -213,20 +232,33 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
             </>
           )}
 
-          {isFull && !isHost && (
-            <div className="waiting-dots-container">
-              <span className="waiting-dots-text">Waiting for host to start</span>
-              <span className="waiting-dots">
-                <span className="waiting-dot"></span>
-                <span className="waiting-dot"></span>
-                <span className="waiting-dot"></span>
-              </span>
+          {isFull && !allPlayersReady && (
+            <div className="waiting-ready-section">
+              <button
+                className={`waiting-ready-btn ${isCurrentUserReady ? 'ready' : ''}`}
+                onClick={handleToggleReady}
+              >
+                {isCurrentUserReady ? '✓ Ready' : 'Ready Up'}
+              </button>
+              {!allPlayersReady && (
+                <div className="waiting-dots-container">
+                  <span className="waiting-dots-text">Waiting for all players to ready up</span>
+                  <span className="waiting-dots">
+                    <span className="waiting-dot"></span>
+                    <span className="waiting-dot"></span>
+                    <span className="waiting-dot"></span>
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
-          {isFull && isHost && (
+          {isFull && allPlayersReady && (
             <div className="waiting-ready-container">
-              <span className="waiting-ready-text">Both players ready!</span>
+              <span className="waiting-ready-text">All players ready!</span>
+              {!isHost && (
+                <span className="waiting-ready-subtext">Waiting for host to start...</span>
+              )}
             </div>
           )}
         </div>
@@ -238,9 +270,22 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
               className="waiting-start-btn"
               disabled={!canStart}
               onClick={handleStartGame}
-              title={!isFull ? 'Waiting for opponent to join...' : 'Start the duel!'}
+              title={
+                !isFull 
+                  ? 'Waiting for opponent to join...' 
+                  : !allPlayersReady 
+                  ? 'Waiting for all players to ready up...' 
+                  : 'Start the duel!'
+              }
             >
-              {isStarting ? 'Starting...' : isFull ? 'Start Duel ⚔️' : 'Waiting for Opponent...'}
+              {isStarting 
+                ? 'Starting...' 
+                : !isFull 
+                ? 'Waiting for Opponent...' 
+                : !allPlayersReady 
+                ? 'Waiting for Ready...' 
+                : 'Start Duel ⚔️'
+              }
             </button>
           )}
           <button className="waiting-leave-btn" onClick={handleLeave}>

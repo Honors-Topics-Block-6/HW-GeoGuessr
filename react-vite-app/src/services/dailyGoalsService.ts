@@ -94,6 +94,8 @@ export async function getOrCreateDailyGoals(uid: string): Promise<DailyGoalsDoc>
 
 /**
  * Record progress toward a daily goal.
+ * If the daily goals doc doesn't exist or is from a previous day,
+ * creates today's goals first so progress is never dropped.
  */
 export async function recordGoalProgress(
   uid: string,
@@ -103,17 +105,17 @@ export async function recordGoalProgress(
 ): Promise<GoalProgressResult> {
   const today = getTodayDateString();
   const goalsRef = doc(db, 'dailyGoals', uid);
-  const snapshot = await getDoc(goalsRef);
+  let snapshot = await getDoc(goalsRef);
+  let data = snapshot.exists() ? (snapshot.data() as DailyGoalsDoc) : null;
 
-  if (!snapshot.exists()) {
-    return { updated: false, allCompleted: false };
-  }
-
-  const data = snapshot.data() as DailyGoalsDoc;
-
-  // Don't update stale goals
-  if (data.date !== today) {
-    return { updated: false, allCompleted: false };
+  // Ensure today's goals exist (e.g. user may not have opened Daily Goals panel yet)
+  if (!snapshot.exists() || (data && data.date !== today)) {
+    await getOrCreateDailyGoals(uid);
+    snapshot = await getDoc(goalsRef);
+    if (!snapshot.exists()) {
+      return { updated: false, allCompleted: false };
+    }
+    data = snapshot.data() as DailyGoalsDoc;
   }
 
   // Already all completed + bonus awarded — no further updates needed

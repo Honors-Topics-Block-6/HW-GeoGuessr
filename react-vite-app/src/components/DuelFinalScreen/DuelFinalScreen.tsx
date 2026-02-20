@@ -48,6 +48,7 @@ export interface DuelFinalScreenProps {
   players: DuelPlayer[];
   roundHistory: RoundHistory[];
   health: Record<string, number>;
+  forfeitBy?: string | null;
   onPlayAgain: () => void;
   onBackToTitle: () => void;
 }
@@ -59,6 +60,7 @@ function DuelFinalScreen({
   players,
   roundHistory,
   health,
+  forfeitBy = null,
   onPlayAgain,
   onBackToTitle
 }: DuelFinalScreenProps): React.ReactElement {
@@ -108,21 +110,18 @@ function DuelFinalScreen({
     return () => clearTimeout(timer);
   }, []);
 
-  // Record daily goal progress for duel completion
+  // Record daily goal progress for duel completion (await so doc is created once, then all updates apply)
   useEffect(() => {
     if (goalsRecorded.current || !myUid) return;
     goalsRecorded.current = true;
 
-    // Goal: play a duel
-    recordProgress(GOAL_TYPES.PLAY_DUEL, 1);
-
-    // Goal: win a duel
-    if (winner === myUid) {
-      recordProgress(GOAL_TYPES.WIN_DUEL, 1);
-    }
-
-    // Goal: games played (duels count as games)
-    recordProgress(GOAL_TYPES.GAMES_PLAYED, 1);
+    (async () => {
+      await recordProgress(GOAL_TYPES.PLAY_DUEL, 1);
+      if (winner === myUid) {
+        await recordProgress(GOAL_TYPES.WIN_DUEL, 1);
+      }
+      await recordProgress(GOAL_TYPES.GAMES_PLAYED, 1);
+    })().catch((err: Error) => console.error('Failed to record daily goal progress:', err));
   }, [myUid, winner, recordProgress]);
 
   return (
@@ -155,9 +154,11 @@ function DuelFinalScreen({
             {isWinner ? 'Victory!' : 'Defeat'}
           </h1>
           <p className="duel-final-subtitle">
-            {isWinner
-              ? `You defeated ${loserUsername} in ${totalRounds} rounds!`
-              : `${winnerUsername} won after ${totalRounds} rounds`}
+            {isWinner && forfeitBy === loser
+              ? `You win! ${loserUsername} forfeited.`
+              : isWinner
+                ? `You defeated ${loserUsername} in ${totalRounds} rounds!`
+                : `${winnerUsername} won after ${totalRounds} rounds`}
           </p>
         </div>
 
