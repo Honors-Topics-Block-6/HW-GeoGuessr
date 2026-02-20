@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import { STARTING_HEALTH } from '../../services/duelService';
+import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
 import './DuelResultScreen.css';
 
 interface MapPosition {
@@ -46,6 +47,7 @@ export interface DuelResultScreenProps {
   isHost: boolean;
   onNextRound: () => void;
   onViewFinalResults: () => void;
+  onLeaveDuel?: () => void;
   isGameOver: boolean;
 }
 
@@ -68,6 +70,7 @@ function DuelResultScreen({
   isHost,
   onNextRound,
   onViewFinalResults,
+  onLeaveDuel,
   isGameOver
 }: DuelResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -76,6 +79,7 @@ function DuelResultScreen({
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [displayedMyScore, setDisplayedMyScore] = useState<number>(0);
   const [displayedOpScore, setDisplayedOpScore] = useState<number>(0);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   const myScore = myGuess?.score ?? 0;
   const opScore = opponentGuess?.score ?? 0;
@@ -396,29 +400,48 @@ function DuelResultScreen({
             </div>
           )}
 
-          {/* Action button */}
-          {isGameOver ? (
-            <button className="duel-result-action-btn" onClick={onViewFinalResults}>
-              View Final Results
-              <span className="button-arrow">&rarr;</span>
-            </button>
-          ) : isHost ? (
-            <button className="duel-result-action-btn" onClick={onNextRound}>
-              Next Round
-              <span className="button-arrow">&rarr;</span>
-            </button>
-          ) : (
-            <div className="duel-result-waiting-host">
-              <span>Waiting for host to start next round</span>
-              <div className="duel-waiting-dots">
-                <span className="duel-dot"></span>
-                <span className="duel-dot"></span>
-                <span className="duel-dot"></span>
+          {/* Action buttons */}
+          <div className="duel-result-actions">
+            {isGameOver ? (
+              <button className="duel-result-action-btn" onClick={onViewFinalResults}>
+                View Final Results
+                <span className="button-arrow">&rarr;</span>
+              </button>
+            ) : isHost ? (
+              <button className="duel-result-action-btn" onClick={onNextRound}>
+                Next Round
+                <span className="button-arrow">&rarr;</span>
+              </button>
+            ) : (
+              <div className="duel-result-waiting-host">
+                <span>Waiting for host to start next round</span>
+                <div className="duel-waiting-dots">
+                  <span className="duel-dot"></span>
+                  <span className="duel-dot"></span>
+                  <span className="duel-dot"></span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            {onLeaveDuel && (
+              <button className="leave-duel-button" onClick={() => setShowLeaveConfirm(true)}>
+                <span className="button-icon">&larr;</span>
+                Leave Duel
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {showLeaveConfirm && onLeaveDuel && (
+        <LeaveConfirmModal
+          onConfirm={() => {
+            setShowLeaveConfirm(false);
+            onLeaveDuel();
+          }}
+          onCancel={() => setShowLeaveConfirm(false)}
+          isDuel={true}
+        />
+      )}
     </div>
   );
 }

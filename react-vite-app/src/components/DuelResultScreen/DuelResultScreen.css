@@ -508,6 +508,39 @@
   transform: translateX(4px);
 }
 
+/* ── Action buttons container ── */
+.duel-result-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.leave-duel-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 2px solid var(--border-color);
+}
+
+.leave-duel-button:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.leave-duel-button .button-icon {
+  font-size: 1.2rem;
+}
+
 /* ── Waiting for host ── */
 .duel-result-waiting-host {
   display: flex;

@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
+import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
 import './ResultScreen.css';
 
 export interface MapPoint {
@@ -26,6 +27,7 @@ export interface ResultScreenProps {
   isLastRound: boolean;
   /** Points deducted due to time (hard mode) */
   timePenalty?: number;
+  onBackToTitle?: () => void;
 }
 
 /**
@@ -122,6 +124,7 @@ function ResultScreen({
   onViewFinalResults,
   isLastRound,
   timePenalty
+  onBackToTitle
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
@@ -130,6 +133,7 @@ function ResultScreen({
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [displayedScore, setDisplayedScore] = useState<number>(0);
   const [imageFit, setImageFit] = useState<ImageFit>({ offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 });
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Sync map container height to match the details panel height
   useEffect(() => {
@@ -459,15 +463,34 @@ function ResultScreen({
             </div>
           </div>
 
-          <button
-            className="next-round-button"
-            onClick={isLastRound ? onViewFinalResults : onNextRound}
-          >
-            {isLastRound ? 'View Final Results' : 'Next Round'}
-            <span className="button-arrow">→</span>
-          </button>
+          <div className="result-actions">
+            <button
+              className="next-round-button"
+              onClick={isLastRound ? onViewFinalResults : onNextRound}
+            >
+              {isLastRound ? 'View Final Results' : 'Next Round'}
+              <span className="button-arrow">→</span>
+            </button>
+            {onBackToTitle && (
+              <button className="leave-game-button" onClick={() => setShowLeaveConfirm(true)}>
+                <span className="button-icon">←</span>
+                Leave Game
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {showLeaveConfirm && onBackToTitle && (
+        <LeaveConfirmModal
+          onConfirm={() => {
+            setShowLeaveConfirm(false);
+            onBackToTitle();
+          }}
+          onCancel={() => setShowLeaveConfirm(false)}
+          isDuel={false}
+        />
+      )}
 
       {/* Progress bar */}
       <div className="round-progress">

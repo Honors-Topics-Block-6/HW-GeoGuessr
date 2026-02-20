@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getRandomImage, type GameImage as ServiceGameImage } from '../services/imageService';
-import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } from '../services/regionService';
 import { computeTimeMultiplier } from '../utils/timeScoring';
+import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, getRegionForPoint } from '../services/regionService';
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
@@ -258,11 +258,14 @@ export function useGameState(): UseGameStateReturn {
         excludeImageIds: excludeIds,
         excludeImageUrls: excludeUrls
       });
-      if (!image) {
+      // Only fall back to no excludes when we didn't exclude anything (avoid repeats in same game)
+      if (!image && excludeIds.length === 0 && excludeUrls.length === 0) {
         image = await getRandomImage(difficulty);
       }
       if (!image) {
-        setError('No approved images are available yet.');
+        setError(excludeIds.length > 0 || excludeUrls.length > 0
+          ? 'No more unique images for this game. Try again with a different difficulty.'
+          : 'No approved images are available yet.');
         setCurrentImage(null);
         return false;
       }
@@ -446,12 +449,16 @@ export function useGameState(): UseGameStateReturn {
       );
     }
 
-    // Floor scoring only applies when in a region AND the photo has a floor set
+    // Floor scoring only applies when in a region AND the photo has a floor set.
+    // A floor is only "correct" when BOTH building (region) and floor match.
     let floorCorrect: boolean | null = null;
     let totalScore = locationScore;
 
     if (isInRegion && guessFloor !== null && actualFloor !== null) {
-      floorCorrect = guessFloor === actualFloor;
+      const guessedRegion = getRegionForPoint(guessLocation, regions);
+      const actualRegion = getRegionForPoint(actualLocation, regions);
+      const isCorrectBuilding = guessedRegion !== null && actualRegion !== null && guessedRegion.id === actualRegion.id;
+      floorCorrect = isCorrectBuilding && guessFloor === actualFloor;
       // Multiply by 0.8 for incorrect floor instead of bonus system
       totalScore = floorCorrect
         ? locationScore
@@ -496,7 +503,7 @@ export function useGameState(): UseGameStateReturn {
 
     // Show result screen
     setScreen('result');
-  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, timePenaltyEnabled]);
+  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, timePenaltyEnabled, regions]]);
 
   const submitGuessRef = useRef<() => void>(submitGuess);
   submitGuessRef.current = submitGuess;
@@ -555,13 +562,13 @@ export function useGameState(): UseGameStateReturn {
       return;
     }
 
+    // Exclude only images already used in this game (no repeats within same game).
+    // Do not exclude seen refs here — images may repeat across different games.
     const excludeIds = Array.from(new Set([
-      ...seenImageIdsRef.current,
       ...usedImageIds,
       ...(currentImage?.id ? [currentImage.id] : [])
     ]));
     const excludeUrls = Array.from(new Set([
-      ...seenImageUrlsRef.current,
       ...usedImageUrls,
       ...(currentImage?.url ? [currentImage.url] : [])
     ]));
