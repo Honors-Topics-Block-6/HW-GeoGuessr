@@ -61,7 +61,8 @@ export interface UseWaitingRoomReturn {
 export function useLobby(
   userUid: string,
   userUsername: string,
-  selectedDifficulty: string
+  selectedDifficulty: string,
+  timePenaltyEnabled: boolean = false
 ): UseLobbyReturn {
   const [publicLobbies, setPublicLobbies] = useState<PublicLobby[]>([]);
   const [isCreating, setIsCreating] = useState<boolean>(false);
@@ -83,7 +84,7 @@ export function useLobby(
     setIsCreating(true);
     setError(null);
     try {
-      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility);
+      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, timePenaltyEnabled);
       return result;
     } catch (err) {
       console.error('Failed to create lobby:', err);
@@ -92,7 +93,7 @@ export function useLobby(
     } finally {
       setIsCreating(false);
     }
-  }, [userUid, userUsername, selectedDifficulty]);
+  }, [userUid, userUsername, selectedDifficulty, timePenaltyEnabled]);
 
   /**
    * Join a game by its 6-character code.

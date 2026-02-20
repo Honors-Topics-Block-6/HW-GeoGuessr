@@ -97,6 +97,36 @@
   text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
 }
 
+.time-penalty-toggle {
+  margin: 1rem 0;
+  padding: 0.75rem 1.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.time-penalty-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.time-penalty-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-green);
+  cursor: pointer;
+}
+
+.time-penalty-text {
+  flex: 1;
+}
+
 /* Difficulty Cards */
 .difficulty-options {
   display: flex;

@@ -41,6 +41,7 @@ export interface LobbyDoc {
   heartbeats: Record<string, Timestamp>;
   readyStatus: Record<string, boolean>;
   maxPlayers: number;
+  timePenaltyEnabled?: boolean;
   createdAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
 }
@@ -78,7 +79,8 @@ export async function createLobby(
   hostUid: string,
   hostUsername: string,
   difficulty: string,
-  visibility: LobbyVisibility
+  visibility: LobbyVisibility,
+  timePenaltyEnabled: boolean = false
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
@@ -88,6 +90,7 @@ export async function createLobby(
     hostUsername,
     difficulty,
     visibility,
+    timePenaltyEnabled,
     status: 'waiting' as LobbyStatus,
     gameId,
     players: [{

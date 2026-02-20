@@ -12,8 +12,10 @@ interface MapPosition {
 interface GuessData {
   location?: MapPosition | null;
   score?: number;
+  locationScore?: number;
   distance?: number | null;
   noGuess?: boolean;
+  timePenalty?: number;
 }
 
 /**
@@ -286,6 +288,26 @@ function DuelResultScreen({
               <span className="duel-score-sub">
                 {myGuess?.noGuess ? 'No guess' : formatDistance(myGuess?.distance)}
               </span>
+              {!myGuess?.noGuess && myGuess && (
+                <div className="duel-score-breakdown">
+                  {myGuess?.locationScore != null && (
+                    <div className="duel-breakdown-row">
+                      <span>Location</span>
+                      <span>{myGuess.locationScore.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {(myGuess?.timePenalty ?? 0) > 0 && (
+                    <div className="duel-breakdown-row penalty">
+                      <span>Time Penalty</span>
+                      <span>-{(myGuess?.timePenalty ?? 0).toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="duel-breakdown-row total">
+                    <span>Score</span>
+                    <span>{displayedMyScore.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="duel-score-vs">VS</div>
@@ -296,6 +318,26 @@ function DuelResultScreen({
               <span className="duel-score-sub">
                 {opponentGuess?.noGuess ? 'No guess' : formatDistance(opponentGuess?.distance)}
               </span>
+              {!opponentGuess?.noGuess && opponentGuess && (
+                <div className="duel-score-breakdown">
+                  {opponentGuess?.locationScore != null && (
+                    <div className="duel-breakdown-row">
+                      <span>Location</span>
+                      <span>{opponentGuess.locationScore.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {(opponentGuess?.timePenalty ?? 0) > 0 && (
+                    <div className="duel-breakdown-row penalty">
+                      <span>Time Penalty</span>
+                      <span>-{(opponentGuess?.timePenalty ?? 0).toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="duel-breakdown-row total">
+                    <span>Score</span>
+                    <span>{displayedOpScore.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

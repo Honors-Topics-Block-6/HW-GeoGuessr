@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getRandomImage, type GameImage as ServiceGameImage } from '../services/imageService';
+import { computeTimeMultiplier } from '../utils/timeScoring';
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, getRegionForPoint } from '../services/regionService';
 
 const TOTAL_ROUNDS = 5;
@@ -42,6 +43,8 @@ export interface RoundResult {
   timeTakenSeconds: number;
   timedOut: boolean;
   noGuess?: boolean;
+  /** Points deducted due to time (hard mode only) */
+  timePenalty?: number;
 }
 
 export type ScreenState = 'title' | 'game' | 'result' | 'finalResults' | 'multiplayerLobby' | 'waitingRoom' | 'difficultySelect' | 'duelGame';
@@ -68,10 +71,11 @@ export interface UseGameStateReturn {
   difficulty: Difficulty;
   mode: GameMode;
   lobbyDocId: string | null;
+  timePenaltyEnabled: boolean;
 
   // Actions
   setScreen: React.Dispatch<React.SetStateAction<ScreenState>>;
-  startGame: (selectedDifficulty: string, selectedMode?: string) => Promise<void>;
+  startGame: (selectedDifficulty: string, selectedMode?: string, timePenaltyEnabled?: boolean) => Promise<void>;
   placeMarker: (coords: MapCoords) => boolean;
   selectFloor: (floor: number) => void;
   submitGuess: () => void;
@@ -170,6 +174,9 @@ export function useGameState(): UseGameStateReturn {
 
   // Game mode: 'singleplayer' or 'multiplayer'
   const [mode, setMode] = useState<GameMode>(null);
+
+  // Time penalty: slower guesses = fewer points (toggle in difficulty select)
+  const [timePenaltyEnabled, setTimePenaltyEnabled] = useState<boolean>(false);
 
   // Current lobby document ID (when in multiplayer)
   const [lobbyDocId, setLobbyDocId] = useState<string | null>(null);
@@ -287,13 +294,14 @@ export function useGameState(): UseGameStateReturn {
   /**
    * Start a new game - reset everything and fetch first image
    */
-  const startGame = useCallback(async (selectedDifficulty: string, selectedMode: string = 'singleplayer'): Promise<void> => {
+  const startGame = useCallback(async (selectedDifficulty: string, selectedMode: string = 'singleplayer', timePenalty: boolean = false): Promise<void> => {
     setCurrentRound(1);
     setRoundResults([]);
     setCurrentResult(null);
     setDifficulty(selectedDifficulty as Difficulty);
     setMode(selectedMode as GameMode);
     setLobbyDocId(null);
+    setTimePenaltyEnabled(timePenalty);
     setUsedImageIds([]);
     setUsedImageUrls([]);
 
@@ -457,6 +465,19 @@ export function useGameState(): UseGameStateReturn {
         : Math.round(locationScore * 0.8);
     }
 
+    // Apply time decay when enabled (points decrease as player takes longer)
+    let timePenaltyAmount: number | undefined;
+    if (timePenaltyEnabled && totalScore > 0) {
+      const timeMultiplier = computeTimeMultiplier(
+        timeTakenSeconds,
+        ROUND_TIME_SECONDS,
+        0.5
+      );
+      const scoreBeforeTime = totalScore;
+      totalScore = Math.round(totalScore * timeMultiplier);
+      timePenaltyAmount = scoreBeforeTime - totalScore;
+    }
+
     // Create result object
     const result: RoundResult = {
       roundNumber: currentRound,
@@ -470,7 +491,8 @@ export function useGameState(): UseGameStateReturn {
       floorCorrect,
       score: totalScore,
       timeTakenSeconds,
-      timedOut: timedOutRef.current
+      timedOut: timedOutRef.current,
+      ...(timePenaltyAmount !== undefined && timePenaltyAmount > 0 && { timePenalty: timePenaltyAmount })
     };
 
     timedOutRef.current = false;
@@ -481,7 +503,7 @@ export function useGameState(): UseGameStateReturn {
 
     // Show result screen
     setScreen('result');
-  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, regions]);
+  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, timePenaltyEnabled, regions]]);
 
   const submitGuessRef = useRef<() => void>(submitGuess);
   submitGuessRef.current = submitGuess;
@@ -609,6 +631,7 @@ export function useGameState(): UseGameStateReturn {
     difficulty,
     mode,
     lobbyDocId,
+    timePenaltyEnabled,
 
     // Actions
     setScreen,
