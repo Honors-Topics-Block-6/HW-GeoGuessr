@@ -434,6 +434,7 @@ function App(): React.ReactElement {
           onNextRound={nextRound}
           onViewFinalResults={viewFinalResults}
           isLastRound={currentRound >= totalRounds}
+          onBackToTitle={resetGame}
         />
       )}
 
@@ -499,6 +500,7 @@ function App(): React.ReactElement {
           isHost={duel.isHost}
           onNextRound={duel.nextRound}
           onViewFinalResults={() => {/* Will auto-transition via phase */}}
+          onLeaveDuel={handleDuelBackToTitle}
           isGameOver={false}
         />
       )}
