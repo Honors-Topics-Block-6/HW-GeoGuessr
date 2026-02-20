@@ -48,6 +48,7 @@ export interface DuelFinalScreenProps {
   players: DuelPlayer[];
   roundHistory: RoundHistory[];
   health: Record<string, number>;
+  forfeitBy?: string | null;
   onPlayAgain: () => void;
   onBackToTitle: () => void;
 }
@@ -59,6 +60,7 @@ function DuelFinalScreen({
   players,
   roundHistory,
   health,
+  forfeitBy = null,
   onPlayAgain,
   onBackToTitle
 }: DuelFinalScreenProps): React.ReactElement {
@@ -155,9 +157,11 @@ function DuelFinalScreen({
             {isWinner ? 'Victory!' : 'Defeat'}
           </h1>
           <p className="duel-final-subtitle">
-            {isWinner
-              ? `You defeated ${loserUsername} in ${totalRounds} rounds!`
-              : `${winnerUsername} won after ${totalRounds} rounds`}
+            {isWinner && forfeitBy === loser
+              ? `You win! ${loserUsername} forfeited.`
+              : isWinner
+                ? `You defeated ${loserUsername} in ${totalRounds} rounds!`
+                : `${winnerUsername} won after ${totalRounds} rounds`}
           </p>
         </div>
 
