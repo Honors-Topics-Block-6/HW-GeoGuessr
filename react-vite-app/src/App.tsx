@@ -1,4 +1,4 @@
-import React, { useState, useCallback, ReactNode } from 'react';
+import React, { useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useGameState, type Difficulty } from './hooks/useGameState';
 import { useDuelGame } from './hooks/useDuelGame';
@@ -26,6 +26,16 @@ import BugReportModal from './components/BugReportModal/BugReportModal';
 import DailyGoalsPanel from './components/DailyGoalsPanel/DailyGoalsPanel';
 import MessageBanner from './components/MessageBanner/MessageBanner';
 import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
+import { getLevelInfo } from './utils/xpLevelling';
+import {
+  ACHIEVEMENTS_UPDATED_EVENT,
+  type AchievementId,
+  getAchievementMetaById,
+  getDifficultyAchievementId,
+  getProgressUnlockedAchievementIds,
+  unlockAchievement,
+  type AchievementUpdateDetail
+} from './services/achievementService';
 import './App.css';
 
 /** Shape of a friend object used when opening chat */
@@ -41,8 +51,15 @@ interface InviteMessage {
   [key: string]: unknown;
 }
 
+interface AchievementToastData {
+  icon: string;
+  title: string;
+  description: string;
+  rewardXp: number;
+}
+
 function App(): React.ReactElement {
-  const { user, userDoc, loading, needsUsername, isAdmin } = useAuth();
+  const { user, userDoc, loading, needsUsername, isAdmin, emailVerified, refreshUserDoc } = useAuth();
   const [showSubmissionApp, setShowSubmissionApp] = useState<boolean>(false);
   const [showProfile, setShowProfile] = useState<boolean>(false);
   const [showFriends, setShowFriends] = useState<boolean>(false);
@@ -51,6 +68,9 @@ function App(): React.ReactElement {
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
   const [showBugReport, setShowBugReport] = useState<boolean>(false);
   const [showDailyGoals, setShowDailyGoals] = useState<boolean>(false);
+  const [achievementToastQueue, setAchievementToastQueue] = useState<AchievementToastData[]>([]);
+  const [achievementToastFading, setAchievementToastFading] = useState<boolean>(false);
+  const shownAchievementToastsRef = useRef<Set<AchievementId>>(new Set());
 
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState<boolean>(false);
@@ -139,6 +159,109 @@ function App(): React.ReactElement {
   const messageBanner: ReactNode = user && messages.length > 0 ? (
     <MessageBanner messages={messages as unknown as React.ComponentProps<typeof MessageBanner>['messages']} onDismiss={dismissMessage} />
   ) : null;
+
+  useEffect(() => {
+    if (!user || !userDoc) return;
+    const level = getLevelInfo(userDoc.totalXp ?? 0).level;
+    const progressAchievementIds = getProgressUnlockedAchievementIds({
+      gamesPlayed: userDoc.gamesPlayed ?? 0,
+      totalXp: userDoc.totalXp ?? 0,
+      level,
+      emailVerified
+    });
+
+    let cancelled = false;
+    const syncAchievements = async (): Promise<void> => {
+      let awardedAny = false;
+      for (const id of progressAchievementIds) {
+        const rewardXp = await unlockAchievement(user.uid, id);
+        if (rewardXp > 0) awardedAny = true;
+      }
+      if (awardedAny && !cancelled) {
+        await refreshUserDoc();
+      }
+    };
+
+    void syncAchievements();
+    return () => {
+      cancelled = true;
+    };
+  }, [emailVerified, refreshUserDoc, user, userDoc]);
+
+  useEffect(() => {
+    if (!user || screen !== 'finalResults') return;
+    const difficultyAchievementId = getDifficultyAchievementId(difficulty);
+    if (!difficultyAchievementId) return;
+
+    let cancelled = false;
+    const unlockDifficultyAchievement = async (): Promise<void> => {
+      const rewardXp = await unlockAchievement(user.uid, difficultyAchievementId);
+      if (rewardXp > 0 && !cancelled) {
+        await refreshUserDoc();
+      }
+    };
+
+    void unlockDifficultyAchievement();
+    return () => {
+      cancelled = true;
+    };
+  }, [difficulty, refreshUserDoc, screen, user]);
+
+  useEffect(() => {
+    if (!user || !currentResult) return;
+    if (currentResult.score < 5000) return;
+
+    let cancelled = false;
+    const unlockBullseye = async (): Promise<void> => {
+      const rewardXp = await unlockAchievement(user.uid, 'bullseye');
+      if (rewardXp > 0 && !cancelled) {
+        await refreshUserDoc();
+      }
+    };
+
+    void unlockBullseye();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentResult, refreshUserDoc, user]);
+
+  useEffect(() => {
+    const onAchievementUpdated = (event: Event): void => {
+      const customEvent = event as CustomEvent<AchievementUpdateDetail>;
+      const achievementId = customEvent.detail?.id;
+      const unlocked = customEvent.detail?.unlocked;
+      if (!achievementId || !unlocked) return;
+      if (shownAchievementToastsRef.current.has(achievementId)) return;
+      shownAchievementToastsRef.current.add(achievementId);
+
+      const meta = getAchievementMetaById(achievementId);
+      if (!meta) return;
+
+      setAchievementToastQueue((previous) => [
+        ...previous,
+        { icon: meta.icon, title: meta.title, description: `${meta.highlight} ${meta.details}`, rewardXp: customEvent.detail?.rewardXp ?? meta.xpReward }
+      ]);
+    };
+
+    window.addEventListener(ACHIEVEMENTS_UPDATED_EVENT, onAchievementUpdated);
+    return () => window.removeEventListener(ACHIEVEMENTS_UPDATED_EVENT, onAchievementUpdated);
+  }, []);
+
+  useEffect(() => {
+    if (achievementToastQueue.length === 0) return;
+    setAchievementToastFading(false);
+    const fadeTimer = window.setTimeout(() => {
+      setAchievementToastFading(true);
+    }, 4200);
+    const removeTimer = window.setTimeout(() => {
+      setAchievementToastQueue((previous) => previous.slice(1));
+      setAchievementToastFading(false);
+    }, 6200);
+    return () => {
+      window.clearTimeout(fadeTimer);
+      window.clearTimeout(removeTimer);
+    };
+  }, [achievementToastQueue]);
 
   /**
    * Handle opening a chat from the friends panel
@@ -366,6 +489,16 @@ function App(): React.ReactElement {
 
   return (
     <div className="app">
+      {achievementToastQueue[0] && (
+        <div className={`global-achievement-toast ${achievementToastFading ? 'fading' : ''}`} role="status" aria-live="polite">
+          <div className="global-achievement-toast-badge">{achievementToastQueue[0].icon}</div>
+          <div className="global-achievement-toast-text">
+            <div className="global-achievement-toast-title">Achievement Unlocked: {achievementToastQueue[0].title}</div>
+            <div className="global-achievement-toast-description">{achievementToastQueue[0].description}</div>
+            <div className="global-achievement-toast-reward">+{achievementToastQueue[0].rewardXp.toLocaleString()} XP</div>
+          </div>
+        </div>
+      )}
       {messageBanner}
       <EmailVerificationBanner />
 
