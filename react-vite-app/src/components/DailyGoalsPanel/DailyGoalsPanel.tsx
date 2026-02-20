@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDailyGoals } from '../../hooks/useDailyGoals';
 import './DailyGoalsPanel.css';
@@ -26,17 +26,16 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
     loading,
     error,
     claimBonusXp
-  } = useDailyGoals(user?.uid ?? null, {
-    onGoalCompleted: async (_count: number) => {
-      await refreshUserDoc();
-    },
-    onAllCompleted: async () => {
-      await refreshUserDoc();
-    }
-  });
+  } = useDailyGoals(user?.uid ?? null);
 
   const [claiming, setClaiming] = useState<boolean>(false);
   const [claimed, setClaimed] = useState<boolean>(false);
+
+  // Keep header/profile stats in sync when goals change
+  useEffect(() => {
+    if (!user?.uid) return;
+    void refreshUserDoc();
+  }, [user?.uid, allCompleted, bonusXpAwarded, refreshUserDoc]);
 
   const handleClaimBonus = async (): Promise<void> => {
     setClaiming(true);

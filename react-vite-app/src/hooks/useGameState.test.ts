@@ -421,7 +421,7 @@ describe('useGameState', () => {
     it('should apply floor penalty when floor matches but building is wrong', async () => {
       const imageInDifferentBuilding: GameImage = {
         ...mockImage,
-        correctLocation: { x: 75, y: 50 }, // Building B
+        correctLocation: { x: 51, y: 50 }, // Building B (near boundary)
         correctFloor: 2
       };
       mockedGetRandomImage.mockResolvedValue(imageInDifferentBuilding);
@@ -439,7 +439,7 @@ describe('useGameState', () => {
       });
 
       act(() => {
-        result.current.placeMarker({ x: 25, y: 50 }); // Building A
+        result.current.placeMarker({ x: 49, y: 50 }); // Building A (close, but wrong building)
       });
 
       act(() => {

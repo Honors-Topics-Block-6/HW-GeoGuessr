@@ -59,9 +59,13 @@ export const STALE_TIMEOUT = 30_000;
 /** Lobby lifetime before auto-expiry (1 hour). */
 export const LOBBY_EXPIRY_MS = 60 * 60 * 1000;
 
+export const MIN_LOBBY_PLAYERS = 2;
+export const MAX_LOBBY_PLAYERS = 10;
+
 // Characters that avoid ambiguity (no I, O, 0, 1)
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+<<<<<<< Updated upstream
 function getTimestampMillis(value: unknown): number | null {
   if (!value) return null;
   if (value instanceof Timestamp) return value.toMillis();
@@ -75,6 +79,13 @@ function isLobbyExpired(lobby: Pick<LobbyDoc, 'createdAt'>): boolean {
   const createdMs = getTimestampMillis(lobby.createdAt);
   if (createdMs === null) return false;
   return Date.now() - createdMs >= LOBBY_EXPIRY_MS;
+=======
+function normalizeMaxPlayers(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return MIN_LOBBY_PLAYERS;
+  const int = Math.trunc(n);
+  return Math.max(MIN_LOBBY_PLAYERS, Math.min(MAX_LOBBY_PLAYERS, int));
+>>>>>>> Stashed changes
 }
 
 // ────── Functions ──────
@@ -98,10 +109,15 @@ export async function createLobby(
   hostUsername: string,
   difficulty: string,
   visibility: LobbyVisibility,
+<<<<<<< Updated upstream
   roundTimeSeconds: number = 20
+=======
+  maxPlayers: number = MIN_LOBBY_PLAYERS
+>>>>>>> Stashed changes
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
+  const normalizedMaxPlayers = normalizeMaxPlayers(maxPlayers);
 
   const lobbyData = {
     hostUid,
@@ -121,8 +137,12 @@ export async function createLobby(
     readyStatus: {
       [hostUid]: false
     },
+<<<<<<< Updated upstream
     maxPlayers: 2,
     roundTimeSeconds,
+=======
+    maxPlayers: normalizedMaxPlayers,
+>>>>>>> Stashed changes
     createdAt: now,
     updatedAt: now
   };
@@ -172,6 +192,7 @@ export async function joinLobby(
   }
 
   const lobby = lobbySnap.data() as Omit<LobbyDoc, 'docId'>;
+  const normalizedMaxPlayers = normalizeMaxPlayers(lobby.maxPlayers);
 
   if (isLobbyExpired(lobby as Pick<LobbyDoc, 'createdAt'>)) {
     await deleteDoc(lobbyRef);
@@ -188,7 +209,7 @@ export async function joinLobby(
     );
   }
 
-  if (lobby.players.length >= lobby.maxPlayers) {
+  if (lobby.players.length >= normalizedMaxPlayers) {
     throw new Error('This lobby is full.');
   }
 

@@ -109,10 +109,19 @@ export interface UseDuelGameReturn {
   hasSubmitted: boolean;
   clickRejected: boolean;
 
-  // Opponent
+  // Opponent (legacy 1v1 UI)
   opponentUid: string | null;
   opponentUsername: string;
   opponentHasSubmitted: boolean;
+
+  // Players (multi)
+  activePlayers: DuelPlayer[];
+  activePlayerCount: number;
+  totalPlayerCount: number;
+  guessesByUid: Record<string, DuelGuess>;
+  healthByUid: Record<string, number>;
+  activeGuessesCount: number;
+  allActiveGuessed: boolean;
 
   // Timer
   timeRemaining: number;
@@ -277,7 +286,14 @@ export function useDuelGame(
     ? duelState.roundTimeSeconds
     : DUEL_ROUND_TIME_SECONDS;
 
-  // Find opponent
+  // Active players are those with health > 0 (or missing health, which we treat as alive)
+  const activePlayers = useMemo(() => {
+    const list = players.filter(p => (health?.[p.uid] ?? STARTING_HEALTH) > 0);
+    return list.length >= 1 ? list : players;
+  }, [players, health]);
+  const activeUids = useMemo(() => activePlayers.map(p => p.uid), [activePlayers]);
+
+  // Find a single opponent (kept for backwards compatibility in 1v1 UI)
   const opponent = players.find(p => p.uid !== userUid);
   const opponentUid = opponent?.uid || null;
   const opponentUsername = opponent?.username || 'Opponent';
@@ -290,7 +306,11 @@ export function useDuelGame(
   const myGuess = guesses[userUid] || null;
   const opponentGuess = guesses[opponentUid as string] || null;
   const opponentHasSubmitted = !!opponentGuess;
-  const bothGuessed = !!myGuess && !!opponentGuess;
+  const allActiveGuessed = activeUids.length > 0 && activeUids.every(uid => !!guesses[uid]);
+  const activeGuessesCount = useMemo(
+    () => activeUids.filter(uid => !!guesses[uid]).length,
+    [activeUids, guesses]
+  );
 
   // Current round scores (from guesses)
   const myScore = myGuess?.score ?? null;
@@ -379,12 +399,12 @@ export function useDuelGame(
   useEffect(() => {
     if (!isHost) return;
     if (phase !== 'guessing') return;
-    if (!bothGuessed) return;
+    if (!allActiveGuessed) return;
     if (processedRoundRef.current === currentRound) return;
 
     processedRoundRef.current = currentRound;
     processRound(lobbyDocId).catch((err: unknown) => console.error('Process round failed:', err));
-  }, [isHost, phase, bothGuessed, currentRound, lobbyDocId]);
+  }, [isHost, phase, allActiveGuessed, currentRound, lobbyDocId]);
 
   // --- Actions ---
 
@@ -486,6 +506,15 @@ export function useDuelGame(
     opponentUid,
     opponentUsername,
     opponentHasSubmitted,
+
+    // Players (multi)
+    activePlayers,
+    activePlayerCount: activeUids.length,
+    totalPlayerCount: players.length,
+    guessesByUid: guesses,
+    healthByUid: health,
+    activeGuessesCount,
+    allActiveGuessed,
 
     // Timer
     timeRemaining: lobbyRoundTime > 0 ? timeRemaining : 0,
