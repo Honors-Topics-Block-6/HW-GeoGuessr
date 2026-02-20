@@ -22,7 +22,12 @@
   border-radius: 14px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
   pointer-events: none;
-  animation: globalAchievementToastIn 220ms ease-out;
+  overflow: hidden;
+  animation: globalAchievementToastEnter 220ms ease-out forwards;
+}
+
+.global-achievement-toast.fading {
+  animation: globalAchievementToastFadeOut 1400ms ease forwards;
 }
 
 .global-achievement-toast-badge {
@@ -39,6 +44,11 @@
   flex-shrink: 0;
 }
 
+.global-achievement-toast-text {
+  opacity: 1;
+  transform: none;
+}
+
 .global-achievement-toast-title {
   color: var(--text-primary);
   font-size: 0.9rem;
@@ -50,8 +60,13 @@
   color: var(--text-secondary);
   font-size: 0.82rem;
   margin-top: 0.2rem;
-  opacity: 0;
-  animation: globalAchievementDescriptionFade 300ms ease-out 320ms forwards;
+}
+
+.global-achievement-toast-reward {
+  margin-top: 0.22rem;
+  color: var(--accent-green-light);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 /* Loading State */
@@ -78,14 +93,25 @@
   }
 }
 
-@keyframes globalAchievementToastIn {
+@keyframes globalAchievementToastEnter {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(-8px);
+    transform: translateX(-50%) translateY(-6px);
   }
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes globalAchievementToastFadeOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.985);
   }
 }
 
