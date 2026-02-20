@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, fireEvent } from '@testing-library/react';
 import AdminTabs from './AdminTabs';
 
 // Mock Firebase to avoid initialization errors
@@ -142,48 +141,44 @@ describe('AdminTabs', () => {
   });
 
   describe('tab click handlers', () => {
-    it('should call onTabChange with review when Review tab is clicked', async () => {
-      const user = userEvent.setup();
+    it('should call onTabChange with review when Review tab is clicked', () => {
       render(
         <AdminTabs activeTab="mapEditor" onTabChange={mockOnTabChange} onBack={mockOnBack} />
       );
 
-      await user.click(screen.getByText('Review Submissions'));
+      fireEvent.click(screen.getByText('Review Submissions'));
 
       expect(mockOnTabChange).toHaveBeenCalledWith('review');
     });
 
-    it('should call onTabChange with mapEditor when Map Editor tab is clicked', async () => {
-      const user = userEvent.setup();
+    it('should call onTabChange with mapEditor when Map Editor tab is clicked', () => {
       render(
         <AdminTabs activeTab="review" onTabChange={mockOnTabChange} onBack={mockOnBack} />
       );
 
-      await user.click(screen.getByText('Map Editor'));
+      fireEvent.click(screen.getByText('Map Editor'));
 
       expect(mockOnTabChange).toHaveBeenCalledWith('mapEditor');
     });
 
-    it('should call onTabChange with bugReports when Bug Reports tab is clicked', async () => {
-      const user = userEvent.setup();
+    it('should call onTabChange with bugReports when Bug Reports tab is clicked', () => {
       render(
         <AdminTabs activeTab="review" onTabChange={mockOnTabChange} onBack={mockOnBack} />
       );
 
-      await user.click(screen.getByText('Bug Reports'));
+      fireEvent.click(screen.getByText('Bug Reports'));
 
       expect(mockOnTabChange).toHaveBeenCalledWith('bugReports');
     });
   });
 
   describe('back button', () => {
-    it('should call onBack when back button is clicked', async () => {
-      const user = userEvent.setup();
+    it('should call onBack when back button is clicked', () => {
       render(
         <AdminTabs activeTab="review" onTabChange={mockOnTabChange} onBack={mockOnBack} />
       );
 
-      await user.click(screen.getByText('\u2190 Back to Submission'));
+      fireEvent.click(screen.getByText('\u2190 Back to Submission'));
 
       expect(mockOnBack).toHaveBeenCalledTimes(1);
     });

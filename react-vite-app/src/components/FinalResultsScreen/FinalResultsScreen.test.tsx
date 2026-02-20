@@ -316,10 +316,63 @@ describe('FinalResultsScreen', () => {
       expect(screen.getByText('Play Again')).toBeInTheDocument();
     });
 
+    it('should render Copy Results button', () => {
+      render(<FinalResultsScreen {...defaultProps} />);
+
+      expect(screen.getByText('Copy Results')).toBeInTheDocument();
+    });
+
     it('should render Back to Home button', () => {
       render(<FinalResultsScreen {...defaultProps} />);
 
       expect(screen.getByText('Back to Home')).toBeInTheDocument();
+    });
+
+    it('should copy results to clipboard and show confirmation', async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true
+      });
+
+      render(<FinalResultsScreen {...defaultProps} />);
+
+      await user.click(screen.getByText('Copy Results'));
+
+      expect(writeText).toHaveBeenCalledTimes(1);
+      expect(String(writeText.mock.calls[0][0])).toContain('🌍 HW Geoguessr (Easy) Score: 20,000');
+      expect(screen.getByText('Results copied to clipboard!')).toBeInTheDocument();
+    });
+
+    it('should show an error message if copying fails', async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+
+      const writeText = vi.fn().mockRejectedValue(new Error('nope'));
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true
+      });
+      const originalExecCommand = (document as unknown as { execCommand?: unknown }).execCommand;
+      Object.defineProperty(document, 'execCommand', {
+        value: vi.fn().mockReturnValue(false),
+        configurable: true
+      });
+
+      render(<FinalResultsScreen {...defaultProps} />);
+
+      await user.click(screen.getByText('Copy Results'));
+
+      expect(screen.getByText('Could not copy results. Please try again.')).toBeInTheDocument();
+      if (originalExecCommand) {
+        Object.defineProperty(document, 'execCommand', { value: originalExecCommand, configurable: true });
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delete (document as any).execCommand;
+      }
     });
 
     it('should call onPlayAgain when Play Again clicked', async () => {
@@ -351,6 +404,7 @@ describe('FinalResultsScreen', () => {
 
       expect(screen.getByText('\uD83D\uDD04')).toBeInTheDocument();
       expect(screen.getByText('\uD83C\uDFE0')).toBeInTheDocument();
+      expect(screen.getByText('\uD83D\uDCCB')).toBeInTheDocument();
     });
   });
 

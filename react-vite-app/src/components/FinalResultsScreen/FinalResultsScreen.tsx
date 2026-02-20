@@ -4,6 +4,8 @@ import { awardXp } from '../../services/xpService';
 import { calculateXpGain, getLevelTitle } from '../../utils/xpLevelling';
 import { useDailyGoals } from '../../hooks/useDailyGoals';
 import { GOAL_TYPES } from '../../utils/dailyGoalDefinitions';
+import CopyResultsButton from '../CopyResultsButton/CopyResultsButton';
+import { generateShareableResultsText } from '../../utils/shareResults';
 import './FinalResultsScreen.css';
 
 interface PerformanceRating {
@@ -27,6 +29,7 @@ interface XpResult {
 }
 
 interface RoundData {
+  roundNumber?: number;
   score: number;
   locationScore: number;
   imageUrl: string;
@@ -73,9 +76,10 @@ export interface FinalResultsScreenProps {
   onPlayAgain: () => void;
   onBackToTitle: () => void;
   difficulty: string | null;
+  mode?: string | null;
 }
 
-function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: FinalResultsScreenProps): React.ReactElement {
+function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mode = null }: FinalResultsScreenProps): React.ReactElement {
   const { user, totalXp, refreshUserDoc } = useAuth();
   const { recordProgress } = useDailyGoals(user?.uid ?? null);
   const [animationComplete, setAnimationComplete] = useState<boolean>(false);
@@ -86,6 +90,18 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
   const totalScore = rounds.reduce((sum: number, round: RoundData) => sum + round.score, 0);
   const maxPossible = rounds.length * 5000;
   const performance = getPerformanceRating(totalScore, maxPossible);
+
+  const shareText = useMemo(() => {
+    return generateShareableResultsText({
+      rounds: rounds.map((r, idx) => ({
+        score: r.score,
+        roundNumber: r.roundNumber ?? (idx + 1)
+      })),
+      gameName: 'HW Geoguessr',
+      mode,
+      difficulty
+    });
+  }, [rounds, mode, difficulty]);
 
   // Snapshot the totalXp at mount so it doesn't shift after the Firestore refresh.
   // useState initializer only runs once, so this captures the pre-award value.
@@ -302,6 +318,7 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
 
         {/* Action Buttons */}
         <div className="final-actions">
+          <CopyResultsButton text={shareText} />
           <button className="play-again-button" onClick={onPlayAgain}>
             <span className="button-icon">🔄</span>
             Play Again

@@ -1,0 +1,50 @@
+.copy-results-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.copy-results-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, rgba(52, 152, 219, 0.25) 0%, rgba(46, 204, 113, 0.22) 100%);
+  color: var(--text-primary);
+  border: 2px solid rgba(108, 181, 45, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.copy-results-button:hover:enabled {
+  transform: translateY(-2px);
+  border-color: rgba(108, 181, 45, 0.55);
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.32);
+}
+
+.copy-results-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.copy-results-feedback {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.copy-results-feedback.success {
+  color: var(--accent-green);
+}
+
+.copy-results-feedback.error {
+  color: var(--error-red);
+}
+
