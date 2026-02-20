@@ -91,6 +91,7 @@ export interface DuelData {
   roundHistory: RoundHistoryEntry[];
   winner: string | null;
   loser: string | null;
+  forfeitBy?: string | null;
   finishedAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
   players: DuelPlayer[];
@@ -398,11 +399,13 @@ export function subscribeDuel(
 
 /**
  * Handle opponent disconnect — award win to remaining player.
+ * When forfeitBy is provided, records that the loser voluntarily forfeited.
  */
 export async function handleOpponentDisconnect(
   docId: string,
   winnerUid: string,
-  loserUid: string
+  loserUid: string,
+  forfeitBy?: string
 ): Promise<void> {
   const lobbyRef = doc(db, 'lobbies', docId);
   const lobbySnap = await getDoc(lobbyRef);
@@ -414,12 +417,17 @@ export async function handleOpponentDisconnect(
   const health: Record<string, number> = lobby.health || {};
   health[loserUid] = 0;
 
-  await updateDoc(lobbyRef, {
+  const updateData: Record<string, unknown> = {
     health,
     phase: 'finished',
     winner: winnerUid,
     loser: loserUid,
     finishedAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  };
+  if (forfeitBy != null) {
+    updateData.forfeitBy = forfeitBy;
+  }
+
+  await updateDoc(lobbyRef, updateData);
 }
