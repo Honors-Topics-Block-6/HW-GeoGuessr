@@ -31,6 +31,9 @@ export interface LobbyData {
   players?: LobbyPlayer[];
   maxPlayers?: number;
   status?: string;
+  roundTimeSeconds?: number;
+  timingRule?: 'simultaneous' | 'afterFirstGuess';
+  afterFirstGuessSeconds?: number;
 }
 
 export interface WaitingRoomProps {
@@ -70,7 +73,11 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
     if (!lobby || isStarting) return;
     setIsStarting(true);
     try {
-      await startDuel(lobbyDocId, lobby.players, lobby.difficulty);
+      await startDuel(lobbyDocId, lobby.players, lobby.difficulty, {
+        roundTimeSeconds: lobby.roundTimeSeconds,
+        timingRule: lobby.timingRule,
+        afterFirstGuessSeconds: lobby.afterFirstGuessSeconds
+      });
       // The onSnapshot listener will detect status='in_progress' and
       // onGameStart will be called from the useEffect below
     } catch (err) {

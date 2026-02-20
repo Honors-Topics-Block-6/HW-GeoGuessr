@@ -74,6 +74,8 @@ export interface RoundHistoryEntry {
 
 export type DuelPhase = 'guessing' | 'results' | 'finished';
 
+export type DuelTimingRule = 'simultaneous' | 'afterFirstGuess';
+
 export interface DuelData {
   docId: string;
   hostUid: string;
@@ -83,6 +85,11 @@ export interface DuelData {
   currentRound: number;
   currentImage: DuelImage;
   roundStartedAt: Timestamp;
+  // Timing settings
+  roundTimeSeconds?: number;
+  timingRule?: DuelTimingRule;
+  afterFirstGuessSeconds?: number;
+  firstGuessAt?: Timestamp | null;
   guesses: Record<string, DuelGuess>;
   health: Record<string, number>;
   roundHistory: RoundHistoryEntry[];
@@ -125,7 +132,12 @@ export function getDamageMultiplier(roundNumber: number): number {
 export async function startDuel(
   docId: string,
   players: DuelPlayer[],
-  difficulty: string
+  difficulty: string,
+  settings?: {
+    roundTimeSeconds?: number;
+    timingRule?: DuelTimingRule;
+    afterFirstGuessSeconds?: number;
+  }
 ): Promise<void> {
   const image = await getRandomImage(difficulty);
 
@@ -146,6 +158,10 @@ export async function startDuel(
       difficulty: image!.difficulty || difficulty
     },
     roundStartedAt: Timestamp.now(),
+    roundTimeSeconds: settings?.roundTimeSeconds ?? DUEL_ROUND_TIME_SECONDS,
+    timingRule: settings?.timingRule ?? 'simultaneous',
+    afterFirstGuessSeconds: settings?.afterFirstGuessSeconds ?? 10,
+    firstGuessAt: null,
     guesses: {},
     health,
     roundHistory: [],
@@ -188,7 +204,27 @@ export async function submitDuelGuess(
   }
 
   const lobbyRef = doc(db, 'lobbies', docId);
-  await updateDoc(lobbyRef, {
+
+  // If using "after first guess" timing, set firstGuessAt when the first submission arrives.
+  // This is intentionally best-effort (non-transactional). In practice, duels are 1v1 and
+  // any race just results in a near-identical timestamp.
+  let shouldSetFirstGuessAt = false;
+  try {
+    const snap = await getDoc(lobbyRef);
+    if (snap.exists()) {
+      const data = snap.data() as Partial<DuelData>;
+      const timingRule = data.timingRule || 'simultaneous';
+      const firstGuessAt = data.firstGuessAt ?? null;
+      const existingGuesses = (data.guesses || {}) as Record<string, unknown>;
+      if (timingRule === 'afterFirstGuess' && !firstGuessAt && Object.keys(existingGuesses).length === 0) {
+        shouldSetFirstGuessAt = true;
+      }
+    }
+  } catch {
+    // Ignore: we can still submit the guess without firstGuessAt.
+  }
+
+  const updates: Record<string, unknown> = {
     [`guesses.${playerUid}`]: {
       location: guessData.location,
       floor: guessData.floor ?? null,
@@ -201,7 +237,11 @@ export async function submitDuelGuess(
       submittedAt: Timestamp.now()
     },
     updatedAt: serverTimestamp()
-  });
+  };
+  if (shouldSetFirstGuessAt) {
+    updates.firstGuessAt = Timestamp.now();
+  }
+  await updateDoc(lobbyRef, updates);
 }
 
 /**
@@ -335,6 +375,7 @@ export async function advanceToNextRound(docId: string, difficulty: string): Pro
       difficulty: image!.difficulty || difficulty
     },
     roundStartedAt: Timestamp.now(),
+    firstGuessAt: null,
     guesses: {},
     phase: 'guessing',
     updatedAt: serverTimestamp()

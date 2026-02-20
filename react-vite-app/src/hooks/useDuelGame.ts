@@ -7,7 +7,8 @@ import {
   advanceToNextRound,
   DUEL_ROUND_TIME_SECONDS,
   STARTING_HEALTH,
-  type DuelData
+  type DuelData,
+  type DuelTimingRule
 } from '../services/duelService';
 import { sendHeartbeat, removeStalePlayersFromLobby } from '../services/lobbyService';
 
@@ -115,6 +116,10 @@ export interface UseDuelGameReturn {
   // Timer
   timeRemaining: number;
   roundTimeSeconds: number;
+  timingRule: DuelTimingRule;
+  timerStatus: 'running' | 'waiting';
+  activeTimeLimitSeconds: number;
+  maxRoundTimeSeconds: number;
 
   // Health
   myHealth: number;
@@ -271,6 +276,15 @@ export function useDuelGame(
   const loser = duelState?.loser || null;
   const difficulty = duelState?.difficulty || 'all';
 
+  // Timing settings (persisted in lobby doc)
+  const timingRule: DuelTimingRule = (duelState?.timingRule as DuelTimingRule) || 'simultaneous';
+  const maxRoundTimeSeconds: number = Number(duelState?.roundTimeSeconds ?? DUEL_ROUND_TIME_SECONDS);
+  const afterFirstGuessSeconds: number = Number(duelState?.afterFirstGuessSeconds ?? 10);
+  const firstGuessAt = (duelState as unknown as { firstGuessAt?: { toMillis?: () => number } | number | null })?.firstGuessAt ?? null;
+  const activeTimeLimitSeconds: number = timingRule === 'afterFirstGuess' ? afterFirstGuessSeconds : maxRoundTimeSeconds;
+  const timerStatus: 'running' | 'waiting' =
+    timingRule === 'afterFirstGuess' && !firstGuessAt ? 'waiting' : 'running';
+
   // Find opponent
   const opponent = players.find(p => p.uid !== userUid);
   const opponentUid = opponent?.uid || null;
@@ -301,11 +315,11 @@ export function useDuelGame(
         setLocalAvailableFloors(null);
         setHasSubmitted(false);
         timedOutRef.current = false;
-        setTimeRemaining(DUEL_ROUND_TIME_SECONDS);
+        setTimeRemaining(activeTimeLimitSeconds);
         processedRoundRef.current = 0;
       }
     }
-  }, [phase, currentRound]);
+  }, [phase, currentRound, activeTimeLimitSeconds]);
 
   // --- Timer effect ---
   useEffect(() => {
@@ -320,8 +334,34 @@ export function useDuelGame(
       : roundStartedAt as number;
 
     const interval = setInterval(() => {
-      const elapsedSeconds = (Date.now() - roundStartMs) / 1000;
-      const remaining = Math.max(0, DUEL_ROUND_TIME_SECONDS - elapsedSeconds);
+      const elapsedSinceRoundStart = (Date.now() - roundStartMs) / 1000;
+
+      // Safety cap: even in "after first guess" mode, do not allow rounds to stall forever.
+      // If nobody submits for the full maxRoundTimeSeconds, force the round to time out.
+      if (elapsedSinceRoundStart >= maxRoundTimeSeconds) {
+        setTimeRemaining(0);
+        return;
+      }
+
+      if (timingRule === 'afterFirstGuess') {
+        if (!firstGuessAt) {
+          // Countdown hasn't started yet (waiting for first guess).
+          setTimeRemaining(afterFirstGuessSeconds);
+          return;
+        }
+
+        const firstGuessMs = typeof firstGuessAt === 'object' && (firstGuessAt as { toMillis?: () => number })?.toMillis
+          ? (firstGuessAt as { toMillis: () => number }).toMillis()
+          : (firstGuessAt as number);
+
+        const elapsedSinceFirstGuess = (Date.now() - firstGuessMs) / 1000;
+        const remaining = Math.max(0, afterFirstGuessSeconds - elapsedSinceFirstGuess);
+        setTimeRemaining(remaining);
+        return;
+      }
+
+      // Simultaneous: everyone gets the same countdown from roundStartedAt
+      const remaining = Math.max(0, maxRoundTimeSeconds - elapsedSinceRoundStart);
       setTimeRemaining(remaining);
 
       if (remaining <= 0) {
@@ -330,7 +370,7 @@ export function useDuelGame(
     }, 50);
 
     return () => clearInterval(interval);
-  }, [phase, duelState?.roundStartedAt]);
+  }, [phase, duelState?.roundStartedAt, timingRule, maxRoundTimeSeconds, afterFirstGuessSeconds, firstGuessAt]);
 
   // --- Auto-submit / timeout handling ---
   useEffect(() => {
@@ -480,7 +520,11 @@ export function useDuelGame(
 
     // Timer
     timeRemaining,
-    roundTimeSeconds: DUEL_ROUND_TIME_SECONDS,
+    roundTimeSeconds: maxRoundTimeSeconds,
+    timingRule,
+    timerStatus,
+    activeTimeLimitSeconds,
+    maxRoundTimeSeconds,
 
     // Health
     myHealth,

@@ -26,6 +26,8 @@ export interface DuelGameScreenProps {
   playingArea?: PlayingArea | null;
   timeRemaining: number;
   timeLimitSeconds?: number;
+  timerStatus?: 'running' | 'waiting';
+  maxRoundTimeSeconds?: number;
   hasSubmitted?: boolean;
   opponentHasSubmitted?: boolean;
   opponentUsername?: string;
@@ -48,6 +50,8 @@ function DuelGameScreen({
   playingArea = null,
   timeRemaining,
   timeLimitSeconds = 20,
+  timerStatus = 'running',
+  maxRoundTimeSeconds,
   hasSubmitted = false,
   opponentHasSubmitted = false,
   opponentUsername = 'Opponent',
@@ -142,42 +146,56 @@ function DuelGameScreen({
           </div>
 
           {typeof timeRemaining === 'number' && (
-            <div className="round-timer">
-              <div className="round-timer-top">
-                <span className="timer-label">
-                  Time left ({timeLimitSeconds}s)
-                </span>
-                <span
-                  className={
-                    `timer-value${
-                      timeRemaining <= 5
-                        ? ' critical'
-                        : timeRemaining <= 10
-                          ? ' warning'
-                          : ''
-                    }`
-                  }
-                >
-                  {timeRemaining.toFixed(2)}s
-                </span>
+            timerStatus === 'waiting' ? (
+              <div className="round-timer waiting">
+                <div className="round-timer-top">
+                  <span className="timer-label">Timer starts after the first guess</span>
+                  <span className="timer-value">{timeLimitSeconds}s</span>
+                </div>
+                {typeof maxRoundTimeSeconds === 'number' && (
+                  <div className="timer-sub">
+                    Max round time: {maxRoundTimeSeconds}s
+                  </div>
+                )}
               </div>
-              <div className="timer-bar">
-                <div
-                  className={
-                    `timer-bar-fill${
-                      timeRemaining <= 5
-                        ? ' critical'
-                        : timeRemaining <= 10
-                          ? ' warning'
-                          : ''
-                    }`
-                  }
-                  style={{
-                    width: `${Math.max(0, Math.min(1, timeRemaining / timeLimitSeconds)) * 100}%`
-                  }}
-                />
+            ) : (
+              <div className="round-timer">
+                <div className="round-timer-top">
+                  <span className="timer-label">
+                    Time left ({timeLimitSeconds}s)
+                  </span>
+                  <span
+                    className={
+                      `timer-value${
+                        timeRemaining <= 5
+                          ? ' critical'
+                          : timeRemaining <= 10
+                            ? ' warning'
+                            : ''
+                      }`
+                    }
+                  >
+                    {timeRemaining.toFixed(2)}s
+                  </span>
+                </div>
+                <div className="timer-bar">
+                  <div
+                    className={
+                      `timer-bar-fill${
+                        timeRemaining <= 5
+                          ? ' critical'
+                          : timeRemaining <= 10
+                            ? ' warning'
+                            : ''
+                      }`
+                    }
+                    style={{
+                      width: `${Math.max(0, Math.min(1, timeRemaining / timeLimitSeconds)) * 100}%`
+                    }}
+                  />
+                </div>
               </div>
-            </div>
+            )
           )}
 
           {/* Waiting overlay */}
