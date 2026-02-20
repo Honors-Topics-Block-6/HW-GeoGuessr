@@ -251,11 +251,14 @@ export function useGameState(): UseGameStateReturn {
         excludeImageIds: excludeIds,
         excludeImageUrls: excludeUrls
       });
-      if (!image) {
+      // Only fall back to no excludes when we didn't exclude anything (avoid repeats in same game)
+      if (!image && excludeIds.length === 0 && excludeUrls.length === 0) {
         image = await getRandomImage(difficulty);
       }
       if (!image) {
-        setError('No approved images are available yet.');
+        setError(excludeIds.length > 0 || excludeUrls.length > 0
+          ? 'No more unique images for this game. Try again with a different difficulty.'
+          : 'No approved images are available yet.');
         setCurrentImage(null);
         return false;
       }
@@ -533,13 +536,13 @@ export function useGameState(): UseGameStateReturn {
       return;
     }
 
+    // Exclude only images already used in this game (no repeats within same game).
+    // Do not exclude seen refs here — images may repeat across different games.
     const excludeIds = Array.from(new Set([
-      ...seenImageIdsRef.current,
       ...usedImageIds,
       ...(currentImage?.id ? [currentImage.id] : [])
     ]));
     const excludeUrls = Array.from(new Set([
-      ...seenImageUrlsRef.current,
       ...usedImageUrls,
       ...(currentImage?.url ? [currentImage.url] : [])
     ]));
