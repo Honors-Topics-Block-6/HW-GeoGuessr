@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatLastActive } from '../../utils/formatLastActive';
 import './ProfileScreen.css';
 
 export interface ProfileScreenProps {
@@ -174,6 +175,11 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
         </div>
 
         <div className="profile-fields">
+          <div className="profile-field">
+            <span className="profile-label">Last Active</span>
+            <span className="profile-value">{formatLastActive(userDoc?.lastActive)}</span>
+          </div>
+
           <div className="profile-field">
             <span className="profile-label">Username</span>
             {isEditing ? (

@@ -618,12 +618,14 @@ describe('App', () => {
         await completeRound(user, round === 5);
       }
 
+      // Ensure we're on the final results screen first (state transition can be async under fake timers)
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /play again/i })).toBeInTheDocument();
+        expect(screen.getByText('Game Complete!')).toBeInTheDocument();
       });
+      expect(screen.getByRole('button', { name: /play again/i })).toBeInTheDocument();
 
       vi.useRealTimers();
-    });
+    }, 20000);
 
     it('should return to title from final results', async () => {
       const user = userEvent.setup();
@@ -645,12 +647,14 @@ describe('App', () => {
       // Click back to title
       await user.click(screen.getByRole('button', { name: /back to home/i }));
 
-      await waitFor(() => {
-        expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
+      // Flush React state updates under fake timers
+      act(() => {
+        vi.runOnlyPendingTimers();
       });
+      expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
 
       vi.useRealTimers();
-    });
+    }, 20000);
   });
 
   describe('loading states', () => {

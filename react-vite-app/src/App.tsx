@@ -6,6 +6,7 @@ import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
 import { STARTING_HEALTH } from './services/duelService';
 import { joinLobby } from './services/lobbyService';
+import { touchLastActive } from './services/lastActiveService';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
@@ -162,10 +163,11 @@ function App(): React.ReactElement {
    * Handle transition from WaitingRoom to the duel game
    */
   const handleDuelGameStart = useCallback((): void => {
+    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
     setInDuel(true);
     setDuelLobbyDocId(lobbyDocId);
     setScreen('duelGame');
-  }, [lobbyDocId, setScreen]);
+  }, [user?.uid, lobbyDocId, setScreen]);
 
   /**
    * Exit the duel and go back to difficulty select
@@ -309,6 +311,7 @@ function App(): React.ReactElement {
    * Handle starting the game from difficulty select
    */
   const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string): void => {
+    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
     startGame(selectedDifficulty, selectedMode);
   };
 

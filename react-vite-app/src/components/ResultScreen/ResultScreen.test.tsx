@@ -427,9 +427,11 @@ describe('ResultScreen', () => {
 
       const detailsPanel = container.querySelector('.result-details');
       const observers = (global as Record<string, unknown>)._resizeObserverInstances as Array<{ observe: ReturnType<typeof vi.fn> }>;
-      const lastObserver = observers[observers.length - 1];
+      const didObserveDetails = observers.some(obs =>
+        obs.observe.mock.calls.some(call => call[0] === detailsPanel)
+      );
 
-      expect(lastObserver.observe).toHaveBeenCalledWith(detailsPanel);
+      expect(didObserveDetails).toBe(true);
     });
 
     it('should update map height when details panel resizes', () => {

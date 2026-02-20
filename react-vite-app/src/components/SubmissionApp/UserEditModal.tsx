@@ -30,7 +30,7 @@ interface FormData {
 
 function UserEditModal({ user, onSave, onClose, isSaving }: UserEditModalProps): React.JSX.Element {
   // Known fields we render explicitly with nice UI
-  const knownFields: string[] = ['uid', 'id', 'email', 'username', 'isAdmin', 'emailVerified', 'verified', 'createdAt', 'totalXp', 'gamesPlayed', 'lastGameAt', 'permissions']
+  const knownFields: string[] = ['uid', 'id', 'email', 'username', 'isAdmin', 'emailVerified', 'verified', 'createdAt', 'lastActive', 'totalXp', 'gamesPlayed', 'lastGameAt', 'permissions']
 
   // Extra/dynamic fields beyond the known set
   const extraFields: string[] = Object.keys(user).filter(
@@ -373,6 +373,14 @@ function UserEditModal({ user, onSave, onClose, isSaving }: UserEditModalProps):
             <div className="user-modal-field">
               <label className="user-modal-label">Created</label>
               <span className="user-modal-value">{formatDate(user.createdAt)}</span>
+            </div>
+
+            {/* Read-only: Last Active */}
+            <div className="user-modal-field">
+              <label className="user-modal-label">Last Active</label>
+              <span className="user-modal-value">
+                {user.lastActive ? formatDate(user.lastActive) : 'No activity yet'}
+              </span>
             </div>
           </div>
 

@@ -10,6 +10,7 @@ import {
 import { db } from '../firebase';
 import { getRandomImage } from './imageService';
 import { calculateDistance, calculateLocationScore } from '../hooks/useGameState';
+import { touchLastActive } from './lastActiveService';
 
 // ────── Types ──────
 
@@ -194,20 +195,24 @@ export async function submitDuelGuess(
   }
 
   const lobbyRef = doc(db, 'lobbies', docId);
-  await updateDoc(lobbyRef, {
-    [`guesses.${playerUid}`]: {
-      location: guessData.location,
-      floor: guessData.floor ?? null,
-      score,
-      locationScore,
-      distance,
-      floorCorrect,
-      timedOut: guessData.timedOut || false,
-      noGuess: guessData.noGuess || false,
-      submittedAt: Timestamp.now()
-    },
-    updatedAt: serverTimestamp()
-  });
+  await Promise.all([
+    updateDoc(lobbyRef, {
+      [`guesses.${playerUid}`]: {
+        location: guessData.location,
+        floor: guessData.floor ?? null,
+        score,
+        locationScore,
+        distance,
+        floorCorrect,
+        timedOut: guessData.timedOut || false,
+        noGuess: guessData.noGuess || false,
+        submittedAt: Timestamp.now()
+      },
+      updatedAt: serverTimestamp()
+    }),
+    // Meaningful activity: user submitted a score/guess (throttled, server time).
+    touchLastActive(playerUid, { minIntervalMs: 2 * 60 * 1000 })
+  ]);
 }
 
 /**

@@ -120,22 +120,23 @@ export function useDailyGoals(uid: string | null): UseDailyGoalsReturn {
     }
   }, [uid, goalsData, refreshGoals]);
 
-  // Derived state
-  const goals = goalsData?.goals || [];
-  const allCompleted = goalsData?.allCompleted || false;
-  const bonusXpAwarded = goalsData?.bonusXpAwarded || false;
-  const bonusXpAmount = goalsData?.bonusXpAmount || 0;
+  return useMemo(() => {
+    const goals = goalsData?.goals ?? [];
+    const allCompleted = goalsData?.allCompleted ?? false;
+    const bonusXpAwarded = goalsData?.bonusXpAwarded ?? false;
+    const bonusXpAmount = goalsData?.bonusXpAmount ?? 0;
 
-  return useMemo(() => ({
-    goals,
-    allCompleted,
-    bonusXpAwarded,
-    bonusXpAmount,
-    loading,
-    error,
-    refreshGoals,
-    recordProgress,
-    claimBonusXp,
-    GOAL_TYPES
-  }), [goals, allCompleted, bonusXpAwarded, bonusXpAmount, loading, error, refreshGoals, recordProgress, claimBonusXp]);
+    return {
+      goals,
+      allCompleted,
+      bonusXpAwarded,
+      bonusXpAmount,
+      loading,
+      error,
+      refreshGoals,
+      recordProgress,
+      claimBonusXp,
+      GOAL_TYPES
+    };
+  }, [goalsData, loading, error, refreshGoals, recordProgress, claimBonusXp]);
 }

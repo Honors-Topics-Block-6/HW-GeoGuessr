@@ -11,8 +11,10 @@ import {
 } from 'firebase/auth';
 import { auth } from '../firebase';
 import { createUserDoc, getUserDoc, updateUserDoc, updateUserProfile, isUsernameTaken, isHardcodedAdmin, getAllPermissions, getNoPermissions, ADMIN_PERMISSIONS } from '../services/userService';
+import { touchLastActive } from '../services/lastActiveService';
 import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
 import { compressImage } from '../utils/compressImage';
+import { coerceTimestampToDate } from '../utils/formatLastActive';
 
 /**
  * Shape of the admin permissions object.
@@ -37,6 +39,7 @@ export interface UserDoc {
   gamesPlayed: number;
   createdAt: unknown; // Firestore Timestamp or serverTimestamp sentinel
   permissions?: AdminPermissions;
+  lastActive?: unknown;
   lastGameAt?: unknown;
 }
 
@@ -122,6 +125,18 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
           setUserDoc(doc);
           setNeedsUsername(false);
+
+          // Mark "last active" on session start (throttled, server time).
+          const lastActiveDate = coerceTimestampToDate(doc.lastActive as unknown);
+          const STALE_AFTER_MS = 5 * 60 * 1000;
+          const shouldTouch = !lastActiveDate || (Date.now() - lastActiveDate.getTime() > STALE_AFTER_MS);
+          if (shouldTouch) {
+            void touchLastActive(firebaseUser.uid).then((didWrite) => {
+              if (didWrite) {
+                setUserDoc(prev => (prev ? { ...prev, lastActive: new Date() } : prev));
+              }
+            });
+          }
         } else {
           setEmailVerified(authVerified);
           // User exists in Auth but not in Firestore (Google sign-in, first time)
@@ -208,7 +223,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
     await createUserDoc(credential.user.uid, email, username);
     const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
-    setUserDoc(doc);
+    setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
     setNeedsUsername(false);
     return credential.user;
   }, []);
@@ -218,8 +233,9 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
    */
   const login = useCallback(async (email: string, password: string): Promise<FirebaseUser> => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
+    await touchLastActive(credential.user.uid);
     const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
-    setUserDoc(doc);
+    setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
     return credential.user;
   }, []);
 
@@ -233,7 +249,8 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     // Check if user already has a Firestore doc
     const existingDoc = await getUserDoc(credential.user.uid) as UserDoc | null;
     if (existingDoc) {
-      setUserDoc(existingDoc);
+      await touchLastActive(credential.user.uid);
+      setUserDoc({ ...existingDoc, lastActive: new Date() });
       setNeedsUsername(false);
     } else {
       // New Google user -- needs to pick a username
@@ -256,7 +273,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
     await createUserDoc(user.uid, user.email!, username);
     const doc = await getUserDoc(user.uid) as UserDoc | null;
-    setUserDoc(doc);
+    setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
     setNeedsUsername(false);
   }, [user]);
 

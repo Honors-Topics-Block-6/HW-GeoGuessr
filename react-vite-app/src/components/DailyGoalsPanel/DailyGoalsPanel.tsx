@@ -26,14 +26,7 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
     loading,
     error,
     claimBonusXp
-  } = useDailyGoals(user?.uid ?? null, {
-    onGoalCompleted: async (_count: number) => {
-      await refreshUserDoc();
-    },
-    onAllCompleted: async () => {
-      await refreshUserDoc();
-    }
-  });
+  } = useDailyGoals(user?.uid ?? null);
 
   const [claiming, setClaiming] = useState<boolean>(false);
   const [claimed, setClaimed] = useState<boolean>(false);
