@@ -203,6 +203,91 @@
   font-size: 1rem;
 }
 
+/* Round Time Section (Host panel) */
+.lobby-time-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lobby-time-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lobby-time-options {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.lobby-time-btn {
+  flex: 1;
+  padding: 0.5rem 0.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.lobby-time-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-light);
+}
+
+.lobby-time-btn.selected {
+  background: rgba(108, 181, 45, 0.12);
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+}
+
+.lobby-time-custom {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.lobby-time-custom-input {
+  flex: 1;
+  padding: 0.5rem 0.6rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lobby-time-custom-input:focus {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 10px rgba(108, 181, 45, 0.2);
+}
+
+.lobby-time-custom-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.lobby-time-custom-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 /* Create Game Button */
 .lobby-create-btn {
   width: 100%;

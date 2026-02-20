@@ -457,9 +457,10 @@ function App(): React.ReactElement {
   const handleStartFromDifficulty = (
     selectedDifficulty: string,
     selectedMode: string,
-    singleplayerVariant?: 'classic' | 'endless'
+    singleplayerVariant?: 'classic' | 'endless',
+    roundTimeSeconds?: number
   ): void => {
-    startGame(selectedDifficulty, selectedMode, singleplayerVariant);
+    startGame(selectedDifficulty, selectedMode, singleplayerVariant, roundTimeSeconds);
   };
 
   /**
@@ -571,7 +572,7 @@ function App(): React.ReactElement {
           totalRounds={totalRounds}
           clickRejected={clickRejected}
           playingArea={playingArea as React.ComponentProps<typeof GameScreen>['playingArea']}
-          timeRemaining={timeRemaining}
+          timeRemaining={roundTimeSeconds > 0 ? timeRemaining : undefined}
           timeLimitSeconds={roundTimeSeconds}
           isEndlessMode={isEndlessMode}
           currentHp={currentHp}
@@ -637,7 +638,7 @@ function App(): React.ReactElement {
           currentRound={duel.currentRound}
           clickRejected={duel.clickRejected}
           playingArea={duel.playingArea as React.ComponentProps<typeof DuelGameScreen>['playingArea']}
-          timeRemaining={duel.timeRemaining}
+          timeRemaining={duel.roundTimeSeconds > 0 ? duel.timeRemaining : undefined}
           timeLimitSeconds={duel.roundTimeSeconds}
           hasSubmitted={duel.hasSubmitted}
           opponentHasSubmitted={duel.opponentHasSubmitted}
