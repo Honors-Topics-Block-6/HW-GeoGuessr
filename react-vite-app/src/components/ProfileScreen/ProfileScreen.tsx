@@ -101,6 +101,59 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     return keys;
   };
 
+  const getHeatmapWeeks = (daysBack: number) => {
+    const endDate = new Date();
+    endDate.setHours(0, 0, 0, 0);
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - (daysBack - 1));
+    const startOfWeek = new Date(startDate);
+    startOfWeek.setDate(startDate.getDate() - startDate.getDay());
+    const endOfWeek = new Date(endDate);
+    endOfWeek.setDate(endDate.getDate() + (6 - endDate.getDay()));
+
+    const weeks: Array<Array<{ date: Date; key: string; gamesPlayed: number } | null>> = [];
+    const current = new Date(startOfWeek);
+
+    while (current <= endOfWeek) {
+      const week: Array<{ date: Date; key: string; gamesPlayed: number } | null> = [];
+      for (let i = 0; i < 7; i += 1) {
+        const dayDate = new Date(current);
+        if (dayDate < startDate || dayDate > endDate) {
+          week.push(null);
+        } else {
+          const key = getLocalDateKey(dayDate);
+          const games = dailyStats[key]?.gamesPlayed ?? 0;
+          week.push({ date: dayDate, key, gamesPlayed: games });
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      weeks.push(week);
+    }
+
+    return { weeks, startDate, endDate };
+  };
+
+  const { weeks: heatmapWeeks } = getHeatmapWeeks(365);
+  const heatmapDays = heatmapWeeks.flat().filter((day): day is { date: Date; key: string; gamesPlayed: number } => !!day);
+  const totalGamesYear = heatmapDays.reduce((sum, day) => sum + day.gamesPlayed, 0);
+  const maxHeatmapValue = heatmapDays.reduce((max, day) => Math.max(max, day.gamesPlayed), 0);
+  const getHeatmapLevel = (value: number): string => {
+    if (value <= 0) return 'level-0';
+    if (maxHeatmapValue <= 1) return 'level-1';
+    const ratio = value / maxHeatmapValue;
+    if (ratio <= 0.25) return 'level-1';
+    if (ratio <= 0.5) return 'level-2';
+    if (ratio <= 0.75) return 'level-3';
+    return 'level-4';
+  };
+
+  const monthLabels = heatmapWeeks.map((week) => {
+    const monthStart = week?.find((day) => day && day.date.getDate() === 1);
+    return monthStart
+      ? monthStart.date.toLocaleString('en-US', { month: 'short' })
+      : '';
+  });
+
   const sumBuckets = (bucketsByDate: Record<string, DailyStatBucket>, keys: string[] | null) => {
     const totals = {
       gamesPlayed: 0,
@@ -369,6 +422,72 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
           </div>
         ) : (
           <div className="profile-stats">
+            <div className="profile-activity">
+              <div className="profile-activity-header">
+                <div className="profile-activity-header-text">
+                  <span className="profile-activity-title">Games Played Activity</span>
+                  <span className="profile-activity-subtitle">Last 365 days</span>
+                </div>
+                <span className="profile-activity-total">
+                  {totalGamesYear.toLocaleString()} games in the last year
+                </span>
+              </div>
+              <div className="profile-activity-months">
+                {monthLabels.map((label, index) => (
+                  <span key={`${label}-${index}`} className="profile-activity-month">
+                    {label}
+                  </span>
+                ))}
+              </div>
+              <div className="profile-activity-body">
+                <div className="profile-activity-weekdays">
+                  <span className="profile-activity-weekday" style={{ gridRow: 2 }}>Mon</span>
+                  <span className="profile-activity-weekday" style={{ gridRow: 4 }}>Wed</span>
+                  <span className="profile-activity-weekday" style={{ gridRow: 6 }}>Fri</span>
+                </div>
+                <div className="profile-activity-grid">
+                  {heatmapWeeks.map((week, weekIndex) => (
+                    <div key={`week-${weekIndex}`} className="profile-activity-week">
+                      {week.map((day, dayIndex) => {
+                        if (!day) {
+                          return (
+                            <div
+                              key={`empty-${weekIndex}-${dayIndex}`}
+                              className="profile-activity-cell level-0 is-empty"
+                              aria-hidden="true"
+                            />
+                          );
+                        }
+                        const tooltip = `${day.gamesPlayed} ${day.gamesPlayed === 1 ? 'game' : 'games'} on ${day.date.toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}`;
+                        return (
+                          <div
+                            key={day.key}
+                            className={`profile-activity-cell ${getHeatmapLevel(day.gamesPlayed)}`}
+                            title={tooltip}
+                            aria-label={tooltip}
+                          />
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="profile-activity-legend">
+                <span className="profile-activity-legend-label">Less</span>
+                <div className="profile-activity-legend-cells">
+                  <span className="profile-activity-cell level-0" />
+                  <span className="profile-activity-cell level-1" />
+                  <span className="profile-activity-cell level-2" />
+                  <span className="profile-activity-cell level-3" />
+                  <span className="profile-activity-cell level-4" />
+                </div>
+                <span className="profile-activity-legend-label">More</span>
+              </div>
+            </div>
             <div className="profile-stats-interval">
               <span className="profile-stats-interval-label">Sorting</span>
               <div className="profile-stats-interval-buttons">
