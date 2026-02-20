@@ -185,6 +185,23 @@ export function isHardcodedAdmin(uid: string): boolean {
 }
 
 /**
+ * Check if an account with the given email exists and is verified.
+ * Returns { exists: boolean, verified: boolean }
+ */
+export async function checkEmailVerificationStatus(email: string): Promise<{ exists: boolean; verified: boolean }> {
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('emailLower', '==', email.toLowerCase()));
+  const snapshot = await getDocs(q);
+  
+  if (snapshot.empty) {
+    return { exists: false, verified: false };
+  }
+  
+  const userDoc = snapshot.docs[0].data() as UserDoc;
+  return { exists: true, verified: userDoc.emailVerified === true };
+}
+
+/**
  * Get all user documents from Firestore
  * Used by admins to manage accounts
  */
