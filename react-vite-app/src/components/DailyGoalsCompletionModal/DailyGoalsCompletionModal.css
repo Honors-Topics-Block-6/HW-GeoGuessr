@@ -1,0 +1,94 @@
+.daily-goals-reward-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 10, 18, 0.7);
+  backdrop-filter: blur(3px);
+}
+
+.daily-goals-reward-modal {
+  position: relative;
+  width: min(92vw, 440px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgba(22, 33, 62, 0.96), rgba(14, 21, 42, 0.96));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  padding: 1.8rem 1.4rem 1.4rem;
+  text-align: center;
+}
+
+.daily-goals-reward-icon {
+  font-size: 2.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.daily-goals-reward-modal h2 {
+  margin: 0 0 0.4rem;
+  color: #e9edf7;
+  font-size: 1.45rem;
+}
+
+.daily-goals-reward-modal p {
+  margin: 0 0 1.2rem;
+  color: #aab3c8;
+  font-size: 0.95rem;
+}
+
+.daily-goals-reward-collect-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 0.78rem 1.2rem;
+  min-width: 220px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1a1a2e;
+  background: linear-gradient(135deg, #ffc107, #ff9800);
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(255, 193, 7, 0.35);
+}
+
+.daily-goals-reward-collect-btn:disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.daily-goals-reward-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  background: transparent;
+  color: #93a0bc;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.daily-goals-reward-confetti {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.daily-goals-confetti-piece {
+  position: absolute;
+  top: -12px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  animation: daily-goals-confetti-fall 2.2s linear forwards;
+}
+
+@keyframes daily-goals-confetti-fall {
+  0% {
+    transform: translateY(-10px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(105vh) rotate(500deg);
+    opacity: 0.05;
+  }
+}
