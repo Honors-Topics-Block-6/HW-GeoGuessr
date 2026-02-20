@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { collection, addDoc, serverTimestamp, increment } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -16,6 +16,31 @@ import './SubmissionForm.css'
 const ALL_FLOORS: number[] = [1, 2, 3]
 
 const DIFFICULTY_OPTIONS: string[] = ['easy', 'medium', 'hard']
+const BUILDING_OPTIONS: string[] = [
+  'Copses Family Pool',
+  'Taper Athletic Pavilion',
+  'Ted Slavin Field',
+  'Pool House',
+  'Harvard Westlake Driveway',
+  'Munger Science Center',
+  'Sprague Plaza',
+  'Ahmanson Lecture Hall',
+  'Seaver Academic Center',
+  'Wellness Center',
+  'Buisness Office',
+  'Security Kiosk',
+  'Kutler Center',
+  'Flag Court Cafe',
+  'Learning Center',
+  'Mudd Library',
+  "St. Saviour's Chapel",
+  'Feldman-Horn',
+  'Rugby Hall',
+  'Rugby Tower',
+  'Drama Lab',
+  'Chalmers Hall',
+  'Weiler Hall'
+]
 
 type MapCoords = MapCoordinates
 
@@ -33,6 +58,9 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
   const [location, setLocation] = useState<MapCoords | null>(null)
   const [floor, setFloor] = useState<number | null>(null)
   const [difficulty, setDifficulty] = useState<string | null>(null)
+  const [building, setBuilding] = useState<string | null>(null)
+  const [isBuildingOpen, setIsBuildingOpen] = useState<boolean>(false)
+  const buildingMenuRef = useRef<HTMLDivElement | null>(null)
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [submitSuccess, setSubmitSuccess] = useState<boolean>(false)
   const [submitError, setSubmitError] = useState<string>('')
@@ -58,6 +86,20 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
     }
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (!isBuildingOpen) return
+
+    const handleOutsideClick = (event: MouseEvent): void => {
+      if (!buildingMenuRef.current) return
+      if (!buildingMenuRef.current.contains(event.target as Node)) {
+        setIsBuildingOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [isBuildingOpen])
 
   const handlePhotoSelect = (file: File | null): void => {
     setPhoto(file)
@@ -135,6 +177,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
     setFloor(null)
     setDifficulty(null)
     setAvailableFloors(null)
+    setBuilding(null)
     // Don't reset submitSuccess here - it should persist to show the success message
     setSubmitError('')
   }
@@ -152,6 +195,10 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
     }
     if (!location) {
       setSubmitError('Please select a location on the map')
+      return
+    }
+    if (!building) {
+      setSubmitError('Please select a building/location')
       return
     }
     if (isInRegion && floor === null) {
@@ -179,6 +226,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
           y: location.y
         },
         floor: floor ?? null,
+        building,
         difficulty: difficulty,
         status: 'pending', // pending, approved, denied
         submitterUid: user?.uid ?? null,
@@ -262,6 +310,43 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
             </p>
           </div>
 
+          <div className="building-selector" ref={buildingMenuRef}>
+            <label className="building-selector-label" htmlFor="buildingSelect">
+              Building / Location
+            </label>
+            <button
+              id="buildingSelect"
+              type="button"
+              className="building-selector-button"
+              aria-haspopup="listbox"
+              aria-expanded={isBuildingOpen}
+              onClick={() => setIsBuildingOpen((open) => !open)}
+            >
+              {building ?? 'Select a building/location'}
+            </button>
+            {isBuildingOpen && (
+              <div className="building-selector-menu" role="listbox">
+                {BUILDING_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="option"
+                    aria-selected={building === option}
+                    className={`building-selector-option ${building === option ? 'selected' : ''}`}
+                    onClick={() => {
+                      setBuilding(option)
+                      setIsBuildingOpen(false)
+                      setSubmitError('')
+                      setSubmitSuccess(false)
+                    }}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {isInRegion && (
             <FloorSelector
               selectedFloor={floor}
@@ -295,6 +380,10 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
             <div className={`status-item ${location ? 'complete' : ''}`}>
               <span className="status-icon">{location ? '\u2713' : '\u25CB'}</span>
               <span>Location selected</span>
+            </div>
+            <div className={`status-item ${building ? 'complete' : ''}`}>
+              <span className="status-icon">{building ? '\u2713' : '\u25CB'}</span>
+              <span>Building selected</span>
             </div>
             {isInRegion && (
               <div className={`status-item ${floor ? 'complete' : ''}`}>
