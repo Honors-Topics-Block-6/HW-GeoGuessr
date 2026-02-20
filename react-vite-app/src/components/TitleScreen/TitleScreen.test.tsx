@@ -159,6 +159,19 @@ describe('TitleScreen', () => {
     });
   });
 
+  describe('profile navigation', () => {
+    it('should call onOpenProfile when the username is clicked', async () => {
+      const user = userEvent.setup();
+      const onOpenProfile = vi.fn();
+
+      render(<TitleScreen {...defaultProps} onOpenProfile={onOpenProfile} />);
+
+      await user.click(screen.getByRole('button', { name: 'TestUser' }));
+
+      expect(onOpenProfile).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('accessibility', () => {
     it('should have accessible button names', () => {
       render(<TitleScreen {...defaultProps} />);
