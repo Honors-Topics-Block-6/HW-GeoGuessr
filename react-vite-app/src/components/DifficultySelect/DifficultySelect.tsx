@@ -64,7 +64,7 @@ export interface DifficultySelectProps {
 }
 
 function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps): React.ReactElement {
-  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyId | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyId>('all');
   const [selectedMode, setSelectedMode] = useState<GameMode>('singleplayer');
 
   // Time setting: preset value or 'custom'
