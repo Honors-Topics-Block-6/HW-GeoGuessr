@@ -48,7 +48,9 @@ const BUILDING_OPTIONS: string[] = [
   'Drama Lab',
   'Chalmers Hall',
   'Weiler Hall',
-  'Advancement House'
+  'Advancement House',
+  'The Quad',
+  'Outside'
 ]
 const SORTED_BUILDING_OPTIONS = [...BUILDING_OPTIONS].sort((a, b) => (
   a.localeCompare(b, 'en', { sensitivity: 'base' })
