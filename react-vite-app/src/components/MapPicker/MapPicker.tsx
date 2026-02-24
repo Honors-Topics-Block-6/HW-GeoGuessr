@@ -42,6 +42,20 @@ export interface MapPickerHandle {
   clickAtCursor: () => boolean;
 }
 
+function getCentroid(points: PolygonPoint[]): PolygonPoint {
+  if (!points || points.length === 0) return { x: 0, y: 0 };
+  let sumX = 0;
+  let sumY = 0;
+  for (const p of points) {
+    sumX += p.x;
+    sumY += p.y;
+  }
+  return {
+    x: sumX / points.length,
+    y: sumY / points.length
+  };
+}
+
 const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker(
   { markerPosition, onMapClick, clickRejected = false, playingArea = null, buildingPolygons = null },
   ref: Ref<MapPickerHandle>
@@ -263,6 +277,15 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
                       stroke="rgba(139, 92, 246, 0.9)"
                       strokeWidth="0.35"
                     />
+                    <text
+                      x={getCentroid(building.polygon as PolygonPoint[]).x}
+                      y={getCentroid(building.polygon as PolygonPoint[]).y}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className="building-polygon-label"
+                    >
+                      {i + 1}
+                    </text>
                   </g>
                 ) : null
               )}
