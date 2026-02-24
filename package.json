@@ -8,5 +8,8 @@
     "test": "npm --prefix react-vite-app run test",
     "lint": "npm --prefix react-vite-app run lint",
     "install:app": "npm --prefix react-vite-app install"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.4"
   }
 }
