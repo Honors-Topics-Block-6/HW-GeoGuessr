@@ -5,6 +5,27 @@
   background-color: var(--bg-dark);
 }
 
+.game-leave-button {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 12;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.game-leave-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
 /* Image Panel - Left side */
 .image-panel {
   flex: 7;
