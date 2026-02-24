@@ -134,6 +134,38 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
 
   // Determine if floor selection should be shown
   const isInRegion: boolean = availableFloors !== null && availableFloors.length > 0
+  const buildingOptions: string[] = (() => {
+    const rawNames = regions
+      .map(r => r.name)
+      .filter((name): name is string => typeof name === 'string' && name.trim().length > 0)
+      .map(name => name.trim())
+
+    const normalized = new Set<string>()
+
+    // Rename Business House -> Business Office
+    rawNames.forEach(name => {
+      if (name.toLowerCase() === 'business house') {
+        normalized.add('Business Office')
+      } else {
+        normalized.add(name)
+      }
+    })
+
+    // If any Rugby entries exist, expose the three specific buildings
+    const hasRugby = rawNames.some(name => name.toLowerCase().includes('rugby'))
+    if (hasRugby) {
+      normalized.delete('Rugby')
+      normalized.add('Rugby Auditorium')
+      normalized.add('Rugby Tower')
+      normalized.add('Rugby Hall')
+    }
+
+    // Add extra known buildings
+    normalized.add('Drama Lab')
+    normalized.add('Chapel')
+
+    return Array.from(normalized)
+  })()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault()
@@ -210,18 +242,26 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
 
         <div className="building-name-section">
           <label htmlFor="building-name" className="building-name-label">Building Name</label>
-          <input
+          <select
             id="building-name"
-            type="text"
-            className="building-name-input"
-            placeholder="e.g. Main Library, Science Building"
+            className="building-name-select"
             value={buildingName}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
               setBuildingName(e.target.value)
               setSubmitError('')
               setSubmitSuccess(false)
             }}
-          />
+          >
+            <option value="">Select a building</option>
+            {buildingOptions.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+          {buildingOptions.length === 0 && (
+            <div className="building-name-hint">
+              No building names found yet. Add regions in the map editor to populate this list.
+            </div>
+          )}
         </div>
 
         <div className="location-section">
