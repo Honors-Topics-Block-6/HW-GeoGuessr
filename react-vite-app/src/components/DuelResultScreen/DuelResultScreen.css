@@ -39,38 +39,38 @@
   min-height: 0;
 }
 
-/* ── Map - left side, matches image-panel ── */
+/* ── Map - left side, matches MapPicker styling from guessing screen ── */
 .duel-result-map-container {
   flex: var(--game-panel-flex-main, 7);
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   background-color: var(--bg-dark);
   border-right: 1px solid var(--border-color);
   padding: 1rem;
   overflow: hidden;
   box-sizing: border-box;
+  align-self: flex-start;
 }
 
 .duel-result-map {
   position: relative;
   width: 100%;
-  flex: 1;
-  min-height: 0;
-  background-color: var(--bg-secondary);
-  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
   overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.08);
 }
 
 .duel-result-map .map-image {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: auto;
 }
 
 .duel-result-zoom-content {
   position: relative;
   width: 100%;
-  height: 100%;
   will-change: transform;
   transform-origin: 0 0;
 }
@@ -568,7 +568,7 @@
 
   .duel-result-map-container {
     flex: none;
-    height: var(--game-image-height-lg, 50vh);
+    align-self: stretch;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
   }
@@ -584,20 +584,12 @@
     min-width: 0;
   }
 
-  .duel-result-map {
-    min-height: 300px;
-  }
-
   .duel-score-value {
     font-size: 1.4rem;
   }
 }
 
 @media (max-width: 768px) {
-  .duel-result-map-container {
-    height: var(--game-image-height-md, 40vh);
-  }
-
   .duel-result-header {
     padding: 0.75rem 1rem;
   }
@@ -614,10 +606,6 @@
     align-items: flex-start;
   }
 
-  .duel-result-map {
-    min-height: 250px;
-  }
-
   .duel-score-value {
     font-size: 1.2rem;
   }
@@ -628,10 +616,6 @@
 }
 
 @media (max-width: 480px) {
-  .duel-result-map-container {
-    height: var(--game-image-height-sm, 35vh);
-  }
-
   .duel-result-header {
     padding: 0.6rem 0.75rem;
   }
@@ -642,10 +626,6 @@
 }
 
 @media (max-width: 360px) {
-  .duel-result-map-container {
-    height: var(--game-image-height-xs, 32vh);
-  }
-
   .duel-result-header {
     padding: 0.5rem 0.6rem;
   }

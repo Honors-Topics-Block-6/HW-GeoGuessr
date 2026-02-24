@@ -1,26 +1,30 @@
 .game-screen {
   display: flex;
+  flex-direction: column;
   width: 100%;
   min-height: 100vh;
   background-color: var(--bg-dark);
 }
 
-/* Image Panel - Left side */
-.image-panel {
-  flex: var(--game-panel-flex-main, 7);
-  display: flex;
-  background-color: var(--bg-dark);
-  border-right: 1px solid var(--border-color);
-}
-
-/* Guess Panel - Right side */
+/* Guess Panel - full width, contains header, image, controls */
 .guess-panel {
-  flex: var(--game-panel-flex-side, 3);
+  flex: 1;
   display: flex;
   flex-direction: column;
   background-color: var(--bg-panel);
-  min-width: 320px;
-  max-width: 400px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Image Panel - below menus, above location selector */
+.image-panel {
+  flex-shrink: 0;
+  height: var(--game-image-height, 280px);
+  min-height: 200px;
+  display: flex;
+  background-color: var(--bg-dark);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .guess-panel-header {
@@ -37,7 +41,7 @@
   gap: 0.35rem;
   padding: 0.6rem 1.25rem 0.7rem;
   border-bottom: 1px solid var(--border-color);
-  background: rgba(0, 0, 0, 0.25);
+  background: transparent; /* Integrated with panel, not a separate top bar */
 }
 
 .round-timer-top {
@@ -170,32 +174,15 @@
 
 /* Responsive Design */
 @media (max-width: 1024px) {
-  .game-screen {
-    flex-direction: column;
-  }
-
-  .image-panel {
-    flex: none;
-    height: var(--game-image-height-lg, 50vh);
-    border-right: none;
-    border-bottom: 1px solid var(--border-color);
-  }
-
   .guess-panel {
-    flex: 1;
-    min-width: 0;
     max-width: 100%;
-  }
-
-  .image-panel,
-  .guess-panel {
-    min-width: 0;
   }
 }
 
 @media (max-width: 768px) {
   .image-panel {
-    height: var(--game-image-height-md, 40vh);
+    height: var(--game-image-height-md, 240px);
+    min-height: 180px;
   }
 
   .guess-panel-header {
@@ -217,7 +204,8 @@
 
 @media (max-width: 480px) {
   .image-panel {
-    height: var(--game-image-height-sm, 35vh);
+    height: var(--game-image-height-sm, 200px);
+    min-height: 160px;
   }
 
   .guess-panel-header {
@@ -236,7 +224,8 @@
 
 @media (max-width: 360px) {
   .image-panel {
-    height: var(--game-image-height-xs, 32vh);
+    height: var(--game-image-height-xs, 180px);
+    min-height: 140px;
   }
 
   .guess-panel-header {

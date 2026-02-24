@@ -75,40 +75,40 @@
   min-height: 0;
 }
 
-/* Map Container - left side, matches image-panel */
+/* Map Container - left side, matches MapPicker styling from guessing screen */
 .result-map-container {
   flex: var(--game-panel-flex-main, 7);
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   background-color: var(--bg-dark);
   border-right: 1px solid var(--border-color);
   padding: 1rem;
   border-radius: 0;
   overflow: hidden;
   box-sizing: border-box;
+  align-self: flex-start;
 }
 
 .result-map {
   position: relative;
   width: 100%;
-  flex: 1;
-  min-height: 0;
-  background-color: var(--bg-secondary);
-  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
   overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.08);
 }
 
 .result-map .map-image {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: auto;
 }
 
 /* Zoom content wrapper for result map */
 .result-zoom-content {
   position: relative;
   width: 100%;
-  height: 100%;
   will-change: transform;
   transform-origin: 0 0;
 }
@@ -481,7 +481,7 @@
 
   .result-map-container {
     flex: none;
-    height: var(--game-image-height-lg, 50vh);
+    align-self: stretch;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
   }
@@ -497,20 +497,12 @@
     min-width: 0;
   }
 
-  .result-map {
-    min-height: 300px;
-  }
-
   .score-value {
     font-size: 2rem;
   }
 }
 
 @media (max-width: 768px) {
-  .result-map-container {
-    height: var(--game-image-height-md, 40vh);
-  }
-
   .result-header {
     padding: 0.75rem 1rem;
   }
@@ -529,10 +521,6 @@
 
   .score-display {
     align-self: flex-end;
-  }
-
-  .result-map {
-    min-height: 250px;
   }
 
   .result-marker {
@@ -557,10 +545,6 @@
 }
 
 @media (max-width: 480px) {
-  .result-map-container {
-    height: var(--game-image-height-sm, 35vh);
-  }
-
   .result-header {
     padding: 0.6rem 0.75rem;
   }
@@ -581,10 +565,6 @@
 }
 
 @media (max-width: 360px) {
-  .result-map-container {
-    height: var(--game-image-height-xs, 32vh);
-  }
-
   .result-header {
     padding: 0.5rem 0.6rem;
   }
@@ -595,9 +575,5 @@
 
   .score-value {
     font-size: 1.75rem;
-  }
-
-  .result-map {
-    min-height: 220px;
   }
 }

@@ -83,12 +83,6 @@ function GameScreen({
 
   return (
     <div className="game-screen">
-      {/* Left panel - Image */}
-      <div className="image-panel">
-        <ImageViewer imageUrl={imageUrl} />
-      </div>
-
-      {/* Right panel - Guess controls */}
       <div className="guess-panel">
         <div className="guess-panel-header">
           <button className="back-button" onClick={() => setShowLeaveConfirm(true)}>
@@ -139,6 +133,11 @@ function GameScreen({
             </div>
           </div>
         )}
+
+        {/* Image - below menus, above location selector */}
+        <div className="image-panel">
+          <ImageViewer imageUrl={imageUrl} />
+        </div>
 
         <div className="guess-controls">
           <MapPicker
