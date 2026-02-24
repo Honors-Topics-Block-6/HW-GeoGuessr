@@ -302,7 +302,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
           y: location.y
         },
         floor: floor ?? null,
-        building,
+        buildingName: building,
         difficulty: difficulty,
         status: 'pending', // pending, approved, denied
         submitterUid: user?.uid ?? null,
