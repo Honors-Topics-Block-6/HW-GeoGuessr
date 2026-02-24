@@ -88,6 +88,7 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
   const topPlayerXpText = topPlayerEntry ? topPlayerEntry.totalXp.toLocaleString() : '0';
   const mostGamesName = mostGamesEntry?.username ?? '---';
   const mostGamesPlayedText = mostGamesEntry ? mostGamesEntry.gamesPlayed.toLocaleString() : '0';
+  const xpToFirst = topPlayerEntry && user ? Math.max(0, topPlayerEntry.totalXp - totalXp) : null;
   const hypeEmoji = myRank ? (myRank <= 10 ? '🔥' : '🚀') : '👀';
   const hypeHeadline = myRank
     ? myRank === 1
@@ -100,8 +101,12 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
     ? myRank === 1
       ? 'Defend that title like a champ. Everyone’s chasing you.'
       : myRank <= 10
-        ? 'Keep the streak alive and push for that gold podium.'
-        : 'Stack more XP, complete daily goals, and rocket up the board.'
+        ? xpToFirst !== null
+          ? `Only ${xpToFirst.toLocaleString()} XP stands between you and the crown. Keep grinding!`
+          : 'Keep the streak alive and push for that gold podium.'
+        : xpToFirst !== null
+          ? `${xpToFirst.toLocaleString()} XP to reach #1. Stack daily goals and duels to close the gap!`
+          : 'Stack more XP, complete daily goals, and rocket up the board.'
     : 'Play rounds, earn XP, and watch your name soar.';
 
   const youRankText = myRank ? `You: #${myRank}` : 'You: Play to rank up';
@@ -184,6 +189,12 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
                 <span role="img" aria-hidden="true">📈</span>
                 {youRankText}
               </span>
+              {xpToFirst !== null && myRank !== 1 && (
+                <span className="leaderboard-highlight-pill leaderboard-highlight-pill-focus">
+                  <span role="img" aria-hidden="true">⭐</span>
+                  {xpToFirst.toLocaleString()} XP to reach 1st
+                </span>
+              )}
             </div>
 
             <div className="leaderboard-list">
