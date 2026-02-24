@@ -23,6 +23,7 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
+  favoriteEmote?: string;
   photoURL?: string;
   isAdmin: boolean;
   emailVerified: boolean;
@@ -50,6 +51,7 @@ export interface UserDocWithId extends UserDoc {
 
 export interface UserProfileUpdates {
   username?: string;
+  favoriteEmote?: string;
   email?: string;
   isAdmin?: boolean;
   emailVerified?: boolean;
@@ -84,6 +86,19 @@ export interface DailyStatBucket {
   twentyFiveKCount: number;
   photosSubmittedCount: number;
   buildingStats: Record<string, BuildingStat>;
+}
+
+const FALLBACK_FAVORITE_EMOTE = '😎';
+
+export function normalizeFavoriteEmote(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error('Favorite emote cannot be empty.');
+  }
+  if (trimmed.length > 16) {
+    throw new Error('Favorite emote is too long.');
+  }
+  return trimmed;
 }
 
 // ────── Constants ──────
@@ -155,6 +170,7 @@ export async function createUserDoc(uid: string, email: string, username: string
     emailLower: email.toLowerCase(),
     username: trimmedUsername,
     usernameLower: trimmedUsername.toLowerCase(),
+    favoriteEmote: FALLBACK_FAVORITE_EMOTE,
     isAdmin,
     emailVerified: false,
     totalXp: 0,
@@ -386,6 +402,11 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
       throw new Error('Total XP must be a non-negative number.');
     }
     updates.totalXp = xp;
+  }
+
+  // Validate favoriteEmote if being changed
+  if ('favoriteEmote' in updates && typeof updates.favoriteEmote === 'string') {
+    updates.favoriteEmote = normalizeFavoriteEmote(updates.favoriteEmote);
   }
 
   // Validate gamesPlayed if being changed
