@@ -1,5 +1,6 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import ImageViewer from '../ImageViewer/ImageViewer';
+import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
 import MapPicker from '../MapPicker/MapPicker';
 import type { MapPickerHandle, PlayingArea } from '../MapPicker/MapPicker';
 import FloorSelector from '../FloorSelector/FloorSelector';
@@ -24,7 +25,7 @@ export interface DuelGameScreenProps {
   currentRound: number;
   clickRejected?: boolean;
   playingArea?: PlayingArea | null;
-  timeRemaining: number;
+  timeRemaining?: number;
   timeLimitSeconds?: number;
   hasSubmitted?: boolean;
   opponentHasSubmitted?: boolean;
@@ -56,6 +57,7 @@ function DuelGameScreen({
   myUsername = 'You'
 }: DuelGameScreenProps): React.ReactElement {
   const mapPickerRef = useRef<MapPickerHandle>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   const isInRegion = availableFloors !== null && availableFloors.length > 0;
   const canSubmit = !hasSubmitted && guessLocation !== null && (!isInRegion || guessFloor !== null);
@@ -134,7 +136,7 @@ function DuelGameScreen({
         {/* Right panel - Guess controls */}
         <div className="guess-panel">
           <div className="guess-panel-header">
-            <button className="back-button" onClick={onBackToTitle}>
+            <button className="back-button" onClick={() => setShowLeaveConfirm(true)}>
               <span>&larr;</span>
               <span>Quit</span>
             </button>
@@ -253,6 +255,17 @@ function DuelGameScreen({
           )}
         </div>
       </div>
+
+      {showLeaveConfirm && (
+        <LeaveConfirmModal
+          onConfirm={() => {
+            setShowLeaveConfirm(false);
+            onBackToTitle();
+          }}
+          onCancel={() => setShowLeaveConfirm(false)}
+          isDuel={true}
+        />
+      )}
     </div>
   );
 }

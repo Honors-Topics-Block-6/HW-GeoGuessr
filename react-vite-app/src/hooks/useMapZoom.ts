@@ -2,8 +2,9 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
-const ZOOM_STEP = 0.5;
-const WHEEL_ZOOM_FACTOR = 0.002;
+const ZOOM_STEP = 1.5;
+const WHEEL_ZOOM_FACTOR = 0.012;
+const PINCH_ZOOM_EXPONENT = 8;
 const DRAG_THRESHOLD = 5;
 
 interface Point {
@@ -31,10 +32,12 @@ export interface UseMapZoomReturn {
   transformStyle: string;
   handlers: MapZoomHandlers;
   zoomIn: () => void;
+  zoomInAtPoint: (x: number, y: number) => void;
   zoomOut: () => void;
   resetZoom: () => void;
   hasMoved: () => boolean;
   isPanning: boolean;
+  isTouchActive: boolean;
 }
 
 /**
@@ -91,6 +94,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
   const [scale, setScale] = useState<number>(MIN_SCALE);
   const [translate, setTranslate] = useState<Point>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [isTouchActive, setIsTouchActive] = useState<boolean>(false);
 
   // Refs for gesture tracking (don't trigger re-renders)
   const isDragging = useRef<boolean>(false);
@@ -157,8 +161,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
     const currentScale = scaleRef.current;
     const currentTranslate = translateRef.current;
 
-    const delta = -e.deltaY * WHEEL_ZOOM_FACTOR;
-    const newScale = currentScale * (1 + delta);
+    const newScale = currentScale * Math.pow(2, -e.deltaY * WHEEL_ZOOM_FACTOR);
 
     const result = zoomToPoint(cursorX, cursorY, newScale, currentScale, currentTranslate);
     if (result) {
@@ -239,6 +242,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
    * Touch start - start pinch or single-finger pan.
    */
   const handleTouchStart = useCallback((e: React.TouchEvent): void => {
+    setIsTouchActive(true);
     if (e.touches.length === 2) {
       // Pinch start
       lastTouchDistance.current = getTouchDistance(e.touches);
@@ -273,7 +277,8 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
       const currentScale = scaleRef.current;
       const currentTranslate = translateRef.current;
 
-      const scaleChange = newDist / lastTouchDistance.current;
+      const rawRatio = newDist / lastTouchDistance.current;
+      const scaleChange = Math.pow(rawRatio, PINCH_ZOOM_EXPONENT);
       const newScale = currentScale * scaleChange;
 
       const result = zoomToPoint(cursorX, cursorY, newScale, currentScale, currentTranslate);
@@ -315,6 +320,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
   const handleTouchEnd = useCallback((): void => {
     isDragging.current = false;
     lastTouchDistance.current = null;
+    setIsTouchActive(false);
   }, []);
 
   // Attach native touchmove listener with { passive: false } for preventDefault support
@@ -326,7 +332,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
   }, [containerRef, handleTouchMove]);
 
   /**
-   * Zoom in by ZOOM_STEP, centered on container.
+   * Zoom in by ZOOM_STEP factor, centered on container.
    */
   const zoomIn = useCallback((): void => {
     const container = containerRef.current;
@@ -338,7 +344,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
 
     const currentScale = scaleRef.current;
     const currentTranslate = translateRef.current;
-    const newScale = Math.min(MAX_SCALE, currentScale + ZOOM_STEP);
+    const newScale = Math.min(MAX_SCALE, currentScale * ZOOM_STEP);
 
     const result = zoomToPoint(cx, cy, newScale, currentScale, currentTranslate);
     if (result) {
@@ -348,7 +354,22 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
   }, [containerRef, zoomToPoint]);
 
   /**
-   * Zoom out by ZOOM_STEP, centered on container.
+   * Zoom in by ZOOM_STEP factor toward a specific point (container-relative coords).
+   */
+  const zoomInAtPoint = useCallback((x: number, y: number): void => {
+    const currentScale = scaleRef.current;
+    const currentTranslate = translateRef.current;
+    const newScale = Math.min(MAX_SCALE, currentScale * ZOOM_STEP);
+
+    const result = zoomToPoint(x, y, newScale, currentScale, currentTranslate);
+    if (result) {
+      setScale(result.scale);
+      setTranslate(result.translate);
+    }
+  }, [zoomToPoint]);
+
+  /**
+   * Zoom out by ZOOM_STEP factor, centered on container.
    */
   const zoomOut = useCallback((): void => {
     const container = containerRef.current;
@@ -360,7 +381,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
 
     const currentScale = scaleRef.current;
     const currentTranslate = translateRef.current;
-    const newScale = Math.max(MIN_SCALE, currentScale - ZOOM_STEP);
+    const newScale = Math.max(MIN_SCALE, currentScale / ZOOM_STEP);
 
     if (newScale <= MIN_SCALE) {
       setScale(MIN_SCALE);
@@ -407,14 +428,16 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
     transformStyle,
     handlers,
     zoomIn,
+    zoomInAtPoint,
     zoomOut,
     resetZoom,
     hasMoved,
-    isPanning
+    isPanning,
+    isTouchActive
   };
 }
 
 export default useMapZoom;
 
 // Export constants for testing
-export { MIN_SCALE, MAX_SCALE, ZOOM_STEP, DRAG_THRESHOLD };
+export { MIN_SCALE, MAX_SCALE, ZOOM_STEP, PINCH_ZOOM_EXPONENT, DRAG_THRESHOLD };

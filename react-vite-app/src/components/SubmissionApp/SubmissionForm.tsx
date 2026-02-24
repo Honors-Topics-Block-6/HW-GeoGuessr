@@ -50,6 +50,9 @@ const BUILDING_OPTIONS: string[] = [
   'Weiler Hall',
   'Advancement House'
 ]
+const SORTED_BUILDING_OPTIONS = [...BUILDING_OPTIONS].sort((a, b) => (
+  a.localeCompare(b, 'en', { sensitivity: 'base' })
+))
 
 /** Normalize for matching: lowercase, collapse spaces, ignore hyphens/apostrophes */
 function normalizeForMatch(s: string): string {
@@ -457,7 +460,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
                     {building}
                   </button>
                 )}
-                {BUILDING_OPTIONS.map((option) => (
+                {SORTED_BUILDING_OPTIONS.map((option) => (
                   <button
                     key={option}
                     type="button"
