@@ -1,6 +1,7 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useMemo, useState, useEffect, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
+import { DAILY_STREAK_UPDATED_EVENT, getDisplayDailyStreak, syncDailyStreakRollover } from '../../services/streakService';
 import './ProfileScreen.css';
 
 export interface ProfileScreenProps {
@@ -31,6 +32,26 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     levelTitle,
     emailVerified
   } = useAuth();
+
+  const uid: string = user?.uid ?? '';
+  const [dailyStreak, setDailyStreak] = useState<number>(() => (uid ? getDisplayDailyStreak(uid) : 0));
+
+  useEffect(() => {
+    if (!uid) return;
+
+    // Ensure stale streaks get reset to 0 before display.
+    syncDailyStreakRollover(uid);
+    setDailyStreak(getDisplayDailyStreak(uid));
+
+    const onStreakUpdated = (event: Event): void => {
+      const customEvent = event as CustomEvent<{ uid?: string }>;
+      if (customEvent.detail?.uid && customEvent.detail.uid !== uid) return;
+      setDailyStreak(getDisplayDailyStreak(uid));
+    };
+
+    window.addEventListener(DAILY_STREAK_UPDATED_EVENT, onStreakUpdated);
+    return () => window.removeEventListener(DAILY_STREAK_UPDATED_EVENT, onStreakUpdated);
+  }, [uid]);
 
   const [newUsername, setNewUsername] = useState<string>(userDoc?.username || '');
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -262,7 +283,12 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
               </div>
             ) : (
               <div className="profile-value-row">
-                <span className="profile-value">{userDoc?.username}</span>
+                <div className="profile-username-and-streak">
+                  <span className="profile-value">{userDoc?.username}</span>
+                  <span className="profile-streak-badge" aria-label={`Daily streak ${dailyStreak}`}>
+                    🔥 {dailyStreak}
+                  </span>
+                </div>
                 <button
                   className="profile-edit-button"
                   onClick={() => setIsEditing(true)}

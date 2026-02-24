@@ -317,6 +317,28 @@
   gap: 1rem;
 }
 
+.profile-username-and-streak {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.profile-streak-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  flex-shrink: 0;
+}
+
 .profile-achievements-header {
   display: flex;
   justify-content: space-between;
