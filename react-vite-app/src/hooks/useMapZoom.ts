@@ -247,10 +247,10 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
    * A left-click that doesn't drag will still place a marker (handled via hasMoved).
    */
   const handleMouseDown = useCallback((e: React.MouseEvent): void => {
-    // Only allow panning on left-click or middle-click
     const isLeftClick = e.button === 0;
     const isMiddleClick = e.button === 1;
-    if (!isLeftClick && !isMiddleClick) return;
+    const isRightClick = e.button === 2;
+    if (!isLeftClick && !isMiddleClick && !isRightClick) return;
 
     isDragging.current = true;
     dragMoved.current = false;

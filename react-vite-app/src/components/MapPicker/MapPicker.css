@@ -108,8 +108,9 @@ body.map-fullscreen-open {
   transition: transform 0.12s linear;
 }
 
-/* No transition during touch (pinch/pan) so two-finger zoom feels instant and responsive */
-.map-picker.touch-active .map-zoom-content {
+/* No transition during touch (pinch/pan) or mouse panning so it feels instant and responsive */
+.map-picker.touch-active .map-zoom-content,
+.map-picker.is-panning .map-zoom-content {
   transition: none !important;
 }
 
@@ -131,8 +132,8 @@ body.map-fullscreen-open {
   max-width: 100%;
 }
 
-.map-picker.zoomed {
-  cursor: grab;
+.map-picker.is-panning {
+  cursor: grabbing;
 }
 
 /* ===== Marker ===== */
