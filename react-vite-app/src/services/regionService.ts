@@ -89,18 +89,8 @@ export function isPointInPolygon(point: Point, polygon: Point[]): boolean {
 }
 
 /**
- * Find which region a point is in and return the region
- * Both point and regions use percentage coordinates (0-100)
- */
-export function getFloorsForPoint(point: Point, regions: Region[]): number[] | null {
-  const region = getRegionForPoint(point, regions);
-  return region ? (region.floors || []) : null;
-}
-
-/**
  * Find which region a point is in
  */
-export function getRegionForPoint(point: Point, regions: Region[]): Region | null {
 export function getRegionForPoint(point: Point, regions: Region[]): Region | null {
   if (!regions || regions.length === 0) return null;
 

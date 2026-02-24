@@ -169,8 +169,7 @@ export async function createUserDoc(uid: string, email: string, username: string
     buildingStats: {},
     lastOnline: serverTimestamp(),
     dailyStats: {},
-    dailyStatsByDifficulty: {}
-    createdAt: serverTimestamp(),
+    dailyStatsByDifficulty: {},
     // Track when the username was last set to enforce change frequency
     lastUsernameChange: serverTimestamp()
   };

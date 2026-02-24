@@ -1,9 +1,7 @@
-import { useState, type ChangeEvent } from 'react';
+import { useMemo, useState, type ChangeEvent } from 'react';
 import { useAuth, type BuildingStat, type DailyStatBucket } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
 import { getFavoriteAndWorstBuildings } from '../../utils/buildingStats';
-import { useMemo, useState, type ChangeEvent } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
 import './ProfileScreen.css';
 
@@ -126,12 +124,6 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   const dailyStats: Record<string, DailyStatBucket> = userDoc?.dailyStats ?? {};
   const dailyStatsByDifficulty: Record<string, Record<string, DailyStatBucket>> = userDoc?.dailyStatsByDifficulty ?? {};
   const gamesPlayed: number = userDoc?.gamesPlayed ?? 0;
-  const achievementDefinitions: AchievementDefinition[] = useMemo(() => {
-    const allMeta = getAllAchievementMeta();
-    return allMeta.map((meta) => {
-      let target = 1;
-      let progress = 0;
-
   const { friends } = useFriends(user?.uid ?? null, userDoc?.username ?? '');
 
   const formatTimestamp = (value: unknown): string => {
@@ -311,6 +303,12 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   const friendsToFollowerRatio = followersCount > 0 ? (friends.length / followersCount) : null;
 
   const { favoriteBuilding, worstBuilding } = getFavoriteAndWorstBuildings(filteredStats.buildingStats);
+
+  const achievementDefinitions: AchievementDefinition[] = useMemo(() => {
+    const allMeta = getAllAchievementMeta();
+    return allMeta.map((meta) => {
+      let target = 1;
+      let progress = 0;
 
       if (meta.id === 'first-game') {
         target = 1;
@@ -512,23 +510,6 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
               <span className="profile-label">Friends</span>
               <div className="profile-value-row">
                 <span className="profile-value">View and manage your friends</span>
-          <div className="profile-fields">
-
-          <div className="profile-field">
-            <span className="profile-label">Username</span>
-            {isEditing ? (
-              <div className="profile-edit-row">
-                <input
-                  type="text"
-                  value={newUsername}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewUsername(e.target.value)}
-                  className="profile-input"
-                  autoFocus
-                  disabled={isSaving}
-                />
-                <div className="profile-username-note">
-                  Changing your username is allowed once every 30 days.
-                </div>
                 <button
                   className="profile-friends-button"
                   onClick={onOpenFriends}
@@ -786,6 +767,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
           </div>
         </section>
       </div>
+    </div>
     </div>
   );
 }
