@@ -6,6 +6,8 @@ import { getUserDoc, updateUserDoc } from '../../services/userService'
 import { compressImage } from '../../utils/compressImage'
 import { getRegions, getPlayingArea, getFloorsForPoint, getRegionForPoint, isPointInPlayingArea, isPointInPolygon } from '../../services/regionService'
 import { getBuildingNameForPoint } from '../../utils/buildingPolygons'
+import type { BuildingPolygon } from '../../utils/buildingPolygons'
+import { getBuildingPolygons } from '../../services/buildingPolygonService'
 import type { Point, Region as RegionData, PlayingArea as PlayingAreaData } from '../../services/regionService'
 import MapPicker from '../MapPicker/MapPicker'
 import type { MapCoordinates } from '../MapPicker/MapPicker'
@@ -98,22 +100,29 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
 
   // Region/playing area state (matching game behavior)
   const [regions, setRegions] = useState<RegionData[]>([])
+  const [customBuildingPolygons, setCustomBuildingPolygons] = useState<BuildingPolygon[]>([])
   const [playingArea, setPlayingArea] = useState<PlayingAreaData | null>(null)
   const [availableFloors, setAvailableFloors] = useState<number[] | null>(null)
   const [clickRejected, setClickRejected] = useState<boolean>(false)
 
+  // Local polygon drawing helper (debug / helper overlay only)
+  const [isPolygonDrawingMode, setIsPolygonDrawingMode] = useState<boolean>(false)
+  const [draftPolygonPoints, setDraftPolygonPoints] = useState<MapCoords[]>([])
+
   // Override: allows picking any location with any floor
   const [overrideRestrictions, setOverrideRestrictions] = useState<boolean>(false)
 
-  // Load regions and playing area on mount
+  // Load regions, playing area, and building polygons on mount
   useEffect(() => {
     async function loadData(): Promise<void> {
-      const [fetchedRegions, fetchedPlayingArea] = await Promise.all([
+      const [fetchedRegions, fetchedPlayingArea, fetchedPolygons] = await Promise.all([
         getRegions(),
-        getPlayingArea()
+        getPlayingArea(),
+        getBuildingPolygons()
       ])
       setRegions(fetchedRegions)
       setPlayingArea(fetchedPlayingArea)
+      setCustomBuildingPolygons(fetchedPolygons)
     }
     loadData()
   }, [])
@@ -139,6 +148,13 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
   }
 
   const handleMapClick = useCallback((coords: MapCoords): void => {
+    // When in polygon drawing mode, clicks add vertices to a local overlay polygon only.
+    // This does NOT affect the saved Firestore polygons or submission data.
+    if (isPolygonDrawingMode) {
+      setDraftPolygonPoints(prev => [...prev, coords])
+      return
+    }
+
     setSubmitSuccess(false)
     setSubmitError('')
 
@@ -167,7 +183,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
       }
     }
     if (!buildingSet) {
-      const buildingName = getBuildingNameForPoint(coords, isPointInPolygon)
+      const buildingName = getBuildingNameForPoint(customBuildingPolygons, coords, isPointInPolygon)
       if (buildingName) {
         const matchingBuilding = matchBuildingFromRegionName(buildingName) ?? buildingName
         setBuilding(matchingBuilding)
@@ -187,7 +203,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
         setFloor(null)
       }
     }
-  }, [overrideRestrictions, playingArea, regions, floor])
+  }, [overrideRestrictions, playingArea, regions, floor, customBuildingPolygons, isPolygonDrawingMode])
 
   const handleFloorSelect = useCallback((selectedFloor: number): void => {
     setFloor(selectedFloor)
@@ -231,6 +247,8 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
     setDifficulty(null)
     setAvailableFloors(null)
     setBuilding(null)
+    setDraftPolygonPoints([])
+    setIsPolygonDrawingMode(false)
     // Don't reset submitSuccess here - it should persist to show the success message
     setSubmitError('')
   }
@@ -347,7 +365,51 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
             onMapClick={handleMapClick}
             clickRejected={clickRejected}
             playingArea={overrideRestrictions ? null : playingArea}
+            buildingPolygons={[
+              // Saved building polygons from Firestore (used for auto-fill)
+              ...customBuildingPolygons.map((poly) => ({
+                name: poly.name,
+                polygon: poly.polygon
+              })),
+              // Local draft polygon overlay (helper only)
+              ...(draftPolygonPoints.length >= 3
+                ? [{
+                    name: 'Draft polygon',
+                    polygon: draftPolygonPoints
+                  }]
+                : [])
+            ]}
           />
+
+          <div className="polygon-draw-controls">
+            <div className="polygon-draw-header">
+              <span className="polygon-draw-title">Polygon helper (local only)</span>
+            </div>
+            <div className="polygon-draw-buttons">
+              <button
+                type="button"
+                className={`polygon-draw-button ${isPolygonDrawingMode ? 'active' : ''}`}
+                onClick={() => {
+                  setIsPolygonDrawingMode(prev => !prev)
+                }}
+              >
+                {isPolygonDrawingMode ? 'Finish drawing polygon' : 'Start drawing polygon'}
+              </button>
+              <button
+                type="button"
+                className="polygon-draw-button secondary"
+                onClick={() => setDraftPolygonPoints([])}
+                disabled={draftPolygonPoints.length === 0}
+              >
+                Clear polygon
+              </button>
+            </div>
+            {draftPolygonPoints.length > 0 && (
+              <p className="polygon-draw-hint">
+                Draft polygon has {draftPolygonPoints.length} point{draftPolygonPoints.length === 1 ? '' : 's'}.
+              </p>
+            )}
+          </div>
 
           <div className="override-control">
             <label className="override-label">
@@ -368,7 +430,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
               Building / Location
             </label>
             <p className="building-selector-hint">
-              Click on the map inside a building/area to auto-fill. Built-in areas: Field, Pool, Pool House, Driveway, Chapel, Feldman-Horn, Drama Lab, Advancement House, etc.
+              Click on the map inside a building/area to auto-fill. Define areas in Map Editor (Admin → Map Editor → Building polygons).
             </p>
             <button
               id="buildingSelect"

@@ -16,11 +16,18 @@ export interface PlayingArea {
   polygon: PolygonPoint[];
 }
 
+export interface BuildingPolygonOverlay {
+  name: string;
+  polygon: { x: number; y: number }[];
+}
+
 export interface MapPickerProps {
   markerPosition: MapCoordinates | null;
   onMapClick: (coords: MapCoordinates) => void;
   clickRejected?: boolean;
   playingArea?: PlayingArea | null;
+  /** When set, these polygons are drawn over the map (e.g. building hitboxes for submission). */
+  buildingPolygons?: BuildingPolygonOverlay[] | null;
 }
 
 export interface MapPickerHandle {
@@ -28,7 +35,7 @@ export interface MapPickerHandle {
 }
 
 const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker(
-  { markerPosition, onMapClick, clickRejected = false, playingArea = null },
+  { markerPosition, onMapClick, clickRejected = false, playingArea = null, buildingPolygons = null },
   ref: Ref<MapPickerHandle>
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -157,6 +164,28 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
                 strokeWidth="0.4"
                 strokeOpacity="0.8"
               />
+            </svg>
+          )}
+
+          {/* Building polygons overlay (e.g. submission form hitboxes) */}
+          {buildingPolygons && buildingPolygons.length > 0 && (
+            <svg
+              className="building-polygons-overlay"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {buildingPolygons.map((building, i) =>
+                building.polygon.length >= 3 ? (
+                  <g key={building.name + i}>
+                    <polygon
+                      points={building.polygon.map((p) => `${p.x},${p.y}`).join(' ')}
+                      fill="rgba(139, 92, 246, 0.25)"
+                      stroke="rgba(139, 92, 246, 0.9)"
+                      strokeWidth="0.35"
+                    />
+                  </g>
+                ) : null
+              )}
             </svg>
           )}
 

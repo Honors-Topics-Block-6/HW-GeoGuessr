@@ -99,6 +99,74 @@
   font-style: italic;
 }
 
+/* ===== Polygon Draw Helper (local overlay only) ===== */
+.polygon-draw-controls {
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  margin-top: 8px;
+}
+
+.polygon-draw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.polygon-draw-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #c4c9d6;
+}
+
+.polygon-draw-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.polygon-draw-button {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(15, 23, 42, 0.8);
+  color: #e5e7eb;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.polygon-draw-button:hover:not(:disabled) {
+  border-color: rgba(129, 140, 248, 0.9);
+  background: rgba(30, 64, 175, 0.9);
+}
+
+.polygon-draw-button.active {
+  border-color: rgba(129, 140, 248, 1);
+  background: radial-gradient(circle at 0 0, rgba(129, 140, 248, 0.6), rgba(17, 24, 39, 0.95));
+  box-shadow: 0 0 12px rgba(129, 140, 248, 0.45);
+}
+
+.polygon-draw-button.secondary {
+  flex: 0 0 auto;
+  min-width: 110px;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.polygon-draw-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.polygon-draw-hint {
+  margin: 6px 2px 0;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
 /* ===== Status Indicators ===== */
 .location-status {
   display: flex;
