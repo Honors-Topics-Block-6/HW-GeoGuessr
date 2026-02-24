@@ -4,6 +4,7 @@ import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, ge
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
+/** Default round time (used when no custom setting is provided). */
 export const ROUND_TIME_SECONDS = 20;
 const SINGLEPLAYER_SEEN_HISTORY_KEY = 'singleplayerSeenImageHistory.v1';
 
@@ -71,7 +72,7 @@ export interface UseGameStateReturn {
 
   // Actions
   setScreen: React.Dispatch<React.SetStateAction<ScreenState>>;
-  startGame: (selectedDifficulty: string, selectedMode?: string) => Promise<void>;
+  startGame: (selectedDifficulty: string, selectedMode?: string, roundTimeSetting?: number) => Promise<void>;
   placeMarker: (coords: MapCoords) => boolean;
   selectFloor: (floor: number) => void;
   submitGuess: () => void;
@@ -156,6 +157,9 @@ export function useGameState(): UseGameStateReturn {
 
   // Available floors based on selected location (null if not in a region)
   const [availableFloors, setAvailableFloors] = useState<number[] | null>(null);
+
+  // Configurable round time (0 = no time limit). Defaults to ROUND_TIME_SECONDS.
+  const [roundTimeSetting, setRoundTimeSetting] = useState<number>(ROUND_TIME_SECONDS);
 
   // Round timer state (seconds remaining in this guessing phase)
   const [timeRemaining, setTimeRemaining] = useState<number>(ROUND_TIME_SECONDS);
@@ -287,7 +291,9 @@ export function useGameState(): UseGameStateReturn {
   /**
    * Start a new game - reset everything and fetch first image
    */
-  const startGame = useCallback(async (selectedDifficulty: string, selectedMode: string = 'singleplayer'): Promise<void> => {
+  const startGame = useCallback(async (selectedDifficulty: string, selectedMode: string = 'singleplayer', roundTime?: number): Promise<void> => {
+    const effectiveRoundTime = roundTime ?? ROUND_TIME_SECONDS;
+    setRoundTimeSetting(effectiveRoundTime);
     setCurrentRound(1);
     setRoundResults([]);
     setCurrentResult(null);
@@ -337,8 +343,9 @@ export function useGameState(): UseGameStateReturn {
       setGuessLocation(null);
       setGuessFloor(null);
       setAvailableFloors(null);
-      setTimeRemaining(ROUND_TIME_SECONDS);
-      setRoundStartTime(performance.now());
+      // Only start the timer if there IS a time limit (> 0)
+      setTimeRemaining(effectiveRoundTime > 0 ? effectiveRoundTime : 0);
+      setRoundStartTime(effectiveRoundTime > 0 ? performance.now() : null);
       setScreen('game');
     } catch (err) {
       console.error('Failed to start game:', err);
@@ -350,17 +357,20 @@ export function useGameState(): UseGameStateReturn {
 
   /**
    * Timer effect for each guessing phase.
-   * Counts down from ROUND_TIME_SECONDS while on the game screen.
+   * Counts down from roundTimeSetting while on the game screen.
+   * Skipped entirely when roundTimeSetting === 0 (no time limit).
    * When the timer expires, automatically submits the current guess (if valid).
    */
   useEffect(() => {
+    // No timer when there's no time limit
+    if (roundTimeSetting === 0) return;
     if (screen !== 'game' || !roundStartTime) {
       return;
     }
 
     const interval = setInterval(() => {
       const elapsedSeconds = (performance.now() - roundStartTime) / 1000;
-      const remaining = Math.max(0, ROUND_TIME_SECONDS - elapsedSeconds);
+      const remaining = Math.max(0, roundTimeSetting - elapsedSeconds);
       setTimeRemaining(remaining);
 
       if (remaining <= 0) {
@@ -369,7 +379,7 @@ export function useGameState(): UseGameStateReturn {
     }, 50);
 
     return () => clearInterval(interval);
-  }, [screen, roundStartTime]);
+  }, [screen, roundStartTime, roundTimeSetting]);
 
   /**
    * Place a marker on the map
@@ -435,10 +445,8 @@ export function useGameState(): UseGameStateReturn {
     // Track how long the guess took (for display only — no effect on scoring)
     let timeTakenSeconds = 0;
     if (roundStartTime) {
-      timeTakenSeconds = Math.min(
-        ROUND_TIME_SECONDS,
-        (performance.now() - roundStartTime) / 1000
-      );
+      const elapsed = (performance.now() - roundStartTime) / 1000;
+      timeTakenSeconds = roundTimeSetting > 0 ? Math.min(roundTimeSetting, elapsed) : elapsed;
     }
 
     // Floor scoring only applies when in a region AND the photo has a floor set.
@@ -490,8 +498,10 @@ export function useGameState(): UseGameStateReturn {
    * When the timer hits zero on the game screen, automatically submit.
    * If there is a valid guess, submit it as a timeout-based submission.
    * If there is no guess at all, go to results with a zero-score "no guess" result.
+   * Skipped when roundTimeSetting === 0 (no time limit).
    */
   useEffect(() => {
+    if (roundTimeSetting === 0) return; // No auto-submit for unlimited time
     if (screen !== 'game') return;
     if (timeRemaining > 0) return;
     if (!currentImage) return;
@@ -519,7 +529,7 @@ export function useGameState(): UseGameStateReturn {
         locationScore: 0,
         floorCorrect: null,
         score: 0,
-        timeTakenSeconds: ROUND_TIME_SECONDS,
+        timeTakenSeconds: roundTimeSetting,
         timedOut: true,
         noGuess: true
       };
@@ -528,7 +538,7 @@ export function useGameState(): UseGameStateReturn {
       setRoundResults(prev => [...prev, result]);
       setScreen('result');
     }
-  }, [screen, timeRemaining, availableFloors, guessLocation, guessFloor, currentImage, currentRound]);
+  }, [screen, timeRemaining, availableFloors, guessLocation, guessFloor, currentImage, currentRound, roundTimeSetting]);
 
   /**
    * Proceed to the next round
@@ -555,10 +565,10 @@ export function useGameState(): UseGameStateReturn {
 
     setCurrentRound(prev => prev + 1);
     setCurrentResult(null);
-    setTimeRemaining(ROUND_TIME_SECONDS);
-    setRoundStartTime(performance.now());
+    setTimeRemaining(roundTimeSetting > 0 ? roundTimeSetting : 0);
+    setRoundStartTime(roundTimeSetting > 0 ? performance.now() : null);
     setScreen('game');
-  }, [currentRound, currentImage?.id, currentImage?.url, usedImageIds, usedImageUrls, loadNewImage]);
+  }, [currentRound, currentImage?.id, currentImage?.url, usedImageIds, usedImageUrls, loadNewImage, roundTimeSetting]);
 
   /**
    * View final results (called from last round's result screen)
@@ -582,6 +592,7 @@ export function useGameState(): UseGameStateReturn {
     setError(null);
     setTimeRemaining(ROUND_TIME_SECONDS);
     setRoundStartTime(null);
+    setRoundTimeSetting(ROUND_TIME_SECONDS);
     setDifficulty(null);
     setMode(null);
     setLobbyDocId(null);
@@ -605,7 +616,7 @@ export function useGameState(): UseGameStateReturn {
     clickRejected,
     playingArea,
     timeRemaining,
-    roundTimeSeconds: ROUND_TIME_SECONDS,
+    roundTimeSeconds: roundTimeSetting,
     difficulty,
     mode,
     lobbyDocId,
