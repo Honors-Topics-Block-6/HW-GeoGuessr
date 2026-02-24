@@ -391,6 +391,58 @@ export async function removeStalePlayersFromLobby(
 }
 
 /**
+ * Kick a player from the lobby (host-only action).
+ * Removes the player from the players array, heartbeats, and readyStatus.
+ * Resets all remaining players' ready status.
+ */
+export async function kickPlayer(
+  docId: string,
+  hostUid: string,
+  targetUid: string
+): Promise<void> {
+  const lobbyRef = doc(db, 'lobbies', docId);
+  const lobbySnap = await getDoc(lobbyRef);
+
+  if (!lobbySnap.exists()) {
+    throw new Error('Lobby not found.');
+  }
+
+  const lobby = lobbySnap.data() as Omit<LobbyDoc, 'docId'>;
+
+  if (lobby.hostUid !== hostUid) {
+    throw new Error('Only the host can kick players.');
+  }
+
+  if (targetUid === hostUid) {
+    throw new Error('The host cannot kick themselves.');
+  }
+
+  const player = lobby.players.find(p => p.uid === targetUid);
+  if (!player) {
+    throw new Error('Player not found in this lobby.');
+  }
+
+  // Clean up heartbeats
+  const newHeartbeats: Record<string, Timestamp> = { ...lobby.heartbeats };
+  delete newHeartbeats[targetUid];
+
+  // Clean up ready status and reset remaining players
+  const newReadyStatus: Record<string, boolean> = {};
+  lobby.players
+    .filter(p => p.uid !== targetUid)
+    .forEach(p => {
+      newReadyStatus[p.uid] = false;
+    });
+
+  await updateDoc(lobbyRef, {
+    players: arrayRemove(player),
+    heartbeats: newHeartbeats,
+    readyStatus: newReadyStatus,
+    updatedAt: serverTimestamp()
+  });
+}
+
+/**
  * Toggle a player's ready status in the lobby.
  */
 export async function setPlayerReady(

@@ -9,6 +9,7 @@ import {
   sendHeartbeat,
   removeStalePlayersFromLobby,
   setPlayerReady,
+  kickPlayer,
   type LobbyDoc
 } from '../services/lobbyService';
 
@@ -52,6 +53,7 @@ export interface UseWaitingRoomReturn {
   error: string | null;
   leave: () => Promise<void>;
   toggleReady: (ready: boolean) => Promise<void>;
+  kick: (targetUid: string) => Promise<void>;
 }
 
 /**
@@ -261,11 +263,24 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     }
   }, [lobbyDocId, userUid]);
 
+  /**
+   * Kick a player from the lobby (host only).
+   */
+  const kick = useCallback(async (targetUid: string): Promise<void> => {
+    if (!lobbyDocId || !userUid) return;
+    try {
+      await kickPlayer(lobbyDocId, userUid, targetUid);
+    } catch (err) {
+      console.error('Failed to kick player:', err);
+    }
+  }, [lobbyDocId, userUid]);
+
   return {
     lobby,
     isLoading,
     error,
     leave,
-    toggleReady
+    toggleReady,
+    kick
   };
 }

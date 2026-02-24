@@ -42,7 +42,7 @@ export interface WaitingRoomProps {
 }
 
 function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomProps): React.ReactElement {
-  const { lobby, isLoading, error, leave, toggleReady } = useWaitingRoom(lobbyDocId, userUid);
+  const { lobby, isLoading, error, leave, toggleReady, kick } = useWaitingRoom(lobbyDocId, userUid);
   const [copied, setCopied] = useState<boolean>(false);
   const [isStarting, setIsStarting] = useState<boolean>(false);
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
@@ -205,6 +205,15 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
                       <span className={`waiting-player-ready ${isReady ? 'ready' : 'not-ready'}`}>
                         {isReady ? '✓ Ready' : '⏳ Not Ready'}
                       </span>
+                    )}
+                    {isHost && player.uid !== userUid && (
+                      <button
+                        className="waiting-kick-btn"
+                        onClick={() => kick(player.uid)}
+                        title={`Kick ${player.username}`}
+                      >
+                        ✕
+                      </button>
                     )}
                   </div>
                 </div>
