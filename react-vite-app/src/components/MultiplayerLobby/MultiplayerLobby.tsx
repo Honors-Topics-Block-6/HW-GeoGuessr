@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLobby } from '../../hooks/useLobby';
 import GameCodeInput from './GameCodeInput';
 import PublicGameList from './PublicGameList';
@@ -9,13 +9,14 @@ export type Difficulty = 'all' | 'easy' | 'medium' | 'hard';
 interface DifficultyInfo {
   label: string;
   icon: string;
+  description: string;
 }
 
 const DIFFICULTY_LABELS: Record<Difficulty, DifficultyInfo> = {
-  all: { label: 'All', icon: '🌐' },
-  easy: { label: 'Easy', icon: '🟢' },
-  medium: { label: 'Medium', icon: '🟡' },
-  hard: { label: 'Hard', icon: '🔴' },
+  all: { label: 'All', icon: '🌐', description: 'Any photo, any difficulty' },
+  easy: { label: 'Easy', icon: '🟢', description: 'Familiar spots around campus' },
+  medium: { label: 'Medium', icon: '🟡', description: 'Trickier angles and locations' },
+  hard: { label: 'Hard', icon: '🔴', description: 'Only true experts will know these' },
 };
 
 export type GameVisibility = 'public' | 'private';
@@ -45,6 +46,7 @@ export interface MultiplayerLobbyProps {
 }
 
 function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(difficulty);
   const [visibility, setVisibility] = useState<GameVisibility>('public');
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
   const [customTime, setCustomTime] = useState<string>('60');
@@ -68,6 +70,10 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
       setCustomTime(String(CUSTOM_TIME_MAX));
     }
   };
+  useEffect(() => {
+    setSelectedDifficulty(difficulty);
+  }, [difficulty]);
+
   const {
     publicLobbies,
     isCreating,
@@ -77,9 +83,9 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     joinByCode,
     joinPublicGame,
     clearError
-  } = useLobby(userUid, userUsername, difficulty);
+  } = useLobby(userUid, userUsername, selectedDifficulty);
 
-  const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[difficulty] || DIFFICULTY_LABELS.all;
+  const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[selectedDifficulty] || DIFFICULTY_LABELS.all;
 
   const handleHost = async (): Promise<void> => {
     const result = await hostGame(visibility, resolvedTime);
@@ -126,85 +132,102 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
           </div>
         )}
 
-        <div className="lobby-panels">
-          {/* Host a Game */}
-          <div className="lobby-panel">
-            <h2 className="lobby-panel-heading">Host a Game</h2>
-            <p className="lobby-panel-desc">Create a new game and invite friends</p>
+        {/* Host a Game */}
+        <div className="lobby-panel lobby-panel-host">
+          <h2 className="lobby-panel-heading">Host a Game</h2>
+          <p className="lobby-panel-desc">Create a new game and invite friends</p>
 
-            <div className="lobby-visibility-toggle">
-              <button
-                className={`lobby-vis-btn ${visibility === 'public' ? 'selected' : ''}`}
-                onClick={() => setVisibility('public')}
-              >
-                <span className="lobby-vis-icon">🌐</span>
-                Public
-              </button>
-              <button
-                className={`lobby-vis-btn ${visibility === 'private' ? 'selected' : ''}`}
-                onClick={() => setVisibility('private')}
-              >
-                <span className="lobby-vis-icon">🔒</span>
-                Private
-              </button>
-            </div>
-
-            {/* Round Time */}
-            <div className="lobby-time-section">
-              <p className="lobby-time-label">Round Time</p>
-              <div className="lobby-time-options">
-                {TIME_PRESETS.map((preset) => (
-                  <button
-                    key={preset.value}
-                    className={`lobby-time-btn ${timeSelection === preset.value ? 'selected' : ''}`}
-                    onClick={() => setTimeSelection(preset.value)}
-                  >
-                    {preset.value === 0 ? '∞' : `${preset.label}`}
-                  </button>
-                ))}
+          <div className="lobby-host-difficulty">
+            <p className="lobby-time-label">Difficulty</p>
+            <div className="lobby-host-difficulty-options">
+              {(Object.keys(DIFFICULTY_LABELS) as Difficulty[]).map((diff) => (
                 <button
-                  className={`lobby-time-btn ${timeSelection === 'custom' ? 'selected' : ''}`}
-                  onClick={() => setTimeSelection('custom')}
+                  key={diff}
+                  className={`lobby-host-difficulty-card ${selectedDifficulty === diff ? 'selected' : ''}`}
+                  onClick={() => setSelectedDifficulty(diff)}
                 >
-                  ✏️
+                  <span className="lobby-host-difficulty-icon">{DIFFICULTY_LABELS[diff].icon}</span>
+                  <span className="lobby-host-difficulty-name">{DIFFICULTY_LABELS[diff].label}</span>
+                  <span className="lobby-host-difficulty-desc">{DIFFICULTY_LABELS[diff].description}</span>
                 </button>
-              </div>
-              {timeSelection === 'custom' && (
-                <div className="lobby-time-custom">
-                  <input
-                    className="lobby-time-custom-input"
-                    type="text"
-                    inputMode="numeric"
-                    value={customTime}
-                    onChange={(e) => handleCustomTimeChange(e.target.value)}
-                    onBlur={handleCustomTimeBlur}
-                    placeholder="e.g. 60"
-                  />
-                  <span className="lobby-time-custom-hint">
-                    {CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX}s
-                  </span>
-                </div>
-              )}
+              ))}
             </div>
+          </div>
 
+          <div className="lobby-visibility-toggle">
             <button
-              className="lobby-create-btn"
-              onClick={handleHost}
-              disabled={isCreating}
+              className={`lobby-vis-btn ${visibility === 'public' ? 'selected' : ''}`}
+              onClick={() => setVisibility('public')}
             >
-              {isCreating ? (
-                <>
-                  <span className="lobby-spinner"></span>
-                  Creating...
-                </>
-              ) : (
-                'Create Game'
-              )}
+              <span className="lobby-vis-icon">🌐</span>
+              Public
+            </button>
+            <button
+              className={`lobby-vis-btn ${visibility === 'private' ? 'selected' : ''}`}
+              onClick={() => setVisibility('private')}
+            >
+              <span className="lobby-vis-icon">🔒</span>
+              Private
             </button>
           </div>
 
+          {/* Round Time */}
+          <div className="lobby-time-section">
+            <p className="lobby-time-label">Round Time</p>
+            <div className="lobby-time-options">
+              {TIME_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  className={`lobby-time-btn ${timeSelection === preset.value ? 'selected' : ''}`}
+                  onClick={() => setTimeSelection(preset.value)}
+                >
+                  {preset.value === 0 ? '∞' : `${preset.label}`}
+                </button>
+              ))}
+              <button
+                className={`lobby-time-btn ${timeSelection === 'custom' ? 'selected' : ''}`}
+                onClick={() => setTimeSelection('custom')}
+              >
+                ✏️
+              </button>
+            </div>
+            {timeSelection === 'custom' && (
+              <div className="lobby-time-custom">
+                <input
+                  className="lobby-time-custom-input"
+                  type="text"
+                  inputMode="numeric"
+                  value={customTime}
+                  onChange={(e) => handleCustomTimeChange(e.target.value)}
+                  onBlur={handleCustomTimeBlur}
+                  placeholder="e.g. 60"
+                />
+                <span className="lobby-time-custom-hint">
+                  {CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX}s
+                </span>
+              </div>
+            )}
+          </div>
+
+          <button
+            className="lobby-create-btn"
+            onClick={handleHost}
+            disabled={isCreating}
+          >
+            {isCreating ? (
+              <>
+                <span className="lobby-spinner"></span>
+                Creating...
+              </>
+            ) : (
+              'Create Game'
+            )}
+          </button>
+        </div>
+
+        <div className="lobby-bottom-sections">
           {/* Join by Code */}
-          <div className="lobby-panel">
+          <div className="lobby-panel lobby-panel-join">
             <h2 className="lobby-panel-heading">Join a Game</h2>
             <p className="lobby-panel-desc">Enter a game code to join</p>
             <GameCodeInput
@@ -212,20 +235,20 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
               isJoining={isJoining}
             />
           </div>
-        </div>
 
-        {/* Browse Public Games */}
-        <div className="lobby-public-section">
-          <h2 className="lobby-section-heading">Public Games</h2>
-          <p className="lobby-section-desc">
-            Join an open game — only {diffInfo.label} difficulty games can be joined
-          </p>
-          <PublicGameList
-            lobbies={publicLobbies}
-            selectedDifficulty={difficulty}
-            onJoin={handleJoinPublic}
-            isJoining={isJoining}
-          />
+          {/* Browse Public Games */}
+          <div className="lobby-panel lobby-panel-public">
+            <h2 className="lobby-section-heading">Public Games</h2>
+            <p className="lobby-section-desc">
+              Join an open game — only {diffInfo.label} difficulty games can be joined
+            </p>
+            <PublicGameList
+              lobbies={publicLobbies}
+              selectedDifficulty={selectedDifficulty}
+              onJoin={handleJoinPublic}
+              isJoining={isJoining}
+            />
+          </div>
         </div>
       </div>
     </div>
