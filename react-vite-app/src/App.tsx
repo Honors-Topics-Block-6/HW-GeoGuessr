@@ -690,6 +690,9 @@ function App(): React.ReactElement {
           myHealth={duel.myHealth}
           opponentHealth={duel.opponentHealth}
           myUsername={myUsername}
+          myActiveEmote={duel.myActiveEmote}
+          opponentActiveEmote={duel.opponentActiveEmote}
+          onSendEmote={duel.sendEmote}
         />
       )}
 
