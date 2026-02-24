@@ -51,6 +51,18 @@
   padding: 2rem;
   max-width: 900px;
   width: 100%;
+  gap: 1.5rem;
+}
+
+/* Group wrappers for visual grouping */
+.difficulty-group,
+.mode-group,
+.time-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
 }
 
 .difficulty-back-button {
@@ -58,6 +70,9 @@
   top: 0;
   left: 2rem;
   padding: 8px 18px;
+  min-height: var(--touch-target-min, 44px);
+  display: inline-flex;
+  align-items: center;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
@@ -78,44 +93,42 @@
   font-size: 2.2rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
   text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
 }
 
 .difficulty-subheading {
   font-size: 1rem;
   color: var(--text-secondary);
-  margin-bottom: 2rem;
+  margin-bottom: 0;
 }
 
 .mode-heading {
   font-size: 2.2rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-top: 2.5rem;
-  margin-bottom: 1.2rem;
+  margin: 0;
   text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
 }
 
-/* Difficulty Cards */
+/* Difficulty Cards - grid of buttons */
 .difficulty-options {
-  display: flex;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
   width: 100%;
-  justify-content: center;
+  max-width: 480px;
 }
 
 .difficulty-card {
-  flex: 1;
-  max-width: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.5rem 1rem;
+  gap: 0.35rem;
+  padding: 1rem 0.75rem;
   background: rgba(255, 255, 255, 0.04);
   border: 2px solid var(--border-color);
-  border-radius: 14px;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.25s ease;
   color: var(--text-primary);
@@ -144,28 +157,27 @@
 }
 
 .difficulty-card-desc {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: var(--text-secondary);
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
-/* Mode Cards */
+/* Mode Cards - compact pair */
 .mode-options {
-  display: flex;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
   width: 100%;
-  justify-content: center;
+  max-width: 360px;
 }
 
 .mode-card {
-  flex: 1;
-  max-width: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.5rem 1rem;
-  border-radius: 14px;
+  gap: 0.35rem;
+  padding: 1rem 0.75rem;
+  border-radius: 12px;
   border: 2px solid var(--border-color);
   background: rgba(255, 255, 255, 0.04);
   transition: all 0.25s ease;
@@ -200,35 +212,35 @@
   font-size: 2.2rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-top: 2.5rem;
-  margin-bottom: 0.3rem;
+  margin: 0 0 0.2rem 0;
   text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
 }
 
 .time-subheading {
   font-size: 1rem;
   color: var(--text-secondary);
-  margin-bottom: 1.2rem;
+  margin-bottom: 0;
 }
 
 .time-options {
   display: flex;
-  gap: 0.75rem;
-  width: 100%;
-  justify-content: center;
   flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 420px;
+  justify-content: center;
 }
 
 .time-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  padding: 1rem 1.2rem;
-  min-width: 90px;
+  gap: 0.2rem;
+  padding: 0.75rem 1rem;
+  min-width: 70px;
   background: rgba(255, 255, 255, 0.04);
   border: 2px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.25s ease;
   color: var(--text-primary);
@@ -295,7 +307,7 @@
 
 /* Play Button */
 .play-button {
-  margin-top: 2.5rem;
+  margin-top: 0.5rem;
   background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
   color: var(--text-primary);
   font-size: 1.3rem;
@@ -327,7 +339,15 @@
   cursor: not-allowed;
 }
 
-/* Responsive */
+/* Desktop - single row for difficulty */
+@media (min-width: 769px) {
+  .difficulty-options {
+    grid-template-columns: repeat(4, 1fr);
+    max-width: 560px;
+  }
+}
+
+/* Responsive - keep grid groups, adjust sizing */
 @media (max-width: 768px) {
   .difficulty-heading,
   .mode-heading,
@@ -335,18 +355,18 @@
     font-size: 1.7rem;
   }
 
-  .difficulty-options,
-  .mode-options,
-  .time-options {
-    flex-direction: column;
-    align-items: center;
+  .difficulty-options {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 100%;
   }
 
-  .difficulty-card,
-  .mode-card,
-  .time-card {
-    max-width: 280px;
-    width: 100%;
+  .mode-options {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 100%;
+  }
+
+  .time-options {
+    max-width: 100%;
   }
 
   .play-button {
@@ -356,7 +376,7 @@
 
   .difficulty-back-button {
     position: static;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
   }
 }
 
@@ -369,5 +389,15 @@
 
   .difficulty-content {
     padding: 1.5rem 1rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .difficulty-content {
+    padding: 1rem;
+  }
+
+  .difficulty-back-button {
+    padding: 6px 14px;
   }
 }

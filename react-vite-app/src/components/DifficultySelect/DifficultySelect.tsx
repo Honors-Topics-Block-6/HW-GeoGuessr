@@ -109,10 +109,10 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
           ← Back
         </button>
 
-        <h2 className="difficulty-heading">Choose Difficulty</h2>
-        <p className="difficulty-subheading">Select how challenging you want the game to be</p>
-
-        <div className="difficulty-options">
+        <div className="difficulty-group">
+          <h2 className="difficulty-heading">Choose Difficulty</h2>
+          <p className="difficulty-subheading">Select how challenging you want the game to be</p>
+          <div className="difficulty-options">
           {DIFFICULTIES.map((diff: DifficultyOption) => (
             <button
               key={diff.id}
@@ -124,11 +124,12 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
               <span className="difficulty-card-desc">{diff.description}</span>
             </button>
           ))}
+          </div>
         </div>
 
-        <h2 className="mode-heading">Game Mode</h2>
-
-        <div className="mode-options">
+        <div className="mode-group">
+          <h2 className="mode-heading">Game Mode</h2>
+          <div className="mode-options">
           <button
             className={`mode-card mode-singleplayer ${selectedMode === 'singleplayer' ? 'selected' : ''}`}
             onClick={() => setSelectedMode('singleplayer')}
@@ -144,13 +145,13 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
             <span className="mode-card-icon">👥</span>
             <span className="mode-card-label">Multiplayer</span>
           </button>
+          </div>
         </div>
 
         {selectedMode === 'singleplayer' && (
-          <>
+          <div className="time-group">
             <h2 className="time-heading">Round Time</h2>
             <p className="time-subheading">How long each round lasts</p>
-
             <div className="time-options">
               {TIME_PRESETS.map((preset) => (
                 <button
@@ -192,7 +193,7 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
                 />
               </div>
             )}
-          </>
+          </div>
         )}
 
         <button

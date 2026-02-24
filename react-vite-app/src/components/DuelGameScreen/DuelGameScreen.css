@@ -125,14 +125,14 @@
 }
 
 .duel-game-main .image-panel {
-  flex: 7;
+  flex: var(--game-panel-flex-main, 7);
   display: flex;
   background-color: var(--bg-dark);
   border-right: 1px solid var(--border-color);
 }
 
 .duel-game-main .guess-panel {
-  flex: 3;
+  flex: var(--game-panel-flex-side, 3);
   display: flex;
   flex-direction: column;
   background-color: var(--bg-panel);
@@ -229,15 +229,20 @@
 
   .duel-game-main .image-panel {
     flex: none;
-    height: 45vh;
+    height: var(--game-image-height-lg, 50vh);
     border-right: none;
     border-bottom: 1px solid var(--border-color);
   }
 
   .duel-game-main .guess-panel {
     flex: 1;
-    min-width: 100%;
+    min-width: 0;
     max-width: 100%;
+  }
+
+  .duel-game-main .image-panel,
+  .duel-game-main .guess-panel {
+    min-width: 0;
   }
 
   .duel-health-bar-container {
@@ -248,6 +253,12 @@
   .duel-health-name {
     font-size: 0.75rem;
     min-width: 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .duel-game-main .image-panel {
+    height: var(--game-image-height-md, 40vh);
   }
 }
 
@@ -268,5 +279,31 @@
     gap: 0.5rem;
     justify-content: center;
     margin-bottom: 0.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .duel-game-main .image-panel {
+    height: var(--game-image-height-sm, 35vh);
+  }
+}
+
+@media (max-width: 360px) {
+  .duel-game-main .image-panel {
+    height: var(--game-image-height-xs, 32vh);
+  }
+
+  .duel-health-bar-container {
+    padding: 0.4rem 0.75rem;
+  }
+
+  .duel-health-name {
+    font-size: 0.7rem;
+    min-width: 50px;
+  }
+
+  .duel-health-value {
+    font-size: 0.75rem;
+    min-width: 40px;
   }
 }

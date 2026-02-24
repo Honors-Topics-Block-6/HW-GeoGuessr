@@ -636,5 +636,6 @@
   .play-again-button,
   .home-button {
     width: 100%;
+    min-height: var(--touch-target-min, 44px);
   }
 }

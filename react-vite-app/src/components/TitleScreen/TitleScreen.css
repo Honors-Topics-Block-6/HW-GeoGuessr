@@ -127,6 +127,20 @@
   gap: 10px;
 }
 
+.title-action-icon {
+  display: none;
+}
+
+.title-leaderboard-button,
+.submit-photo-button,
+.title-bug-report-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: var(--touch-target-min, 44px);
+}
+
 .title-leaderboard-button {
   padding: 8px 16px;
   background: rgba(255, 215, 0, 0.1);
@@ -345,16 +359,23 @@
     padding: 0.9rem 2.5rem;
   }
 
+  /* Single row: user left, actions right - no stacking */
   .title-top-bar {
-    flex-direction: column;
-    gap: 10px;
+    flex-direction: row;
     align-items: center;
-    padding: 12px 16px;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(12, 12, 15, 0.92);
+    border-bottom: 1px solid var(--border-color);
   }
 
   .title-top-actions {
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .title-user-info-button {
+    min-height: var(--touch-target-min, 44px);
   }
 }
 
@@ -371,23 +392,59 @@
     font-size: 3rem;
   }
 
-  .title-top-actions {
-    gap: 6px;
+  .title-top-bar {
+    padding: 8px 12px;
+  }
+
+  /* Icon-only buttons for compact mobile bar */
+  .title-action-icon {
+    display: inline;
+    font-size: 1.15rem;
+  }
+
+  .title-action-label {
+    display: none;
   }
 
   .title-leaderboard-button,
   .submit-photo-button,
   .title-bug-report-button {
     font-size: 12px;
-    padding: 6px 12px;
+    padding: 8px 10px;
+    min-width: var(--touch-target-min, 44px);
+    min-height: var(--touch-target-min, 44px);
   }
 
   .title-user-info-button {
-    padding: 5px 10px;
+    padding: 6px 10px;
     font-size: 12px;
+  }
+
+  .title-username {
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .title-user-dropdown {
     min-width: 150px;
+  }
+}
+
+@media (max-width: 360px) {
+  .title-top-bar {
+    padding: 6px 10px;
+  }
+
+  .title-username {
+    max-width: 55px;
+  }
+
+  .title-leaderboard-button,
+  .submit-photo-button,
+  .title-bug-report-button {
+    padding: 8px;
+    min-width: var(--touch-target-min, 44px);
   }
 }

@@ -35,6 +35,9 @@ export interface MapPickerHandle {
   clickAtCursor: () => boolean;
 }
 
+const MAP_HINT_TOUCH = 'Tap to place • Pinch to zoom • Drag to pan';
+const MAP_HINT_MOUSE = 'Click to place • Double-click to zoom in • Drag or pinch to pan';
+
 const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker(
   { markerPosition, onMapClick, clickRejected = false, playingArea = null },
   ref: Ref<MapPickerHandle>
@@ -43,6 +46,11 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
   const imageRef = useRef<HTMLImageElement>(null);
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mapHint] = useState(() =>
+    typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+      ? MAP_HINT_TOUCH
+      : MAP_HINT_MOUSE
+  );
 
   const coordsFromClientPos = useCallback((clientX: number, clientY: number): MapCoordinates | null => {
     if (!imageRef.current) return null;
@@ -168,7 +176,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
       <div className="map-header">
         <div className="map-header-left">
           <span className="map-icon">🗺️</span>
-          <span>Click to place • Double-click to zoom in • Drag or pinch to pan</span>
+          <span>{mapHint}</span>
         </div>
         <button
           className="map-fullscreen-toggle"

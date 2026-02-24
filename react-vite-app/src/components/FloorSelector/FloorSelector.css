@@ -72,6 +72,7 @@
 @media (max-width: 480px) {
   .floor-button {
     padding: 10px 6px;
+    min-height: var(--touch-target-min, 44px);
     border-radius: 12px;
   }
 

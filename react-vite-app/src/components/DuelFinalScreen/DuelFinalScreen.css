@@ -470,6 +470,7 @@
   .duel-final-play-again,
   .duel-final-home {
     width: 100%;
+    min-height: var(--touch-target-min, 44px);
   }
 
   .duel-final-round-scores {

@@ -16,6 +16,18 @@
   --error-red: #e74c3c;
   --marker-color: #ff4757;
 
+  /* Touch targets - WCAG 2.5.5 minimum for pointer inputs */
+  --touch-target-min: 44px;
+
+  /* Game layout - shared across guessing and result screens */
+  --game-layout-breakpoint: 1024px;
+  --game-image-height-lg: 50vh;
+  --game-image-height-md: 40vh;
+  --game-image-height-sm: 35vh;
+  --game-image-height-xs: 32vh;
+  --game-panel-flex-main: 7;
+  --game-panel-flex-side: 3;
+
   /* Typography */
   font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.5;

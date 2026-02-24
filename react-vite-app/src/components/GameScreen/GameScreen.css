@@ -7,7 +7,7 @@
 
 /* Image Panel - Left side */
 .image-panel {
-  flex: 7;
+  flex: var(--game-panel-flex-main, 7);
   display: flex;
   background-color: var(--bg-dark);
   border-right: 1px solid var(--border-color);
@@ -15,7 +15,7 @@
 
 /* Guess Panel - Right side */
 .guess-panel {
-  flex: 3;
+  flex: var(--game-panel-flex-side, 3);
   display: flex;
   flex-direction: column;
   background-color: var(--bg-panel);
@@ -176,21 +176,26 @@
 
   .image-panel {
     flex: none;
-    height: 50vh;
+    height: var(--game-image-height-lg, 50vh);
     border-right: none;
     border-bottom: 1px solid var(--border-color);
   }
 
   .guess-panel {
     flex: 1;
-    min-width: 100%;
+    min-width: 0;
     max-width: 100%;
+  }
+
+  .image-panel,
+  .guess-panel {
+    min-width: 0;
   }
 }
 
 @media (max-width: 768px) {
   .image-panel {
-    height: 40vh;
+    height: var(--game-image-height-md, 40vh);
   }
 
   .guess-panel-header {
@@ -207,5 +212,39 @@
     justify-content: center;
     gap: 1.5rem;
     padding: 0.75rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .image-panel {
+    height: var(--game-image-height-sm, 35vh);
+  }
+
+  .guess-panel-header {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .guess-controls {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .round-timer {
+    padding: 0.5rem 1rem 0.6rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .image-panel {
+    height: var(--game-image-height-xs, 32vh);
+  }
+
+  .guess-panel-header {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .guess-controls {
+    padding: 0.6rem;
+    gap: 0.6rem;
   }
 }
