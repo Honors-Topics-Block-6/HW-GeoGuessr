@@ -1,9 +1,7 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useMemo, useState, useEffect, type ChangeEvent } from 'react';
 import { useAuth, type BuildingStat, type DailyStatBucket } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
 import { getFavoriteAndWorstBuildings } from '../../utils/buildingStats';
-import { useMemo, useState, useEffect, type ChangeEvent } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
 import { DAILY_STREAK_UPDATED_EVENT, getDisplayDailyStreak, syncDailyStreakRollover } from '../../services/streakService';
 import './ProfileScreen.css';
@@ -679,14 +677,6 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
             <div className="profile-stats-interval">
               <span className="profile-stats-interval-label">Difficulty</span>
               <div className="profile-stats-interval-buttons">
-            ) : (
-              <div className="profile-value-row">
-                <div className="profile-username-and-streak">
-                  <span className="profile-value">{userDoc?.username}</span>
-                  <span className="profile-streak-badge" aria-label={`Daily streak ${dailyStreak}`}>
-                    🔥 {dailyStreak}
-                  </span>
-                </div>
                 <button
                   type="button"
                   className={`profile-stats-interval-button ${statsDifficulty === 'all' ? 'active' : ''}`}
@@ -730,72 +720,6 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
             <div className="profile-stat-row">
               <span className="profile-stat-label">Number of 5ks</span>
               <span className="profile-stat-value">{filteredStats.fiveKCount.toLocaleString()}</span>
-          </div>
-
-          <div className="profile-field">
-            <span className="profile-label">Favorite Emote (Public)</span>
-            {isEditingEmote ? (
-              <div className="profile-edit-row">
-                <input
-                  type="text"
-                  value={newFavoriteEmote}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewFavoriteEmote(e.target.value)}
-                  className="profile-input profile-emote-input"
-                  disabled={isSavingEmote}
-                  placeholder="Pick an emoji"
-                />
-                <div className="profile-emote-quick-row">
-                  {QUICK_PROFILE_EMOTES.map((emote) => (
-                    <button
-                      key={emote}
-                      className="profile-emote-quick-button"
-                      onClick={() => setNewFavoriteEmote(emote)}
-                      type="button"
-                      disabled={isSavingEmote}
-                      aria-label={`Set favorite emote to ${emote}`}
-                    >
-                      {emote}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  className="profile-save-button"
-                  onClick={handleSaveFavoriteEmote}
-                  disabled={isSavingEmote}
-                >
-                  {isSavingEmote ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  className="profile-cancel-button"
-                  onClick={handleCancelFavoriteEmote}
-                  disabled={isSavingEmote}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div className="profile-value-row">
-                <span className="profile-value profile-favorite-emote">{userDoc?.favoriteEmote || '😎'}</span>
-                <button
-                  className="profile-edit-button"
-                  onClick={() => setIsEditingEmote(true)}
-                >
-                  Edit
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="profile-field">
-            <span className="profile-label">Friends</span>
-            <div className="profile-value-row">
-              <span className="profile-value">View and manage your friends</span>
-              <button
-                className="profile-friends-button"
-                onClick={onOpenFriends}
-              >
-                Friends
-              </button>
             </div>
             <div className="profile-stat-row">
               <span className="profile-stat-label">Number of 25ks</span>
@@ -835,7 +759,60 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
             </div>
             <div className="profile-stat-row">
               <span className="profile-stat-label">Favorite Emote</span>
-              <span className="profile-stat-value">Coming soon</span>
+              <span className="profile-stat-value">{userDoc?.favoriteEmote || '😎'}</span>
+            </div>
+            <div className="profile-field">
+              <span className="profile-label">Favorite Emote (Public)</span>
+              {isEditingEmote ? (
+                <div className="profile-edit-row">
+                  <input
+                    type="text"
+                    value={newFavoriteEmote}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewFavoriteEmote(e.target.value)}
+                    className="profile-input profile-emote-input"
+                    disabled={isSavingEmote}
+                    placeholder="Pick an emoji"
+                  />
+                  <div className="profile-emote-quick-row">
+                    {QUICK_PROFILE_EMOTES.map((emote) => (
+                      <button
+                        key={emote}
+                        className="profile-emote-quick-button"
+                        onClick={() => setNewFavoriteEmote(emote)}
+                        type="button"
+                        disabled={isSavingEmote}
+                        aria-label={`Set favorite emote to ${emote}`}
+                      >
+                        {emote}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="profile-save-button"
+                    onClick={handleSaveFavoriteEmote}
+                    disabled={isSavingEmote}
+                  >
+                    {isSavingEmote ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    className="profile-cancel-button"
+                    onClick={handleCancelFavoriteEmote}
+                    disabled={isSavingEmote}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="profile-value-row">
+                  <span className="profile-value profile-favorite-emote">{userDoc?.favoriteEmote || '😎'}</span>
+                  <button
+                    className="profile-edit-button"
+                    onClick={() => setIsEditingEmote(true)}
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
