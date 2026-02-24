@@ -132,8 +132,8 @@ body.map-fullscreen-open {
   max-width: 100%;
 }
 
-.map-picker.zoomed {
-  cursor: grab;
+.map-picker.is-panning {
+  cursor: grabbing;
 }
 
 /* ===== Marker ===== */
