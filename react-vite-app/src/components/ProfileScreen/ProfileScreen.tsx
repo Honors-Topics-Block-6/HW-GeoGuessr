@@ -4,6 +4,8 @@ import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from
 import { DAILY_STREAK_UPDATED_EVENT, getDisplayDailyStreak, syncDailyStreakRollover } from '../../services/streakService';
 import './ProfileScreen.css';
 
+const QUICK_PROFILE_EMOTES = ['😎', '🔥', '🎯', '🧠', '🚀', '💯'];
+
 export interface ProfileScreenProps {
   onBack: () => void;
   onOpenFriends: () => void;
@@ -26,6 +28,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     user,
     userDoc,
     updateUsername,
+    updateFavoriteEmote,
     updateProfileImage,
     totalXp,
     levelInfo,
@@ -56,7 +59,10 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   const [newUsername, setNewUsername] = useState<string>(userDoc?.username || '');
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isSavingEmote, setIsSavingEmote] = useState<boolean>(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
+  const [isEditingEmote, setIsEditingEmote] = useState<boolean>(false);
+  const [newFavoriteEmote, setNewFavoriteEmote] = useState<string>(userDoc?.favoriteEmote || '😎');
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
 
@@ -125,6 +131,28 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   const handleCancel = (): void => {
     setNewUsername(userDoc?.username || '');
     setIsEditing(false);
+    setError('');
+  };
+
+  const handleSaveFavoriteEmote = async (): Promise<void> => {
+    setError('');
+    setSuccess('');
+    setIsSavingEmote(true);
+    try {
+      await updateFavoriteEmote(newFavoriteEmote);
+      setSuccess('Favorite emote updated!');
+      setIsEditingEmote(false);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError((err as Error).message || 'Failed to update favorite emote.');
+    } finally {
+      setIsSavingEmote(false);
+    }
+  };
+
+  const handleCancelFavoriteEmote = (): void => {
+    setNewFavoriteEmote(userDoc?.favoriteEmote || '😎');
+    setIsEditingEmote(false);
     setError('');
   };
 
@@ -307,6 +335,60 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
                 {emailVerified ? 'Verified' : 'Unverified'}
               </span>
             </div>
+          </div>
+
+          <div className="profile-field">
+            <span className="profile-label">Favorite Emote (Public)</span>
+            {isEditingEmote ? (
+              <div className="profile-edit-row">
+                <input
+                  type="text"
+                  value={newFavoriteEmote}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewFavoriteEmote(e.target.value)}
+                  className="profile-input profile-emote-input"
+                  disabled={isSavingEmote}
+                  placeholder="Pick an emoji"
+                />
+                <div className="profile-emote-quick-row">
+                  {QUICK_PROFILE_EMOTES.map((emote) => (
+                    <button
+                      key={emote}
+                      className="profile-emote-quick-button"
+                      onClick={() => setNewFavoriteEmote(emote)}
+                      type="button"
+                      disabled={isSavingEmote}
+                      aria-label={`Set favorite emote to ${emote}`}
+                    >
+                      {emote}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className="profile-save-button"
+                  onClick={handleSaveFavoriteEmote}
+                  disabled={isSavingEmote}
+                >
+                  {isSavingEmote ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  className="profile-cancel-button"
+                  onClick={handleCancelFavoriteEmote}
+                  disabled={isSavingEmote}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="profile-value-row">
+                <span className="profile-value profile-favorite-emote">{userDoc?.favoriteEmote || '😎'}</span>
+                <button
+                  className="profile-edit-button"
+                  onClick={() => setIsEditingEmote(true)}
+                >
+                  Edit
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="profile-field">

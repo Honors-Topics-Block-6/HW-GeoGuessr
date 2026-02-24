@@ -330,6 +330,10 @@
   text-overflow: ellipsis;
 }
 
+.leaderboard-favorite-emote {
+  margin-left: 0.25rem;
+}
+
 .leaderboard-level-title {
   font-size: 0.72rem;
   color: var(--text-muted);

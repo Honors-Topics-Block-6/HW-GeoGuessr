@@ -585,6 +585,48 @@
   opacity: 0.6;
 }
 
+.profile-emote-input {
+  max-width: 160px;
+  text-align: center;
+  font-size: 1.25rem;
+}
+
+.profile-favorite-emote {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.profile-emote-quick-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.profile-emote-quick-button {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 1.05rem;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.profile-emote-quick-button:hover:not(:disabled) {
+  background: rgba(108, 181, 45, 0.2);
+  border-color: rgba(108, 181, 45, 0.45);
+}
+
+.profile-emote-quick-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .profile-save-button {
   background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
   color: white;

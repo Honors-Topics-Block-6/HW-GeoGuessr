@@ -6,6 +6,7 @@ import './LeaderboardScreen.css';
 interface LeaderboardEntry {
   uid: string;
   username: string;
+  favoriteEmote: string;
   level: number;
   levelTitle: string;
   totalXp: number;
@@ -22,6 +23,7 @@ interface LevelInfo {
 
 interface UserDoc {
   username?: string;
+  favoriteEmote?: string;
   gamesPlayed?: number;
   [key: string]: unknown;
 }
@@ -214,7 +216,7 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
                     </span>
 
                     <span className="leaderboard-col-player">
-                      <span className="leaderboard-username">{entry.username}</span>
+                      <span className="leaderboard-username">{entry.username} <span className="leaderboard-favorite-emote" role="img" aria-label="favorite emote">{entry.favoriteEmote || '😎'}</span></span>
                       <span className="leaderboard-level-title">{entry.levelTitle}</span>
                     </span>
 
@@ -244,7 +246,7 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
                       <span className="leaderboard-rank-num">#{myRank}</span>
                     </span>
                     <span className="leaderboard-col-player">
-                      <span className="leaderboard-username">{userDoc?.username ?? 'You'}</span>
+                      <span className="leaderboard-username">{userDoc?.username ?? 'You'} <span className="leaderboard-favorite-emote" role="img" aria-label="favorite emote">{userDoc?.favoriteEmote || '😎'}</span></span>
                       <span className="leaderboard-level-title">{levelTitle}</span>
                     </span>
                     <span className="leaderboard-col-level">
