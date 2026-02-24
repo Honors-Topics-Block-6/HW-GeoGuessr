@@ -210,7 +210,7 @@ describe('App', () => {
       await navigateToGame(user);
 
       await waitFor(() => {
-        expect(screen.getByText('1 / 5')).toBeInTheDocument();
+        expect(screen.getByText('Round 1 / 5')).toBeInTheDocument();
       });
     });
 
@@ -540,7 +540,7 @@ describe('App', () => {
       await user.click(screen.getByText('Next Round'));
 
       await waitFor(() => {
-        expect(screen.getByText('2 / 5')).toBeInTheDocument();
+        expect(screen.getByText('Round 2 / 5')).toBeInTheDocument();
       });
 
       vi.useRealTimers();

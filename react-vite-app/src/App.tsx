@@ -498,8 +498,8 @@ function App(): React.ReactElement {
   /**
    * Handle starting the game from difficulty select
    */
-  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string, roundTimeSeconds?: number): void => {
-    startGame(selectedDifficulty, selectedMode, roundTimeSeconds);
+  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string, roundTimeSeconds: number, totalRounds: number): void => {
+    startGame(selectedDifficulty, selectedMode, roundTimeSeconds, totalRounds);
   };
 
   /**

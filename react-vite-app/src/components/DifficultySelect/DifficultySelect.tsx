@@ -3,6 +3,7 @@ import './DifficultySelect.css';
 
 type DifficultyId = 'all' | 'easy' | 'medium' | 'hard';
 type GameMode = 'singleplayer' | 'multiplayer';
+type TotalRounds = 5 | 10 | 20;
 
 /** 0 means "no time limit" */
 export type RoundTimeSeconds = number;
@@ -54,11 +55,17 @@ const TIME_PRESETS: TimePreset[] = [
   { value: 0, label: 'No Limit' },
 ];
 
+const ROUND_PRESETS: { value: TotalRounds; label: string }[] = [
+  { value: 5, label: '5' },
+  { value: 10, label: '10' },
+  { value: 20, label: '20' },
+];
+
 const CUSTOM_TIME_MIN = 3;
 const CUSTOM_TIME_MAX = 600;
 
 export interface DifficultySelectProps {
-  onStart: (difficulty: DifficultyId, mode: GameMode, roundTimeSeconds: RoundTimeSeconds) => void;
+  onStart: (difficulty: DifficultyId, mode: GameMode, roundTimeSeconds: RoundTimeSeconds, totalRounds: TotalRounds) => void;
   onBack: () => void;
   isLoading: boolean;
 }
@@ -66,6 +73,7 @@ export interface DifficultySelectProps {
 function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyId | null>(null);
   const [selectedMode, setSelectedMode] = useState<GameMode>('singleplayer');
+  const [selectedRounds, setSelectedRounds] = useState<TotalRounds>(5);
 
   // Time setting: preset value or 'custom'
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
@@ -79,7 +87,7 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
 
   const handleStart = (): void => {
     if (selectedDifficulty) {
-      onStart(selectedDifficulty, selectedMode, resolvedTime);
+      onStart(selectedDifficulty, selectedMode, resolvedTime, selectedRounds);
     }
   };
 
@@ -148,6 +156,23 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
 
         {selectedMode === 'singleplayer' && (
           <>
+            <h2 className="rounds-heading">Number of Rounds</h2>
+            <p className="rounds-subheading">How many rounds you&apos;ll play this game</p>
+
+            <div className="rounds-options">
+              {ROUND_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  className={`rounds-card ${selectedRounds === preset.value ? 'selected' : ''}`}
+                  onClick={() => setSelectedRounds(preset.value)}
+                >
+                  <span className="rounds-card-icon">🔁</span>
+                  <span className="rounds-card-label">{preset.label}</span>
+                  <span className="rounds-card-suffix">Rounds</span>
+                </button>
+              ))}
+            </div>
+
             <h2 className="time-heading">Round Time</h2>
             <p className="time-subheading">How long each round lasts</p>
 

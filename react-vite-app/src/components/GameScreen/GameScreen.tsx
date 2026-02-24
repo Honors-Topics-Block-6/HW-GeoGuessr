@@ -97,7 +97,7 @@ function GameScreen({
           </button>
           <h2 className="panel-title">Make Your Guess</h2>
           <div className="round-badge">
-            {currentRound} / {totalRounds}
+            Round {currentRound} / {totalRounds}
           </div>
         </div>
 
