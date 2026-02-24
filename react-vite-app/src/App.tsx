@@ -517,12 +517,10 @@ function App(): React.ReactElement {
     singleplayerVariant?: 'classic' | 'endless',
     roundTimeSeconds?: number
   ): void => {
-    startGame(selectedDifficulty, selectedMode, singleplayerVariant, roundTimeSeconds);
-  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string, roundTimeSeconds?: number): void => {
     if (selectedMode === 'singleplayer' && user?.uid) {
       recordDailyPlay(user.uid);
     }
-    startGame(selectedDifficulty, selectedMode, roundTimeSeconds);
+    startGame(selectedDifficulty, selectedMode, singleplayerVariant, roundTimeSeconds);
   };
 
   /**
