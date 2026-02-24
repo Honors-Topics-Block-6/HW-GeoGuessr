@@ -60,16 +60,47 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     transformStyle,
     handlers,
     zoomIn,
+    zoomInAtPoint,
     zoomOut,
     resetZoom,
     hasMoved,
-    isPanning
+    isPanning,
+    isTouchActive
   } = useMapZoom(containerRef);
 
+  const placeMarkerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleClick = (event: React.MouseEvent<HTMLDivElement>): void => {
+    if (event.detail === 2) {
+      // Second click of a double-click: cancel any pending single-click placement
+      if (placeMarkerTimeoutRef.current) {
+        clearTimeout(placeMarkerTimeoutRef.current);
+        placeMarkerTimeoutRef.current = null;
+      }
+      return;
+    }
     if (hasMoved()) return;
     const coords = coordsFromClientPos(event.clientX, event.clientY);
-    if (coords) onMapClick(coords);
+    if (!coords) return;
+    // Delay placement slightly so double-click can cancel it and zoom instead
+    placeMarkerTimeoutRef.current = setTimeout(() => {
+      placeMarkerTimeoutRef.current = null;
+      onMapClick(coords);
+    }, 200);
+  };
+
+  const handleDoubleClick = (event: React.MouseEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    if (placeMarkerTimeoutRef.current) {
+      clearTimeout(placeMarkerTimeoutRef.current);
+      placeMarkerTimeoutRef.current = null;
+    }
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    zoomInAtPoint(x, y);
   };
 
   const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>): void => {
@@ -106,6 +137,12 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     return () => document.body.classList.remove('map-fullscreen-open');
   }, [isFullscreen]);
 
+  useEffect(() => {
+    return () => {
+      if (placeMarkerTimeoutRef.current) clearTimeout(placeMarkerTimeoutRef.current);
+    };
+  }, []);
+
   /**
    * Expose clickAtCursor() — places a marker at the current mouse position.
    * Returns false if the cursor isn't over the map.
@@ -131,7 +168,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
       <div className="map-header">
         <div className="map-header-left">
           <span className="map-icon">🗺️</span>
-          <span>Click & drag to pan • Click to place your guess</span>
+          <span>Click to place • Double-click to zoom in • Drag or pinch to pan</span>
         </div>
         <button
           className="map-fullscreen-toggle"
@@ -143,9 +180,10 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         </button>
       </div>
       <div
-        className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
+        className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''} ${isTouchActive ? 'touch-active' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
         ref={containerRef}
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
         {...handlers}
         onMouseMove={handleMouseMove}

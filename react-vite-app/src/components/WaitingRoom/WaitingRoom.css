@@ -225,6 +225,140 @@
   color: #f39c12;
 }
 
+/* Editable Time Badge */
+.waiting-badge-time.editable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.waiting-badge-time.editable:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent-green);
+}
+
+.waiting-badge-edit-icon {
+  margin-left: 0.25rem;
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.waiting-badge-time.editable:hover .waiting-badge-edit-icon {
+  opacity: 1;
+}
+
+/* Time Editor Popover */
+.waiting-time-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(20, 20, 30, 0.95);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  animation: timeEditorFadeIn 0.15s ease;
+  width: 100%;
+  max-width: 320px;
+}
+
+@keyframes timeEditorFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.waiting-time-editor-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.waiting-time-editor-presets {
+  display: flex;
+  gap: 0.3rem;
+  width: 100%;
+}
+
+.waiting-time-preset-btn {
+  flex: 1;
+  padding: 0.45rem 0.2rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.waiting-time-preset-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-light);
+}
+
+.waiting-time-preset-btn.active {
+  background: rgba(108, 181, 45, 0.12);
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+}
+
+.waiting-time-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.waiting-time-custom-input {
+  flex: 1;
+  padding: 0.45rem 0.6rem;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.waiting-time-custom-input:focus {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 8px rgba(108, 181, 45, 0.2);
+}
+
+.waiting-time-custom-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.waiting-time-custom-ok {
+  padding: 0.45rem 0.8rem;
+  background: rgba(108, 181, 45, 0.15);
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.waiting-time-custom-ok:hover {
+  background: rgba(108, 181, 45, 0.25);
+}
+
 /* Player List */
 .waiting-players {
   width: 100%;

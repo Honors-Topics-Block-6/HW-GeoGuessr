@@ -41,6 +41,8 @@ export interface LobbyDoc {
   heartbeats: Record<string, Timestamp>;
   readyStatus: Record<string, boolean>;
   maxPlayers: number;
+  /** Round time in seconds. 0 = no time limit. */
+  roundTimeSeconds: number;
   createdAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
 }
@@ -54,9 +56,26 @@ export interface CreateLobbyResult {
 
 /** How long (ms) before a player's heartbeat is considered stale. */
 export const STALE_TIMEOUT = 30_000;
+/** Lobby lifetime before auto-expiry (1 hour). */
+export const LOBBY_EXPIRY_MS = 60 * 60 * 1000;
 
 // Characters that avoid ambiguity (no I, O, 0, 1)
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function getTimestampMillis(value: unknown): number | null {
+  if (!value) return null;
+  if (value instanceof Timestamp) return value.toMillis();
+  if (typeof value === 'object' && value !== null && 'toMillis' in value && typeof (value as { toMillis?: unknown }).toMillis === 'function') {
+    return (value as { toMillis: () => number }).toMillis();
+  }
+  return null;
+}
+
+function isLobbyExpired(lobby: Pick<LobbyDoc, 'createdAt'>): boolean {
+  const createdMs = getTimestampMillis(lobby.createdAt);
+  if (createdMs === null) return false;
+  return Date.now() - createdMs >= LOBBY_EXPIRY_MS;
+}
 
 // ────── Functions ──────
 
@@ -78,7 +97,8 @@ export async function createLobby(
   hostUid: string,
   hostUsername: string,
   difficulty: string,
-  visibility: LobbyVisibility
+  visibility: LobbyVisibility,
+  roundTimeSeconds: number = 20
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
@@ -102,6 +122,7 @@ export async function createLobby(
       [hostUid]: false
     },
     maxPlayers: 2,
+    roundTimeSeconds,
     createdAt: now,
     updatedAt: now
   };
@@ -125,7 +146,12 @@ export async function findLobbyByGameId(gameId: string): Promise<LobbyDoc | null
   if (snapshot.empty) return null;
 
   const docSnap = snapshot.docs[0];
-  return { docId: docSnap.id, ...docSnap.data() } as LobbyDoc;
+  const lobby = { docId: docSnap.id, ...docSnap.data() } as LobbyDoc;
+  if (isLobbyExpired(lobby)) {
+    await deleteDoc(doc(db, 'lobbies', docSnap.id));
+    return null;
+  }
+  return lobby;
 }
 
 /**
@@ -146,6 +172,11 @@ export async function joinLobby(
   }
 
   const lobby = lobbySnap.data() as Omit<LobbyDoc, 'docId'>;
+
+  if (isLobbyExpired(lobby as Pick<LobbyDoc, 'createdAt'>)) {
+    await deleteDoc(lobbyRef);
+    throw new Error('This lobby has expired.');
+  }
 
   if (lobby.status !== 'waiting') {
     throw new Error('This game has already started.');
@@ -235,7 +266,15 @@ export function subscribeLobby(
   const lobbyRef = doc(db, 'lobbies', docId);
   return onSnapshot(lobbyRef, (snapshot) => {
     if (snapshot.exists()) {
-      callback({ docId: snapshot.id, ...snapshot.data() } as LobbyDoc);
+      const lobby = { docId: snapshot.id, ...snapshot.data() } as LobbyDoc;
+      if (isLobbyExpired(lobby)) {
+        deleteDoc(lobbyRef).catch((err: unknown) => {
+          console.error('Failed to delete expired lobby:', err);
+        });
+        callback(null);
+        return;
+      }
+      callback(lobby);
     } else {
       callback(null);
     }
@@ -256,10 +295,20 @@ export function subscribePublicLobbies(
   );
 
   return onSnapshot(q, (snapshot) => {
-    const lobbies = snapshot.docs.map(docSnap => ({
-      docId: docSnap.id,
-      ...docSnap.data()
-    })) as LobbyDoc[];
+    const lobbies = snapshot.docs
+      .map(docSnap => ({
+        docId: docSnap.id,
+        ...docSnap.data()
+      }) as LobbyDoc)
+      .filter((lobby) => {
+        const expired = isLobbyExpired(lobby);
+        if (expired) {
+          deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
+            console.error('Failed to delete expired public lobby:', err);
+          });
+        }
+        return !expired;
+      });
     callback(lobbies);
   }, (error) => {
     console.error('Error subscribing to public lobbies:', error);
@@ -270,10 +319,20 @@ export function subscribePublicLobbies(
       where('status', '==', 'waiting')
     );
     return onSnapshot(fallbackQ, (snapshot) => {
-      const lobbies = snapshot.docs.map(docSnap => ({
-        docId: docSnap.id,
-        ...docSnap.data()
-      })) as LobbyDoc[];
+      const lobbies = snapshot.docs
+        .map(docSnap => ({
+          docId: docSnap.id,
+          ...docSnap.data()
+        }) as LobbyDoc)
+        .filter((lobby) => {
+          const expired = isLobbyExpired(lobby);
+          if (expired) {
+            deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
+              console.error('Failed to delete expired public lobby:', err);
+            });
+          }
+          return !expired;
+        });
       // Sort client-side as fallback
       lobbies.sort((a, b) => {
         const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
@@ -330,6 +389,10 @@ export async function removeStalePlayersFromLobby(
   if (!lobbySnap.exists()) return true;
 
   const lobby = lobbySnap.data() as Omit<LobbyDoc, 'docId'>;
+  if (isLobbyExpired(lobby as Pick<LobbyDoc, 'createdAt'>)) {
+    await deleteDoc(lobbyRef);
+    return true;
+  }
   const heartbeats = lobby.heartbeats || {};
   const now = Date.now();
 
@@ -388,6 +451,21 @@ export async function removeStalePlayersFromLobby(
   }
 
   return false;
+}
+
+/**
+ * Update the round time setting on a lobby document.
+ * Only the host should call this (enforce in the UI).
+ */
+export async function updateLobbyRoundTime(
+  docId: string,
+  roundTimeSeconds: number
+): Promise<void> {
+  const lobbyRef = doc(db, 'lobbies', docId);
+  await updateDoc(lobbyRef, {
+    roundTimeSeconds,
+    updatedAt: serverTimestamp()
+  });
 }
 
 /**
