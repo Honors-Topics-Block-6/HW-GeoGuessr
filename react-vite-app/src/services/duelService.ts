@@ -85,7 +85,7 @@ export interface DuelData {
   phase: DuelPhase;
   currentRound: number;
   currentImage: DuelImage;
-  roundStartedAt: Timestamp;
+  roundStartedAt: Timestamp | FieldValue;
   guesses: Record<string, DuelGuess>;
   health: Record<string, number>;
   roundHistory: RoundHistoryEntry[];
@@ -155,7 +155,7 @@ export async function startDuel(
       correctFloor: image.correctFloor ?? null,
       difficulty: image.difficulty || difficulty
     },
-    roundStartedAt: Timestamp.now(),
+    roundStartedAt: serverTimestamp(),
     guesses: {},
     health,
     roundHistory: [],
@@ -375,7 +375,7 @@ export async function advanceToNextRound(docId: string, difficulty: string): Pro
       correctFloor: image.correctFloor ?? null,
       difficulty: image.difficulty || difficulty
     },
-    roundStartedAt: Timestamp.now(),
+    roundStartedAt: serverTimestamp(),
     guesses: {},
     phase: 'guessing',
     updatedAt: serverTimestamp()
