@@ -21,6 +21,7 @@ export interface SubmissionFormProps {}
 
 function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
   const [photo, setPhoto] = useState<File | null>(null)
+  const [buildingName, setBuildingName] = useState<string>('')
   const [location, setLocation] = useState<MapCoords | null>(null)
   const [floor, setFloor] = useState<number | null>(null)
   const [difficulty, setDifficulty] = useState<string | null>(null)
@@ -122,6 +123,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
 
   const resetForm = (): void => {
     setPhoto(null)
+    setBuildingName('')
     setLocation(null)
     setFloor(null)
     setDifficulty(null)
@@ -165,6 +167,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
       await addDoc(collection(db, 'submissions'), {
         photoURL: photoDataUrl,
         photoName: photo.name,
+        buildingName: buildingName.trim() || null,
         location: {
           x: location.x,
           y: location.y
@@ -204,6 +207,22 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
 
       <form onSubmit={handleSubmit}>
         <PhotoUpload onPhotoSelect={handlePhotoSelect} selectedPhoto={photo} />
+
+        <div className="building-name-section">
+          <label htmlFor="building-name" className="building-name-label">Building Name</label>
+          <input
+            id="building-name"
+            type="text"
+            className="building-name-input"
+            placeholder="e.g. Main Library, Science Building"
+            value={buildingName}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              setBuildingName(e.target.value)
+              setSubmitError('')
+              setSubmitSuccess(false)
+            }}
+          />
+        </div>
 
         <div className="location-section">
           <MapPicker

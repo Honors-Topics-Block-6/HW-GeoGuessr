@@ -1,5 +1,6 @@
-import { useState, type ChangeEvent } from 'react';
+import { useMemo, useState, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
 import './ProfileScreen.css';
 
 export interface ProfileScreenProps {
@@ -7,14 +8,67 @@ export interface ProfileScreenProps {
   onOpenFriends: () => void;
 }
 
+interface AchievementDefinition {
+  id: AchievementId;
+  icon: string;
+  title: string;
+  highlight: string;
+  details: string;
+  xpReward: number;
+  target: number;
+  progress: number;
+  unlocked: boolean;
+}
+
 function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.ReactElement {
-  const { user, userDoc, updateUsername, totalXp, levelInfo, levelTitle, emailVerified } = useAuth();
+  const {
+    user,
+    userDoc,
+    updateUsername,
+    updateProfileImage,
+    totalXp,
+    levelInfo,
+    levelTitle,
+    emailVerified
+  } = useAuth();
 
   const [newUsername, setNewUsername] = useState<string>(userDoc?.username || '');
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+
+  const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = e.target.files?.[0];
+    // Reset input so selecting the same file again still triggers onChange.
+    e.target.value = '';
+    if (!file) return;
+
+    setError('');
+    setSuccess('');
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image must be smaller than 10MB.');
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      await updateProfileImage(file);
+      setSuccess('Profile picture updated!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError((err as Error).message || 'Failed to upload profile image.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const handleSave = async (): Promise<void> => {
     setError('');
@@ -55,67 +109,127 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
 
   const progressPercent: number = Math.round(levelInfo.progress * 100);
   const gamesPlayed: number = userDoc?.gamesPlayed ?? 0;
+  const achievementDefinitions: AchievementDefinition[] = useMemo(() => {
+    const allMeta = getAllAchievementMeta();
+    return allMeta.map((meta) => {
+      let target = 1;
+      let progress = 0;
+
+      if (meta.id === 'first-game') {
+        target = 1;
+        progress = gamesPlayed;
+      } else if (meta.id === 'weekend-warrior') {
+        target = 25;
+        progress = gamesPlayed;
+      } else if (meta.id === 'xp-collector') {
+        target = 5000;
+        progress = totalXp;
+      } else if (meta.id === 'rising-star') {
+        target = 10;
+        progress = levelInfo.level;
+      } else if (meta.id === 'verified-account') {
+        target = 1;
+        progress = emailVerified ? 1 : 0;
+      } else if (
+        meta.id === 'easy-finish' ||
+        meta.id === 'medium-finish' ||
+        meta.id === 'hard-finish' ||
+        meta.id === 'bullseye'
+      ) {
+        target = 1;
+        progress = isAchievementUnlocked(meta.id) ? 1 : 0;
+      }
+
+      const clampedProgress = Math.min(progress, target);
+      return {
+        ...meta,
+        target,
+        progress: clampedProgress,
+        unlocked: clampedProgress >= target
+      };
+    });
+  }, [emailVerified, gamesPlayed, levelInfo.level, totalXp]);
+  const completedAchievements: number = achievementDefinitions.filter((achievement) => achievement.progress >= achievement.target).length;
 
   return (
     <div className="profile-screen">
       <div className="profile-background">
         <div className="profile-overlay"></div>
       </div>
-      <div className="profile-card">
-        <button className="profile-back-button" onClick={onBack}>
-          ← Back
-        </button>
+      <div className="profile-layout">
+        <div className="profile-card">
+          <button className="profile-back-button" onClick={onBack}>
+            ← Back
+          </button>
 
         <div className="profile-avatar">
-          <span className="profile-avatar-icon">👤</span>
+          {userDoc?.photoURL ? (
+            <img
+              className="profile-avatar-image"
+              src={userDoc.photoURL}
+              alt={`${userDoc.username}'s profile`}
+            />
+          ) : (
+            <span className="profile-avatar-icon">👤</span>
+          )}
+          <label className={`profile-photo-upload ${isUploadingPhoto ? 'disabled' : ''}`}>
+            {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              disabled={isUploadingPhoto}
+            />
+          </label>
         </div>
 
-        <h1 className="profile-title">Your Profile</h1>
+          <h1 className="profile-title">Your Profile</h1>
 
-        {error && <div className="profile-error">{error}</div>}
-        {success && <div className="profile-success">{success}</div>}
+          {error && <div className="profile-error">{error}</div>}
+          {success && <div className="profile-success">{success}</div>}
 
-        {/* ── Level & XP Section ── */}
-        <div className="profile-level-section">
-          <div className="profile-level-header">
-            <span className="profile-level-badge">Lvl {levelInfo.level}</span>
-            <span className="profile-level-title">{levelTitle}</span>
+          {/* ── Level & XP Section ── */}
+          <div className="profile-level-section">
+            <div className="profile-level-header">
+              <span className="profile-level-badge">Lvl {levelInfo.level}</span>
+              <span className="profile-level-title">{levelTitle}</span>
+            </div>
+
+            <div className="profile-xp-bar-container">
+              <div className="profile-xp-bar">
+                <div
+                  className="profile-xp-bar-fill"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <div className="profile-xp-bar-labels">
+                <span className="profile-xp-current">
+                  {levelInfo.xpIntoLevel.toLocaleString()} XP
+                </span>
+                <span className="profile-xp-needed">
+                  {levelInfo.currentLevelXp.toLocaleString()} XP
+                </span>
+              </div>
+            </div>
+
+            <div className="profile-xp-stats">
+              <div className="profile-xp-stat">
+                <span className="profile-xp-stat-value">{totalXp.toLocaleString()}</span>
+                <span className="profile-xp-stat-label">Total XP</span>
+              </div>
+              <div className="profile-xp-stat">
+                <span className="profile-xp-stat-value">{gamesPlayed}</span>
+                <span className="profile-xp-stat-label">Games Played</span>
+              </div>
+              <div className="profile-xp-stat">
+                <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
+                <span className="profile-xp-stat-label">XP to Next Level</span>
+              </div>
+            </div>
           </div>
 
-          <div className="profile-xp-bar-container">
-            <div className="profile-xp-bar">
-              <div
-                className="profile-xp-bar-fill"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-            <div className="profile-xp-bar-labels">
-              <span className="profile-xp-current">
-                {levelInfo.xpIntoLevel.toLocaleString()} XP
-              </span>
-              <span className="profile-xp-needed">
-                {levelInfo.currentLevelXp.toLocaleString()} XP
-              </span>
-            </div>
-          </div>
+          <div className="profile-fields">
 
-          <div className="profile-xp-stats">
-            <div className="profile-xp-stat">
-              <span className="profile-xp-stat-value">{totalXp.toLocaleString()}</span>
-              <span className="profile-xp-stat-label">Total XP</span>
-            </div>
-            <div className="profile-xp-stat">
-              <span className="profile-xp-stat-value">{gamesPlayed}</span>
-              <span className="profile-xp-stat-label">Games Played</span>
-            </div>
-            <div className="profile-xp-stat">
-              <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
-              <span className="profile-xp-stat-label">XP to Next Level</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="profile-fields">
           <div className="profile-field">
             <span className="profile-label">Username</span>
             {isEditing ? (
@@ -128,6 +242,9 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
                   autoFocus
                   disabled={isSaving}
                 />
+                <div className="profile-username-note">
+                  Changing your username is allowed once every 30 days.
+                </div>
                 <button
                   className="profile-save-button"
                   onClick={handleSave}
@@ -192,6 +309,58 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
             </span>
           </div>
         </div>
+      </div>
+
+        <section className="profile-achievements-section">
+          <div className="profile-achievements-header">
+            <span className="profile-label">Achievements</span>
+            <span className="profile-achievements-summary">
+              {completedAchievements}/{achievementDefinitions.length} unlocked
+            </span>
+          </div>
+          <div className="profile-achievements-panel">
+            {achievementDefinitions.map((achievement) => {
+              const isUnlocked = achievement.unlocked;
+              const progressPercent = Math.round((achievement.progress / achievement.target) * 100);
+
+              return (
+                <div
+                  key={achievement.id}
+                  className={`profile-achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`}
+                >
+                  <div className="profile-achievement-card-header">
+                    <div className={`profile-achievement-circle ${isUnlocked ? 'unlocked' : 'locked'}`}>
+                      <span className="profile-achievement-icon">{achievement.icon}</span>
+                    </div>
+                    <div className="profile-achievement-main">
+                      <span className="profile-achievement-title">{achievement.title}</span>
+                      <span className="profile-achievement-reward">+{achievement.xpReward.toLocaleString()} XP</span>
+                    </div>
+                    <span className={`profile-achievement-status ${isUnlocked ? 'unlocked' : 'locked'}`}>
+                      {isUnlocked ? 'Unlocked' : 'Locked'}
+                    </span>
+                  </div>
+                  <div className="profile-achievement-progress-row">
+                    <div className="profile-achievement-progress-track">
+                      <div className="profile-achievement-progress-fill" style={{ width: `${progressPercent}%` }} />
+                    </div>
+                    <span className="profile-achievement-progress">
+                      {achievement.progress.toLocaleString()} / {achievement.target.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="profile-achievement-hover-card" role="tooltip">
+                    <p>
+                      <strong>{achievement.highlight}</strong> {achievement.details}
+                    </p>
+                    <p className="profile-achievement-hover-reward">
+                      XP Bonus: +{achievement.xpReward.toLocaleString()} XP
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       </div>
     </div>
   );

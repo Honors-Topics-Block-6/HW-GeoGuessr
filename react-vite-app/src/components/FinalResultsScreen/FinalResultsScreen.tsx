@@ -110,28 +110,22 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
       .then(() => refreshUserDoc())
       .catch((err: Error) => console.error('Failed to award XP:', err));
 
-    // --- Daily Goals Progress ---
-    // Goal: games played (always +1)
-    recordProgress(GOAL_TYPES.GAMES_PLAYED, 1);
-
-    // Goal: high score per round (check each round's score)
-    for (const round of rounds) {
-      if (round.score > 0) {
-        recordProgress(GOAL_TYPES.HIGH_SCORE_ROUND, round.score);
+    // --- Daily Goals Progress --- (run in sequence so doc is created once, then all updates apply)
+    (async () => {
+      await recordProgress(GOAL_TYPES.GAMES_PLAYED, 1);
+      for (const round of rounds) {
+        if (round.score > 0) {
+          await recordProgress(GOAL_TYPES.HIGH_SCORE_ROUND, round.score);
+        }
+        if (round.floorCorrect === true) {
+          await recordProgress(GOAL_TYPES.PERFECT_FLOOR, 1);
+        }
       }
-      // Goal: correct floor guesses
-      if (round.floorCorrect === true) {
-        recordProgress(GOAL_TYPES.PERFECT_FLOOR, 1);
+      await recordProgress(GOAL_TYPES.HIGH_SCORE_GAME, totalScore);
+      if (difficulty) {
+        await recordProgress(GOAL_TYPES.PLAY_DIFFICULTY, 1, { targetDifficulty: difficulty });
       }
-    }
-
-    // Goal: high score per game (total score)
-    recordProgress(GOAL_TYPES.HIGH_SCORE_GAME, totalScore);
-
-    // Goal: play on specific difficulty
-    if (difficulty) {
-      recordProgress(GOAL_TYPES.PLAY_DIFFICULTY, 1, { targetDifficulty: difficulty });
-    }
+    })().catch((err: Error) => console.error('Failed to record daily goal progress:', err));
 
     // Show level-up animation after a delay
     if (xpResult.levelsGained > 0) {

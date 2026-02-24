@@ -52,6 +52,41 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ===== Building Name ===== */
+.building-name-section {
+  margin-bottom: 24px;
+  padding: 0 4px;
+}
+
+.building-name-label {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #c4c9d6;
+  margin-bottom: 8px;
+}
+
+.building-name-input {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 1rem;
+  color: #e0e6f0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.building-name-input::placeholder {
+  color: #6b7280;
+}
+
+.building-name-input:focus {
+  border-color: rgba(139, 92, 246, 0.6);
+  background: rgba(255, 255, 255, 0.07);
+}
+
 /* ===== Form Sections ===== */
 .location-section {
   display: flex;
