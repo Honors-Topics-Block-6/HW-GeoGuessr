@@ -105,6 +105,12 @@ body.map-fullscreen-open {
   width: 100%;
   will-change: transform;
   transform-origin: 0 0;
+  transition: transform 0.12s linear;
+}
+
+/* No transition during touch (pinch/pan) so two-finger zoom feels instant and responsive */
+.map-picker.touch-active .map-zoom-content {
+  transition: none !important;
 }
 
 .map-picker.fullscreen .map-zoom-content {
@@ -146,8 +152,10 @@ body.map-fullscreen-open {
   pointer-events: none;
   width: 26px;
   height: 26px;
-  /* Shift so the rotated pin tip (not just the layout box bottom) sits on the click point */
-  transform: translate(-50%, calc(-100% - 5.4px));
+  /* Shift so the rotated pin tip (not just the layout box bottom) sits on the click point.
+   * Scale with zoom is applied inline so the pin stays the same visual size when zoomed.
+   * Origin at pin tip (26 + 5.4 = 31.4px from top) so scaling keeps tip on the point. */
+  transform-origin: 50% 31.4px;
 }
 
 .marker-pin {
@@ -322,8 +330,8 @@ body.map-fullscreen-open {
   .marker {
     width: 22px;
     height: 22px;
-    /* 22px pin: tip offset = 11×(√2−1) ≈ 4.6px */
-    transform: translate(-50%, calc(-100% - 4.6px));
+    /* 22px pin: tip offset = 11×(√2−1) ≈ 4.6px; origin at tip = 26.6px from top */
+    transform-origin: 50% 26.6px;
   }
 
   .marker-pin {

@@ -46,3 +46,15 @@ export async function awardXp(uid: string, xpEarned: number): Promise<void> {
     lastActive: serverTimestamp()
   });
 }
+
+/**
+ * Award bonus XP that should not count as a played game.
+ */
+export async function awardBonusXp(uid: string, xpAmount: number): Promise<void> {
+  if (!uid || xpAmount <= 0) return;
+
+  const userRef = doc(db, 'users', uid);
+  await updateDoc(userRef, {
+    totalXp: increment(xpAmount)
+  });
+}

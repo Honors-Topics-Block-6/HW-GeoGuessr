@@ -11,6 +11,7 @@ import { db } from '../firebase';
 import { getRandomImage } from './imageService';
 import { calculateDistance, calculateLocationScore } from '../hooks/useGameState';
 import { touchLastActive } from './lastActiveService';
+import { getRegions, getRegionForPoint } from './regionService';
 
 // ────── Types ──────
 
@@ -91,10 +92,13 @@ export interface DuelData {
   roundHistory: RoundHistoryEntry[];
   winner: string | null;
   loser: string | null;
+  forfeitBy?: string | null;
   finishedAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
   players: DuelPlayer[];
   difficulty: string;
+  /** Round time in seconds. 0 = no time limit. Falls back to DUEL_ROUND_TIME_SECONDS if absent. */
+  roundTimeSeconds?: number;
 }
 
 // ────── Constants ──────
@@ -184,10 +188,15 @@ export async function submitDuelGuess(
     locationScore = calculateLocationScore(distance);
 
     const actualFloor = currentImage.correctFloor ?? null;
+    const regions = await getRegions();
+    const guessedRegion = getRegionForPoint(guessData.location, regions);
+    const actualRegion = getRegionForPoint(actualLocation, regions);
+    const isCorrectBuilding = guessedRegion !== null && actualRegion !== null && guessedRegion.id === actualRegion.id;
 
-    // Floor scoring logic (same as singleplayer)
+    // Floor scoring logic (same as singleplayer):
+    // floor only counts if both building and floor are correct.
     if (guessData.floor !== null && guessData.floor !== undefined && actualFloor !== null) {
-      floorCorrect = guessData.floor === actualFloor;
+      floorCorrect = isCorrectBuilding && guessData.floor === actualFloor;
       score = floorCorrect ? locationScore : Math.round(locationScore * 0.8);
     } else {
       score = locationScore;
@@ -397,11 +406,13 @@ export function subscribeDuel(
 
 /**
  * Handle opponent disconnect — award win to remaining player.
+ * When forfeitBy is provided, records that the loser voluntarily forfeited.
  */
 export async function handleOpponentDisconnect(
   docId: string,
   winnerUid: string,
-  loserUid: string
+  loserUid: string,
+  forfeitBy?: string
 ): Promise<void> {
   const lobbyRef = doc(db, 'lobbies', docId);
   const lobbySnap = await getDoc(lobbyRef);
@@ -413,12 +424,17 @@ export async function handleOpponentDisconnect(
   const health: Record<string, number> = lobby.health || {};
   health[loserUid] = 0;
 
-  await updateDoc(lobbyRef, {
+  const updateData: Record<string, unknown> = {
     health,
     phase: 'finished',
     winner: winnerUid,
     loser: loserUid,
     finishedAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  };
+  if (forfeitBy != null) {
+    updateData.forfeitBy = forfeitBy;
+  }
+
+  await updateDoc(lobbyRef, updateData);
 }

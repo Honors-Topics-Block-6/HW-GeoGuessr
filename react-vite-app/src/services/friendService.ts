@@ -110,12 +110,36 @@ export async function getUserByEmail(email: string): Promise<UserLookup | null> 
  */
 export async function getUserByUsername(username: string): Promise<UserLookup | null> {
   const usersRef = collection(db, 'users');
-  const q = query(usersRef, where('username', '==', username.trim()));
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  const docSnap = snapshot.docs[0];
-  const data = docSnap.data();
-  return { uid: docSnap.id, username: data.username, email: data.email };
+  const trimmed = username.trim();
+  const lower = trimmed.toLowerCase();
+
+  // Prefer case-insensitive lookup when available
+  const qLower = query(usersRef, where('usernameLower', '==', lower));
+  const snapLower = await getDocs(qLower);
+  if (!snapLower.empty) {
+    const docSnap = snapLower.docs[0];
+    const data = docSnap.data();
+    return { uid: docSnap.id, username: data.username, email: data.email };
+  }
+
+  // Fallback: exact username match (for users without usernameLower)
+  const qExact = query(usersRef, where('username', '==', trimmed));
+  const snapshot = await getDocs(qExact);
+  if (!snapshot.empty) {
+    const docSnap = snapshot.docs[0];
+    const data = docSnap.data();
+    return { uid: docSnap.id, username: data.username, email: data.email };
+  }
+
+  // Final fallback: scan and compare case-insensitively for legacy users
+  const allSnap = await getDocs(usersRef);
+  const match = allSnap.docs.find(docSnap => {
+    const data = docSnap.data() as { username?: string };
+    return (data.username || '').toLowerCase() === lower;
+  });
+  if (!match) return null;
+  const data = match.data();
+  return { uid: match.id, username: data.username, email: data.email };
 }
 
 /**
@@ -274,21 +298,21 @@ export async function declineFriendRequest(requestId: string): Promise<void> {
 export async function cancelFriendRequest(requestId: string, senderUid: string): Promise<void> {
   const requestRef = doc(db, 'friendRequests', requestId);
   const requestSnap = await getDoc(requestRef);
-  
+
   if (!requestSnap.exists()) {
     throw new Error('Friend request not found.');
   }
-  
+
   const request = requestSnap.data() as { fromUid: string; status: FriendRequestStatus };
-  
+
   if (request.fromUid !== senderUid) {
     throw new Error('You can only cancel your own friend requests.');
   }
-  
+
   if (request.status !== 'pending') {
     throw new Error('This request has already been responded to.');
   }
-  
+
   await deleteDoc(requestRef);
 }
 
