@@ -35,6 +35,7 @@ interface RoundData {
   floorCorrect: boolean | null;
   timeTakenSeconds?: number;
   actualFloor?: number | null;
+  imageBuildingName?: string | null;
   imageDescription?: string | null;
   noGuess?: boolean;
 }
@@ -102,6 +103,11 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
     const day = `${date.getDate()}`.padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+  const normalizeBuildingName = (value: string | null | undefined): string | null => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
 
   // Snapshot the totalXp at mount so it doesn't shift after the Firestore refresh.
   // useState initializer only runs once, so this captures the pre-award value.
@@ -152,11 +158,14 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
         const updatedDayBuildingStatsByDifficulty = { ...dayStatsByDifficulty.buildingStats };
 
         for (const round of rounds) {
-          const building = round.imageDescription ?? 'Unknown';
+          const buildingName =
+            normalizeBuildingName(round.imageBuildingName) ??
+            normalizeBuildingName(round.imageDescription) ??
+            'Unknown';
           const floor = round.actualFloor ?? null;
-          const key = `${building}::${floor ?? 'unknown'}`;
+          const key = `${buildingName}::${floor ?? 'unknown'}`;
           const current = updatedBuildingStats[key] ?? {
-            building,
+            building: buildingName,
             floor,
             totalScore: 0,
             count: 0
@@ -169,7 +178,7 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
           };
 
           const dayCurrent = updatedDayBuildingStats[key] ?? {
-            building,
+            building: buildingName,
             floor,
             totalScore: 0,
             count: 0
@@ -182,7 +191,7 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
           };
 
           const dayDiffCurrent = updatedDayBuildingStatsByDifficulty[key] ?? {
-            building,
+            building: buildingName,
             floor,
             totalScore: 0,
             count: 0

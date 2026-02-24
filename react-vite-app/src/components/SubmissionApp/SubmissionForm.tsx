@@ -51,7 +51,9 @@ const BUILDING_OPTIONS: string[] = [
   'Drama Lab',
   'Chalmers Hall',
   'Weiler Hall',
-  'Advancement House'
+  'Advancement House',
+  'The Quad',
+  'Outside'
 ]
 const SORTED_BUILDING_OPTIONS = [...BUILDING_OPTIONS].sort((a, b) => (
   a.localeCompare(b, 'en', { sensitivity: 'base' })
@@ -300,7 +302,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
           y: location.y
         },
         floor: floor ?? null,
-        building,
+        buildingName: building,
         difficulty: difficulty,
         status: 'pending', // pending, approved, denied
         submitterUid: user?.uid ?? null,
