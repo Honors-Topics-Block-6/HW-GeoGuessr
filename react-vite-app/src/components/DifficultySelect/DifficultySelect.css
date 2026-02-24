@@ -69,8 +69,8 @@
   position: absolute;
   top: 0;
   left: 2rem;
-  padding: 8px 18px;
-  min-height: var(--touch-target-min, 44px);
+  padding: 6px 28px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.08);
@@ -376,7 +376,8 @@
 
   .difficulty-back-button {
     position: static;
-    margin-bottom: 1rem;
+    order: 999;
+    margin-top: 1rem;
   }
 }
 
@@ -398,6 +399,6 @@
   }
 
   .difficulty-back-button {
-    padding: 6px 14px;
+    padding: 6px 20px;
   }
 }

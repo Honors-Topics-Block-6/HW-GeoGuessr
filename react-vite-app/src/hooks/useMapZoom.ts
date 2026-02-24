@@ -3,8 +3,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
 const ZOOM_STEP = 1.5;
-const WHEEL_ZOOM_FACTOR = 0.012;
-const PINCH_ZOOM_EXPONENT = 8;
+const WHEEL_ZOOM_FACTOR = 0.004;
+const PINCH_ZOOM_EXPONENT = 4;
 const DRAG_THRESHOLD = 5;
 
 interface Point {
