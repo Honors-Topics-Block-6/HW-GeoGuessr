@@ -1,26 +1,14 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
 import './ProfileScreen.css';
 
 export interface ProfileScreenProps {
   onBack: () => void;
   onOpenFriends: () => void;
+  onOpenAchievements?: () => void;
 }
 
-interface AchievementDefinition {
-  id: AchievementId;
-  icon: string;
-  title: string;
-  highlight: string;
-  details: string;
-  xpReward: number;
-  target: number;
-  progress: number;
-  unlocked: boolean;
-}
-
-function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.ReactElement {
+function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScreenProps): React.ReactElement {
   const {
     user,
     userDoc,
@@ -109,47 +97,6 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
 
   const progressPercent: number = Math.round(levelInfo.progress * 100);
   const gamesPlayed: number = userDoc?.gamesPlayed ?? 0;
-  const achievementDefinitions: AchievementDefinition[] = useMemo(() => {
-    const allMeta = getAllAchievementMeta();
-    return allMeta.map((meta) => {
-      let target = 1;
-      let progress = 0;
-
-      if (meta.id === 'first-game') {
-        target = 1;
-        progress = gamesPlayed;
-      } else if (meta.id === 'weekend-warrior') {
-        target = 25;
-        progress = gamesPlayed;
-      } else if (meta.id === 'xp-collector') {
-        target = 5000;
-        progress = totalXp;
-      } else if (meta.id === 'rising-star') {
-        target = 10;
-        progress = levelInfo.level;
-      } else if (meta.id === 'verified-account') {
-        target = 1;
-        progress = emailVerified ? 1 : 0;
-      } else if (
-        meta.id === 'easy-finish' ||
-        meta.id === 'medium-finish' ||
-        meta.id === 'hard-finish' ||
-        meta.id === 'bullseye'
-      ) {
-        target = 1;
-        progress = isAchievementUnlocked(meta.id) ? 1 : 0;
-      }
-
-      const clampedProgress = Math.min(progress, target);
-      return {
-        ...meta,
-        target,
-        progress: clampedProgress,
-        unlocked: clampedProgress >= target
-      };
-    });
-  }, [emailVerified, gamesPlayed, levelInfo.level, totalXp]);
-  const completedAchievements: number = achievementDefinitions.filter((achievement) => achievement.progress >= achievement.target).length;
 
   return (
     <div className="profile-screen">
@@ -297,6 +244,19 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
           </div>
 
           <div className="profile-field">
+            <span className="profile-label">Achievements</span>
+            <div className="profile-value-row">
+              <span className="profile-value">Track your milestones and XP rewards</span>
+              <button
+                className="profile-friends-button"
+                onClick={() => onOpenAchievements?.()}
+              >
+                View Achievements
+              </button>
+            </div>
+          </div>
+
+          <div className="profile-field">
             <span className="profile-label">Member Since</span>
             <span className="profile-value">
               {userDoc?.createdAt && typeof userDoc.createdAt === 'object' && 'toDate' in (userDoc.createdAt as object)
@@ -311,56 +271,6 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
         </div>
       </div>
 
-        <section className="profile-achievements-section">
-          <div className="profile-achievements-header">
-            <span className="profile-label">Achievements</span>
-            <span className="profile-achievements-summary">
-              {completedAchievements}/{achievementDefinitions.length} unlocked
-            </span>
-          </div>
-          <div className="profile-achievements-panel">
-            {achievementDefinitions.map((achievement) => {
-              const isUnlocked = achievement.unlocked;
-              const progressPercent = Math.round((achievement.progress / achievement.target) * 100);
-
-              return (
-                <div
-                  key={achievement.id}
-                  className={`profile-achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`}
-                >
-                  <div className="profile-achievement-card-header">
-                    <div className={`profile-achievement-circle ${isUnlocked ? 'unlocked' : 'locked'}`}>
-                      <span className="profile-achievement-icon">{achievement.icon}</span>
-                    </div>
-                    <div className="profile-achievement-main">
-                      <span className="profile-achievement-title">{achievement.title}</span>
-                      <span className="profile-achievement-reward">+{achievement.xpReward.toLocaleString()} XP</span>
-                    </div>
-                    <span className={`profile-achievement-status ${isUnlocked ? 'unlocked' : 'locked'}`}>
-                      {isUnlocked ? 'Unlocked' : 'Locked'}
-                    </span>
-                  </div>
-                  <div className="profile-achievement-progress-row">
-                    <div className="profile-achievement-progress-track">
-                      <div className="profile-achievement-progress-fill" style={{ width: `${progressPercent}%` }} />
-                    </div>
-                    <span className="profile-achievement-progress">
-                      {achievement.progress.toLocaleString()} / {achievement.target.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="profile-achievement-hover-card" role="tooltip">
-                    <p>
-                      <strong>{achievement.highlight}</strong> {achievement.details}
-                    </p>
-                    <p className="profile-achievement-hover-reward">
-                      XP Bonus: +{achievement.xpReward.toLocaleString()} XP
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
       </div>
     </div>
   );

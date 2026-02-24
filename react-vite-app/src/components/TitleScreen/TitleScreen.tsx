@@ -10,10 +10,11 @@ export interface TitleScreenProps {
   onOpenLeaderboard: () => void;
   onOpenBugReport: () => void;
   onOpenDailyGoals: () => void;
+  onOpenAchievements: () => void;
   isLoading: boolean;
 }
 
-function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, onOpenBugReport, onOpenDailyGoals, isLoading }: TitleScreenProps): React.ReactElement {
+function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, onOpenBugReport, onOpenDailyGoals, onOpenAchievements, isLoading }: TitleScreenProps): React.ReactElement {
   const { userDoc, logout, levelInfo, levelTitle: _levelTitle } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -59,6 +60,9 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
               </button>
               <button className="title-dropdown-item" onClick={() => { onOpenFriends(); setUserMenuOpen(false); }}>
                 Friends
+              </button>
+              <button className="title-dropdown-item" onClick={() => { onOpenAchievements(); setUserMenuOpen(false); }}>
+                Achievements
               </button>
               <button className="title-dropdown-item" onClick={() => { onOpenDailyGoals(); setUserMenuOpen(false); }}>
                 Daily Goals
