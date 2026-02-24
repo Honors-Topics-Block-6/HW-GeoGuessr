@@ -56,6 +56,18 @@ describe('DuelGameScreen fullscreen map', () => {
     expect(container.querySelector('.map-picker-container')).not.toHaveClass('is-fullscreen');
   });
 
+  it('renders quick emote bar and sends selected emote', async () => {
+    const user = userEvent.setup();
+    const onSendEmote = vi.fn(async () => {});
+
+    render(<DuelGameScreen {...defaultProps} onSendEmote={onSendEmote} />);
+
+    expect(screen.getByLabelText('Quick emotes')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('Send emote 🔥'));
+    expect(onSendEmote).toHaveBeenCalledWith('🔥');
+  });
+
   describe('Quit button', () => {
     it('should open confirmation modal when Quit clicked', async () => {
       const user = userEvent.setup();
