@@ -70,31 +70,65 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
   // Time setting: preset value or 'custom'
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
   const [customTime, setCustomTime] = useState<string>('60');
+  const [customTimeError, setCustomTimeError] = useState<string | null>(null);
+
+  const parsedCustom = parseInt(customTime, 10);
+  const customIsValid =
+    timeSelection !== 'custom' ||
+    (!isNaN(parsedCustom) && parsedCustom >= CUSTOM_TIME_MIN && parsedCustom <= CUSTOM_TIME_MAX);
 
   /** Resolve the actual round time in seconds (0 = no limit) */
   const resolvedTime: number =
     timeSelection === 'custom'
-      ? Math.max(CUSTOM_TIME_MIN, Math.min(CUSTOM_TIME_MAX, parseInt(customTime, 10) || CUSTOM_TIME_MIN))
+      ? Math.max(
+          CUSTOM_TIME_MIN,
+          Math.min(
+            CUSTOM_TIME_MAX,
+            isNaN(parsedCustom) ? CUSTOM_TIME_MIN : parsedCustom
+          )
+        )
       : timeSelection;
 
   const handleStart = (): void => {
-    if (selectedDifficulty) {
-      onStart(selectedDifficulty, selectedMode, resolvedTime);
+    if (!selectedDifficulty) return;
+
+    if (timeSelection === 'custom') {
+      if (!customIsValid) {
+        setCustomTimeError(`Enter a time between ${CUSTOM_TIME_MIN} and ${CUSTOM_TIME_MAX} seconds.`);
+        return;
+      }
+      // Normalize the input to the clamped value so the user sees what will be used
+      setCustomTime(String(resolvedTime));
+      setCustomTimeError(null);
     }
+
+    onStart(selectedDifficulty, selectedMode, resolvedTime);
   };
+
+  const disabledReason: string | null = (() => {
+    if (!selectedDifficulty) return 'Select a difficulty.';
+    if (!selectedMode) return 'Select a game mode.';
+    if (timeSelection === 'custom' && !customIsValid) {
+      return `Enter a custom time between ${CUSTOM_TIME_MIN} and ${CUSTOM_TIME_MAX} seconds.`;
+    }
+    return null;
+  })();
 
   const handleCustomTimeChange = (value: string): void => {
     // Allow only digits while typing
     const digits = value.replace(/\D/g, '');
     setCustomTime(digits);
+    setCustomTimeError(null);
   };
 
   const handleCustomTimeBlur = (): void => {
     const parsed = parseInt(customTime, 10);
     if (isNaN(parsed) || parsed < CUSTOM_TIME_MIN) {
       setCustomTime(String(CUSTOM_TIME_MIN));
+      setCustomTimeError(null);
     } else if (parsed > CUSTOM_TIME_MAX) {
       setCustomTime(String(CUSTOM_TIME_MAX));
+      setCustomTimeError(null);
     }
   };
 
@@ -190,6 +224,7 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
                   max={CUSTOM_TIME_MAX}
                   placeholder="e.g. 60"
                 />
+                {customTimeError && <div className="time-custom-error">{customTimeError}</div>}
               </div>
             )}
           </>
@@ -198,7 +233,8 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
         <button
           className="play-button"
           onClick={handleStart}
-          disabled={!selectedDifficulty || isLoading}
+          disabled={!!disabledReason || isLoading}
+          title={disabledReason ?? 'Start game'}
         >
           {isLoading ? (
             <>
