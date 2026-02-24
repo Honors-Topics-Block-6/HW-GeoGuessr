@@ -64,6 +64,29 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
+.profile-friends-count {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.profile-friends-count-number {
+  color: #e9d5ff;
+  font-size: 0.85rem;
+}
+
 .profile-achievements-section {
   width: 100%;
   background: rgba(22, 33, 62, 0.6);
@@ -650,6 +673,13 @@
 
   .profile-title {
     font-size: 1.5rem;
+  }
+
+  .profile-friends-count {
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.55rem;
   }
 
   .profile-avatar-icon {

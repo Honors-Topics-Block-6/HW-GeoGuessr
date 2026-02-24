@@ -1,6 +1,7 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
+import { useFriends } from '../../hooks/useFriends';
 import './ProfileScreen.css';
 
 export interface ProfileScreenProps {
@@ -31,6 +32,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     levelTitle,
     emailVerified
   } = useAuth();
+  const { friends } = useFriends(user?.uid, userDoc?.username ?? '');
 
   const [newUsername, setNewUsername] = useState<string>(userDoc?.username || '');
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -109,6 +111,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
 
   const progressPercent: number = Math.round(levelInfo.progress * 100);
   const gamesPlayed: number = userDoc?.gamesPlayed ?? 0;
+  const friendsCount: number = friends.length;
   const achievementDefinitions: AchievementDefinition[] = useMemo(() => {
     const allMeta = getAllAchievementMeta();
     return allMeta.map((meta) => {
@@ -158,30 +161,36 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
       </div>
       <div className="profile-layout">
         <div className="profile-card">
+          <div className="profile-friends-count" title="Friends">
+            <span className="profile-friends-count-number">{friendsCount}</span>
+            <span className="profile-friends-count-label">
+              {friendsCount === 1 ? 'Friend' : 'Friends'}
+            </span>
+          </div>
           <button className="profile-back-button" onClick={onBack}>
             ← Back
           </button>
 
-        <div className="profile-avatar">
-          {userDoc?.photoURL ? (
-            <img
-              className="profile-avatar-image"
-              src={userDoc.photoURL}
-              alt={`${userDoc.username}'s profile`}
-            />
-          ) : (
-            <span className="profile-avatar-icon">👤</span>
-          )}
-          <label className={`profile-photo-upload ${isUploadingPhoto ? 'disabled' : ''}`}>
-            {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoUpload}
-              disabled={isUploadingPhoto}
-            />
-          </label>
-        </div>
+          <div className="profile-avatar">
+            {userDoc?.photoURL ? (
+              <img
+                className="profile-avatar-image"
+                src={userDoc.photoURL}
+                alt={`${userDoc.username}'s profile`}
+              />
+            ) : (
+              <span className="profile-avatar-icon">👤</span>
+            )}
+            <label className={`profile-photo-upload ${isUploadingPhoto ? 'disabled' : ''}`}>
+              {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                disabled={isUploadingPhoto}
+              />
+            </label>
+          </div>
 
           <h1 className="profile-title">Your Profile</h1>
 
@@ -230,86 +239,86 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
 
           <div className="profile-fields">
 
-          <div className="profile-field">
-            <span className="profile-label">Username</span>
-            {isEditing ? (
-              <div className="profile-edit-row">
-                <input
-                  type="text"
-                  value={newUsername}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewUsername(e.target.value)}
-                  className="profile-input"
-                  autoFocus
-                  disabled={isSaving}
-                />
-                <div className="profile-username-note">
-                  Changing your username is allowed once every 30 days.
+            <div className="profile-field">
+              <span className="profile-label">Username</span>
+              {isEditing ? (
+                <div className="profile-edit-row">
+                  <input
+                    type="text"
+                    value={newUsername}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewUsername(e.target.value)}
+                    className="profile-input"
+                    autoFocus
+                    disabled={isSaving}
+                  />
+                  <div className="profile-username-note">
+                    Changing your username is allowed once every 30 days.
+                  </div>
+                  <button
+                    className="profile-save-button"
+                    onClick={handleSave}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    className="profile-cancel-button"
+                    onClick={handleCancel}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </button>
                 </div>
-                <button
-                  className="profile-save-button"
-                  onClick={handleSave}
-                  disabled={isSaving}
-                >
-                  {isSaving ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  className="profile-cancel-button"
-                  onClick={handleCancel}
-                  disabled={isSaving}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
+              ) : (
+                <div className="profile-value-row">
+                  <span className="profile-value">{userDoc?.username}</span>
+                  <button
+                    className="profile-edit-button"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="profile-field">
+              <span className="profile-label">Email</span>
               <div className="profile-value-row">
-                <span className="profile-value">{userDoc?.username}</span>
+                <span className="profile-value">{user?.email}</span>
+                <span className={`profile-verification-badge ${emailVerified ? 'verified' : 'unverified'}`}>
+                  {emailVerified ? 'Verified' : 'Unverified'}
+                </span>
+              </div>
+            </div>
+
+            <div className="profile-field">
+              <span className="profile-label">Friends</span>
+              <div className="profile-value-row">
+                <span className="profile-value">View and manage your friends</span>
                 <button
-                  className="profile-edit-button"
-                  onClick={() => setIsEditing(true)}
+                  className="profile-friends-button"
+                  onClick={onOpenFriends}
                 >
-                  Edit
+                  Friends
                 </button>
               </div>
-            )}
-          </div>
-
-          <div className="profile-field">
-            <span className="profile-label">Email</span>
-            <div className="profile-value-row">
-              <span className="profile-value">{user?.email}</span>
-              <span className={`profile-verification-badge ${emailVerified ? 'verified' : 'unverified'}`}>
-                {emailVerified ? 'Verified' : 'Unverified'}
-              </span>
             </div>
-          </div>
 
-          <div className="profile-field">
-            <span className="profile-label">Friends</span>
-            <div className="profile-value-row">
-              <span className="profile-value">View and manage your friends</span>
-              <button
-                className="profile-friends-button"
-                onClick={onOpenFriends}
-              >
-                Friends
-              </button>
-            </div>
-          </div>
-
-          <div className="profile-field">
-            <span className="profile-label">Member Since</span>
-            <span className="profile-value">
-              {userDoc?.createdAt && typeof userDoc.createdAt === 'object' && 'toDate' in (userDoc.createdAt as object)
-                ? (userDoc.createdAt as { toDate: () => Date }).toDate().toLocaleDateString('en-US', {
+            <div className="profile-field">
+              <span className="profile-label">Member Since</span>
+              <span className="profile-value">
+                {userDoc?.createdAt && typeof userDoc.createdAt === 'object' && 'toDate' in (userDoc.createdAt as object)
+                  ? (userDoc.createdAt as { toDate: () => Date }).toDate().toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
                   })
-                : 'N/A'}
-            </span>
+                  : 'N/A'}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
         <section className="profile-achievements-section">
           <div className="profile-achievements-header">
