@@ -1,6 +1,7 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
+import ImageCropModal from '../ImageCropModal/ImageCropModal';
 import './ProfileScreen.css';
 
 export interface ProfileScreenProps {
@@ -36,6 +37,8 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
+  const [pendingPhotoSrc, setPendingPhotoSrc] = useState<string | null>(null);
+  const [pendingPhotoFilename, setPendingPhotoFilename] = useState<string>('profile.jpg');
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
 
@@ -58,13 +61,40 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
       return;
     }
 
-    setIsUploadingPhoto(true);
     try {
-      await updateProfileImage(file);
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Failed to read image file.'));
+        reader.readAsDataURL(file);
+      });
+
+      setPendingPhotoFilename(file.name || 'profile.jpg');
+      setPendingPhotoSrc(dataUrl);
+    } catch (err) {
+      setError((err as Error).message || 'Failed to load image.');
+    }
+  };
+
+  const handleCancelCrop = (): void => {
+    setPendingPhotoSrc(null);
+    setPendingPhotoFilename('profile.jpg');
+  };
+
+  const handleConfirmCrop = async (croppedFile: File): Promise<void> => {
+    setError('');
+    setSuccess('');
+    setIsUploadingPhoto(true);
+
+    try {
+      await updateProfileImage(croppedFile);
       setSuccess('Profile picture updated!');
+      setPendingPhotoSrc(null);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError((err as Error).message || 'Failed to upload profile image.');
+      const message = (err as Error).message || 'Failed to upload profile image.';
+      setError(message);
+      throw new Error(message);
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -153,6 +183,14 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
 
   return (
     <div className="profile-screen">
+      {pendingPhotoSrc && (
+        <ImageCropModal
+          imageSrc={pendingPhotoSrc}
+          filename={pendingPhotoFilename}
+          onCancel={handleCancelCrop}
+          onConfirm={handleConfirmCrop}
+        />
+      )}
       <div className="profile-background">
         <div className="profile-overlay"></div>
       </div>
