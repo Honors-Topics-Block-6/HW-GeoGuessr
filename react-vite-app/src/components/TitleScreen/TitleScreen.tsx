@@ -47,7 +47,17 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
             aria-expanded={userMenuOpen}
             aria-haspopup="true"
           >
-            <span className="title-user-icon">👤</span>
+            <span className="title-user-avatar">
+              {userDoc?.photoURL ? (
+                <img
+                  className="title-user-avatar-image"
+                  src={userDoc.photoURL}
+                  alt={`${userDoc.username || 'User'}'s profile`}
+                />
+              ) : (
+                <span className="title-user-avatar-icon" aria-hidden="true">👤</span>
+              )}
+            </span>
             <span className="title-username">{userDoc?.username}</span>
             <span className="title-level-badge">Lvl {levelInfo.level}</span>
             <span className={`title-user-chevron ${userMenuOpen ? 'open' : ''}`}>▾</span>
@@ -88,7 +98,11 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
         <div className="logo-container">
           <span className="logo-icon">🌍</span>
         </div>
-        <h1 className="game-title">HW Geoguessr</h1>
+        <h1 className="game-title">
+          <span className="game-title-initial game-title-initial-h">H</span>
+          <span className="game-title-initial game-title-initial-w">W</span>
+          <span className="game-title-rest"> Geoguessr</span>
+        </h1>
         <p className="tagline">Can you guess the location on campus?</p>
 
         <button
