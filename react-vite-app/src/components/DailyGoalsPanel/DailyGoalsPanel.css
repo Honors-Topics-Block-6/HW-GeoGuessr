@@ -328,6 +328,24 @@
   text-align: center;
 }
 
+.daily-goals-celebrate-button {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e0e6f0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.daily-goals-celebrate-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
 .daily-goals-claim-button {
   display: inline-block;
   padding: 14px 32px;
