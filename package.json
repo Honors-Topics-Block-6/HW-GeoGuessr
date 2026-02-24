@@ -1,0 +1,12 @@
+{
+  "name": "hw-geoguessr-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix react-vite-app run dev",
+    "build": "npm --prefix react-vite-app run build",
+    "preview": "npm --prefix react-vite-app run preview",
+    "test": "npm --prefix react-vite-app run test",
+    "lint": "npm --prefix react-vite-app run lint",
+    "install:app": "npm --prefix react-vite-app install"
+  }
+}

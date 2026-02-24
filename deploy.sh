@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 #
 # deploy.sh — Build and deploy the react-vite-app to Firebase Hosting
-# Target: https://geogessr-a4adc.web.app/
+# Targets:
+#   - https://geogessr-a4adc.web.app/  (old site)
+#   - https://hwgeoguessr.web.app/     (new site)
 #
 set -euo pipefail
 
 # ── Constants ────────────────────────────────────────────────────────────────
 EXPECTED_PROJECT="geogessr-a4adc"
-EXPECTED_URL="https://${EXPECTED_PROJECT}.web.app/"
+OLD_SITE_URL="https://geogessr-a4adc.web.app/"
+NEW_SITE_URL="https://hwgeoguessr.web.app/"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="${SCRIPT_DIR}/react-vite-app"
 
@@ -24,7 +27,7 @@ error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 die()   { error "$@"; exit 1; }
 
 # ── Pre-flight checks ───────────────────────────────────────────────────────
-info "Starting deployment to ${EXPECTED_URL}"
+info "Starting deployment to ${OLD_SITE_URL} and ${NEW_SITE_URL}"
 
 # 1. Verify Firebase CLI is installed
 if ! command -v firebase &>/dev/null; then
@@ -67,9 +70,10 @@ fi
 info "Build succeeded — dist/ is ready."
 
 # ── Deploy ───────────────────────────────────────────────────────────────────
-info "Deploying ONLY hosting to Firebase project '${EXPECTED_PROJECT}' …"
+info "Deploying hosting to Firebase project '${EXPECTED_PROJECT}' (both sites) …"
 (cd "${SCRIPT_DIR}" && firebase deploy --only hosting --project "${EXPECTED_PROJECT}")
 
 echo ""
 info "Deployment complete!"
-info "Live at: ${EXPECTED_URL}"
+info "Live at: ${OLD_SITE_URL}"
+info "Live at: ${NEW_SITE_URL}"
