@@ -88,7 +88,11 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
         <div className="logo-container">
           <span className="logo-icon">🌍</span>
         </div>
-        <h1 className="game-title">HW Geoguessr</h1>
+        <h1 className="game-title">
+          <span className="game-title-initial game-title-initial-h">H</span>
+          <span className="game-title-initial game-title-initial-w">W</span>
+          <span className="game-title-rest"> Geoguessr</span>
+        </h1>
         <p className="tagline">Can you guess the location on campus?</p>
 
         <button
