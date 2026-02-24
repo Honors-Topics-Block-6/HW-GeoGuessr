@@ -2,11 +2,8 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
-import { getAllImages, getAllSampleImages, deleteSubmission, deleteImage } from '../../services/imageService'
+import { getAllImages, deleteSubmission, deleteImage } from '../../services/imageService'
 import MapPicker from '../MapPicker/MapPicker'
-import FloorSelector from '../FloorSelector/FloorSelector'
-import PhotoUpload from './PhotoUpload'
-import { compressImage } from '../../utils/compressImage'
 import './AdminReview.css'
 
 const DIFFICULTY_OPTIONS: string[] = ['easy', 'medium', 'hard']
@@ -21,8 +18,8 @@ export interface Location {
   y: number
 }
 
-type SubmissionSource = 'submission' | 'image' | 'testing'
-type SubmissionStatus = 'pending' | 'approved' | 'denied' | 'testing'
+type SubmissionSource = 'submission' | 'image'
+type SubmissionStatus = 'pending' | 'approved' | 'denied'
 
 export interface SubmissionItem {
   id: string
@@ -53,13 +50,11 @@ export interface AdminReviewProps {
   onBack?: () => void
 }
 
-function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
+function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([])
   const [firestoreImages, setFirestoreImages] = useState<SubmissionItem[]>([])
-  const [sampleImages, setSampleImages] = useState<SubmissionItem[]>([])
   const [loading, setLoading] = useState<boolean>(true)
-  const [filter, setFilter] = useState<string>('all') // pending, approved, denied, all
-  const [sourceFilter, setSourceFilter] = useState<string>('all') // all, submissions, images, testing
+  const [filter, setFilter] = useState<string>('pending') // pending, approved, denied, all
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null)
 
   // Edit mode state
@@ -67,7 +62,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const [editForm, setEditForm] = useState<Partial<EditFormState>>({})
   const [isSaving, setIsSaving] = useState<boolean>(false)
   const [saveError, setSaveError] = useState<string>('')
-  const [newPhoto, setNewPhoto] = useState<File | null>(null)
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<SubmissionItem | null>(null)
@@ -93,7 +87,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     return () => unsubscribe()
   }, [])
 
-  // Fetch images from Firestore images collection and sample/testing images
+  // Fetch images from Firestore images collection
   useEffect(() => {
     async function fetchImages(): Promise<void> {
       const images = await getAllImages()
@@ -113,24 +107,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         photoName: img.description || img.id,
         status: 'approved',
         _source: 'image' as SubmissionSource,
-        description: img.description
-      })))
-
-      const samples = getAllSampleImages()
-      setSampleImages((samples as Array<{
-        id: string
-        url?: string
-        correctLocation?: Location
-        correctFloor?: number
-        description?: string
-      }>).map(img => ({
-        id: img.id,
-        photoURL: img.url,
-        location: img.correctLocation,
-        floor: img.correctFloor,
-        photoName: img.description || img.id,
-        status: 'testing',
-        _source: 'testing' as SubmissionSource,
         description: img.description
       })))
     }
@@ -182,7 +158,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       difficulty: selectedSubmission.difficulty || null,
       status: selectedSubmission.status,
     })
-    setNewPhoto(null)
     setSaveError('')
     setIsEditing(true)
   }
@@ -190,7 +165,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const handleCancelEdit = (): void => {
     setIsEditing(false)
     setEditForm({})
-    setNewPhoto(null)
     setSaveError('')
   }
 
@@ -200,6 +174,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   }
 
   const handleSaveEdit = async (): Promise<void> => {
+    if (!selectedSubmission) return
+
     // Validation
     if (!editForm.location || editForm.location.x === undefined || editForm.location.y === undefined) {
       setSaveError('Location is required')
@@ -210,36 +186,57 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       return
     }
 
+    const changedFields: string[] = []
+    const normalizedBuildingName = (editForm.buildingName || '').trim() || null
+    const originalBuildingName = selectedSubmission.buildingName || null
+    if (normalizedBuildingName !== originalBuildingName) changedFields.push('Building Name')
+    if ((editForm.description || '') !== (selectedSubmission.description || '')) changedFields.push('Description')
+    if (selectedSubmission._source === 'submission' && (editForm.photoName || '') !== (selectedSubmission.photoName || '')) {
+      changedFields.push('File Name')
+    }
+    if ((editForm.difficulty || null) !== (selectedSubmission.difficulty || null)) changedFields.push('Difficulty')
+    if ((editForm.floor ?? null) !== (selectedSubmission.floor ?? null)) changedFields.push('Floor')
+    if (selectedSubmission._source === 'submission' && (editForm.status || selectedSubmission.status) !== selectedSubmission.status) {
+      changedFields.push('Status')
+    }
+
+    const originalX = selectedSubmission.location?.x ?? null
+    const originalY = selectedSubmission.location?.y ?? null
+    const nextX = editForm.location.x
+    const nextY = editForm.location.y
+    if (originalX === null || originalY === null || Math.abs(originalX - nextX) > 0.0001 || Math.abs(originalY - nextY) > 0.0001) {
+      changedFields.push('Location Coordinates')
+    }
+
+    if (changedFields.length === 0) {
+      setSaveError('No changes to save.')
+      return
+    }
+
+    const shouldSave = window.confirm(`Save these changes?\n- ${changedFields.join('\n- ')}`)
+    if (!shouldSave) return
+
     setIsSaving(true)
     setSaveError('')
 
     try {
-      let photoURL = selectedSubmission?.photoURL
-
-      // If new photo was uploaded, compress it
-      if (newPhoto) {
-        photoURL = await compressImage(newPhoto)
-      }
-
-      if (selectedSubmission?._source === 'submission') {
+      if (selectedSubmission._source === 'submission') {
         await updateDoc(doc(db, 'submissions', selectedSubmission.id), {
           description: editForm.description,
           photoName: editForm.photoName,
-          buildingName: (editForm.buildingName || '').trim() || null,
+          buildingName: normalizedBuildingName,
           location: editForm.location,
           floor: editForm.floor,
           difficulty: editForm.difficulty || null,
           status: editForm.status,
-          photoURL: photoURL,
         })
         // Real-time listener will auto-update submissions state
-      } else if (selectedSubmission?._source === 'image') {
+      } else if (selectedSubmission._source === 'image') {
         await updateDoc(doc(db, 'images', selectedSubmission.id), {
           description: editForm.description,
           correctLocation: editForm.location,
           correctFloor: editForm.floor,
           difficulty: editForm.difficulty || null,
-          url: photoURL,
         })
         // Manually update firestoreImages state (no real-time listener)
         setFirestoreImages(prev => prev.map(img =>
@@ -251,7 +248,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                 location: editForm.location!,
                 floor: editForm.floor,
                 difficulty: editForm.difficulty || null,
-                photoURL: photoURL,
               }
             : img
         ))
@@ -259,6 +255,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
       setIsEditing(false)
       setSelectedSubmission(null)
+      window.alert(`Saved changes:\n- ${changedFields.join('\n- ')}`)
     } catch (error) {
       console.error('Error saving edit:', error)
       setSaveError('Failed to save changes. Please try again.')
@@ -302,13 +299,11 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     }
   }
 
-  // Combine all image sources
-  const allItems: SubmissionItem[] = [...submissions, ...firestoreImages, ...sampleImages]
+  // Combine all reviewable sources
+  const allItems: SubmissionItem[] = [...submissions, ...firestoreImages]
 
   const filteredSubmissions = allItems.filter(item => {
-    // Apply source filter
-    if (sourceFilter !== 'all' && item._source !== sourceFilter) return false
-    // Apply status filter (only relevant for submissions)
+    // Apply status filter
     if (filter === 'all') return true
     return item.status === filter
   })
@@ -317,26 +312,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     switch (status) {
       case 'approved': return 'badge-approved'
       case 'denied': return 'badge-denied'
-      case 'testing': return 'badge-testing'
       default: return 'badge-pending'
-    }
-  }
-
-  const getSourceBadgeClass = (source: string): string => {
-    switch (source) {
-      case 'submission': return 'source-submission'
-      case 'image': return 'source-image'
-      case 'testing': return 'source-testing'
-      default: return ''
-    }
-  }
-
-  const getSourceLabel = (source: string): string => {
-    switch (source) {
-      case 'submission': return 'Submission'
-      case 'image': return 'Game Image'
-      case 'testing': return 'Testing Data'
-      default: return source
     }
   }
 
@@ -345,10 +321,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     const date = typeof timestamp === 'object' && timestamp !== null && 'toDate' in timestamp
       ? timestamp.toDate()
       : new Date(timestamp as string)
-    return date.toLocaleString()
+    return date.toLocaleString([], {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
   }
-
-  const isEditable = selectedSubmission && selectedSubmission._source !== 'testing'
 
   if (loading) {
     return (
@@ -360,46 +340,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
   return (
     <div className="admin-review">
-      <div className="admin-header">
-        {onBack && (
-          <button className="back-button" onClick={onBack}>
-            ← Back to Submission
-          </button>
-        )}
-        <h2>Admin Review Panel</h2>
-      </div>
-
       <div className="filter-section">
-        <div className="filter-group">
-          <span className="filter-label">Source:</span>
-          <div className="filter-tabs">
-            <button
-              className={`filter-tab ${sourceFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setSourceFilter('all')}
-            >
-              All ({allItems.length})
-            </button>
-            <button
-              className={`filter-tab ${sourceFilter === 'submission' ? 'active' : ''}`}
-              onClick={() => setSourceFilter('submission')}
-            >
-              Submissions ({submissions.length})
-            </button>
-            <button
-              className={`filter-tab ${sourceFilter === 'image' ? 'active' : ''}`}
-              onClick={() => setSourceFilter('image')}
-            >
-              Game Images ({firestoreImages.length})
-            </button>
-            <button
-              className={`filter-tab ${sourceFilter === 'testing' ? 'active' : ''}`}
-              onClick={() => setSourceFilter('testing')}
-            >
-              Testing Data ({sampleImages.length})
-            </button>
-          </div>
-        </div>
-
         <div className="filter-group">
           <span className="filter-label">Status:</span>
           <div className="filter-tabs">
@@ -427,32 +368,35 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
             >
               Denied ({allItems.filter(s => s.status === 'denied').length})
             </button>
-            <button
-              className={`filter-tab ${filter === 'testing' ? 'active' : ''}`}
-              onClick={() => setFilter('testing')}
-            >
-              Testing ({allItems.filter(s => s.status === 'testing').length})
-            </button>
           </div>
         </div>
       </div>
 
       {filteredSubmissions.length === 0 ? (
-        <div className="no-submissions">
-          No {filter === 'all' ? '' : filter} submissions found.
+        <div className={`no-submissions ${filter === 'pending' ? 'pending-empty' : ''}`}>
+          {filter === 'pending' ? 'No pending submissions!' : `No ${filter === 'all' ? '' : `${filter} `}submissions found.`}
         </div>
       ) : (
         <div className="submissions-grid">
           {filteredSubmissions.map(submission => (
             <div key={submission.id} className="submission-card">
-              <div className="card-image">
+              <div
+                className="card-image"
+                onClick={() => setSelectedSubmission(submission)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setSelectedSubmission(submission)
+                  }
+                }}
+              >
                 <img src={submission.photoURL} alt="Submitted photo" />
                 <span className={`status-badge ${getStatusBadgeClass(submission.status)}`}>
                   {submission.status}
                 </span>
-                <span className={`source-badge ${getSourceBadgeClass(submission._source)}`}>
-                  {getSourceLabel(submission._source)}
-                </span>
+                <span className="image-click-hint">Click image for details</span>
               </div>
 
               <div className="card-details">
@@ -468,26 +412,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                     <span>{submission.description}</span>
                   </div>
                 )}
-                <div className="detail-row">
-                  <strong>Location:</strong>
-                  <span>X: {submission.location?.x}, Y: {submission.location?.y}</span>
-                </div>
-                <div className="detail-row">
-                  <strong>Floor:</strong>
-                  <span>{submission.floor}</span>
-                </div>
-                <div className="detail-row">
-                  <strong>Difficulty:</strong>
+                <div className="detail-row detail-row-meta">
                   <span className={`difficulty-badge difficulty-badge-${submission.difficulty || 'none'}`}>
                     {submission.difficulty ? submission.difficulty.charAt(0).toUpperCase() + submission.difficulty.slice(1) : 'Not set'}
                   </span>
+                  {submission.createdAt && (
+                    <span className="submitted-inline">Submitted: {formatDate(submission.createdAt)}</span>
+                  )}
                 </div>
-                {submission.createdAt && (
-                  <div className="detail-row">
-                    <strong>Submitted:</strong>
-                    <span>{formatDate(submission.createdAt)}</span>
-                  </div>
-                )}
                 {submission.reviewedAt && (
                   <div className="detail-row">
                     <strong>Reviewed:</strong>
@@ -524,23 +456,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                 </div>
               )}
 
-              {submission._source !== 'testing' && (
-                <div className="card-actions">
-                  <button
-                    className="delete-photo-button"
-                    onClick={() => handleDeleteClick(submission)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-
-              <button
-                className="view-details-button"
-                onClick={() => setSelectedSubmission(submission)}
-              >
-                View Full Details
-              </button>
+              <div className="card-actions">
+                <button
+                  className="delete-photo-button"
+                  onClick={() => handleDeleteClick(submission)}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -583,333 +506,232 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
       {selectedSubmission && createPortal(
         <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal-content" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-            <button className="modal-close" onClick={handleCloseModal}>
+          <div className="modal-shell" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <button className="modal-close modal-close-outside" onClick={handleCloseModal}>
               ×
             </button>
 
-            {/* Image display / replacement */}
-            {isEditing ? (
-              <div className="edit-photo-section">
-                <img
-                  src={newPhoto ? URL.createObjectURL(newPhoto) : selectedSubmission.photoURL}
-                  alt="Current"
-                  className="modal-image"
-                />
-                <div className="replace-photo-controls">
-                  <PhotoUpload onPhotoSelect={setNewPhoto} selectedPhoto={newPhoto} />
-                </div>
-              </div>
-            ) : (
-              <img src={selectedSubmission.photoURL} alt="Full size" className="modal-image" />
-            )}
-
-            <div className="modal-details">
-              {isEditing ? (
-                /* Edit mode form */
-                <div className="edit-form">
-                  <div className="modal-details-header">
-                    <h3>Edit Image</h3>
-                  </div>
-
-                  {saveError && <div className="edit-error">{saveError}</div>}
-
-                  {/* Description */}
-                  <div className="edit-field">
-                    <label htmlFor="edit-description">Description</label>
-                    <input
-                      id="edit-description"
-                      type="text"
-                      value={editForm.description || ''}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
-
-                  {/* Building Name (submissions only) */}
-                  {selectedSubmission._source === 'submission' && (
-                    <div className="edit-field">
-                      <label htmlFor="edit-buildingname">Building Name</label>
-                      <input
-                        id="edit-buildingname"
-                        type="text"
-                        value={editForm.buildingName || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, buildingName: e.target.value }))}
-                      />
-                    </div>
-                  )}
-
-                  {/* Photo Name (submissions only) */}
-                  {selectedSubmission._source === 'submission' && (
-                    <div className="edit-field">
-                      <label htmlFor="edit-photoname">File Name</label>
-                      <input
-                        id="edit-photoname"
-                        type="text"
-                        value={editForm.photoName || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, photoName: e.target.value }))}
-                      />
-                    </div>
-                  )}
-
-                  {/* Status (submissions only) */}
-                  {selectedSubmission._source === 'submission' && (
-                    <div className="edit-field">
-                      <label htmlFor="edit-status">Status</label>
-                      <select
-                        id="edit-status"
-                        value={editForm.status || ''}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="denied">Denied</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Location via MapPicker */}
-                  <div className="edit-field">
-                    <label>Location</label>
-                    <MapPicker
-                      markerPosition={editForm.location ?? null}
-                      onMapClick={(coords: Location) => setEditForm(prev => ({ ...prev, location: coords }))}
-                    />
-                    <div className="coordinate-inputs">
-                      <label>
-                        X:
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={editForm.location?.x ?? ''}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
-                            ...prev,
-                            location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
-                          }))}
-                        />
-                      </label>
-                      <label>
-                        Y:
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={editForm.location?.y ?? ''}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
-                            ...prev,
-                            location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
-                          }))}
-                        />
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Floor via FloorSelector */}
-                  <div className="edit-field">
-                    <FloorSelector
-                      selectedFloor={editForm.floor ?? null}
-                      onFloorSelect={(f: number) => setEditForm(prev => ({ ...prev, floor: f }))}
-                    />
-                  </div>
-
-                  {/* Difficulty */}
-                  <div className="edit-field">
-                    <label htmlFor="edit-difficulty">Difficulty</label>
-                    <select
-                      id="edit-difficulty"
-                      value={editForm.difficulty || ''}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value || null }))}
-                    >
-                      <option value="">Not set</option>
-                      {DIFFICULTY_OPTIONS.map(d => (
-                        <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Save / Cancel buttons */}
-                  <div className="edit-actions">
-                    <button
-                      className="save-button"
-                      onClick={handleSaveEdit}
-                      disabled={isSaving}
-                    >
-                      {isSaving ? 'Saving...' : 'Save Changes'}
+            <>
+              <div className="modal-side-actions-left">
+                {isEditing ? (
+                  <>
+                    <button className="save-button" onClick={handleSaveEdit} disabled={isSaving}>
+                      {isSaving ? 'Saving...' : 'Save'}
                     </button>
-                    <button
-                      className="cancel-edit-button"
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                    >
+                    <button className="cancel-edit-button" onClick={handleCancelEdit} disabled={isSaving}>
                       Cancel
                     </button>
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    <button className="edit-button" onClick={handleStartEdit}>Edit</button>
+                    <button className="delete-photo-button" onClick={() => handleDeleteClick(selectedSubmission)}>Delete</button>
+                  </>
+                )}
+              </div>
+              {!isEditing && selectedSubmission._source === 'submission' && selectedSubmission.status === 'pending' && (
+                <div className="modal-bottom-actions">
+                  <button
+                    className="approve-button"
+                    onClick={() => {
+                      handleApprove(selectedSubmission.id)
+                      setSelectedSubmission(null)
+                    }}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    className="deny-button"
+                    onClick={() => {
+                      handleDeny(selectedSubmission.id)
+                      setSelectedSubmission(null)
+                    }}
+                  >
+                    Deny
+                  </button>
                 </div>
-              ) : (
-                /* Read-only view mode */
-                <>
-                  <div className="modal-details-header">
-                    <h3>Image Details</h3>
-                    <div className="modal-header-actions">
-                      {isEditable && (
-                        <button className="edit-button" onClick={handleStartEdit}>
-                          Edit
-                        </button>
-                      )}
-                      {isEditable && (
-                        <button className="delete-photo-button" onClick={() => handleDeleteClick(selectedSubmission)}>
-                          Delete
-                        </button>
-                      )}
+              )}
+            </>
+
+            <div className="modal-content">
+              <div className="modal-details">
+                {saveError && <div className="edit-error">{saveError}</div>}
+
+                <div className="detail-split-layout">
+                  <div className="detail-main-column">
+                    <div className="detail-photo-card">
+                      <img src={selectedSubmission.photoURL} alt="Full size" className="modal-image modal-image-inline" />
                     </div>
-                  </div>
 
-                  {/* Badges row */}
-                  <div className="detail-badges-row">
-                    <span className={`detail-badge ${getSourceBadgeClass(selectedSubmission._source)}`}>
-                      {getSourceLabel(selectedSubmission._source)}
-                    </span>
-                    <span className={`detail-badge ${getStatusBadgeClass(selectedSubmission.status)}`}>
-                      {selectedSubmission.status}
-                    </span>
-                    <span className={`detail-badge difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
-                      {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'No difficulty'}
-                    </span>
-                  </div>
-
-                  {/* Building Name card */}
-                  {selectedSubmission.buildingName && (
-                    <div className="detail-card">
-                      <div className="detail-card-label">Building Name</div>
-                      <div className="detail-card-value">{selectedSubmission.buildingName}</div>
-                    </div>
-                  )}
-
-                  {/* Description card */}
-                  {selectedSubmission.description && (
-                    <div className="detail-card">
-                      <div className="detail-card-label">Description</div>
-                      <div className="detail-card-value detail-description">{selectedSubmission.description}</div>
-                    </div>
-                  )}
-
-                  {/* Info grid */}
-                  <div className="detail-info-grid">
-                    <div className="detail-info-item">
-                      <span className="detail-info-icon">📍</span>
-                      <div className="detail-info-content">
-                        <span className="detail-info-label">Coordinates</span>
-                        <span className="detail-info-value">
-                          X: {selectedSubmission.location?.x !== undefined ? Number(selectedSubmission.location.x).toFixed(1) : '\u2014'},
-                          Y: {selectedSubmission.location?.y !== undefined ? Number(selectedSubmission.location.y).toFixed(1) : '\u2014'}
+                    <div className="detail-badges-row">
+                      <span className={`detail-badge ${getStatusBadgeClass(selectedSubmission.status)}`}>{selectedSubmission.status}</span>
+                      {isEditing ? (
+                        <select
+                          className="detail-inline-select"
+                          value={editForm.difficulty || ''}
+                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value || null }))}
+                        >
+                          <option value="">No difficulty</option>
+                          {DIFFICULTY_OPTIONS.map(d => (
+                            <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={`detail-badge difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
+                          {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'No difficulty'}
                         </span>
-                      </div>
+                      )}
                     </div>
-                    <div className="detail-info-item">
-                      <span className="detail-info-icon">🏢</span>
-                      <div className="detail-info-content">
-                        <span className="detail-info-label">Floor</span>
-                        <span className="detail-info-value">
-                          {selectedSubmission.floor ? `Floor ${selectedSubmission.floor}` : '\u2014'}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedSubmission.photoName && (
-                      <div className="detail-info-item">
-                        <span className="detail-info-icon">📄</span>
-                        <div className="detail-info-content">
-                          <span className="detail-info-label">File Name</span>
-                          <span className="detail-info-value">{selectedSubmission.photoName}</span>
-                        </div>
+
+                    {(isEditing || selectedSubmission.buildingName) && (
+                      <div className="detail-card">
+                        <div className="detail-card-label">Building Name</div>
+                        {isEditing ? (
+                          <input
+                            className="detail-inline-input"
+                            type="text"
+                            value={editForm.buildingName || ''}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, buildingName: e.target.value }))}
+                          />
+                        ) : (
+                          <div className="detail-card-value">{selectedSubmission.buildingName}</div>
+                        )}
                       </div>
                     )}
-                    <div className="detail-info-item">
-                      <span className="detail-info-icon">🆔</span>
-                      <div className="detail-info-content">
-                        <span className="detail-info-label">ID</span>
-                        <span className="detail-info-value detail-id-value">{selectedSubmission.id}</span>
+
+                    {(isEditing || selectedSubmission.description) && (
+                      <div className="detail-card">
+                        <div className="detail-card-label">Description</div>
+                        {isEditing ? (
+                          <textarea
+                            className="detail-inline-textarea"
+                            value={editForm.description || ''}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                          />
+                        ) : (
+                          <div className="detail-card-value detail-description">{selectedSubmission.description}</div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="detail-info-grid">
+                      <div className="detail-info-item">
+                        <span className="detail-info-icon">📍</span>
+                        <div className="detail-info-content">
+                          {isEditing ? (
+                            <div className="detail-coordinates-edit">
+                              <input
+                                className="detail-inline-input detail-inline-number"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                value={editForm.location?.x ?? ''}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
+                                  ...prev,
+                                  location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
+                                }))}
+                              />
+                              <input
+                                className="detail-inline-input detail-inline-number"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                value={editForm.location?.y ?? ''}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
+                                  ...prev,
+                                  location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
+                                }))}
+                              />
+                            </div>
+                          ) : (
+                            <span className="detail-info-value">
+                              X: {selectedSubmission.location?.x !== undefined ? Number(selectedSubmission.location.x).toFixed(1) : '\u2014'},
+                              Y: {selectedSubmission.location?.y !== undefined ? Number(selectedSubmission.location.y).toFixed(1) : '\u2014'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="detail-info-item">
+                        <span className="detail-info-icon">🏢</span>
+                        <div className="detail-info-content">
+                          {isEditing ? (
+                            <input
+                              className="detail-inline-input detail-inline-number"
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={editForm.floor ?? ''}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                const value = e.target.value
+                                setEditForm(prev => ({ ...prev, floor: value === '' ? null : parseInt(value, 10) }))
+                              }}
+                            />
+                          ) : (
+                            <span className="detail-info-value">{selectedSubmission.floor ? `Floor ${selectedSubmission.floor}` : '\u2014'}</span>
+                          )}
+                        </div>
+                      </div>
+                      {(selectedSubmission._source === 'submission' && (isEditing || selectedSubmission.photoName)) && (
+                        <div className="detail-info-item">
+                          <span className="detail-info-icon">📄</span>
+                          <div className="detail-info-content">
+                            {isEditing ? (
+                              <input
+                                className="detail-inline-input"
+                                type="text"
+                                value={editForm.photoName || ''}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, photoName: e.target.value }))}
+                              />
+                            ) : (
+                              <span className="detail-info-value">{selectedSubmission.photoName}</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      <div className="detail-info-item">
+                        <span className="detail-info-icon">🆔</span>
+                        <div className="detail-info-content">
+                          <span className="detail-info-value detail-id-value">{selectedSubmission.id}</span>
+                        </div>
                       </div>
                     </div>
+
+                    {(selectedSubmission.createdAt || selectedSubmission.reviewedAt) && (
+                      <div className="detail-timestamps detail-timestamps-left">
+                        {selectedSubmission.createdAt && (
+                          <div className="detail-timestamp-item">
+                            <span className="detail-timestamp-icon">📅</span>
+                            <div>
+                              <span className="detail-timestamp-value">{formatDate(selectedSubmission.createdAt)}</span>
+                            </div>
+                          </div>
+                        )}
+                        {selectedSubmission.reviewedAt && (
+                          <div className="detail-timestamp-item">
+                            <span className="detail-timestamp-icon">✅</span>
+                            <div>
+                              <span className="detail-timestamp-value">{formatDate(selectedSubmission.reviewedAt)}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Location map */}
-                  {selectedSubmission.location && (
+                  <div className="detail-map-column">
                     <div className="detail-card detail-map-card">
-                      <div className="detail-card-label">Location on Map</div>
                       <div className="detail-map-wrapper">
                         <MapPicker
-                          markerPosition={selectedSubmission.location}
-                          onMapClick={() => {}}
+                          markerPosition={isEditing ? (editForm.location ?? null) : (selectedSubmission.location ?? null)}
+                          onMapClick={isEditing ? (coords: Location) => setEditForm(prev => ({ ...prev, location: coords })) : () => {}}
                         />
                       </div>
                     </div>
-                  )}
-
-                  {/* Timestamps */}
-                  {(selectedSubmission.createdAt || selectedSubmission.reviewedAt) && (
-                    <div className="detail-timestamps">
-                      {selectedSubmission.createdAt && (
-                        <div className="detail-timestamp-item">
-                          <span className="detail-timestamp-icon">📅</span>
-                          <div>
-                            <span className="detail-timestamp-label">Submitted</span>
-                            <span className="detail-timestamp-value">{formatDate(selectedSubmission.createdAt)}</span>
-                          </div>
-                        </div>
-                      )}
-                      {selectedSubmission.reviewedAt && (
-                        <div className="detail-timestamp-item">
-                          <span className="detail-timestamp-icon">✅</span>
-                          <div>
-                            <span className="detail-timestamp-label">Reviewed</span>
-                            <span className="detail-timestamp-value">{formatDate(selectedSubmission.reviewedAt)}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Action buttons */}
-                  {selectedSubmission._source === 'submission' && selectedSubmission.status === 'pending' && (
-                    <div className="modal-actions">
-                      <button
-                        className="approve-button"
-                        onClick={() => {
-                          handleApprove(selectedSubmission.id)
-                          setSelectedSubmission(null)
-                        }}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="deny-button"
-                        onClick={() => {
-                          handleDeny(selectedSubmission.id)
-                          setSelectedSubmission(null)
-                        }}
-                      >
-                        Deny
-                      </button>
-                    </div>
-                  )}
-
-                  {selectedSubmission.status !== 'pending' && (
-                    <div className="modal-actions">
-                      <button
-                        className="reset-button"
-                        onClick={() => {
-                          handleResetToPending(selectedSubmission.id)
-                          setSelectedSubmission(null)
-                        }}
-                      >
-                        Reset to Pending
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>,
