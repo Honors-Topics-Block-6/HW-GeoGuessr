@@ -26,6 +26,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     userDoc,
     updateUsername,
     updateProfileImage,
+    updateProfileEmoji,
     totalXp,
     levelInfo,
     levelTitle,
@@ -36,8 +37,11 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
+  const [isSettingEmoji, setIsSettingEmoji] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+
+  const emojiOptions = ['😀', '😁', '😂', '😎', '🤩', '😊', '😇', '🥳', '🤗', '😍'];
 
   const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = e.target.files?.[0];
@@ -67,6 +71,36 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
       setError((err as Error).message || 'Failed to upload profile image.');
     } finally {
       setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleEmojiSelect = async (emoji: string): Promise<void> => {
+    setError('');
+    setSuccess('');
+    setIsSettingEmoji(true);
+    try {
+      await updateProfileEmoji(emoji);
+      setSuccess('Profile avatar updated!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError((err as Error).message || 'Failed to update avatar.');
+    } finally {
+      setIsSettingEmoji(false);
+    }
+  };
+
+  const handleClearEmoji = async (): Promise<void> => {
+    setError('');
+    setSuccess('');
+    setIsSettingEmoji(true);
+    try {
+      await updateProfileEmoji(null);
+      setSuccess('Avatar reset to default.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError((err as Error).message || 'Failed to reset avatar.');
+    } finally {
+      setIsSettingEmoji(false);
     }
   };
 
@@ -169,6 +203,8 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
               src={userDoc.photoURL}
               alt={`${userDoc.username}'s profile`}
             />
+          ) : userDoc?.avatarEmoji ? (
+            <span className="profile-avatar-emoji">{userDoc.avatarEmoji}</span>
           ) : (
             <span className="profile-avatar-icon">👤</span>
           )}
@@ -181,6 +217,36 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
               disabled={isUploadingPhoto}
             />
           </label>
+          <div className="profile-emoji-picker">
+            <span className="profile-emoji-label">Or choose an emoji avatar:</span>
+            <div className="profile-emoji-grid">
+              {emojiOptions.map(emoji => {
+                const isSelected = userDoc?.avatarEmoji === emoji && !userDoc?.photoURL;
+                return (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className={`profile-emoji-option ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleEmojiSelect(emoji)}
+                    disabled={isSettingEmoji || isUploadingPhoto}
+                    aria-label={`Use ${emoji} as profile avatar`}
+                  >
+                    {emoji}
+                  </button>
+                );
+              })}
+            </div>
+            {userDoc?.avatarEmoji && !userDoc?.photoURL && (
+              <button
+                type="button"
+                className="profile-emoji-clear"
+                onClick={handleClearEmoji}
+                disabled={isSettingEmoji || isUploadingPhoto}
+              >
+                Reset to default avatar
+              </button>
+            )}
+          </div>
         </div>
 
           <h1 className="profile-title">Your Profile</h1>

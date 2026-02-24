@@ -23,7 +23,8 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
-  photoURL?: string;
+  photoURL?: string | null;
+  avatarEmoji?: string | null;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
@@ -43,6 +44,8 @@ export interface UserProfileUpdates {
   email?: string;
   isAdmin?: boolean;
   emailVerified?: boolean;
+  photoURL?: string | null;
+  avatarEmoji?: string | null;
   totalXp?: number;
   gamesPlayed?: number;
   lastGameAt?: Date | string | null;
@@ -122,6 +125,8 @@ export async function createUserDoc(uid: string, email: string, username: string
     emailVerified: false,
     totalXp: 0,
     gamesPlayed: 0,
+    photoURL: null,
+    avatarEmoji: null,
     createdAt: serverTimestamp(),
     // Track when the username was last set to enforce change frequency
     lastUsernameChange: serverTimestamp()
