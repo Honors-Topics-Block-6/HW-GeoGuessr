@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLobby } from '../../hooks/useLobby';
 import GameCodeInput from './GameCodeInput';
 import PublicGameList from './PublicGameList';
@@ -19,6 +19,8 @@ const DIFFICULTY_LABELS: Record<Difficulty, DifficultyInfo> = {
 };
 
 export type GameVisibility = 'public' | 'private';
+type PublicDifficultyFilter = 'any' | Difficulty;
+type PublicRoundTimeFilter = 'any' | '10' | '20' | '30' | '0';
 
 /** Preset time options shown as buttons. 0 = no limit. */
 interface TimePreset {
@@ -48,6 +50,8 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
   const [visibility, setVisibility] = useState<GameVisibility>('public');
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
   const [customTime, setCustomTime] = useState<string>('60');
+  const [publicDifficultyFilter, setPublicDifficultyFilter] = useState<PublicDifficultyFilter>('any');
+  const [publicRoundTimeFilter, setPublicRoundTimeFilter] = useState<PublicRoundTimeFilter>('any');
 
   /** Resolve the actual round time in seconds (0 = no limit) */
   const resolvedTime: number =
@@ -101,6 +105,21 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
       onJoinedLobby(docId);
     }
   };
+
+  const filteredPublicLobbies = useMemo(() => {
+    return publicLobbies.filter((lobby) => {
+      const lobbyDifficulty = (lobby.difficulty || 'all') as Difficulty;
+      const lobbyRoundTime = typeof lobby.roundTimeSeconds === 'number' ? lobby.roundTimeSeconds : 20;
+
+      const difficultyMatch =
+        publicDifficultyFilter === 'any' || lobbyDifficulty === publicDifficultyFilter;
+
+      const roundTimeMatch =
+        publicRoundTimeFilter === 'any' || lobbyRoundTime === Number(publicRoundTimeFilter);
+
+      return difficultyMatch && roundTimeMatch;
+    });
+  }, [publicDifficultyFilter, publicLobbies, publicRoundTimeFilter]);
 
   return (
     <div className="lobby-screen">
@@ -220,8 +239,38 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
           <p className="lobby-section-desc">
             Join an open game — only {diffInfo.label} difficulty games can be joined
           </p>
+          <div className="lobby-public-filters">
+            <label className="lobby-public-filter-item">
+              <span>Difficulty</span>
+              <select
+                className="lobby-public-filter-select"
+                value={publicDifficultyFilter}
+                onChange={(e) => setPublicDifficultyFilter(e.target.value as PublicDifficultyFilter)}
+              >
+                <option value="any">Any</option>
+                <option value="all">All</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </label>
+            <label className="lobby-public-filter-item">
+              <span>Round Time</span>
+              <select
+                className="lobby-public-filter-select"
+                value={publicRoundTimeFilter}
+                onChange={(e) => setPublicRoundTimeFilter(e.target.value as PublicRoundTimeFilter)}
+              >
+                <option value="any">Any</option>
+                <option value="10">10s</option>
+                <option value="20">20s</option>
+                <option value="30">30s</option>
+                <option value="0">No Limit</option>
+              </select>
+            </label>
+          </div>
           <PublicGameList
-            lobbies={publicLobbies}
+            lobbies={filteredPublicLobbies}
             selectedDifficulty={difficulty}
             onJoin={handleJoinPublic}
             isJoining={isJoining}
