@@ -10,7 +10,7 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { createUserDoc, getUserDoc, updateUserDoc, updateUserProfile, isUsernameTaken, isHardcodedAdmin, getAllPermissions, getNoPermissions, ADMIN_PERMISSIONS } from '../services/userService';
+import { createUserDoc, getUserDoc, updateUserDoc, updateUserProfile, isUsernameTaken, getUserByUsername, isHardcodedAdmin, getAllPermissions, getNoPermissions, ADMIN_PERMISSIONS } from '../services/userService';
 import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
 import { compressImage } from '../utils/compressImage';
 
@@ -224,6 +224,30 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   }, []);
 
   /**
+   * Log in with email OR username. If input lacks '@', treat as username and resolve to email.
+   */
+  const loginWithIdentifier = useCallback(async (identifier: string, password: string): Promise<FirebaseUser> => {
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      throw new Error('Please enter your email or username.');
+    }
+
+    let emailToUse = trimmed;
+    if (!trimmed.includes('@')) {
+      const userLookup = await getUserByUsername(trimmed);
+      if (!userLookup || !userLookup.email) {
+        throw new Error('No account found with that username.');
+      }
+      emailToUse = userLookup.email;
+    }
+
+    const credential = await signInWithEmailAndPassword(auth, emailToUse, password);
+    const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
+    setUserDoc(doc);
+    return credential.user;
+  }, []);
+
+  /**
    * Sign in with Google
    */
   const loginWithGoogle = useCallback(async (): Promise<FirebaseUser> => {
@@ -344,7 +368,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     levelTitle,
     emailVerified,
     signup,
-    login,
+    login: loginWithIdentifier,
     loginWithGoogle,
     completeGoogleSignUp,
     logout,
