@@ -398,7 +398,6 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
                     {building}
                   </button>
                 )}
-                {BUILDING_OPTIONS.map((option) => (
                 {SORTED_BUILDING_OPTIONS.map((option) => (
                   <button
                     key={option}
