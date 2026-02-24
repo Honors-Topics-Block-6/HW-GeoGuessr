@@ -48,9 +48,9 @@ const DIFFICULTIES: DifficultyOption[] = [
 ];
 
 const TIME_PRESETS: TimePreset[] = [
-  { value: 10, label: '10s' },
-  { value: 20, label: '20s' },
+  { value: 15, label: '15s' },
   { value: 30, label: '30s' },
+  { value: 60, label: '60s' },
   { value: 0, label: 'No Limit' },
 ];
 
@@ -68,7 +68,7 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
   const [selectedMode, setSelectedMode] = useState<GameMode>('singleplayer');
 
   // Time setting: preset value or 'custom'
-  const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
+  const [timeSelection, setTimeSelection] = useState<number | 'custom'>(30);
   const [customTime, setCustomTime] = useState<string>('60');
 
   /** Resolve the actual round time in seconds (0 = no limit) */
