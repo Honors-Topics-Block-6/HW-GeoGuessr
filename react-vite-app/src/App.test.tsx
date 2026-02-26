@@ -26,6 +26,7 @@ vi.mock('./services/regionService', () => ({
   getRegionForPoint: vi.fn().mockReturnValue({ id: 'test-region' }),
   getPlayingArea: vi.fn().mockResolvedValue(null),
   getFloorsForPoint: vi.fn().mockReturnValue([1, 2, 3]),
+  getRegionForPoint: vi.fn().mockReturnValue({ id: 'test-region' }),
   isPointInPlayingArea: vi.fn().mockReturnValue(true),
   isPointInPolygon: vi.fn().mockReturnValue(true)
 }));

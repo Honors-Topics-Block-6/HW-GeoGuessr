@@ -10,6 +10,7 @@ import {
   removeStalePlayersFromLobby,
   setPlayerReady,
   updateLobbyRoundTime,
+  updateLobbyDifficulty,
   type LobbyDoc
 } from '../services/lobbyService';
 
@@ -41,11 +42,7 @@ export interface UseLobbyReturn {
   isCreating: boolean;
   isJoining: boolean;
   error: string | null;
-<<<<<<< Updated upstream
-  hostGame: (visibility: 'public' | 'private', roundTimeSeconds?: number) => Promise<HostGameResult | null>;
-=======
-  hostGame: (visibility: 'public' | 'private', maxPlayers: number) => Promise<HostGameResult | null>;
->>>>>>> Stashed changes
+  hostGame: (visibility: 'public' | 'private', roundTimeSeconds: number, maxPlayers: number) => Promise<HostGameResult | null>;
   joinByCode: (gameId: string) => Promise<JoinByCodeResult | null>;
   joinPublicGame: (docId: string) => Promise<boolean>;
   clearError: () => void;
@@ -58,6 +55,7 @@ export interface UseWaitingRoomReturn {
   leave: () => Promise<void>;
   toggleReady: (ready: boolean) => Promise<void>;
   updateRoundTime: (roundTimeSeconds: number) => Promise<void>;
+  updateDifficulty: (difficulty: string) => Promise<void>;
 }
 
 /**
@@ -85,19 +83,15 @@ export function useLobby(
   /**
    * Host a new game.
    */
-<<<<<<< Updated upstream
-  const hostGame = useCallback(async (visibility: 'public' | 'private', roundTimeSeconds?: number): Promise<HostGameResult | null> => {
+  const hostGame = useCallback(async (
+    visibility: 'public' | 'private',
+    roundTimeSeconds: number,
+    maxPlayers: number
+  ): Promise<HostGameResult | null> => {
     setIsCreating(true);
     setError(null);
     try {
-      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, roundTimeSeconds);
-=======
-  const hostGame = useCallback(async (visibility: 'public' | 'private', maxPlayers: number): Promise<HostGameResult | null> => {
-    setIsCreating(true);
-    setError(null);
-    try {
-      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, maxPlayers);
->>>>>>> Stashed changes
+      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, roundTimeSeconds, maxPlayers);
       return result;
     } catch (err) {
       console.error('Failed to create lobby:', err);
@@ -288,12 +282,26 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     }
   }, [lobbyDocId]);
 
+  /**
+   * Update the difficulty setting on the lobby.
+   * Should only be called by the host.
+   */
+  const updateDifficulty = useCallback(async (difficulty: string): Promise<void> => {
+    if (!lobbyDocId) return;
+    try {
+      await updateLobbyDifficulty(lobbyDocId, difficulty);
+    } catch (err) {
+      console.error('Failed to update difficulty:', err);
+    }
+  }, [lobbyDocId]);
+
   return {
     lobby,
     isLoading,
     error,
     leave,
     toggleReady,
-    updateRoundTime
+    updateRoundTime,
+    updateDifficulty
   };
 }

@@ -65,7 +65,6 @@ export const MAX_LOBBY_PLAYERS = 10;
 // Characters that avoid ambiguity (no I, O, 0, 1)
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-<<<<<<< Updated upstream
 function getTimestampMillis(value: unknown): number | null {
   if (!value) return null;
   if (value instanceof Timestamp) return value.toMillis();
@@ -79,13 +78,21 @@ function isLobbyExpired(lobby: Pick<LobbyDoc, 'createdAt'>): boolean {
   const createdMs = getTimestampMillis(lobby.createdAt);
   if (createdMs === null) return false;
   return Date.now() - createdMs >= LOBBY_EXPIRY_MS;
-=======
+}
+
 function normalizeMaxPlayers(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return MIN_LOBBY_PLAYERS;
   const int = Math.trunc(n);
   return Math.max(MIN_LOBBY_PLAYERS, Math.min(MAX_LOBBY_PLAYERS, int));
->>>>>>> Stashed changes
+}
+
+function normalizeRoundTimeSeconds(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return 20;
+  const int = Math.trunc(n);
+  // 0 = no limit. Cap to a reasonable upper bound to avoid nonsense values.
+  return Math.max(0, Math.min(3600, int));
 }
 
 // ────── Functions ──────
@@ -109,15 +116,13 @@ export async function createLobby(
   hostUsername: string,
   difficulty: string,
   visibility: LobbyVisibility,
-<<<<<<< Updated upstream
-  roundTimeSeconds: number = 20
-=======
+  roundTimeSeconds: number = 20,
   maxPlayers: number = MIN_LOBBY_PLAYERS
->>>>>>> Stashed changes
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
   const normalizedMaxPlayers = normalizeMaxPlayers(maxPlayers);
+  const normalizedRoundTimeSeconds = normalizeRoundTimeSeconds(roundTimeSeconds);
 
   const lobbyData = {
     hostUid,
@@ -137,12 +142,8 @@ export async function createLobby(
     readyStatus: {
       [hostUid]: false
     },
-<<<<<<< Updated upstream
-    maxPlayers: 2,
-    roundTimeSeconds,
-=======
     maxPlayers: normalizedMaxPlayers,
->>>>>>> Stashed changes
+    roundTimeSeconds: normalizedRoundTimeSeconds,
     createdAt: now,
     updatedAt: now
   };
@@ -485,6 +486,21 @@ export async function updateLobbyRoundTime(
   const lobbyRef = doc(db, 'lobbies', docId);
   await updateDoc(lobbyRef, {
     roundTimeSeconds,
+    updatedAt: serverTimestamp()
+  });
+}
+
+/**
+ * Update the difficulty setting on a lobby document.
+ * Only the host should call this (enforce in the UI).
+ */
+export async function updateLobbyDifficulty(
+  docId: string,
+  difficulty: string
+): Promise<void> {
+  const lobbyRef = doc(db, 'lobbies', docId);
+  await updateDoc(lobbyRef, {
+    difficulty,
     updatedAt: serverTimestamp()
   });
 }

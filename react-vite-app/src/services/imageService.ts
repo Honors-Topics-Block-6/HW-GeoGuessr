@@ -9,6 +9,7 @@ export interface GameImage {
   correctLocation: { x: number; y: number };
   correctFloor: number | null;
   difficulty: string | null;
+  buildingName?: string | null;
   description?: string | null;
 }
 
@@ -126,14 +127,18 @@ export async function getAllApprovedImages(difficulty: string | null = null): Pr
 
     // Map approved submissions to the same format the game expects
     const approvedSubmissions: GameImage[] = submissionsSnapshot.docs.map(docSnap => {
-      const data = docSnap.data();
+      const data = docSnap.data() as Record<string, unknown>;
+      const buildingName = (
+        ((data.buildingName as string) || (data.building as string) || '').trim()
+      ) || null;
       return {
         id: docSnap.id,
         url: data.photoURL as string,
         correctLocation: data.location as { x: number; y: number },
         correctFloor: data.floor as number | null,
         difficulty: (data.difficulty as string) || null,
-        description: (data.photoName as string) || null
+        buildingName,
+        description: buildingName
       };
     });
 
