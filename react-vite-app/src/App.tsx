@@ -6,6 +6,10 @@ import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
 import { useFriends } from './hooks/useFriends';
 import { useChatNotifications } from './hooks/useChatNotifications';
+<<<<<<< HEAD
+=======
+import { STARTING_HEALTH } from './services/duelService';
+>>>>>>> origin/chat-notifications
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
 import { joinLobby } from './services/lobbyService';
@@ -191,7 +195,10 @@ function App(): React.ReactElement {
     user && chatNotifications.length > 0 ? (
       <ChatNotificationBanner notifications={chatNotifications} onDismiss={dismissChatNotification} />
     ) : null;
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/chat-notifications
   useEffect(() => {
     if (!user || !userDoc) return;
     const level = getLevelInfo(userDoc.totalXp ?? 0).level;
