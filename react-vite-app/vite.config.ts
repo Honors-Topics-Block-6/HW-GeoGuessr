@@ -12,4 +12,9 @@ export default defineConfig({
   optimizeDeps: {
     include: ['canvas-confetti'],
   },
+  build: {
+    commonjsOptions: {
+      include: [/canvas-confetti/, /node_modules/],
+    },
+  },
 })

@@ -1,8 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { collection, addDoc, serverTimestamp, increment } from 'firebase/firestore'
 import { db } from '../../firebase'
+import { useAuth } from '../../contexts/AuthContext'
+import { getUserDoc, updateUserDoc } from '../../services/userService'
 import { compressImage } from '../../utils/compressImage'
-import { getRegions, getPlayingArea, getFloorsForPoint, isPointInPlayingArea } from '../../services/regionService'
+import { getRegions, getPlayingArea, getFloorsForPoint, getRegionForPoint, isPointInPlayingArea, isPointInPolygon } from '../../services/regionService'
+import { getBuildingNameForPoint } from '../../utils/buildingPolygons'
+import type { BuildingPolygon } from '../../utils/buildingPolygons'
+import { getBuildingPolygons } from '../../services/buildingPolygonService'
 import type { Point, Region as RegionData, PlayingArea as PlayingAreaData } from '../../services/regionService'
 import MapPicker from '../MapPicker/MapPicker'
 import type { MapCoordinates } from '../MapPicker/MapPicker'
@@ -14,23 +19,97 @@ import './SubmissionForm.css'
 const ALL_FLOORS: number[] = [1, 2, 3]
 
 const DIFFICULTY_OPTIONS: string[] = ['easy', 'medium', 'hard']
+const BUILDING_OPTIONS: string[] = [
+  'Outside',
+  'Copses Family Pool',
+  'Pool',
+  'Pool House',
+  'Taper Athletic Pavilion',
+  'Ted Slavin Field',
+  'Field',
+  'The Quad',
+  'Harvard Westlake Driveway',
+  'Driveway',
+  'Munger Science Center',
+  'Sprague Plaza',
+  'Ahmanson Lecture Hall',
+  'Seaver Academic Center',
+  'Wellness Center',
+  'Buisness Office',
+  'Security Kiosk',
+  'Kutler Center',
+  'Flag Court Cafe',
+  'Learning Center',
+  'Mudd Library',
+  "St. Saviour's Chapel",
+  'Chapel',
+  'Feldman-Horn',
+  'Feldman Horn',
+   'Rugby Auditorium',
+  'Rugby Hall',
+  'Rugby Tower',
+  'Drama Lab',
+  'Chalmers Hall',
+  'Weiler Hall',
+  'Advancement House',
+  'The Quad',
+  'Outside'
+]
+const SORTED_BUILDING_OPTIONS = [...BUILDING_OPTIONS].sort((a, b) => (
+  a.localeCompare(b, 'en', { sensitivity: 'base' })
+))
+
+/** Normalize for matching: lowercase, collapse spaces, ignore hyphens/apostrophes */
+function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[''-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Find a building option that matches the region name (flexible: exact or contains). */
+function matchBuildingFromRegionName(regionName: string): string | null {
+  const n = normalizeForMatch(regionName)
+  if (!n) return null
+  // Exact match first
+  const exact = BUILDING_OPTIONS.find(b => normalizeForMatch(b) === n)
+  if (exact) return exact
+  // Region name contains building (e.g. region "Pool House" vs option "Pool")
+  const contained = BUILDING_OPTIONS.find(b => {
+    const bn = normalizeForMatch(b)
+    return bn && (n.includes(bn) || bn.includes(n))
+  })
+  return contained ?? null
+}
 
 type MapCoords = MapCoordinates
 
 export interface SubmissionFormProps {}
 
 function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
+  const { user } = useAuth()
+  const getLocalDateKey = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = `${date.getMonth() + 1}`.padStart(2, '0')
+    const day = `${date.getDate()}`.padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
   const [photo, setPhoto] = useState<File | null>(null)
-  const [buildingName, setBuildingName] = useState<string>('')
   const [location, setLocation] = useState<MapCoords | null>(null)
   const [floor, setFloor] = useState<number | null>(null)
   const [difficulty, setDifficulty] = useState<string | null>(null)
+  const [building, setBuilding] = useState<string | null>(null)
+  const [isBuildingOpen, setIsBuildingOpen] = useState<boolean>(false)
+  const buildingMenuRef = useRef<HTMLDivElement | null>(null)
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [submitSuccess, setSubmitSuccess] = useState<boolean>(false)
   const [submitError, setSubmitError] = useState<string>('')
 
   // Region/playing area state (matching game behavior)
   const [regions, setRegions] = useState<RegionData[]>([])
+  const [customBuildingPolygons, setCustomBuildingPolygons] = useState<BuildingPolygon[]>([])
+  const [polygonNameEdits, setPolygonNameEdits] = useState<string[]>([])
   const [playingArea, setPlayingArea] = useState<PlayingAreaData | null>(null)
   const [availableFloors, setAvailableFloors] = useState<number[] | null>(null)
   const [clickRejected, setClickRejected] = useState<boolean>(false)
@@ -38,18 +117,35 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
   // Override: allows picking any location with any floor
   const [overrideRestrictions, setOverrideRestrictions] = useState<boolean>(false)
 
-  // Load regions and playing area on mount
+  // Load regions, playing area, and building polygons on mount
   useEffect(() => {
     async function loadData(): Promise<void> {
-      const [fetchedRegions, fetchedPlayingArea] = await Promise.all([
+      const [fetchedRegions, fetchedPlayingArea, fetchedPolygons] = await Promise.all([
         getRegions(),
-        getPlayingArea()
+        getPlayingArea(),
+        getBuildingPolygons()
       ])
       setRegions(fetchedRegions)
       setPlayingArea(fetchedPlayingArea)
+      setCustomBuildingPolygons(fetchedPolygons)
+      setPolygonNameEdits(fetchedPolygons.map(p => p.name ?? ''))
     }
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (!isBuildingOpen) return
+
+    const handleOutsideClick = (event: MouseEvent): void => {
+      if (!buildingMenuRef.current) return
+      if (!buildingMenuRef.current.contains(event.target as Node)) {
+        setIsBuildingOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [isBuildingOpen])
 
   const handlePhotoSelect = (file: File | null): void => {
     setPhoto(file)
@@ -62,7 +158,11 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
     setSubmitError('')
 
     // Check playing area restriction (skip if override is on)
-    if (!overrideRestrictions && !isPointInPlayingArea(coords, playingArea)) {
+    const insidePlayingArea = isPointInPlayingArea(coords, playingArea)
+    const insideBuildingPolygon = customBuildingPolygons.some((poly) =>
+      isPointInPolygon(coords, poly.polygon as Point[])
+    )
+    if (!overrideRestrictions && !insidePlayingArea && !insideBuildingPolygon) {
       setClickRejected(true)
       setTimeout(() => setClickRejected(false), 500)
       return
@@ -71,6 +171,32 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
     setLocation(coords)
     setClickRejected(false)
 
+    // Auto-fill building: first from building polygons, then from region hitbox
+    let buildingSet = false
+
+    // 1) Building polygons (explicit hitboxes) – including "Outside"
+    const polygonBuildingName = getBuildingNameForPoint(customBuildingPolygons, coords, isPointInPolygon)
+    if (polygonBuildingName) {
+      const matchingBuildingFromPolygon = matchBuildingFromRegionName(polygonBuildingName) ?? polygonBuildingName
+      setBuilding(matchingBuildingFromPolygon)
+      buildingSet = true
+    }
+
+    // 2) Region hitbox fallback (only if no polygon match)
+    if (!buildingSet) {
+      const region = getRegionForPoint(coords, regions)
+      if (region?.name) {
+        const regionName = (region.name as string).trim()
+        const matchingBuildingFromRegion = matchBuildingFromRegionName(regionName)
+        if (matchingBuildingFromRegion) {
+          setBuilding(matchingBuildingFromRegion)
+          buildingSet = true
+        } else {
+          setBuilding(regionName)
+          buildingSet = true
+        }
+      }
+    }
     if (overrideRestrictions) {
       // In override mode, always show all floors
       setAvailableFloors(ALL_FLOORS)
@@ -84,7 +210,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
         setFloor(null)
       }
     }
-  }, [overrideRestrictions, playingArea, regions, floor])
+  }, [overrideRestrictions, playingArea, regions, floor, customBuildingPolygons])
 
   const handleFloorSelect = useCallback((selectedFloor: number): void => {
     setFloor(selectedFloor)
@@ -123,11 +249,12 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
 
   const resetForm = (): void => {
     setPhoto(null)
-    setBuildingName('')
     setLocation(null)
     setFloor(null)
     setDifficulty(null)
     setAvailableFloors(null)
+    setBuilding(null)
+    setPolygonNameEdits(customBuildingPolygons.map(p => p.name ?? ''))
     // Don't reset submitSuccess here - it should persist to show the success message
     setSubmitError('')
   }
@@ -145,6 +272,10 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
     }
     if (!location) {
       setSubmitError('Please select a location on the map')
+      return
+    }
+    if (!building) {
+      setSubmitError('Please select a building/location')
       return
     }
     if (isInRegion && floor === null) {
@@ -167,17 +298,43 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
       await addDoc(collection(db, 'submissions'), {
         photoURL: photoDataUrl,
         photoName: photo.name,
-        buildingName: buildingName.trim() || null,
         location: {
           x: location.x,
           y: location.y
         },
         floor: floor ?? null,
+        buildingName: building,
         difficulty: difficulty,
         status: 'pending', // pending, approved, denied
+        submitterUid: user?.uid ?? null,
         createdAt: serverTimestamp(),
         reviewedAt: null
       })
+
+      if (user?.uid) {
+        const userDoc = await getUserDoc(user.uid)
+        const todayKey = getLocalDateKey(new Date())
+        const existingDailyStats = userDoc?.dailyStats ?? {}
+        const dayStats = existingDailyStats[todayKey] ?? {
+          gamesPlayed: 0,
+          totalScore: 0,
+          totalGuessTimeSeconds: 0,
+          fiveKCount: 0,
+          twentyFiveKCount: 0,
+          photosSubmittedCount: 0,
+          buildingStats: {}
+        }
+        await updateUserDoc(user.uid, {
+          photosSubmittedCount: increment(1),
+          dailyStats: {
+            ...existingDailyStats,
+            [todayKey]: {
+              ...dayStats,
+              photosSubmittedCount: dayStats.photosSubmittedCount + 1
+            }
+          }
+        })
+      }
 
       setSubmitSuccess(true)
       resetForm()
@@ -208,22 +365,6 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
       <form onSubmit={handleSubmit}>
         <PhotoUpload onPhotoSelect={handlePhotoSelect} selectedPhoto={photo} />
 
-        <div className="building-name-section">
-          <label htmlFor="building-name" className="building-name-label">Building Name</label>
-          <input
-            id="building-name"
-            type="text"
-            className="building-name-input"
-            placeholder="e.g. Main Library, Science Building"
-            value={buildingName}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              setBuildingName(e.target.value)
-              setSubmitError('')
-              setSubmitSuccess(false)
-            }}
-          />
-        </div>
-
         <div className="location-section">
           <MapPicker
             markerPosition={location}
@@ -244,6 +385,59 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
             <p className="override-hint">
               Bypasses playing area and region restrictions
             </p>
+          </div>
+
+          <div className="building-selector" ref={buildingMenuRef}>
+            <label className="building-selector-label" htmlFor="buildingSelect">
+              Building / Location
+            </label>
+            <p className="building-selector-hint">
+              Click on the map inside a building/area to auto-fill.
+            </p>
+            <button
+              id="buildingSelect"
+              type="button"
+              className="building-selector-button"
+              aria-haspopup="listbox"
+              aria-expanded={isBuildingOpen}
+              onClick={() => setIsBuildingOpen((open) => !open)}
+            >
+              {building ?? 'Select a building/location'}
+            </button>
+            {isBuildingOpen && (
+              <div className="building-selector-menu" role="listbox">
+                {/* Show current building in list if it's not in BUILDING_OPTIONS (e.g. from region name) */}
+                {building && !BUILDING_OPTIONS.includes(building) && (
+                  <button
+                    key={`custom-${building}`}
+                    type="button"
+                    role="option"
+                    aria-selected={true}
+                    className="building-selector-option selected"
+                    onClick={() => setIsBuildingOpen(false)}
+                  >
+                    {building}
+                  </button>
+                )}
+                {SORTED_BUILDING_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="option"
+                    aria-selected={building === option}
+                    className={`building-selector-option ${building === option ? 'selected' : ''}`}
+                    onClick={() => {
+                      setBuilding(option)
+                      setIsBuildingOpen(false)
+                      setSubmitError('')
+                      setSubmitSuccess(false)
+                    }}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {isInRegion && (
@@ -279,6 +473,10 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
             <div className={`status-item ${location ? 'complete' : ''}`}>
               <span className="status-icon">{location ? '\u2713' : '\u25CB'}</span>
               <span>Location selected</span>
+            </div>
+            <div className={`status-item ${building ? 'complete' : ''}`}>
+              <span className="status-icon">{building ? '\u2713' : '\u25CB'}</span>
+              <span>Building selected</span>
             </div>
             {isInRegion && (
               <div className={`status-item ${floor ? 'complete' : ''}`}>

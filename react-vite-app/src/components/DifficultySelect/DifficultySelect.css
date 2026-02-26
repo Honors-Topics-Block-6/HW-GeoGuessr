@@ -1,11 +1,11 @@
 .difficulty-screen {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .difficulty-background {
@@ -325,6 +325,23 @@
   min-width: 200px;
 }
 
+.difficulty-footer {
+  position: sticky;
+  bottom: 0;
+  width: 100%;
+  margin-top: 1.75rem;
+  padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  background: linear-gradient(
+    0deg,
+    rgba(12, 12, 15, 0.92) 0%,
+    rgba(12, 12, 15, 0.55) 55%,
+    rgba(12, 12, 15, 0) 100%
+  );
+  backdrop-filter: blur(10px);
+}
+
 .play-button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 30px rgba(108, 181, 45, 0.5);
@@ -355,18 +372,71 @@
     font-size: 1.7rem;
   }
 
-  .difficulty-options {
-    grid-template-columns: repeat(2, 1fr);
-    max-width: 100%;
+  .difficulty-screen {
+    justify-content: flex-start;
+    align-items: stretch;
   }
 
+  .difficulty-content {
+    padding: 1rem 1rem 1.5rem;
+  }
+
+  .difficulty-subheading {
+    margin-bottom: 1.2rem;
+  }
+
+  .mode-heading {
+    margin-top: 1.6rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .time-heading {
+    margin-top: 1.6rem;
+  }
+
+  .time-subheading {
+    margin-bottom: 0.9rem;
+  }
+
+  .difficulty-options,
   .mode-options {
-    grid-template-columns: repeat(2, 1fr);
-    max-width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    max-width: 560px;
   }
 
   .time-options {
-    max-width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+    max-width: 560px;
+  }
+
+  .difficulty-card,
+  .mode-card,
+  .time-card {
+    max-width: none;
+    width: 100%;
+    padding: 0.9rem 0.75rem;
+  }
+
+  .difficulty-card-icon,
+  .mode-card-icon {
+    font-size: 1.6rem;
+  }
+
+  .difficulty-card-label,
+  .mode-card-label {
+    font-size: 1rem;
+  }
+
+  .difficulty-card-desc {
+    display: none;
+  }
+
+  .time-card {
+    min-width: 0;
   }
 
   .play-button {
@@ -389,7 +459,26 @@
   }
 
   .difficulty-content {
-    padding: 1.5rem 1rem;
+    padding: 0.9rem 0.9rem 1.25rem;
+  }
+
+  .time-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .difficulty-card,
+  .mode-card,
+  .time-card {
+    padding: 0.75rem 0.6rem;
+    border-radius: 12px;
+  }
+
+  .time-card-label {
+    font-size: 0.9rem;
+  }
+
+  .difficulty-footer {
+    margin-top: 1.25rem;
   }
 }
 

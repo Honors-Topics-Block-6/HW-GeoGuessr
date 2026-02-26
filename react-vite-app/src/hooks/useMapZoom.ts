@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
 const MIN_SCALE = 1;
-const MAX_SCALE = 4;
-const ZOOM_STEP = 1.5;
-const WHEEL_ZOOM_FACTOR = 0.004;
-const PINCH_ZOOM_EXPONENT = 4;
+const MAX_SCALE = 4.5;
+const ZOOM_STEP = 1.25;
+const WHEEL_ZOOM_FACTOR = 0.008;
+const PINCH_ZOOM_EXPONENT = 6;
 const DRAG_THRESHOLD = 5;
 
 interface Point {
@@ -24,6 +24,7 @@ export interface MapZoomHandlers {
   onMouseLeave: () => void;
   onTouchStart: (e: React.TouchEvent) => void;
   onTouchEnd: () => void;
+  onDoubleClick: (e: React.MouseEvent) => void;
 }
 
 export interface UseMapZoomReturn {
@@ -120,12 +121,69 @@ function useMapZoom(
   const lastTouchDistance = useRef<number | null>(null);
   const scaleRef = useRef<number>(scale);
   const translateRef = useRef<Point>(translate);
+  const animationFrameRef = useRef<number | null>(null);
 
   // Keep refs in sync with state
   useEffect(() => {
     scaleRef.current = scale;
     translateRef.current = translate;
   }, [scale, translate]);
+
+  const animateTo = useCallback((targetScale: number, targetTranslate: Point): void => {
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    const startScale = scaleRef.current;
+    const startTranslate = { ...translateRef.current };
+
+    const scaleDelta = targetScale - startScale;
+    const translateDelta = {
+      x: targetTranslate.x - startTranslate.x,
+      y: targetTranslate.y - startTranslate.y
+    };
+
+    if (
+      Math.abs(scaleDelta) < 0.001 &&
+      Math.abs(translateDelta.x) < 0.5 &&
+      Math.abs(translateDelta.y) < 0.5
+    ) {
+      return;
+    }
+
+    const duration = 220;
+    let startTime: number | null = null;
+
+    const step = (timestamp: number): void => {
+      if (startTime === null) {
+        startTime = timestamp;
+      }
+
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      const nextScale = startScale + scaleDelta * eased;
+      const nextTranslate = {
+        x: startTranslate.x + translateDelta.x * eased,
+        y: startTranslate.y + translateDelta.y * eased
+      };
+
+      scaleRef.current = nextScale;
+      translateRef.current = nextTranslate;
+      setScale(nextScale);
+      setTranslate(nextTranslate);
+
+      if (progress < 1) {
+        animationFrameRef.current = requestAnimationFrame(step);
+      } else {
+        animationFrameRef.current = null;
+      }
+    };
+
+    animationFrameRef.current = requestAnimationFrame(step);
+  }, []);
 
   /**
    * Zoom toward a specific point (in container-relative screen pixels).
@@ -179,6 +237,11 @@ function useMapZoom(
       const container = containerRef.current;
       if (!container) return;
 
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
       const rect = container.getBoundingClientRect();
       const cursorX = e.clientX - rect.left;
       const cursorY = e.clientY - rect.top;
@@ -218,10 +281,10 @@ function useMapZoom(
    * A left-click that doesn't drag will still place a marker (handled via hasMoved).
    */
   const handleMouseDown = useCallback((e: React.MouseEvent): void => {
-    // Only allow panning on left-click or middle-click
     const isLeftClick = e.button === 0;
     const isMiddleClick = e.button === 1;
-    if (!isLeftClick && !isMiddleClick) return;
+    const isRightClick = e.button === 2;
+    if (!isLeftClick && !isMiddleClick && !isRightClick) return;
 
     isDragging.current = true;
     dragMoved.current = false;
@@ -302,69 +365,65 @@ function useMapZoom(
   /**
    * Touch move - handle pinch zoom or single-finger pan.
    */
-  const handleTouchMove = useCallback(
-    (e: TouchEvent): void => {
-      if (e.touches.length === 2 && lastTouchDistance.current !== null) {
-        // Pinch zoom
-        e.preventDefault();
+  const handleTouchMove = useCallback((e: TouchEvent): void => {
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
 
-        const newDist = getTouchDistance(e.touches);
-        const midpoint = getTouchMidpoint(e.touches);
+    if (e.touches.length === 2 && lastTouchDistance.current !== null) {
+      // Pinch zoom
+      e.preventDefault();
 
-        const container = containerRef.current;
-        if (!container) return;
+      const newDist = getTouchDistance(e.touches);
+      const midpoint = getTouchMidpoint(e.touches);
 
-        const rect = container.getBoundingClientRect();
-        const cursorX = midpoint.x - rect.left;
-        const cursorY = midpoint.y - rect.top;
+      const container = containerRef.current;
+      if (!container) return;
 
-        const currentScale = scaleRef.current;
-        const currentTranslate = translateRef.current;
+      const rect = container.getBoundingClientRect();
+      const cursorX = midpoint.x - rect.left;
+      const cursorY = midpoint.y - rect.top;
 
-        const rawRatio = newDist / lastTouchDistance.current;
-        const scaleChange = Math.pow(rawRatio, PINCH_ZOOM_EXPONENT);
-        const newScale = currentScale * scaleChange;
+      const currentScale = scaleRef.current;
+      const currentTranslate = translateRef.current;
 
-        const result = zoomToPoint(
-          cursorX,
-          cursorY,
-          newScale,
-          currentScale,
-          currentTranslate,
-        );
-        if (result) {
-          setScale(result.scale);
-          setTranslate(result.translate);
-        }
+      const rawRatio = newDist / lastTouchDistance.current;
+      const scaleChange = Math.pow(rawRatio, PINCH_ZOOM_EXPONENT);
+      const newScale = currentScale * scaleChange;
 
-        lastTouchDistance.current = newDist;
-      } else if (e.touches.length === 1 && isDragging.current) {
-        // Single-finger pan
-        const dx = e.touches[0].clientX - dragStart.current.x;
-        const dy = e.touches[0].clientY - dragStart.current.y;
-
-        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-          dragMoved.current = true;
-          // Prevent page scroll when panning the map
-          e.preventDefault();
-        }
-
-        const container = containerRef.current;
-        if (!container) return;
-
-        const rect = container.getBoundingClientRect();
-        const clamped = clampTranslate(
-          translateStart.current.x + dx,
-          translateStart.current.y + dy,
-          scaleRef.current,
-          rect.width,
-          rect.height,
-        );
-        setTranslate(clamped);
+      const result = zoomToPoint(cursorX, cursorY, newScale, currentScale, currentTranslate);
+      if (result) {
+        setScale(result.scale);
+        setTranslate(result.translate);
       }
-    },
-    [containerRef, zoomToPoint],
-  );
+
+      lastTouchDistance.current = newDist;
+    } else if (e.touches.length === 1 && isDragging.current) {
+      // Single-finger pan
+      const dx = e.touches[0].clientX - dragStart.current.x;
+      const dy = e.touches[0].clientY - dragStart.current.y;
+
+      if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+        dragMoved.current = true;
+        // Prevent page scroll when panning the map
+        e.preventDefault();
+      }
+
+      const container = containerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const clamped = clampTranslate(
+        translateStart.current.x + dx,
+        translateStart.current.y + dy,
+        scaleRef.current,
+        rect.width,
+        rect.height,
+      );
+      setTranslate(clamped);
+    }
+  }, [containerRef, zoomToPoint]);
 
   /**
    * Touch end - clean up gesture state.
@@ -382,6 +441,14 @@ function useMapZoom(
     el.addEventListener("touchmove", handleTouchMove, { passive: false });
     return () => el.removeEventListener("touchmove", handleTouchMove);
   }, [containerRef, handleTouchMove]);
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   /**
    * Zoom in by ZOOM_STEP factor, centered on container.
@@ -406,10 +473,9 @@ function useMapZoom(
       currentTranslate,
     );
     if (result) {
-      setScale(result.scale);
-      setTranslate(result.translate);
+      animateTo(result.scale, result.translate);
     }
-  }, [containerRef, zoomToPoint, maxScale]);
+  }, [containerRef, zoomToPoint, animateTo, maxScale]);
 
   /**
    * Zoom in by ZOOM_STEP factor toward a specific point (container-relative coords).
@@ -420,20 +486,29 @@ function useMapZoom(
       const currentTranslate = translateRef.current;
       const newScale = Math.min(maxScale, currentScale * ZOOM_STEP);
 
-      const result = zoomToPoint(
-        x,
-        y,
-        newScale,
-        currentScale,
-        currentTranslate,
-      );
+      const result = zoomToPoint(x, y, newScale, currentScale, currentTranslate);
       if (result) {
-        setScale(result.scale);
-        setTranslate(result.translate);
+        animateTo(result.scale, result.translate);
       }
     },
-    [zoomToPoint, maxScale],
+    [zoomToPoint, animateTo, maxScale],
   );
+
+  const zoomOutAtPoint = useCallback((x: number, y: number): void => {
+    const currentScale = scaleRef.current;
+    const currentTranslate = translateRef.current;
+    const newScale = Math.max(MIN_SCALE, currentScale / ZOOM_STEP);
+
+    if (newScale <= MIN_SCALE) {
+      animateTo(MIN_SCALE, { x: 0, y: 0 });
+      return;
+    }
+
+    const result = zoomToPoint(x, y, newScale, currentScale, currentTranslate);
+    if (result) {
+      animateTo(result.scale, result.translate);
+    }
+  }, [zoomToPoint, animateTo]);
 
   /**
    * Zoom out by ZOOM_STEP factor, centered on container.
@@ -451,8 +526,7 @@ function useMapZoom(
     const newScale = Math.max(MIN_SCALE, currentScale / ZOOM_STEP);
 
     if (newScale <= MIN_SCALE) {
-      setScale(MIN_SCALE);
-      setTranslate({ x: 0, y: 0 });
+      animateTo(MIN_SCALE, { x: 0, y: 0 });
       return;
     }
 
@@ -464,18 +538,33 @@ function useMapZoom(
       currentTranslate,
     );
     if (result) {
-      setScale(result.scale);
-      setTranslate(result.translate);
+      animateTo(result.scale, result.translate);
     }
-  }, [containerRef, zoomToPoint]);
+  }, [containerRef, zoomToPoint, animateTo]);
 
   /**
    * Reset zoom to default (no zoom, no pan).
    */
   const resetZoom = useCallback((): void => {
-    setScale(MIN_SCALE);
-    setTranslate({ x: 0, y: 0 });
-  }, []);
+    animateTo(MIN_SCALE, { x: 0, y: 0 });
+  }, [animateTo]);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent): void => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    e.preventDefault();
+
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (e.shiftKey || e.altKey) {
+      zoomOutAtPoint(x, y);
+    } else {
+      zoomInAtPoint(x, y);
+    }
+  }, [containerRef, zoomInAtPoint, zoomOutAtPoint]);
 
   /**
    * Check if we were panning (left-click dragging).
@@ -493,6 +582,7 @@ function useMapZoom(
     onMouseLeave: handleMouseLeave,
     onTouchStart: handleTouchStart,
     onTouchEnd: handleTouchEnd,
+    onDoubleClick: handleDoubleClick,
   };
 
   return {

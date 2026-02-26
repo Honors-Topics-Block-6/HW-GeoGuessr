@@ -4,11 +4,6 @@ import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
 import { computeContainFit, toContainerPct, type ImageFit, type MapPoint } from '../../utils/imageFitUtils';
 import './ResultScreen.css';
 
-export interface MapPoint {
-  x: number;
-  y: number;
-}
-
 export interface ResultScreenProps {
   guessLocation: MapPoint | null;
   guessFloor: number | null;

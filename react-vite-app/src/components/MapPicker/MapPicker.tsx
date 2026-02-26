@@ -27,11 +27,18 @@ export interface PlayingArea {
   polygon: PolygonPoint[];
 }
 
+export interface BuildingPolygonOverlay {
+  name: string;
+  polygon: { x: number; y: number }[];
+}
+
 export interface MapPickerProps {
   markerPosition: MapCoordinates | null;
   onMapClick: (coords: MapCoordinates) => void;
   clickRejected?: boolean;
   playingArea?: PlayingArea | null;
+  /** When set, these polygons are drawn over the map (e.g. building hitboxes for submission). */
+  buildingPolygons?: BuildingPolygonOverlay[] | null;
 }
 
 export interface MapPickerHandle {
@@ -41,8 +48,22 @@ export interface MapPickerHandle {
 const MAP_HINT_TOUCH = 'Tap to place • Pinch to zoom • Drag to pan';
 const MAP_HINT_MOUSE = 'Click to place • Double-click to zoom in • Drag or pinch to pan';
 
+function getCentroid(points: PolygonPoint[]): PolygonPoint {
+  if (!points || points.length === 0) return { x: 0, y: 0 };
+  let sumX = 0;
+  let sumY = 0;
+  for (const p of points) {
+    sumX += p.x;
+    sumY += p.y;
+  }
+  return {
+    x: sumX / points.length,
+    y: sumY / points.length
+  };
+}
+
 const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker(
-  { markerPosition, onMapClick, clickRejected = false, playingArea = null },
+  { markerPosition, onMapClick, clickRejected = false, playingArea = null, buildingPolygons = null },
   ref: Ref<MapPickerHandle>
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -205,7 +226,6 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''} ${isTouchActive ? 'touch-active' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
         ref={containerRef}
         onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
         onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
         {...handlers}
         onMouseMove={handleMouseMove}
@@ -262,6 +282,38 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
             </svg>
           )}
 
+          {/* Building polygons overlay (e.g. submission form hitboxes) */}
+          {buildingPolygons && buildingPolygons.length > 0 && (
+            <svg
+              className="building-polygons-overlay"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {buildingPolygons.map((building, i) =>
+                building.polygon.length >= 3 ? (
+                  <g key={building.name + i}>
+                    <polygon
+                      points={building.polygon.map((p) => `${p.x},${p.y}`).join(' ')}
+                      fill="rgba(139, 92, 246, 0.25)"
+                      stroke="rgba(139, 92, 246, 0.9)"
+                      strokeWidth="0.35"
+                    />
+                    <text
+                      x={getCentroid(building.polygon as PolygonPoint[]).x}
+                      y={getCentroid(building.polygon as PolygonPoint[]).y}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className="building-polygon-label"
+                    >
+                      {i + 1}
+                    </text>
+                  </g>
+                ) : null
+              )}
+            </svg>
+          )}
+
+          {/* Marker - positioned relative to the container which matches image size */}
           {/* Marker - positioned relative to the container; scale inversely with zoom so pin stays same visual size */}
           {markerPosition && (
             <div

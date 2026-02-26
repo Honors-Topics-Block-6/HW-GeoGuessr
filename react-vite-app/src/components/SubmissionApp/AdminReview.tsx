@@ -78,11 +78,16 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     const q = query(collection(db, 'submissions'), orderBy('createdAt', 'desc'))
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const subs: SubmissionItem[] = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-        _source: 'submission' as SubmissionSource
-      } as SubmissionItem))
+      const subs: SubmissionItem[] = snapshot.docs.map(docSnap => {
+        const data = docSnap.data() as SubmissionItem & { building?: string | null };
+        const normalizedBuilding = (data.building || data.buildingName || '').trim() || null;
+        return {
+          ...data,
+          id: docSnap.id,
+          buildingName: normalizedBuilding,
+          _source: 'submission' as SubmissionSource
+        } as SubmissionItem;
+      })
       setSubmissions(subs)
       setLoading(false)
     }, (error) => {
@@ -222,10 +227,11 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       }
 
       if (selectedSubmission?._source === 'submission') {
+        const normalizedBuilding = (editForm.buildingName || '').trim() || null;
         await updateDoc(doc(db, 'submissions', selectedSubmission.id), {
           description: editForm.description,
           photoName: editForm.photoName,
-          buildingName: (editForm.buildingName || '').trim() || null,
+          buildingName: normalizedBuilding,
           location: editForm.location,
           floor: editForm.floor,
           difficulty: editForm.difficulty || null,
