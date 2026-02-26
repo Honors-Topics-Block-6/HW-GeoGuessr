@@ -9,6 +9,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   onSnapshot,
   serverTimestamp,
@@ -23,6 +24,7 @@ export interface UserLookup {
   uid: string;
   username: string;
   email: string;
+  favoriteEmote?: string;
 }
 
 export type FriendRequestStatus = 'pending' | 'accepted' | 'declined';
@@ -72,7 +74,32 @@ export async function getUserByUid(uid: string): Promise<UserLookup | null> {
   const snapshot = await getDoc(userRef);
   if (!snapshot.exists()) return null;
   const data = snapshot.data();
-  return { uid: snapshot.id, username: data.username, email: data.email };
+  return { uid: snapshot.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+}
+
+/**
+ * Look up user(s) by username.
+ * Returns an array to support disambiguation if duplicates ever exist.
+ */
+export async function searchUsersByUsername(
+  username: string,
+  maxResults: number = 10
+): Promise<UserLookup[]> {
+  const trimmed = username.trim();
+  if (!trimmed) return [];
+
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('username', '==', trimmed), limit(maxResults));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map(docSnap => {
+    const data = docSnap.data() as { username?: string; email?: string };
+    return {
+      uid: docSnap.id,
+      username: data.username || '',
+      email: data.email || ''
+    };
+  });
 }
 
 /**
@@ -90,7 +117,7 @@ export async function getUserByEmail(email: string): Promise<UserLookup | null> 
   if (!snapLower.empty) {
     const docSnap = snapLower.docs[0];
     const data = docSnap.data();
-    return { uid: docSnap.id, username: data.username, email: data.email };
+    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
   }
 
   // Fallback: exact email match (for existing users without emailLower)
@@ -99,7 +126,7 @@ export async function getUserByEmail(email: string): Promise<UserLookup | null> 
   if (!snapExact.empty) {
     const docSnap = snapExact.docs[0];
     const data = docSnap.data();
-    return { uid: docSnap.id, username: data.username, email: data.email };
+    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
   }
 
   return null;
@@ -119,7 +146,7 @@ export async function getUserByUsername(username: string): Promise<UserLookup | 
   if (!snapLower.empty) {
     const docSnap = snapLower.docs[0];
     const data = docSnap.data();
-    return { uid: docSnap.id, username: data.username, email: data.email };
+    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
   }
 
   // Fallback: exact username match (for users without usernameLower)
@@ -128,7 +155,7 @@ export async function getUserByUsername(username: string): Promise<UserLookup | 
   if (!snapshot.empty) {
     const docSnap = snapshot.docs[0];
     const data = docSnap.data();
-    return { uid: docSnap.id, username: data.username, email: data.email };
+    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
   }
 
   // Final fallback: scan and compare case-insensitively for legacy users
@@ -139,7 +166,7 @@ export async function getUserByUsername(username: string): Promise<UserLookup | 
   });
   if (!match) return null;
   const data = match.data();
-  return { uid: match.id, username: data.username, email: data.email };
+  return { uid: match.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
 }
 
 /**
