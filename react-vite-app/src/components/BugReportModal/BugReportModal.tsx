@@ -103,6 +103,16 @@ function BugReportModal({ onClose, userId, username, userEmail }: BugReportModal
   const [historyLoaded, setHistoryLoaded] = useState<boolean>(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const autoCloseTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (autoCloseTimerRef.current !== null) {
+        window.clearTimeout(autoCloseTimerRef.current)
+        autoCloseTimerRef.current = null
+      }
+    }
+  }, [])
 
   // Load reports when switching to history tab
   useEffect(() => {
@@ -222,7 +232,10 @@ function BugReportModal({ onClose, userId, username, userEmail }: BugReportModal
       setHistoryLoaded(false)
 
       // Auto-close after 2 seconds
-      setTimeout(() => {
+      if (autoCloseTimerRef.current !== null) {
+        window.clearTimeout(autoCloseTimerRef.current)
+      }
+      autoCloseTimerRef.current = window.setTimeout(() => {
         onClose()
       }, 2000)
     } catch (err: unknown) {
