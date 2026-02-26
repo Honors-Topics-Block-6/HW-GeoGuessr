@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect, type ChangeEvent } from 'react';
+import { useMemo, useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth, type BuildingStat, type DailyStatBucket } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
 import { getFavoriteAndWorstBuildings } from '../../utils/buildingStats';
@@ -7,6 +8,9 @@ import { DAILY_STREAK_UPDATED_EVENT, getDisplayDailyStreak, syncDailyStreakRollo
 import './ProfileScreen.css';
 
 const QUICK_PROFILE_EMOTES = ['😎', '🔥', '🎯', '🧠', '🚀', '💯'];
+const PROFILE_CROP_SIZE = 260;
+const PROFILE_CROP_OUTPUT_SIZE = 512;
+const PROFILE_CROP_MAX_ZOOM = 2.5;
 
 export interface ProfileScreenProps {
   onBack: () => void;
@@ -67,9 +71,54 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   const [newFavoriteEmote, setNewFavoriteEmote] = useState<string>(userDoc?.favoriteEmote || '😎');
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+  const [photoToCrop, setPhotoToCrop] = useState<File | null>(null);
+  const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null);
+  const [cropBaseScale, setCropBaseScale] = useState<number>(1);
+  const [cropZoom, setCropZoom] = useState<number>(1);
+  const [cropOffset, setCropOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [cropImageSize, setCropImageSize] = useState<{ width: number; height: number } | null>(null);
+  const [isDraggingCrop, setIsDraggingCrop] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'stats'>('profile');
   const [statsInterval, setStatsInterval] = useState<'day' | 'week' | 'month' | 'all'>('all');
   const [statsDifficulty, setStatsDifficulty] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const cropImageRef = useRef<HTMLImageElement | null>(null);
+  const cropDragRef = useRef<{ startX: number; startY: number; offsetX: number; offsetY: number } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cropPreviewUrl) {
+        URL.revokeObjectURL(cropPreviewUrl);
+      }
+    };
+  }, [cropPreviewUrl]);
+
+  const resetCropState = (): void => {
+    setPhotoToCrop(null);
+    setCropPreviewUrl(null);
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setCropBaseScale(1);
+    setCropImageSize(null);
+    setIsDraggingCrop(false);
+  };
+
+  const clampCropOffset = (
+    offset: { x: number; y: number },
+    zoom = cropZoom,
+    baseScale = cropBaseScale,
+    imageSize = cropImageSize
+  ): { x: number; y: number } => {
+    if (!imageSize) return offset;
+    const scale = baseScale * zoom;
+    const displayWidth = imageSize.width * scale;
+    const displayHeight = imageSize.height * scale;
+    const maxOffsetX = Math.max(0, (displayWidth - PROFILE_CROP_SIZE) / 2);
+    const maxOffsetY = Math.max(0, (displayHeight - PROFILE_CROP_SIZE) / 2);
+    return {
+      x: Math.min(maxOffsetX, Math.max(-maxOffsetX, offset.x)),
+      y: Math.min(maxOffsetY, Math.max(-maxOffsetY, offset.y))
+    };
+  };
 
   const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = e.target.files?.[0];
@@ -90,11 +139,110 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
       return;
     }
 
+    if (cropPreviewUrl) {
+      URL.revokeObjectURL(cropPreviewUrl);
+    }
+
+    setPhotoToCrop(file);
+    setCropPreviewUrl(URL.createObjectURL(file));
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setCropBaseScale(1);
+    setCropImageSize(null);
+  };
+
+  const handleCropImageLoad = (): void => {
+    if (!cropImageRef.current) return;
+    const { naturalWidth, naturalHeight } = cropImageRef.current;
+    setCropImageSize({ width: naturalWidth, height: naturalHeight });
+    const baseScale = Math.max(PROFILE_CROP_SIZE / naturalWidth, PROFILE_CROP_SIZE / naturalHeight);
+    setCropBaseScale(baseScale);
+    setCropOffset({ x: 0, y: 0 });
+  };
+
+  const handleCropZoomChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    const nextZoom = Number(e.target.value);
+    setCropZoom(nextZoom);
+    setCropOffset((prev) => clampCropOffset(prev, nextZoom, cropBaseScale, cropImageSize));
+  };
+
+  const handleCropPointerDown = (event: React.PointerEvent<HTMLDivElement>): void => {
+    if (!cropPreviewUrl) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsDraggingCrop(true);
+    cropDragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: cropOffset.x,
+      offsetY: cropOffset.y
+    };
+  };
+
+  const handleCropPointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
+    if (!isDraggingCrop || !cropDragRef.current) return;
+    const deltaX = event.clientX - cropDragRef.current.startX;
+    const deltaY = event.clientY - cropDragRef.current.startY;
+    const nextOffset = {
+      x: cropDragRef.current.offsetX + deltaX,
+      y: cropDragRef.current.offsetY + deltaY
+    };
+    setCropOffset(clampCropOffset(nextOffset));
+  };
+
+  const handleCropPointerUp = (event: React.PointerEvent<HTMLDivElement>): void => {
+    if (!isDraggingCrop) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    setIsDraggingCrop(false);
+    cropDragRef.current = null;
+  };
+
+  const handleCancelCrop = (): void => {
+    resetCropState();
+  };
+
+  const handleConfirmCrop = async (): Promise<void> => {
+    if (!photoToCrop || !cropImageRef.current || !cropImageSize) return;
+    setError('');
+    setSuccess('');
     setIsUploadingPhoto(true);
     try {
-      await updateProfileImage(file);
+      const canvas = document.createElement('canvas');
+      canvas.width = PROFILE_CROP_OUTPUT_SIZE;
+      canvas.height = PROFILE_CROP_OUTPUT_SIZE;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Unable to prepare image crop.');
+
+      const scale = cropBaseScale * cropZoom;
+      const displayWidth = cropImageSize.width * scale;
+      const displayHeight = cropImageSize.height * scale;
+      const cropLeft = (displayWidth / 2 - PROFILE_CROP_SIZE / 2 - cropOffset.x) / scale;
+      const cropTop = (displayHeight / 2 - PROFILE_CROP_SIZE / 2 - cropOffset.y) / scale;
+      const cropSize = PROFILE_CROP_SIZE / scale;
+
+      ctx.drawImage(
+        cropImageRef.current,
+        cropLeft,
+        cropTop,
+        cropSize,
+        cropSize,
+        0,
+        0,
+        PROFILE_CROP_OUTPUT_SIZE,
+        PROFILE_CROP_OUTPUT_SIZE
+      );
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', 0.9)
+      );
+      if (!blob) throw new Error('Failed to crop image.');
+
+      const safeName = photoToCrop.name.replace(/\.[^/.]+$/, '');
+      const croppedFile = new File([blob], `${safeName}-profile.jpg`, { type: 'image/jpeg' });
+
+      await updateProfileImage(croppedFile);
       setSuccess('Profile picture updated!');
       setTimeout(() => setSuccess(''), 3000);
+      resetCropState();
     } catch (err) {
       setError((err as Error).message || 'Failed to upload profile image.');
     } finally {
@@ -869,6 +1017,73 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
           </div>
         </section>
       </div>
+      {cropPreviewUrl &&
+        createPortal(
+          <div className="profile-crop-overlay" role="dialog" aria-modal="true">
+            <div className="profile-crop-modal">
+              <div className="profile-crop-header">
+                <h2>Crop your photo</h2>
+                <p>Drag to recenter, then confirm your crop.</p>
+              </div>
+              <div
+                className={`profile-crop-frame ${isDraggingCrop ? 'dragging' : ''}`}
+                onPointerDown={handleCropPointerDown}
+                onPointerMove={handleCropPointerMove}
+                onPointerUp={handleCropPointerUp}
+                onPointerLeave={handleCropPointerUp}
+                aria-label="Profile photo crop area"
+              >
+                <div
+                  className="profile-crop-image-wrapper"
+                  style={{
+                    transform: `translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px)`
+                  }}
+                >
+                  <img
+                    ref={cropImageRef}
+                    src={cropPreviewUrl}
+                    alt="Crop preview"
+                    className="profile-crop-image"
+                    onLoad={handleCropImageLoad}
+                    style={{ transform: `scale(${cropBaseScale * cropZoom})` }}
+                    draggable={false}
+                  />
+                </div>
+              </div>
+              <label className="profile-crop-zoom">
+                <span>Zoom</span>
+                <input
+                  type="range"
+                  min="1"
+                  max={PROFILE_CROP_MAX_ZOOM}
+                  step="0.01"
+                  value={cropZoom}
+                  onChange={handleCropZoomChange}
+                  disabled={isUploadingPhoto}
+                />
+              </label>
+              <div className="profile-crop-actions">
+                <button
+                  className="profile-cancel-button"
+                  type="button"
+                  onClick={handleCancelCrop}
+                  disabled={isUploadingPhoto}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="profile-save-button"
+                  type="button"
+                  onClick={handleConfirmCrop}
+                  disabled={isUploadingPhoto || !cropImageSize}
+                >
+                  {isUploadingPhoto ? 'Saving...' : 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
     </div>
   );

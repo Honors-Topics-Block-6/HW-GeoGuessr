@@ -151,6 +151,90 @@
   cursor: pointer;
 }
 
+.profile-crop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 8, 16, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 50;
+}
+
+.profile-crop-modal {
+  width: min(420px, 100%);
+  background: rgba(18, 23, 45, 0.96);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.profile-crop-header h2 {
+  font-size: 1.1rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.profile-crop-header p {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.profile-crop-frame {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 0 auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 12, 26, 0.9);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.profile-crop-frame.dragging {
+  cursor: grabbing;
+}
+
+.profile-crop-image-wrapper {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+}
+
+.profile-crop-image {
+  display: block;
+  max-width: none;
+  max-height: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.profile-crop-zoom {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.profile-crop-zoom input[type='range'] {
+  flex: 1;
+}
+
+.profile-crop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 .profile-title {
   font-size: 1.8rem;
   font-weight: 700;
