@@ -170,20 +170,22 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
           </div>
         )}
 
-        <button
-          className="play-button"
-          onClick={handleStart}
-          disabled={!selectedDifficulty || isLoading}
-        >
-          {isLoading ? (
-            <>
-              <span className="button-spinner"></span>
-              Loading...
-            </>
-          ) : (
-            'Play'
-          )}
-        </button>
+        <div className="difficulty-footer">
+          <button
+            className="play-button"
+            onClick={handleStart}
+            disabled={!selectedDifficulty || isLoading}
+          >
+            {isLoading ? (
+              <>
+                <span className="button-spinner"></span>
+                Loading...
+              </>
+            ) : (
+              'Play'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
