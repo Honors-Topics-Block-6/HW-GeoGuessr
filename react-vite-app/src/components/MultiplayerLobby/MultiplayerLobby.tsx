@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLobby } from '../../hooks/useLobby';
 import GameCodeInput from './GameCodeInput';
 import PublicGameList from './PublicGameList';
@@ -299,6 +298,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
             isJoining={isJoining}
           />
         </div>
+      </div>
       </div>
     </div>
     </div>

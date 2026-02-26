@@ -4,6 +4,9 @@ import { useGameState, type Difficulty } from './hooks/useGameState';
 import { useDuelGame } from './hooks/useDuelGame';
 import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
+import { useFriends } from './hooks/useFriends';
+import { useChatNotifications } from './hooks/useChatNotifications';
+import { STARTING_HEALTH } from './services/duelService';
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
 import { joinLobby } from './services/lobbyService';
@@ -27,6 +30,7 @@ import BugReportModal from './components/BugReportModal/BugReportModal';
 import DailyGoalsPanel from './components/DailyGoalsPanel/DailyGoalsPanel';
 import DailyGoalsCompletionModal from './components/DailyGoalsCompletionModal/DailyGoalsCompletionModal';
 import MessageBanner from './components/MessageBanner/MessageBanner';
+import ChatNotificationBanner from './components/ChatNotificationBanner/ChatNotificationBanner';
 import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
 import { getLevelInfo } from './utils/xpLevelling';
 import {
@@ -141,6 +145,12 @@ function App(): React.ReactElement {
   // Listen for admin messages sent to this user
   const { messages, dismissMessage } = useAdminMessages(user?.uid);
 
+  // Friends list for chat notification subscriptions
+  const { friends } = useFriends(user?.uid, userDoc?.username ?? '');
+  const friendUids = friends.map((f) => f.uid);
+  const { notifications: chatNotifications, dismissNotification: dismissChatNotification } =
+    useChatNotifications(user?.uid ?? null, friendUids, chatFriend?.uid ?? null);
+
   /**
    * Handle joining a lobby from a chat invite message.
    * Joins the lobby and navigates to the WaitingRoom.
@@ -181,6 +191,10 @@ function App(): React.ReactElement {
     <MessageBanner messages={messages as unknown as React.ComponentProps<typeof MessageBanner>['messages']} onDismiss={dismissMessage} />
   ) : null;
 
+  const chatNotificationBanner: ReactNode =
+    user && chatNotifications.length > 0 ? (
+      <ChatNotificationBanner notifications={chatNotifications} onDismiss={dismissChatNotification} />
+    ) : null;
   useEffect(() => {
     if (!user || !userDoc) return;
     const level = getLevelInfo(userDoc.totalXp ?? 0).level;
@@ -405,6 +419,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <ChatWindow
           friendUid={chatFriend.uid}
@@ -422,6 +437,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <FriendsPanel
           onBack={() => setShowFriends(false)}
@@ -437,6 +453,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <ProfileScreen
           onBack={() => setShowProfile(false)}
@@ -455,6 +472,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <LeaderboardScreen onBack={() => setShowLeaderboard(false)} />
         {dailyGoalsRewardModal}
@@ -467,6 +485,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <DailyGoalsPanel onBack={() => setShowDailyGoals(false)} />
         {dailyGoalsRewardModal}
@@ -479,6 +498,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <SubmissionApp onBack={() => setShowSubmissionApp(false)} />
         {dailyGoalsRewardModal}
@@ -568,6 +588,7 @@ function App(): React.ReactElement {
         </div>
       )}
       {messageBanner}
+      {chatNotificationBanner}
       <EmailVerificationBanner />
 
       {/* --- Single Player Screens --- */}
