@@ -9,6 +9,7 @@ export interface GameImage {
   correctLocation: { x: number; y: number };
   correctFloor: number | null;
   difficulty: string | null;
+  buildingName?: string | null;
   description?: string | null;
 }
 
@@ -19,6 +20,11 @@ export interface SampleImage {
   correctFloor: number;
   difficulty: string;
   description: string;
+}
+
+export interface RandomImageOptions {
+  excludeImageIds?: string[];
+  excludeImageUrls?: string[];
 }
 
 // ────── Constants ──────
@@ -74,17 +80,27 @@ const SAMPLE_IMAGES: readonly SampleImage[] = [
  * - Firestore 'images' collection (all are considered approved)
  * - Firestore 'submissions' collection with status 'approved'
  */
-export async function getRandomImage(difficulty: string | null = null): Promise<GameImage | null> {
+export async function getRandomImage(
+  difficulty: string | null = null,
+  options: RandomImageOptions = {}
+): Promise<GameImage | null> {
   try {
     const approvedImages = await getAllApprovedImages(difficulty);
+    const excludedIds = new Set(options.excludeImageIds || []);
+    const excludedUrls = new Set(options.excludeImageUrls || []);
+    const availableImages = approvedImages.filter((image) => {
+      if (excludedIds.has(image.id)) return false;
+      if (excludedUrls.has(image.url)) return false;
+      return true;
+    });
 
-    if (approvedImages.length === 0) {
+    if (availableImages.length === 0) {
       console.warn('No approved images found in any source');
       return null;
     }
 
-    const randomIndex = Math.floor(Math.random() * approvedImages.length);
-    return approvedImages[randomIndex];
+    const randomIndex = Math.floor(Math.random() * availableImages.length);
+    return availableImages[randomIndex];
   } catch (error) {
     console.error('Error fetching random image:', error);
     return null;
@@ -111,14 +127,18 @@ export async function getAllApprovedImages(difficulty: string | null = null): Pr
 
     // Map approved submissions to the same format the game expects
     const approvedSubmissions: GameImage[] = submissionsSnapshot.docs.map(docSnap => {
-      const data = docSnap.data();
+      const data = docSnap.data() as Record<string, unknown>;
+      const buildingName = (
+        ((data.buildingName as string) || (data.building as string) || '').trim()
+      ) || null;
       return {
         id: docSnap.id,
         url: data.photoURL as string,
         correctLocation: data.location as { x: number; y: number },
         correctFloor: data.floor as number | null,
         difficulty: (data.difficulty as string) || null,
-        description: (data.photoName as string) || null
+        buildingName,
+        description: buildingName
       };
     });
 

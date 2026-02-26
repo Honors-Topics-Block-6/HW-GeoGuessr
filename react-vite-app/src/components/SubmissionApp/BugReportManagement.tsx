@@ -66,11 +66,39 @@ function BugReportManagement(_props: BugReportManagementProps): React.JSX.Elemen
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Filters
-  const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [filterCategory, setFilterCategory] = useState<string>('all')
-  const [filterSeverity, setFilterSeverity] = useState<string>('all')
+  // Filters — multi-select Sets (default: only open + in-progress for status; all for others)
+  const [filterStatuses, setFilterStatuses] = useState<Set<string>>(() => new Set(['open', 'in-progress']))
+  const [filterCategories, setFilterCategories] = useState<Set<string>>(() => new Set(VALID_CATEGORIES as readonly string[]))
+  const [filterSeverities, setFilterSeverities] = useState<Set<string>>(() => new Set(VALID_SEVERITIES as readonly string[]))
   const [sortBy, setSortBy] = useState<'date' | 'severity'>('date')
+
+  /** Toggle a value in a Set-based filter, returning a new Set. */
+  const toggleFilter = (
+    current: Set<string>,
+    setter: React.Dispatch<React.SetStateAction<Set<string>>>,
+    value: string
+  ): void => {
+    const next = new Set(current)
+    if (next.has(value)) {
+      next.delete(value)
+    } else {
+      next.add(value)
+    }
+    setter(next)
+  }
+
+  /** Select all / deselect all helper. */
+  const toggleAll = (
+    allValues: readonly string[],
+    current: Set<string>,
+    setter: React.Dispatch<React.SetStateAction<Set<string>>>
+  ): void => {
+    if (current.size === allValues.length) {
+      setter(new Set())
+    } else {
+      setter(new Set(allValues))
+    }
+  }
 
   // Detail modal
   const [selectedReport, setSelectedReport] = useState<BugReport | null>(null)
@@ -89,9 +117,9 @@ function BugReportManagement(_props: BugReportManagementProps): React.JSX.Elemen
   // Apply filters and sorting
   const filteredReports = reports
     .filter(report => {
-      if (filterStatus !== 'all' && report.status !== filterStatus) return false
-      if (filterCategory !== 'all' && report.category !== filterCategory) return false
-      if (filterSeverity !== 'all' && report.severity !== filterSeverity) return false
+      if (!filterStatuses.has(report.status)) return false
+      if (!filterCategories.has(report.category)) return false
+      if (!filterSeverities.has(report.severity)) return false
       return true
     })
     .sort((a, b) => {
@@ -147,7 +175,7 @@ function BugReportManagement(_props: BugReportManagementProps): React.JSX.Elemen
         </h3>
         <span className="bug-mgmt-count">
           {filteredReports.length} report{filteredReports.length !== 1 ? 's' : ''}
-          {filterStatus === 'all' && ` (${openCount} open, ${inProgressCount} in progress)`}
+          {` (${openCount} open, ${inProgressCount} in progress)`}
         </span>
       </div>
 
@@ -157,50 +185,68 @@ function BugReportManagement(_props: BugReportManagementProps): React.JSX.Elemen
       <div className="bug-mgmt-filters">
         <div className="bug-mgmt-filter-group">
           <span className="bug-mgmt-filter-label">Status</span>
-          <select
-            className="bug-mgmt-filter-select"
-            value={filterStatus}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value)}
-          >
-            <option value="all">All Statuses</option>
+          <div className="bug-mgmt-filter-pills">
+            <button
+              className={`bug-mgmt-pill toggle-all ${filterStatuses.size === VALID_STATUSES.length ? 'active' : ''}`}
+              onClick={() => toggleAll(VALID_STATUSES as readonly string[], filterStatuses, setFilterStatuses)}
+            >
+              All
+            </button>
             {VALID_STATUSES.map((status: string) => (
-              <option key={status} value={status}>
-                {STATUS_LABELS[status]} ({reports.filter(r => r.status === status).length})
-              </option>
+              <button
+                key={status}
+                className={`bug-mgmt-pill ${filterStatuses.has(status) ? 'active' : ''}`}
+                onClick={() => toggleFilter(filterStatuses, setFilterStatuses, status)}
+              >
+                {STATUS_LABELS[status]}
+                <span className="bug-mgmt-pill-count">{reports.filter(r => r.status === status).length}</span>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         <div className="bug-mgmt-filter-group">
           <span className="bug-mgmt-filter-label">Category</span>
-          <select
-            className="bug-mgmt-filter-select"
-            value={filterCategory}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterCategory(e.target.value)}
-          >
-            <option value="all">All Categories</option>
+          <div className="bug-mgmt-filter-pills">
+            <button
+              className={`bug-mgmt-pill toggle-all ${filterCategories.size === VALID_CATEGORIES.length ? 'active' : ''}`}
+              onClick={() => toggleAll(VALID_CATEGORIES as readonly string[], filterCategories, setFilterCategories)}
+            >
+              All
+            </button>
             {VALID_CATEGORIES.map((cat: string) => (
-              <option key={cat} value={cat}>
-                {CATEGORY_LABELS[cat]} ({reports.filter(r => r.category === cat).length})
-              </option>
+              <button
+                key={cat}
+                className={`bug-mgmt-pill ${filterCategories.has(cat) ? 'active' : ''}`}
+                onClick={() => toggleFilter(filterCategories, setFilterCategories, cat)}
+              >
+                {CATEGORY_LABELS[cat]}
+                <span className="bug-mgmt-pill-count">{reports.filter(r => r.category === cat).length}</span>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         <div className="bug-mgmt-filter-group">
           <span className="bug-mgmt-filter-label">Severity</span>
-          <select
-            className="bug-mgmt-filter-select"
-            value={filterSeverity}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterSeverity(e.target.value)}
-          >
-            <option value="all">All Severities</option>
+          <div className="bug-mgmt-filter-pills">
+            <button
+              className={`bug-mgmt-pill toggle-all ${filterSeverities.size === VALID_SEVERITIES.length ? 'active' : ''}`}
+              onClick={() => toggleAll(VALID_SEVERITIES as readonly string[], filterSeverities, setFilterSeverities)}
+            >
+              All
+            </button>
             {VALID_SEVERITIES.map((sev: string) => (
-              <option key={sev} value={sev}>
-                {SEVERITY_LABELS[sev]} ({reports.filter(r => r.severity === sev).length})
-              </option>
+              <button
+                key={sev}
+                className={`bug-mgmt-pill ${filterSeverities.has(sev) ? 'active' : ''}`}
+                onClick={() => toggleFilter(filterSeverities, setFilterSeverities, sev)}
+              >
+                {SEVERITY_LABELS[sev]}
+                <span className="bug-mgmt-pill-count">{reports.filter(r => r.severity === sev).length}</span>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         <div className="bug-mgmt-filter-group">

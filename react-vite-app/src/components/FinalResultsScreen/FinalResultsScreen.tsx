@@ -1,9 +1,13 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { awardXp } from '../../services/xpService';
+import { updateUserDoc } from '../../services/userService';
+import { increment } from 'firebase/firestore';
 import { calculateXpGain, getLevelTitle } from '../../utils/xpLevelling';
 import { useDailyGoals } from '../../hooks/useDailyGoals';
 import { GOAL_TYPES } from '../../utils/dailyGoalDefinitions';
+import CopyResultsButton from '../CopyResultsButton/CopyResultsButton';
+import { generateShareableResultsText } from '../../utils/shareResults';
 import './FinalResultsScreen.css';
 
 interface PerformanceRating {
@@ -27,10 +31,15 @@ interface XpResult {
 }
 
 interface RoundData {
+  roundNumber?: number;
   score: number;
   locationScore: number;
   imageUrl: string;
   floorCorrect: boolean | null;
+  timeTakenSeconds?: number;
+  actualFloor?: number | null;
+  imageBuildingName?: string | null;
+  imageDescription?: string | null;
   noGuess?: boolean;
 }
 
@@ -73,10 +82,11 @@ export interface FinalResultsScreenProps {
   onPlayAgain: () => void;
   onBackToTitle: () => void;
   difficulty: string | null;
+  mode?: string | null;
 }
 
-function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: FinalResultsScreenProps): React.ReactElement {
-  const { user, totalXp, refreshUserDoc } = useAuth();
+function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mode = null }: FinalResultsScreenProps): React.ReactElement {
+  const { user, userDoc, totalXp, refreshUserDoc } = useAuth();
   const { recordProgress } = useDailyGoals(user?.uid ?? null);
   const [animationComplete, setAnimationComplete] = useState<boolean>(false);
   const [displayedTotal, setDisplayedTotal] = useState<number>(0);
@@ -86,6 +96,34 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
   const totalScore = rounds.reduce((sum: number, round: RoundData) => sum + round.score, 0);
   const maxPossible = rounds.length * 5000;
   const performance = getPerformanceRating(totalScore, maxPossible);
+  const totalGuessTimeSeconds = rounds.reduce((sum: number, round: RoundData) => sum + (round.timeTakenSeconds ?? 0), 0);
+  const isPerfectRound = (round: RoundData): boolean =>
+    round.locationScore === 5000 && round.floorCorrect !== false;
+  const fiveKCount = rounds.filter(isPerfectRound).length;
+  const twentyFiveKCount = rounds.length > 0 && rounds.every(isPerfectRound) ? 1 : 0;
+  const getLocalDateKey = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const normalizeBuildingName = (value: string | null | undefined): string | null => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const shareText = useMemo(() => {
+    return generateShareableResultsText({
+      rounds: rounds.map((r, idx) => ({
+        score: r.score,
+        roundNumber: r.roundNumber ?? (idx + 1)
+      })),
+      gameName: 'HW Geoguessr',
+      mode,
+      difficulty
+    });
+  }, [rounds, mode, difficulty]);
 
   // Snapshot the totalXp at mount so it doesn't shift after the Firestore refresh.
   // useState initializer only runs once, so this captures the pre-award value.
@@ -107,37 +145,141 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
 
     // Persist to Firestore, then refresh local user doc
     awardXp(user.uid, totalScore)
-      .then(() => refreshUserDoc())
+      .then(async () => {
+        const existingBuildingStats = userDoc?.buildingStats ?? {};
+        const updatedBuildingStats: typeof existingBuildingStats = { ...existingBuildingStats };
+        const todayKey = getLocalDateKey(new Date());
+        const difficultyKey = difficulty ?? 'all';
+        const existingDailyStats = userDoc?.dailyStats ?? {};
+        const existingDailyStatsByDifficulty = userDoc?.dailyStatsByDifficulty ?? {};
+        const dayStats = existingDailyStats[todayKey] ?? {
+          gamesPlayed: 0,
+          totalScore: 0,
+          totalGuessTimeSeconds: 0,
+          fiveKCount: 0,
+          twentyFiveKCount: 0,
+          photosSubmittedCount: 0,
+          buildingStats: {}
+        };
+        const dayStatsByDifficulty = existingDailyStatsByDifficulty[todayKey]?.[difficultyKey] ?? {
+          gamesPlayed: 0,
+          totalScore: 0,
+          totalGuessTimeSeconds: 0,
+          fiveKCount: 0,
+          twentyFiveKCount: 0,
+          photosSubmittedCount: 0,
+          buildingStats: {}
+        };
+        const updatedDayBuildingStats = { ...dayStats.buildingStats };
+        const updatedDayBuildingStatsByDifficulty = { ...dayStatsByDifficulty.buildingStats };
+
+        for (const round of rounds) {
+          const buildingName =
+            normalizeBuildingName(round.imageBuildingName) ??
+            normalizeBuildingName(round.imageDescription) ??
+            'Unknown';
+          const floor = round.actualFloor ?? null;
+          const key = `${buildingName}::${floor ?? 'unknown'}`;
+          const current = updatedBuildingStats[key] ?? {
+            building: buildingName,
+            floor,
+            totalScore: 0,
+            count: 0
+          };
+          updatedBuildingStats[key] = {
+            building: current.building,
+            floor: current.floor ?? floor,
+            totalScore: current.totalScore + round.score,
+            count: current.count + 1
+          };
+
+          const dayCurrent = updatedDayBuildingStats[key] ?? {
+            building: buildingName,
+            floor,
+            totalScore: 0,
+            count: 0
+          };
+          updatedDayBuildingStats[key] = {
+            building: dayCurrent.building,
+            floor: dayCurrent.floor ?? floor,
+            totalScore: dayCurrent.totalScore + round.score,
+            count: dayCurrent.count + 1
+          };
+
+          const dayDiffCurrent = updatedDayBuildingStatsByDifficulty[key] ?? {
+            building: buildingName,
+            floor,
+            totalScore: 0,
+            count: 0
+          };
+          updatedDayBuildingStatsByDifficulty[key] = {
+            building: dayDiffCurrent.building,
+            floor: dayDiffCurrent.floor ?? floor,
+            totalScore: dayDiffCurrent.totalScore + round.score,
+            count: dayDiffCurrent.count + 1
+          };
+        }
+
+        await updateUserDoc(user.uid, {
+          totalScore: increment(totalScore),
+          totalGuessTimeSeconds: increment(totalGuessTimeSeconds),
+          fiveKCount: increment(fiveKCount),
+          twentyFiveKCount: increment(twentyFiveKCount),
+          buildingStats: updatedBuildingStats,
+          dailyStats: {
+            ...existingDailyStats,
+            [todayKey]: {
+              gamesPlayed: dayStats.gamesPlayed + 1,
+              totalScore: dayStats.totalScore + totalScore,
+              totalGuessTimeSeconds: dayStats.totalGuessTimeSeconds + totalGuessTimeSeconds,
+              fiveKCount: dayStats.fiveKCount + fiveKCount,
+              twentyFiveKCount: dayStats.twentyFiveKCount + twentyFiveKCount,
+              photosSubmittedCount: dayStats.photosSubmittedCount,
+              buildingStats: updatedDayBuildingStats
+            }
+          },
+          dailyStatsByDifficulty: {
+            ...existingDailyStatsByDifficulty,
+            [todayKey]: {
+              ...(existingDailyStatsByDifficulty[todayKey] ?? {}),
+              [difficultyKey]: {
+                gamesPlayed: dayStatsByDifficulty.gamesPlayed + 1,
+                totalScore: dayStatsByDifficulty.totalScore + totalScore,
+                totalGuessTimeSeconds: dayStatsByDifficulty.totalGuessTimeSeconds + totalGuessTimeSeconds,
+                fiveKCount: dayStatsByDifficulty.fiveKCount + fiveKCount,
+                twentyFiveKCount: dayStatsByDifficulty.twentyFiveKCount + twentyFiveKCount,
+                photosSubmittedCount: dayStatsByDifficulty.photosSubmittedCount,
+                buildingStats: updatedDayBuildingStatsByDifficulty
+              }
+            }
+          }
+        });
+        await refreshUserDoc();
+      })
       .catch((err: Error) => console.error('Failed to award XP:', err));
 
-    // --- Daily Goals Progress ---
-    // Goal: games played (always +1)
-    recordProgress(GOAL_TYPES.GAMES_PLAYED, 1);
-
-    // Goal: high score per round (check each round's score)
-    for (const round of rounds) {
-      if (round.score > 0) {
-        recordProgress(GOAL_TYPES.HIGH_SCORE_ROUND, round.score);
+    // --- Daily Goals Progress --- (run in sequence so doc is created once, then all updates apply)
+    (async () => {
+      await recordProgress(GOAL_TYPES.GAMES_PLAYED, 1);
+      for (const round of rounds) {
+        if (round.score > 0) {
+          await recordProgress(GOAL_TYPES.HIGH_SCORE_ROUND, round.score);
+        }
+        if (round.floorCorrect === true) {
+          await recordProgress(GOAL_TYPES.PERFECT_FLOOR, 1);
+        }
       }
-      // Goal: correct floor guesses
-      if (round.floorCorrect === true) {
-        recordProgress(GOAL_TYPES.PERFECT_FLOOR, 1);
+      await recordProgress(GOAL_TYPES.HIGH_SCORE_GAME, totalScore);
+      if (difficulty) {
+        await recordProgress(GOAL_TYPES.PLAY_DIFFICULTY, 1, { targetDifficulty: difficulty });
       }
-    }
-
-    // Goal: high score per game (total score)
-    recordProgress(GOAL_TYPES.HIGH_SCORE_GAME, totalScore);
-
-    // Goal: play on specific difficulty
-    if (difficulty) {
-      recordProgress(GOAL_TYPES.PLAY_DIFFICULTY, 1, { targetDifficulty: difficulty });
-    }
+    })().catch((err: Error) => console.error('Failed to record daily goal progress:', err));
 
     // Show level-up animation after a delay
     if (xpResult.levelsGained > 0) {
       setTimeout(() => setShowLevelUp(true), 2000);
     }
-  }, [user, totalScore, refreshUserDoc, xpResult, rounds, difficulty, recordProgress]);
+  }, [user, userDoc, totalScore, refreshUserDoc, xpResult, rounds, difficulty, recordProgress, totalGuessTimeSeconds, fiveKCount, twentyFiveKCount]);
 
   // Spacebar to play again
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -308,6 +450,7 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
 
         {/* Action Buttons */}
         <div className="final-actions">
+          <CopyResultsButton text={shareText} />
           <button className="play-again-button" onClick={onPlayAgain}>
             <span className="button-icon">🔄</span>
             Play Again
