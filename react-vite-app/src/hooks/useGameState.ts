@@ -39,6 +39,8 @@ export interface PlayingArea {
 export interface RoundResult {
   roundNumber: number;
   imageUrl: string;
+  imageBuildingName?: string | null;
+  imageDescription?: string | null;
   guessLocation: MapCoords | null;
   actualLocation: MapCoords;
   guessFloor: number | null;
@@ -124,6 +126,14 @@ export function calculateLocationScore(distance: number): number {
  * Handles screen transitions, image loading, multi-round tracking, and scoring
  */
 export function useGameState(): UseGameStateReturn {
+  const getImageBuildingName = (image: GameImage): string | null => {
+    const legacyImage = image as GameImage & { building?: string | null };
+    const buildingValue = image.buildingName ?? legacyImage.building;
+    if (typeof buildingValue !== 'string') return null;
+    const trimmed = buildingValue.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
   // Current screen: 'title', 'game', 'result', or 'finalResults'
   const [screen, setScreen] = useState<ScreenState>('title');
 
@@ -489,6 +499,8 @@ export function useGameState(): UseGameStateReturn {
     const result: RoundResult = {
       roundNumber: currentRound,
       imageUrl: currentImage.url,
+      imageBuildingName: getImageBuildingName(currentImage),
+      imageDescription: currentImage.description ?? null,
       guessLocation,
       actualLocation,
       guessFloor,
@@ -541,6 +553,8 @@ export function useGameState(): UseGameStateReturn {
       const result: RoundResult = {
         roundNumber: currentRound,
         imageUrl: currentImage.url,
+        imageBuildingName: getImageBuildingName(currentImage),
+        imageDescription: currentImage.description ?? null,
         guessLocation: null,
         actualLocation,
         guessFloor: null,
