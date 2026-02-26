@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChat, type ChatMessage } from '../../hooks/useChat';
+import { censorText } from '../../utils/chatCensor';
 import './ChatWindow.css';
 
 interface FirestoreTimestamp {
@@ -25,8 +26,35 @@ function ChatWindow({ friendUid, friendUsername, onBack, onJoinLobby }: ChatWind
 
   const [text, setText] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
+  const [isEmojiOpen, setIsEmojiOpen] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  const emojis = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+    '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+    '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸',
+    '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️',
+    '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡',
+    '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓',
+    '😴', '😵', '😵‍💫', '🤐', '🤗', '🤔', '🫢', '🫣', '🫡', '🤫',
+    '🤭', '🙄', '😬', '😮‍💨', '😮', '😲', '🥱', '😪', '😷', '🤒',
+    '🤕', '🤢', '🤮', '🤧', '😇', '🥴', '🤥', '🤠', '🥹', '🫠',
+    '👋', '🤚', '✋', '🖐️', '👌', '🤌', '🤏', '✌️', '🤞', '🫰',
+    '🤟', '🤘', '🤙', '👍', '👎', '👊', '✊', '🤛', '🤜', '👏',
+    '🙌', '🫶', '🙏', '🤝', '💪', '🦾', '🧠', '🫀', '🫁', '🦵',
+    '🦶', '👀', '👁️', '👄', '🫦', '💋', '❤️', '🧡', '💛', '💚',
+    '💙', '💜', '🤎', '🖤', '🤍', '💔', '❤️‍🔥', '❤️‍🩹', '💖', '💘',
+    '💕', '💞', '💓', '💗', '💝', '💯', '✨', '⚡', '🔥', '💥',
+    '💫', '🎉', '🎊', '🎯', '🏆', '🥇', '🥈', '🥉', '🎮', '🕹️',
+    '🎲', '🧩', '🧠', '📍', '🗺️', '🧭', '🌍', '🌎', '🌏', '🌟',
+    '🌈', '☀️', '⛅', '🌧️', '⛈️', '❄️', '🌊', '🌙', '🌌', '⭐',
+    '🚀', '🛸', '🧳', '🎒', '🏕️', '🏖️', '🏙️', '🏡', '🚗', '🚲',
+    '🚆', '✈️', '🚢', '🎵', '🎧', '🎸', '🎹', '🎺', '🥁', '🎤',
+    '🍕', '🍔', '🍟', '🌭', '🍿', '🥤', '☕', '🧋', '🍩', '🍪',
+    '🍫', '🍦', '🍰', '🧁', '🍓', '🍉', '🍎', '🍌', '🍇', '🥑'
+  ];
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -34,6 +62,17 @@ function ChatWindow({ friendUid, friendUsername, onBack, onJoinLobby }: ChatWind
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (!isEmojiOpen) return;
+    const handleOutsideClick = (event: MouseEvent): void => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setIsEmojiOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isEmojiOpen]);
 
   const handleSend = async (e: FormEvent<HTMLFormElement> | KeyboardEvent<HTMLTextAreaElement>): Promise<void> => {
     e.preventDefault();
@@ -44,6 +83,7 @@ function ChatWindow({ friendUid, friendUsername, onBack, onJoinLobby }: ChatWind
     try {
       await sendMessage(trimmed);
       setText('');
+      setIsEmojiOpen(false);
     } catch (err) {
       console.error('Failed to send message:', err);
     } finally {
@@ -55,7 +95,16 @@ function ChatWindow({ friendUid, friendUsername, onBack, onJoinLobby }: ChatWind
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend(e);
+      return;
     }
+    if (e.key === 'Escape' && isEmojiOpen) {
+      setIsEmojiOpen(false);
+    }
+  };
+
+  const handleEmojiSelect = (emoji: string): void => {
+    setText((prev) => `${prev}${emoji}`);
+    setIsEmojiOpen(false);
   };
 
   const formatTime = (timestamp: unknown): string => {
@@ -139,7 +188,7 @@ function ChatWindow({ friendUid, friendUsername, onBack, onJoinLobby }: ChatWind
                       <div className={`chat-message ${isMe ? 'mine' : 'theirs'}`}>
                         <div className="chat-invite-card">
                           <div className="chat-invite-icon">⚔️</div>
-                          <p className="chat-invite-text">{msg.text}</p>
+                          <p className="chat-invite-text">{censorText(msg.text)}</p>
                           {!isMe && onJoinLobby && (
                             <button
                               className="chat-invite-join-btn"
@@ -157,7 +206,7 @@ function ChatWindow({ friendUid, friendUsername, onBack, onJoinLobby }: ChatWind
                       /* ── Normal Message Bubble ── */
                       <div className={`chat-message ${isMe ? 'mine' : 'theirs'}`}>
                         <div className={`chat-bubble ${isMe ? 'mine' : 'theirs'}`}>
-                          <p className="chat-bubble-text">{msg.text}</p>
+                          <p className="chat-bubble-text">{censorText(msg.text)}</p>
                         </div>
                       </div>
                     )}
@@ -171,6 +220,31 @@ function ChatWindow({ friendUid, friendUsername, onBack, onJoinLobby }: ChatWind
 
         {/* Input Area */}
         <form className="chat-input-area" onSubmit={handleSend}>
+          <div className="chat-emoji-wrapper" ref={emojiPickerRef}>
+            <button
+              type="button"
+              className="chat-emoji-button"
+              onClick={() => setIsEmojiOpen((prev) => !prev)}
+              aria-label="Open emoji picker"
+            >
+              🔥
+            </button>
+            {isEmojiOpen && (
+              <div className="chat-emoji-picker" role="menu" aria-label="Emoji picker">
+                {emojis.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className="chat-emoji-item"
+                    onClick={() => handleEmojiSelect(emoji)}
+                    aria-label={`Insert ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <textarea
             className="chat-input"
             placeholder="Type a message..."

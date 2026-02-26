@@ -6,6 +6,69 @@
   flex-direction: column;
 }
 
+.global-achievement-toast {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  width: min(92vw, 440px);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.72rem 0.9rem;
+  background: rgba(13, 19, 38, 0.92);
+  border: 1px solid rgba(108, 181, 45, 0.42);
+  border-radius: 14px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  overflow: hidden;
+  animation: globalAchievementToastEnter 220ms ease-out forwards;
+}
+
+.global-achievement-toast.fading {
+  animation: globalAchievementToastFadeOut 1400ms ease forwards;
+}
+
+.global-achievement-toast-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  border: 2px solid rgba(108, 181, 45, 0.62);
+  background: radial-gradient(circle, rgba(108, 181, 45, 0.34) 0%, rgba(108, 181, 45, 0.14) 100%);
+  box-shadow: 0 0 14px rgba(108, 181, 45, 0.3);
+  flex-shrink: 0;
+}
+
+.global-achievement-toast-text {
+  opacity: 1;
+  transform: none;
+}
+
+.global-achievement-toast-title {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.global-achievement-toast-description {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  margin-top: 0.2rem;
+}
+
+.global-achievement-toast-reward {
+  margin-top: 0.22rem;
+  color: var(--accent-green-light);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 /* Loading State */
 .loading-container {
   display: flex;
@@ -27,6 +90,39 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes globalAchievementToastEnter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes globalAchievementToastFadeOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.985);
+  }
+}
+
+@keyframes globalAchievementDescriptionFade {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

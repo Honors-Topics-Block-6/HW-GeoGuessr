@@ -37,6 +37,8 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
+  favoriteEmote?: string;
+  photoURL?: string;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
@@ -44,6 +46,17 @@ export interface UserDoc {
   createdAt: unknown;
   permissions?: PermissionsMap;
   lastGameAt?: unknown;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
+  lastUsernameChange?: unknown;
 }
 
 export interface UserDocWithId extends UserDoc {
@@ -52,12 +65,23 @@ export interface UserDocWithId extends UserDoc {
 
 export interface UserProfileUpdates {
   username?: string;
+  favoriteEmote?: string;
   email?: string;
   isAdmin?: boolean;
   emailVerified?: boolean;
   totalXp?: number;
   gamesPlayed?: number;
   lastGameAt?: Date | string | null;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
   [key: string]: unknown;
 }
 
@@ -70,6 +94,34 @@ export class UsernameTakenError extends Error {
     this.name = 'UsernameTakenError';
     this.suggestions = suggestions;
   }
+export interface BuildingStat {
+  building: string;
+  floor: number | null;
+  totalScore: number;
+  count: number;
+}
+
+export interface DailyStatBucket {
+  gamesPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
+  photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
+}
+
+const FALLBACK_FAVORITE_EMOTE = '😎';
+
+export function normalizeFavoriteEmote(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error('Favorite emote cannot be empty.');
+  }
+  if (trimmed.length > 16) {
+    throw new Error('Favorite emote is too long.');
+  }
+  return trimmed;
 }
 
 // ────── Constants ──────
@@ -301,41 +353,35 @@ export async function createUserDoc(uid: string, email: string, username: string
   const usernameRef = doc(db, USERNAMES_COLLECTION, key);
 
   const isAdmin = uid === HARDCODED_ADMIN_UID;
-
-  try {
-    await runTransaction(db, async (tx) => {
-      const existing = await tx.get(usernameRef);
-      if (existing.exists()) {
-        throw new Error(USERNAME_TAKEN_CODE);
-      }
-
-      tx.set(usernameRef, {
-        uid,
-        username: trimmed,
-        usernameKey: key,
-        createdAt: serverTimestamp()
-      });
-
-      const userData: Record<string, unknown> = {
-        uid,
-        email,
-        emailLower: email.toLowerCase(),
-        username: trimmed,
-        usernameKey: key,
-        isAdmin,
-        emailVerified: false,
-        totalXp: 0,
-        gamesPlayed: 0,
-        createdAt: serverTimestamp()
-      };
-      if (isAdmin) userData.permissions = getAllPermissions();
-      tx.set(userRef, userData);
-    });
-  } catch (err) {
-    if (err instanceof Error && err.message === USERNAME_TAKEN_CODE) {
-      throw new UsernameTakenError(await generateUniqueUsernameSuggestions(trimmed));
-    }
-    throw err;
+  const trimmedUsername = username.trim();
+  const userData: Record<string, unknown> = {
+    uid,
+    email,
+    emailLower: email.toLowerCase(),
+    username: trimmedUsername,
+    usernameLower: trimmedUsername.toLowerCase(),
+    favoriteEmote: FALLBACK_FAVORITE_EMOTE,
+    isAdmin,
+    emailVerified: false,
+    totalXp: 0,
+    gamesPlayed: 0,
+    createdAt: serverTimestamp(),
+    totalScore: 0,
+    totalGuessTimeSeconds: 0,
+    fiveKCount: 0,
+    twentyFiveKCount: 0,
+    photosSubmittedCount: 0,
+    followersCount: 0,
+    buildingStats: {},
+    lastOnline: serverTimestamp(),
+    dailyStats: {},
+    dailyStatsByDifficulty: {},
+    // Track when the username was last set to enforce change frequency
+    lastUsernameChange: serverTimestamp()
+  };
+  // Hardcoded admin gets all permissions on creation
+  if (isAdmin) {
+    userData.permissions = getAllPermissions();
   }
 }
 
@@ -371,119 +417,37 @@ export async function updateUserDoc(uid: string, data: Record<string, unknown>):
  * Optionally exclude a specific uid (for the current user editing their own username)
  */
 export async function isUsernameTaken(username: string, excludeUid: string | null = null): Promise<boolean> {
-  const key = normalizeUsernameKey(username);
-  if (!key) return true;
-
-  const usernameRef = doc(db, USERNAMES_COLLECTION, key);
-  const snap = await getDoc(usernameRef);
-  if (snap.exists()) {
-    const data = snap.data() as { uid?: string } | undefined;
-    if (!excludeUid) return true;
-    return !!(data?.uid && data.uid !== excludeUid);
-  }
-
-  // Backward-compat fallback (older users without a usernameKey/reservation)
-  const snapshot = await queryUsersByUsernameKeyOrExact(username, key);
-  if (snapshot.empty) return false;
-  if (excludeUid) return snapshot.docs.some(docSnap => docSnap.id !== excludeUid);
-  return true;
-}
-
-/**
- * Best-effort migration helper: ensures the current user's username has a reservation doc
- * and that their user doc has a `usernameKey` field.
- */
-export async function ensureUsernameReservation(uid: string, username: string): Promise<void> {
+  const usersRef = collection(db, 'users');
   const trimmed = username.trim();
-  const key = normalizeUsernameKey(trimmed);
-  if (!key) return;
+  const lower = trimmed.toLowerCase();
 
-  const userRef = doc(db, 'users', uid);
-  const usernameRef = doc(db, USERNAMES_COLLECTION, key);
-
-  await runTransaction(db, async (tx) => {
-    const userSnap = await tx.get(userRef);
-    if (!userSnap.exists()) return;
-
-    const existing = await tx.get(usernameRef);
-    if (existing.exists()) {
-      const existingUid = (existing.data() as { uid?: string } | undefined)?.uid;
-      if (existingUid && existingUid !== uid) return;
-    } else {
-      tx.set(usernameRef, { uid, username: trimmed, usernameKey: key, createdAt: serverTimestamp() });
+  // Prefer case-insensitive index when available
+  const qLower = query(usersRef, where('usernameLower', '==', lower));
+  const snapLower = await getDocs(qLower);
+  if (!snapLower.empty) {
+    if (excludeUid) {
+      return snapLower.docs.some(docSnap => docSnap.id !== excludeUid);
     }
+    return true;
+  }
 
-    const userData = userSnap.data() as { usernameKey?: string };
-    if (!userData.usernameKey) {
-      tx.update(userRef, { usernameKey: key });
+  // Fallback: exact username match (for users without usernameLower)
+  const qExact = query(usersRef, where('username', '==', trimmed));
+  const snapshot = await getDocs(qExact);
+  if (!snapshot.empty) {
+    if (excludeUid) {
+      return snapshot.docs.some(docSnap => docSnap.id !== excludeUid);
     }
+    return true;
+  }
+
+  // Final fallback: scan and compare case-insensitively for legacy users
+  const allSnap = await getDocs(usersRef);
+  const match = allSnap.docs.find(docSnap => {
+    const data = docSnap.data() as { username?: string };
+    return (data.username || '').toLowerCase() === lower && docSnap.id !== excludeUid;
   });
-}
-
-/**
- * Atomically update a user's username while preserving uniqueness.
- * Creates a reservation for the new username key and releases the old one.
- */
-export async function updateUsernameUnique(uid: string, newUsername: string): Promise<void> {
-  const trimmed = newUsername.trim();
-  const newKey = normalizeUsernameKey(trimmed);
-  if (!newKey) throw new Error('Username cannot be empty.');
-
-  // Prevent duplicates with legacy users lacking a reservation doc.
-  if (await isUsernameTaken(trimmed, uid)) {
-    throw new UsernameTakenError(await generateUniqueUsernameSuggestions(trimmed));
-  }
-
-  const userRef = doc(db, 'users', uid);
-  const newUsernameRef = doc(db, USERNAMES_COLLECTION, newKey);
-
-  try {
-    await runTransaction(db, async (tx) => {
-      const userSnap = await tx.get(userRef);
-      if (!userSnap.exists()) throw new Error('User record not found.');
-
-      const userData = userSnap.data() as { username?: string; usernameKey?: string };
-      const oldKey = (userData.usernameKey && typeof userData.usernameKey === 'string')
-        ? userData.usernameKey
-        : normalizeUsernameKey(userData.username || '');
-
-      if (oldKey === newKey) {
-        tx.update(userRef, { username: trimmed, usernameKey: newKey });
-        return;
-      }
-
-      const existing = await tx.get(newUsernameRef);
-      if (existing.exists()) {
-        const existingUid = (existing.data() as { uid?: string } | undefined)?.uid;
-        if (existingUid && existingUid !== uid) {
-          throw new Error(USERNAME_TAKEN_CODE);
-        }
-      } else {
-        tx.set(newUsernameRef, {
-          uid,
-          username: trimmed,
-          usernameKey: newKey,
-          createdAt: serverTimestamp()
-        });
-      }
-
-      if (oldKey) {
-        const oldRef = doc(db, USERNAMES_COLLECTION, oldKey);
-        const oldSnap = await tx.get(oldRef);
-        const oldUid = (oldSnap.data() as { uid?: string } | undefined)?.uid;
-        if (oldSnap.exists() && oldUid === uid) {
-          tx.delete(oldRef);
-        }
-      }
-
-      tx.update(userRef, { username: trimmed, usernameKey: newKey });
-    });
-  } catch (err) {
-    if (err instanceof Error && err.message === USERNAME_TAKEN_CODE) {
-      throw new UsernameTakenError(await generateUniqueUsernameSuggestions(trimmed));
-    }
-    throw err;
-  }
+  return !!match;
 }
 
 /**
@@ -491,6 +455,23 @@ export async function updateUsernameUnique(uid: string, newUsername: string): Pr
  */
 export function isHardcodedAdmin(uid: string): boolean {
   return uid === HARDCODED_ADMIN_UID;
+}
+
+/**
+ * Check if an account with the given email exists and is verified.
+ * Returns { exists: boolean, verified: boolean }
+ */
+export async function checkEmailVerificationStatus(email: string): Promise<{ exists: boolean; verified: boolean }> {
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('emailLower', '==', email.toLowerCase()));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return { exists: false, verified: false };
+  }
+
+  const userDoc = snapshot.docs[0].data() as UserDoc;
+  return { exists: true, verified: userDoc.emailVerified === true };
 }
 
 /**
@@ -562,6 +543,11 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
 
   // Validate username if being changed
   if ('username' in updates) {
+    const existing = await getUserDoc(uid);
+    if (!existing) {
+      throw new Error('User not found.');
+    }
+
     const trimmed = (updates.username as string).trim();
     if (!trimmed) {
       throw new Error('Username cannot be empty.');
@@ -569,7 +555,34 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
     if (trimmed.length < 3) {
       throw new Error('Username must be at least 3 characters.');
     }
+
+    // Enforce one username change per 30 days
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const lastChange = existing.lastUsernameChange as { toDate?: () => Date } | Date | undefined;
+    if (lastChange) {
+      const lastDate = (typeof lastChange === 'object'
+        && lastChange !== null
+        && 'toDate' in lastChange
+        && typeof (lastChange as { toDate?: unknown }).toDate === 'function')
+        ? (lastChange as { toDate: () => Date }).toDate()
+        : (lastChange as Date);
+      const now = Date.now();
+      if (lastDate instanceof Date && !isNaN(lastDate.getTime())) {
+        const diff = now - lastDate.getTime();
+        if (diff < THIRTY_DAYS_MS) {
+          const daysRemaining = Math.ceil((THIRTY_DAYS_MS - diff) / (24 * 60 * 60 * 1000));
+          throw new Error(`Username can only be changed once every 30 days. Try again in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}.`);
+        }
+      }
+    }
+
+    const taken = await isUsernameTaken(trimmed, uid);
+    if (taken) {
+      throw new Error('Username is already taken. Please choose another.');
+    }
     updates.username = trimmed;
+    updates.usernameLower = trimmed.toLowerCase();
+    updates.lastUsernameChange = serverTimestamp();
   }
 
   // Validate totalXp if being changed
@@ -579,6 +592,11 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
       throw new Error('Total XP must be a non-negative number.');
     }
     updates.totalXp = xp;
+  }
+
+  // Validate favoriteEmote if being changed
+  if ('favoriteEmote' in updates && typeof updates.favoriteEmote === 'string') {
+    updates.favoriteEmote = normalizeFavoriteEmote(updates.favoriteEmote);
   }
 
   // Validate gamesPlayed if being changed
@@ -665,4 +683,92 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
   }
 
   await updateUserDoc(uid, updates as Record<string, unknown>);
+
+  // If username changed, propagate to denormalized copies in other collections
+  if ('username' in updates) {
+    const newUsername = updates.username as string;
+    await propagateUsernameChange(uid, newUsername);
+  }
+}
+
+/**
+ * Update denormalized username fields across collections so others see the change.
+ */
+async function propagateUsernameChange(uid: string, newUsername: string): Promise<void> {
+  const tasks: Promise<unknown>[] = [];
+
+  // Update lobbies: hostUsername and players[].username
+  tasks.push((async () => {
+    const lobbiesSnap = await getDocs(collection(db, 'lobbies'));
+    const updates: Promise<unknown>[] = [];
+    lobbiesSnap.forEach(docSnap => {
+      const data = docSnap.data() as { hostUid?: string; hostUsername?: string; players?: Array<{ uid: string; username: string }> };
+      let changed = false;
+      const next: typeof data.players = Array.isArray(data.players)
+        ? data.players.map(p => {
+          if (p.uid === uid && p.username !== newUsername) {
+            changed = true;
+            return { ...p, username: newUsername };
+          }
+          return p;
+        })
+        : [];
+
+      if (data.hostUid === uid && data.hostUsername !== newUsername) {
+        changed = true;
+      }
+
+      if (changed) {
+        const payload: Record<string, unknown> = { players: next };
+        if (data.hostUid === uid) {
+          payload.hostUsername = newUsername;
+        }
+        updates.push(updateDoc(doc(db, 'lobbies', docSnap.id), payload));
+      }
+    });
+    await Promise.all(updates);
+  })());
+
+  // Update friend requests: fromUsername / toUsername
+  tasks.push((async () => {
+    const requestsRef = collection(db, 'friendRequests');
+    const [fromSnap, toSnap] = await Promise.all([
+      getDocs(query(requestsRef, where('fromUid', '==', uid))),
+      getDocs(query(requestsRef, where('toUid', '==', uid)))
+    ]);
+
+    const updates: Promise<unknown>[] = [];
+    fromSnap.forEach(docSnap => {
+      const data = docSnap.data() as { fromUsername?: string };
+      if (data.fromUsername !== newUsername) {
+        updates.push(updateDoc(docSnap.ref, { fromUsername: newUsername }));
+      }
+    });
+    toSnap.forEach(docSnap => {
+      const data = docSnap.data() as { toUsername?: string };
+      if (data.toUsername !== newUsername) {
+        updates.push(updateDoc(docSnap.ref, { toUsername: newUsername }));
+      }
+    });
+
+    await Promise.all(updates);
+  })());
+
+  // Update friendships: usernames map entry
+  tasks.push((async () => {
+    const friendshipsRef = collection(db, 'friendships');
+    const friendshipsSnap = await getDocs(query(friendshipsRef, where('users', 'array-contains', uid)));
+    const updates: Promise<unknown>[] = [];
+    friendshipsSnap.forEach(docSnap => {
+      const data = docSnap.data() as { usernames?: Record<string, string> };
+      const usernames = { ...(data.usernames || {}) };
+      if (usernames[uid] !== newUsername) {
+        usernames[uid] = newUsername;
+        updates.push(updateDoc(docSnap.ref, { usernames }));
+      }
+    });
+    await Promise.all(updates);
+  })());
+
+  await Promise.all(tasks);
 }

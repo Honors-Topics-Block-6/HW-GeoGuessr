@@ -15,6 +15,7 @@ export interface LevelInfo {
 export interface LeaderboardEntry {
   uid: string;
   username: string;
+  favoriteEmote: string;
   totalXp: number;
   gamesPlayed: number;
   level: number;
@@ -43,6 +44,7 @@ export async function getLeaderboard(limitCount: number = 50): Promise<Leaderboa
     return {
       uid: docSnap.id,
       username: (data.username as string) ?? 'Unknown',
+      favoriteEmote: (data.favoriteEmote as string) ?? '😎',
       totalXp,
       gamesPlayed: (data.gamesPlayed as number) ?? 0,
       level: levelInfo.level,
