@@ -60,6 +60,18 @@ function getPerformanceRating(totalScore: number, maxPossible: number): Performa
   return { rating: 'Beginner', emoji: '🎯', class: 'beginner' };
 }
 
+function formatRoundTime(timeTakenSeconds: number | undefined): string {
+  if (typeof timeTakenSeconds !== 'number' || !Number.isFinite(timeTakenSeconds) || timeTakenSeconds < 0) {
+    return '--';
+  }
+  if (timeTakenSeconds >= 60) {
+    const minutes = Math.floor(timeTakenSeconds / 60);
+    const seconds = timeTakenSeconds - minutes * 60;
+    return `${minutes}m ${seconds.toFixed(1)}s`;
+  }
+  return `${timeTakenSeconds.toFixed(1)}s`;
+}
+
 const CONFETTI_COLORS: string[] = ['#6cb52d', '#ffc107', '#ff4757', '#3498db', '#9b59b6'];
 
 /**
@@ -400,27 +412,26 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
                     <img src={round.imageUrl} alt={`Round ${index + 1}`} />
                   </div>
                   <div className="round-stats">
-                    {round.noGuess ? (
-                      <div className="round-stat">
-                        <span className="round-stat-label">No guess</span>
-                        <span className="round-stat-value">0</span>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="round-stat">
-                          <span className="round-stat-label">Location</span>
-                          <span className="round-stat-value">{round.locationScore.toLocaleString()}</span>
-                        </div>
-                        {round.floorCorrect !== null && (
-                          <div className="round-stat">
-                            <span className="round-stat-label">Floor</span>
-                            <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
-                              {round.floorCorrect ? '✓' : '-20%'}
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
+                    <div className="round-stat">
+                      <span className="round-stat-label">Location</span>
+                      <span className="round-stat-value">
+                        {round.noGuess ? 'No guess' : round.locationScore.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="round-stat">
+                      <span className="round-stat-label">Floor</span>
+                      {round.noGuess || round.floorCorrect === null || round.floorCorrect === undefined ? (
+                        <span className="round-stat-value">--</span>
+                      ) : (
+                        <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
+                          {round.floorCorrect ? '✓' : '-20%'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="round-stat">
+                      <span className="round-stat-label">Time</span>
+                      <span className="round-stat-value">{formatRoundTime(round.timeTakenSeconds)}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="round-score">
