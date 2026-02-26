@@ -223,5 +223,35 @@ describe('imageService', () => {
       expect(image!.correctFloor).toBe(2);
       expect(image!.description).toBe('A test image');
     });
+
+    it('should exclude images by id when options are provided', async () => {
+      const mockImagesDocs = [
+        { id: 'doc-1', data: () => ({ url: 'test1.jpg', correctLocation: { x: 10, y: 20 }, correctFloor: 1 }) },
+        { id: 'doc-2', data: () => ({ url: 'test2.jpg', correctLocation: { x: 30, y: 40 }, correctFloor: 2 }) }
+      ];
+
+      mockedGetDocs
+        .mockResolvedValueOnce({ docs: mockImagesDocs } as never)
+        .mockResolvedValueOnce({ docs: [] } as never);
+
+      const image = await getRandomImage(null, { excludeImageIds: ['doc-1'] });
+
+      expect(image).not.toBeNull();
+      expect(image!.id).toBe('doc-2');
+    });
+
+    it('should return null when exclusions remove the full pool', async () => {
+      const mockImagesDocs = [
+        { id: 'doc-1', data: () => ({ url: 'test1.jpg', correctLocation: { x: 10, y: 20 }, correctFloor: 1 }) }
+      ];
+
+      mockedGetDocs
+        .mockResolvedValueOnce({ docs: mockImagesDocs } as never)
+        .mockResolvedValueOnce({ docs: [] } as never);
+
+      const image = await getRandomImage(null, { excludeImageIds: ['doc-1'] });
+
+      expect(image).toBeNull();
+    });
   });
 });

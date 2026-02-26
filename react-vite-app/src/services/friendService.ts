@@ -9,6 +9,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   onSnapshot,
   serverTimestamp,
@@ -23,6 +24,7 @@ export interface UserLookup {
   uid: string;
   username: string;
   email: string;
+  favoriteEmote?: string;
 }
 
 export type FriendRequestStatus = 'pending' | 'accepted' | 'declined';
@@ -72,7 +74,114 @@ export async function getUserByUid(uid: string): Promise<UserLookup | null> {
   const snapshot = await getDoc(userRef);
   if (!snapshot.exists()) return null;
   const data = snapshot.data();
-  return { uid: snapshot.id, username: data.username, email: data.email };
+  return { uid: snapshot.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+}
+
+/**
+ * Look up user(s) by username.
+ * Returns an array to support disambiguation if duplicates ever exist.
+ */
+export async function searchUsersByUsername(
+  username: string,
+  maxResults: number = 10
+): Promise<UserLookup[]> {
+  const trimmed = username.trim();
+  if (!trimmed) return [];
+
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('username', '==', trimmed), limit(maxResults));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map(docSnap => {
+    const data = docSnap.data() as { username?: string; email?: string };
+    return {
+      uid: docSnap.id,
+      username: data.username || '',
+      email: data.email || ''
+    };
+  });
+}
+
+/**
+ * Look up a user document by email (case-insensitive).
+ * First tries emailLower for new users, then falls back to exact email for existing users.
+ */
+export async function getUserByEmail(email: string): Promise<UserLookup | null> {
+  const usersRef = collection(db, 'users');
+  const trimmed = email.trim();
+  const lower = trimmed.toLowerCase();
+
+  // Try emailLower first (case-insensitive, for users created with emailLower)
+  const qLower = query(usersRef, where('emailLower', '==', lower));
+  const snapLower = await getDocs(qLower);
+  if (!snapLower.empty) {
+    const docSnap = snapLower.docs[0];
+    const data = docSnap.data();
+    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+  }
+
+  // Fallback: exact email match (for existing users without emailLower)
+  const qExact = query(usersRef, where('email', '==', trimmed));
+  const snapExact = await getDocs(qExact);
+  if (!snapExact.empty) {
+    const docSnap = snapExact.docs[0];
+    const data = docSnap.data();
+    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+  }
+
+  return null;
+}
+
+/**
+ * Look up a user document by username (exact match, usernames are unique).
+ */
+export async function getUserByUsername(username: string): Promise<UserLookup | null> {
+  const usersRef = collection(db, 'users');
+  const trimmed = username.trim();
+  const lower = trimmed.toLowerCase();
+
+  // Prefer case-insensitive lookup when available
+  const qLower = query(usersRef, where('usernameLower', '==', lower));
+  const snapLower = await getDocs(qLower);
+  if (!snapLower.empty) {
+    const docSnap = snapLower.docs[0];
+    const data = docSnap.data();
+    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+  }
+
+  // Fallback: exact username match (for users without usernameLower)
+  const qExact = query(usersRef, where('username', '==', trimmed));
+  const snapshot = await getDocs(qExact);
+  if (!snapshot.empty) {
+    const docSnap = snapshot.docs[0];
+    const data = docSnap.data();
+    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+  }
+
+  // Final fallback: scan and compare case-insensitively for legacy users
+  const allSnap = await getDocs(usersRef);
+  const match = allSnap.docs.find(docSnap => {
+    const data = docSnap.data() as { username?: string };
+    return (data.username || '').toLowerCase() === lower;
+  });
+  if (!match) return null;
+  const data = match.data();
+  return { uid: match.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+}
+
+/**
+ * Resolve a user by UID, email, or username.
+ * If input contains '@', treats as email; otherwise tries UID first, then username.
+ */
+export async function getUserByIdOrEmail(input: string): Promise<UserLookup | null> {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes('@')) {
+    return getUserByEmail(trimmed);
+  }
+  const byUid = await getUserByUid(trimmed);
+  if (byUid) return byUid;
+  return getUserByUsername(trimmed);
 }
 
 /**
@@ -115,20 +224,22 @@ async function hasPendingRequest(fromUid: string, toUid: string): Promise<boolea
 /**
  * Send a friend request.
  * Validates: not self, not already friends, no duplicate pending request.
+ * Accepts targetIdOrEmail: a user UID, username, or email address.
  */
 export async function sendFriendRequest(
   fromUid: string,
   fromUsername: string,
-  toUid: string
+  targetIdOrEmail: string
 ): Promise<void> {
-  if (fromUid === toUid) {
-    throw new Error('You cannot add yourself as a friend.');
+  // Resolve target (UID or email) to user
+  const targetUser = await getUserByIdOrEmail(targetIdOrEmail);
+  if (!targetUser) {
+    throw new Error('No user found with that User ID, username, or email.');
   }
 
-  // Check target user exists
-  const targetUser = await getUserByUid(toUid);
-  if (!targetUser) {
-    throw new Error('No user found with that UID.');
+  const toUid = targetUser.uid;
+  if (fromUid === toUid) {
+    throw new Error('You cannot add yourself as a friend.');
   }
 
   // Check not already friends
@@ -205,6 +316,31 @@ export async function declineFriendRequest(requestId: string): Promise<void> {
     status: 'declined',
     respondedAt: serverTimestamp()
   });
+}
+
+/**
+ * Cancel/delete an outgoing friend request.
+ * Only the sender can cancel their own request.
+ */
+export async function cancelFriendRequest(requestId: string, senderUid: string): Promise<void> {
+  const requestRef = doc(db, 'friendRequests', requestId);
+  const requestSnap = await getDoc(requestRef);
+
+  if (!requestSnap.exists()) {
+    throw new Error('Friend request not found.');
+  }
+
+  const request = requestSnap.data() as { fromUid: string; status: FriendRequestStatus };
+
+  if (request.fromUid !== senderUid) {
+    throw new Error('You can only cancel your own friend requests.');
+  }
+
+  if (request.status !== 'pending') {
+    throw new Error('This request has already been responded to.');
+  }
+
+  await deleteDoc(requestRef);
 }
 
 /**
@@ -285,6 +421,35 @@ export function subscribeFriendRequests(
   const q = query(
     requestsRef,
     where('toUid', '==', uid),
+    where('status', '==', 'pending')
+  );
+  return onSnapshot(q, (snapshot) => {
+    const requests = snapshot.docs.map(docSnap => ({
+      id: docSnap.id,
+      ...docSnap.data()
+    })) as FriendRequestDoc[];
+    // Sort client-side (in case index isn't set up)
+    requests.sort((a, b) => {
+      const aTime = (a.createdAt as FirestoreTimestamp | null)?.toMillis?.() || 0;
+      const bTime = (b.createdAt as FirestoreTimestamp | null)?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
+    callback(requests);
+  });
+}
+
+/**
+ * Subscribe to outgoing pending friend requests (real-time).
+ * Returns unsubscribe function.
+ */
+export function subscribeOutgoingRequests(
+  uid: string,
+  callback: (requests: FriendRequestDoc[]) => void
+): () => void {
+  const requestsRef = collection(db, 'friendRequests');
+  const q = query(
+    requestsRef,
+    where('fromUid', '==', uid),
     where('status', '==', 'pending')
   );
   return onSnapshot(q, (snapshot) => {

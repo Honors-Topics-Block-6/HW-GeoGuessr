@@ -3,6 +3,7 @@ import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } f
 import {
   subscribeDuel,
   submitDuelGuess,
+  sendDuelEmote,
   processRound,
   advanceToNextRound,
   DUEL_ROUND_TIME_SECONDS,
@@ -76,6 +77,13 @@ export interface DuelState {
   loser: string | null;
   difficulty: string;
   roundStartedAt: { toMillis?: () => number } | number | null;
+  /** Round time in seconds. 0 = no time limit. */
+  roundTimeSeconds?: number;
+  emotes?: Record<string, {
+    emoji: string;
+    sentAt: { toMillis?: () => number } | number;
+    round: number;
+  }>;
   [key: string]: unknown;
 }
 
@@ -111,6 +119,8 @@ export interface UseDuelGameReturn {
   opponentUid: string | null;
   opponentUsername: string;
   opponentHasSubmitted: boolean;
+  myActiveEmote: string | null;
+  opponentActiveEmote: string | null;
 
   // Timer
   timeRemaining: number;
@@ -143,9 +153,13 @@ export interface UseDuelGameReturn {
   placeMarker: (coords: MapCoords) => boolean;
   selectFloor: (floor: number) => void;
   submitGuess: () => Promise<void>;
+  sendEmote: (emoji: string) => Promise<void>;
   nextRound: () => Promise<void>;
   getUsernameForUid: (uid: string) => string;
 }
+
+const EMOTE_DISPLAY_MS = 2200;
+const EMOTE_COOLDOWN_MS = 900;
 
 /**
  * Custom hook for managing a duel (1v1 multiplayer) game.
@@ -167,6 +181,8 @@ export function useDuelGame(
   const [localAvailableFloors, setLocalAvailableFloors] = useState<number[] | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState<boolean>(false);
   const [clickRejected, setClickRejected] = useState<boolean>(false);
+  const [myActiveEmote, setMyActiveEmote] = useState<string | null>(null);
+  const [opponentActiveEmote, setOpponentActiveEmote] = useState<string | null>(null);
 
   // --- Timer state ---
   const [timeRemaining, setTimeRemaining] = useState<number>(DUEL_ROUND_TIME_SECONDS);
@@ -182,6 +198,10 @@ export function useDuelGame(
   const hasSubmittedRef = useRef<boolean>(hasSubmitted);
   const hasLeft = useRef<boolean>(false);
   const processedRoundRef = useRef<number>(0); // Track which round we already processed
+  const myEmoteTimeoutRef = useRef<number | null>(null);
+  const opponentEmoteTimeoutRef = useRef<number | null>(null);
+  const lastSeenEmoteMsRef = useRef<Record<string, number>>({});
+  const lastSentEmoteMsRef = useRef<number>(0);
 
   // Keep refs in sync via useEffect (React lint requires this)
   useEffect(() => {
@@ -270,6 +290,10 @@ export function useDuelGame(
   const winner = duelState?.winner || null;
   const loser = duelState?.loser || null;
   const difficulty = duelState?.difficulty || 'all';
+  /** Round time from the lobby document. 0 = no time limit. Falls back to DUEL_ROUND_TIME_SECONDS. */
+  const lobbyRoundTime: number = duelState?.roundTimeSeconds != null
+    ? duelState.roundTimeSeconds
+    : DUEL_ROUND_TIME_SECONDS;
 
   // Find opponent
   const opponent = players.find(p => p.uid !== userUid);
@@ -290,6 +314,39 @@ export function useDuelGame(
   const myScore = myGuess?.score ?? null;
   const opponentScore = opponentGuess?.score ?? null;
 
+  const extractMillis = useCallback((value: unknown): number => {
+    if (typeof value === 'number') return value;
+    if (value && typeof value === 'object' && 'toMillis' in value) {
+      const candidate = value as { toMillis?: () => number };
+      if (typeof candidate.toMillis === 'function') {
+        return candidate.toMillis();
+      }
+    }
+    return 0;
+  }, []);
+
+  const showMyEmote = useCallback((emoji: string): void => {
+    if (myEmoteTimeoutRef.current !== null) {
+      window.clearTimeout(myEmoteTimeoutRef.current);
+    }
+    setMyActiveEmote(emoji);
+    myEmoteTimeoutRef.current = window.setTimeout(() => {
+      setMyActiveEmote(null);
+      myEmoteTimeoutRef.current = null;
+    }, EMOTE_DISPLAY_MS);
+  }, []);
+
+  const showOpponentEmote = useCallback((emoji: string): void => {
+    if (opponentEmoteTimeoutRef.current !== null) {
+      window.clearTimeout(opponentEmoteTimeoutRef.current);
+    }
+    setOpponentActiveEmote(emoji);
+    opponentEmoteTimeoutRef.current = window.setTimeout(() => {
+      setOpponentActiveEmote(null);
+      opponentEmoteTimeoutRef.current = null;
+    }, EMOTE_DISPLAY_MS);
+  }, []);
+
   // Reset local state when round changes (new round starts)
   useEffect(() => {
     if (phase === 'guessing' && currentRound > 0) {
@@ -301,14 +358,49 @@ export function useDuelGame(
         setLocalAvailableFloors(null);
         setHasSubmitted(false);
         timedOutRef.current = false;
-        setTimeRemaining(DUEL_ROUND_TIME_SECONDS);
+        setTimeRemaining(lobbyRoundTime > 0 ? lobbyRoundTime : 0);
         processedRoundRef.current = 0;
+        setMyActiveEmote(null);
+        setOpponentActiveEmote(null);
       }
     }
-  }, [phase, currentRound]);
+  }, [phase, currentRound, lobbyRoundTime]);
+
+  // Consume emote events from Firestore and animate them locally.
+  useEffect(() => {
+    if (phase !== 'guessing') {
+      setMyActiveEmote(null);
+      setOpponentActiveEmote(null);
+      return;
+    }
+
+    const emoteMap = duelState?.emotes || {};
+    const myEvent = emoteMap[userUid];
+    const opponentEvent = opponentUid ? emoteMap[opponentUid] : undefined;
+
+    if (myEvent && myEvent.round === currentRound) {
+      const sentAtMs = extractMillis(myEvent.sentAt);
+      const lastSeenMyMs = lastSeenEmoteMsRef.current[userUid] ?? 0;
+      if (sentAtMs > lastSeenMyMs) {
+        lastSeenEmoteMsRef.current[userUid] = sentAtMs;
+        showMyEmote(myEvent.emoji);
+      }
+    }
+
+    if (opponentUid && opponentEvent && opponentEvent.round === currentRound) {
+      const sentAtMs = extractMillis(opponentEvent.sentAt);
+      const lastSeenOpponentMs = lastSeenEmoteMsRef.current[opponentUid] ?? 0;
+      if (sentAtMs > lastSeenOpponentMs) {
+        lastSeenEmoteMsRef.current[opponentUid] = sentAtMs;
+        showOpponentEmote(opponentEvent.emoji);
+      }
+    }
+  }, [phase, duelState?.emotes, currentRound, userUid, opponentUid, extractMillis, showMyEmote, showOpponentEmote]);
 
   // --- Timer effect ---
   useEffect(() => {
+    // No timer when there's no time limit
+    if (lobbyRoundTime === 0) return;
     if (phase !== 'guessing' || !duelState?.roundStartedAt) {
       return;
     }
@@ -321,7 +413,7 @@ export function useDuelGame(
 
     const interval = setInterval(() => {
       const elapsedSeconds = (Date.now() - roundStartMs) / 1000;
-      const remaining = Math.max(0, DUEL_ROUND_TIME_SECONDS - elapsedSeconds);
+      const remaining = Math.max(0, lobbyRoundTime - elapsedSeconds);
       setTimeRemaining(remaining);
 
       if (remaining <= 0) {
@@ -330,10 +422,11 @@ export function useDuelGame(
     }, 50);
 
     return () => clearInterval(interval);
-  }, [phase, duelState?.roundStartedAt]);
+  }, [phase, duelState?.roundStartedAt, lobbyRoundTime]);
 
   // --- Auto-submit / timeout handling ---
   useEffect(() => {
+    if (lobbyRoundTime === 0) return; // No auto-submit for unlimited time
     if (phase !== 'guessing') return;
     if (timeRemaining > 0) return;
     if (hasSubmittedRef.current) return;
@@ -364,7 +457,7 @@ export function useDuelGame(
       }, currentImage).catch((err: unknown) => console.error('No-guess submit failed:', err));
       setHasSubmitted(true);
     }
-  }, [phase, timeRemaining, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid]);
+  }, [phase, timeRemaining, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, lobbyRoundTime]);
 
   // --- Host processes round when both have guessed ---
   useEffect(() => {
@@ -437,6 +530,25 @@ export function useDuelGame(
     }
   }, [hasSubmitted, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid]);
 
+  const sendEmote = useCallback(async (emoji: string): Promise<void> => {
+    const trimmed = emoji.trim();
+    if (!trimmed) return;
+    if (phase !== 'guessing') return;
+
+    const now = Date.now();
+    if (now - lastSentEmoteMsRef.current < EMOTE_COOLDOWN_MS) {
+      return;
+    }
+    lastSentEmoteMsRef.current = now;
+    showMyEmote(trimmed);
+
+    try {
+      await sendDuelEmote(lobbyDocId, userUid, trimmed, currentRound);
+    } catch (err) {
+      console.error('Send emote failed:', err);
+    }
+  }, [phase, lobbyDocId, userUid, currentRound, showMyEmote]);
+
   /**
    * Advance to next round (host only, after viewing results)
    */
@@ -456,6 +568,17 @@ export function useDuelGame(
     const player = players.find(p => p.uid === uid);
     return player?.username || 'Unknown';
   }, [players]);
+
+  useEffect(() => {
+    return () => {
+      if (myEmoteTimeoutRef.current !== null) {
+        window.clearTimeout(myEmoteTimeoutRef.current);
+      }
+      if (opponentEmoteTimeoutRef.current !== null) {
+        window.clearTimeout(opponentEmoteTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return {
     // State
@@ -477,10 +600,12 @@ export function useDuelGame(
     opponentUid,
     opponentUsername,
     opponentHasSubmitted,
+    myActiveEmote,
+    opponentActiveEmote,
 
     // Timer
-    timeRemaining,
-    roundTimeSeconds: DUEL_ROUND_TIME_SECONDS,
+    timeRemaining: lobbyRoundTime > 0 ? timeRemaining : 0,
+    roundTimeSeconds: lobbyRoundTime,
 
     // Health
     myHealth,
@@ -509,6 +634,7 @@ export function useDuelGame(
     placeMarker,
     selectFloor,
     submitGuess,
+    sendEmote,
     nextRound,
     getUsernameForUid
   };
