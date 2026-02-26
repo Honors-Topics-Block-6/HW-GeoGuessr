@@ -1,60 +1,62 @@
 /**
- * Compresses an image file using canvas and returns a Base64 data URL.
- * Resizes to fit within maxWidth/maxHeight while maintaining aspect ratio,
- * then compresses as JPEG at the given quality.
+ * Compresses an image file using pica (Lanczos3 resampling) and returns a
+ * Base64 data URL encoded as WebP.
+ *
+ * Pica's Lanczos3 filter produces clean downscales without the aliasing
+ * artifacts that canvas bilinear/bicubic interpolation can introduce.
  *
  * @param file - The image file to compress
  * @param options - Compression options
- * @returns Base64 data URL of the compressed image
+ * @returns Base64 data URL of the compressed image (WebP)
  */
 
+import Pica from 'pica'
+
+const pica = new Pica()
+
 export interface CompressImageOptions {
-  /** Max width in pixels (default 800) */
+  /** Max width in pixels (default 1600) */
   maxWidth?: number;
-  /** Max height in pixels (default 800) */
+  /** Max height in pixels (default 1600) */
   maxHeight?: number;
-  /** JPEG quality 0-1 (default 0.7) */
+  /** WebP quality 0-1 (default 0.82) */
   quality?: number;
 }
 
-export function compressImage(
+export async function compressImage(
   file: File,
-  { maxWidth = 800, maxHeight = 800, quality = 0.7 }: CompressImageOptions = {}
+  { maxWidth = 1600, maxHeight = 1600, quality = 0.82 }: CompressImageOptions = {}
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
+  const imageBitmap = await createImageBitmap(file)
+
+  let targetW = imageBitmap.width
+  let targetH = imageBitmap.height
+
+  if (targetW > maxWidth || targetH > maxHeight) {
+    const ratio = Math.min(maxWidth / targetW, maxHeight / targetH)
+    targetW = Math.round(targetW * ratio)
+    targetH = Math.round(targetH * ratio)
+  }
+
+  const srcCanvas = document.createElement('canvas')
+  srcCanvas.width = imageBitmap.width
+  srcCanvas.height = imageBitmap.height
+  const srcCtx = srcCanvas.getContext('2d')!
+  srcCtx.drawImage(imageBitmap, 0, 0)
+  imageBitmap.close()
+
+  const destCanvas = document.createElement('canvas')
+  destCanvas.width = targetW
+  destCanvas.height = targetH
+
+  await pica.resize(srcCanvas, destCanvas)
+
+  const blob = await pica.toBlob(destCanvas, 'image/webp', quality)
+
+  return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
-
-    reader.onload = (event: ProgressEvent<FileReader>) => {
-      const img = new Image()
-
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-
-        let { width, height } = img
-
-        // Scale down to fit within max dimensions while keeping aspect ratio
-        if (width > maxWidth || height > maxHeight) {
-          const ratio = Math.min(maxWidth / width, maxHeight / height)
-          width = Math.round(width * ratio)
-          height = Math.round(height * ratio)
-        }
-
-        canvas.width = width
-        canvas.height = height
-
-        const ctx = canvas.getContext('2d')
-        ctx!.drawImage(img, 0, 0, width, height)
-
-        // Convert to JPEG data URL
-        const dataUrl = canvas.toDataURL('image/jpeg', quality)
-        resolve(dataUrl)
-      }
-
-      img.onerror = () => reject(new Error('Failed to load image for compression'))
-      img.src = event.target!.result as string
-    }
-
-    reader.onerror = () => reject(new Error('Failed to read image file'))
-    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('Failed to convert compressed image to data URL'))
+    reader.readAsDataURL(blob)
   })
 }

@@ -151,7 +151,7 @@ describe('AdminReview', () => {
     });
 
     mockUpdateDoc.mockResolvedValue(undefined);
-    mockCompressImage.mockResolvedValue('data:image/jpeg;base64,compressed');
+    mockCompressImage.mockResolvedValue('data:image/webp;base64,compressed');
     mockDeleteSubmission.mockResolvedValue(undefined);
     mockDeleteImage.mockResolvedValue(undefined);
 
@@ -1404,7 +1404,7 @@ describe('AdminReview', () => {
           expect(mockUpdateDoc).toHaveBeenCalledWith(
             undefined,
             expect.objectContaining({
-              photoURL: 'data:image/jpeg;base64,compressed',
+              photoURL: 'data:image/webp;base64,compressed',
             })
           );
         });
