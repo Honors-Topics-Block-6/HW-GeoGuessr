@@ -426,12 +426,12 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
             {addError && <div className="add-friend-error">{addError}</div>}
             {addSuccess && <div className="add-friend-success">{addSuccess}</div>}
 
-                  setAddMode('uid');
-                onClick={() => {
-                className={`add-friend-mode-button ${addMode === 'uid' ? 'active' : ''}`}
-                type="button"
-              <button
             <div className="add-friend-mode">
+              <button
+                type="button"
+                className={`add-friend-mode-button ${addMode === 'uid' ? 'active' : ''}`}
+                onClick={() => {
+                  setAddMode('uid');
                   setAddError(null);
                   setAddSuccess(null);
                 }}
