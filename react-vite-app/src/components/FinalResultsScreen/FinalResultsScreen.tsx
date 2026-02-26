@@ -6,6 +6,8 @@ import { increment } from 'firebase/firestore';
 import { calculateXpGain, getLevelTitle } from '../../utils/xpLevelling';
 import { useDailyGoals } from '../../hooks/useDailyGoals';
 import { GOAL_TYPES } from '../../utils/dailyGoalDefinitions';
+import CopyResultsButton from '../CopyResultsButton/CopyResultsButton';
+import { generateShareableResultsText } from '../../utils/shareResults';
 import './FinalResultsScreen.css';
 
 interface PerformanceRating {
@@ -29,6 +31,7 @@ interface XpResult {
 }
 
 interface RoundData {
+  roundNumber?: number;
   score: number;
   locationScore: number;
   imageUrl: string;
@@ -79,9 +82,10 @@ export interface FinalResultsScreenProps {
   onPlayAgain: () => void;
   onBackToTitle: () => void;
   difficulty: string | null;
+  mode?: string | null;
 }
 
-function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: FinalResultsScreenProps): React.ReactElement {
+function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mode = null }: FinalResultsScreenProps): React.ReactElement {
   const { user, userDoc, totalXp, refreshUserDoc } = useAuth();
   const { recordProgress } = useDailyGoals(user?.uid ?? null);
   const [animationComplete, setAnimationComplete] = useState<boolean>(false);
@@ -108,6 +112,18 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
   };
+
+  const shareText = useMemo(() => {
+    return generateShareableResultsText({
+      rounds: rounds.map((r, idx) => ({
+        score: r.score,
+        roundNumber: r.roundNumber ?? (idx + 1)
+      })),
+      gameName: 'HW Geoguessr',
+      mode,
+      difficulty
+    });
+  }, [rounds, mode, difficulty]);
 
   // Snapshot the totalXp at mount so it doesn't shift after the Firestore refresh.
   // useState initializer only runs once, so this captures the pre-award value.
@@ -434,6 +450,7 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
 
         {/* Action Buttons */}
         <div className="final-actions">
+          <CopyResultsButton text={shareText} />
           <button className="play-again-button" onClick={onPlayAgain}>
             <span className="button-icon">🔄</span>
             Play Again

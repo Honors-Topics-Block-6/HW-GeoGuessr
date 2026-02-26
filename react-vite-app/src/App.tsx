@@ -111,7 +111,7 @@ function App(): React.ReactElement {
     timeRemaining,
     roundTimeSeconds,
     difficulty,
-    mode: _mode,
+    mode,
     lobbyDocId,
     setScreen,
     startGame,
@@ -685,6 +685,7 @@ function App(): React.ReactElement {
           onPlayAgain={() => setScreen('difficultySelect')}
           onBackToTitle={resetGame}
           difficulty={difficulty}
+          mode={mode}
         />
       )}
 
