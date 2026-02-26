@@ -4,6 +4,7 @@ import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp
 import { db } from '../../firebase'
 import { getAllImages, deleteSubmission, deleteImage } from '../../services/imageService'
 import MapPicker from '../MapPicker/MapPicker'
+import { getPlayingArea, isPointInPlayingArea, type PlayingArea } from '../../services/regionService'
 import './AdminReview.css'
 
 const DIFFICULTY_OPTIONS: string[] = ['easy', 'medium', 'hard']
@@ -62,6 +63,8 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
   const [editForm, setEditForm] = useState<Partial<EditFormState>>({})
   const [isSaving, setIsSaving] = useState<boolean>(false)
   const [saveError, setSaveError] = useState<string>('')
+  const [playingArea, setPlayingArea] = useState<PlayingArea | null>(null)
+  const [clickRejected, setClickRejected] = useState<boolean>(false)
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<SubmissionItem | null>(null)
@@ -111,6 +114,23 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
       })))
     }
     fetchImages()
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadPlayingArea(): Promise<void> {
+      const area = await getPlayingArea()
+      if (isMounted) {
+        setPlayingArea(area)
+      }
+    }
+
+    loadPlayingArea()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const handleApprove = async (submissionId: string): Promise<void> => {
@@ -166,11 +186,52 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
     setIsEditing(false)
     setEditForm({})
     setSaveError('')
+    setClickRejected(false)
   }
 
   const handleCloseModal = (): void => {
     handleCancelEdit()
     setSelectedSubmission(null)
+  }
+
+  useEffect(() => {
+    if (!selectedSubmission) return
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        handleCloseModal()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [selectedSubmission])
+
+  useEffect(() => {
+    const isAnyModalOpen = Boolean(selectedSubmission || deleteTarget)
+    if (!isAnyModalOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [selectedSubmission, deleteTarget])
+
+  const handleModalMapClick = (coords: Location): void => {
+    if (!isEditing) return
+
+    if (!isPointInPlayingArea(coords, playingArea)) {
+      setClickRejected(true)
+      window.setTimeout(() => setClickRejected(false), 350)
+      return
+    }
+
+    setClickRejected(false)
+    setEditForm(prev => ({ ...prev, location: coords }))
   }
 
   const handleSaveEdit = async (): Promise<void> => {
@@ -400,12 +461,6 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
               </div>
 
               <div className="card-details">
-                {submission.buildingName && (
-                  <div className="detail-row">
-                    <strong>Building:</strong>
-                    <span>{submission.buildingName}</span>
-                  </div>
-                )}
                 {submission.description && (
                   <div className="detail-row">
                     <strong>Description:</strong>
@@ -507,10 +562,6 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
       {selectedSubmission && createPortal(
         <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-shell" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-            <button className="modal-close modal-close-outside" onClick={handleCloseModal}>
-              ×
-            </button>
-
             <>
               <div className="modal-side-actions-left">
                 {isEditing ? (
@@ -529,63 +580,42 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
                   </>
                 )}
               </div>
-              {!isEditing && selectedSubmission._source === 'submission' && selectedSubmission.status === 'pending' && (
-                <div className="modal-bottom-actions">
-                  <button
-                    className="approve-button"
-                    onClick={() => {
-                      handleApprove(selectedSubmission.id)
-                      setSelectedSubmission(null)
-                    }}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    className="deny-button"
-                    onClick={() => {
-                      handleDeny(selectedSubmission.id)
-                      setSelectedSubmission(null)
-                    }}
-                  >
-                    Deny
-                  </button>
-                </div>
-              )}
             </>
 
             <div className="modal-content">
               <div className="modal-details">
                 {saveError && <div className="edit-error">{saveError}</div>}
 
-                <div className="detail-split-layout">
+                <div
+                  className={`detail-split-layout${selectedSubmission.status === 'pending' ? ' pending-layout' : ''}${selectedSubmission.status === 'approved' ? ' approved-layout' : ''}`}
+                >
                   <div className="detail-main-column">
                     <div className="detail-photo-card">
                       <img src={selectedSubmission.photoURL} alt="Full size" className="modal-image modal-image-inline" />
                     </div>
 
-                    <div className="detail-badges-row">
-                      <span className={`detail-badge ${getStatusBadgeClass(selectedSubmission.status)}`}>{selectedSubmission.status}</span>
-                      {isEditing ? (
-                        <select
-                          className="detail-inline-select"
-                          value={editForm.difficulty || ''}
-                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value || null }))}
-                        >
-                          <option value="">No difficulty</option>
-                          {DIFFICULTY_OPTIONS.map(d => (
-                            <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className={`detail-badge difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
-                          {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'No difficulty'}
-                        </span>
-                      )}
-                    </div>
-
-                    {(isEditing || selectedSubmission.buildingName) && (
-                      <div className="detail-card">
-                        <div className="detail-card-label">Building Name</div>
+                    <div className="detail-card detail-combined-card">
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">🎯 Difficulty</span>
+                        {isEditing ? (
+                          <select
+                            className="detail-inline-select"
+                            value={editForm.difficulty || ''}
+                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value || null }))}
+                          >
+                            <option value="">No difficulty</option>
+                            {DIFFICULTY_OPTIONS.map(d => (
+                              <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="detail-combined-value">
+                            {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'No difficulty'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">🏫 Building</span>
                         {isEditing ? (
                           <input
                             className="detail-inline-input"
@@ -594,145 +624,146 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, buildingName: e.target.value }))}
                           />
                         ) : (
-                          <div className="detail-card-value">{selectedSubmission.buildingName}</div>
+                          <span className="detail-combined-value">{selectedSubmission.buildingName || '\u2014'}</span>
                         )}
                       </div>
-                    )}
-
-                    {(isEditing || selectedSubmission.description) && (
-                      <div className="detail-card">
-                        <div className="detail-card-label">Description</div>
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">📍 Location</span>
                         {isEditing ? (
-                          <textarea
-                            className="detail-inline-textarea"
-                            value={editForm.description || ''}
-                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                          />
-                        ) : (
-                          <div className="detail-card-value detail-description">{selectedSubmission.description}</div>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="detail-info-grid">
-                      <div className="detail-info-item">
-                        <span className="detail-info-icon">📍</span>
-                        <div className="detail-info-content">
-                          {isEditing ? (
-                            <div className="detail-coordinates-edit">
-                              <input
-                                className="detail-inline-input detail-inline-number"
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.1"
-                                value={editForm.location?.x ?? ''}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
-                                  ...prev,
-                                  location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
-                                }))}
-                              />
-                              <input
-                                className="detail-inline-input detail-inline-number"
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.1"
-                                value={editForm.location?.y ?? ''}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
-                                  ...prev,
-                                  location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
-                                }))}
-                              />
-                            </div>
-                          ) : (
-                            <span className="detail-info-value">
-                              X: {selectedSubmission.location?.x !== undefined ? Number(selectedSubmission.location.x).toFixed(1) : '\u2014'},
-                              Y: {selectedSubmission.location?.y !== undefined ? Number(selectedSubmission.location.y).toFixed(1) : '\u2014'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="detail-info-item">
-                        <span className="detail-info-icon">🏢</span>
-                        <div className="detail-info-content">
-                          {isEditing ? (
+                          <div className="detail-coordinates-edit">
                             <input
                               className="detail-inline-input detail-inline-number"
                               type="number"
-                              min="1"
-                              step="1"
-                              value={editForm.floor ?? ''}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                const value = e.target.value
-                                setEditForm(prev => ({ ...prev, floor: value === '' ? null : parseInt(value, 10) }))
-                              }}
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={editForm.location?.x ?? ''}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
+                                ...prev,
+                                location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
+                              }))}
+                            />
+                            <input
+                              className="detail-inline-input detail-inline-number"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={editForm.location?.y ?? ''}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
+                                ...prev,
+                                location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
+                              }))}
+                            />
+                          </div>
+                        ) : (
+                          <span className="detail-combined-value">
+                            X: {selectedSubmission.location?.x !== undefined ? Number(selectedSubmission.location.x).toFixed(1) : '\u2014'},
+                            Y: {selectedSubmission.location?.y !== undefined ? Number(selectedSubmission.location.y).toFixed(1) : '\u2014'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">🏢 Floor</span>
+                        {isEditing ? (
+                          <input
+                            className="detail-inline-input detail-inline-number"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={editForm.floor ?? ''}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                              const value = e.target.value
+                              setEditForm(prev => ({ ...prev, floor: value === '' ? null : parseInt(value, 10) }))
+                            }}
+                          />
+                        ) : (
+                          <span className="detail-combined-value">{selectedSubmission.floor ? `Floor ${selectedSubmission.floor}` : '\u2014'}</span>
+                        )}
+                      </div>
+                      {(isEditing || selectedSubmission.description) && (
+                        <div className="detail-combined-row detail-combined-row-top">
+                          <span className="detail-combined-key">📝 Description</span>
+                          {isEditing ? (
+                            <textarea
+                              className="detail-inline-textarea"
+                              value={editForm.description || ''}
+                              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
                             />
                           ) : (
-                            <span className="detail-info-value">{selectedSubmission.floor ? `Floor ${selectedSubmission.floor}` : '\u2014'}</span>
+                            <span className="detail-combined-value detail-description">{selectedSubmission.description}</span>
                           )}
                         </div>
-                      </div>
-                      {(selectedSubmission._source === 'submission' && (isEditing || selectedSubmission.photoName)) && (
-                        <div className="detail-info-item">
-                          <span className="detail-info-icon">📄</span>
-                          <div className="detail-info-content">
-                            {isEditing ? (
-                              <input
-                                className="detail-inline-input"
-                                type="text"
-                                value={editForm.photoName || ''}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, photoName: e.target.value }))}
-                              />
-                            ) : (
-                              <span className="detail-info-value">{selectedSubmission.photoName}</span>
-                            )}
-                          </div>
+                      )}
+                      {selectedSubmission._source === 'submission' && (
+                        <div className="detail-combined-row">
+                          <span className="detail-combined-key">📄 File</span>
+                          {isEditing ? (
+                            <input
+                              className="detail-inline-input"
+                              type="text"
+                              value={editForm.photoName || ''}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, photoName: e.target.value }))}
+                            />
+                          ) : (
+                            <span className="detail-combined-value">{selectedSubmission.photoName || '\u2014'}</span>
+                          )}
                         </div>
                       )}
-                      <div className="detail-info-item">
-                        <span className="detail-info-icon">🆔</span>
-                        <div className="detail-info-content">
-                          <span className="detail-info-value detail-id-value">{selectedSubmission.id}</span>
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">🆔 ID</span>
+                        <span className="detail-combined-value detail-id-value">{selectedSubmission.id}</span>
+                      </div>
+                      {selectedSubmission.createdAt && (
+                        <div className="detail-combined-row">
+                          <span className="detail-combined-key">📅 Submitted</span>
+                          <span className="detail-combined-value">{formatDate(selectedSubmission.createdAt)}</span>
                         </div>
-                      </div>
+                      )}
+                      {selectedSubmission.reviewedAt && (
+                        <div className="detail-combined-row">
+                          <span className="detail-combined-key">✅ Reviewed</span>
+                          <span className="detail-combined-value">{formatDate(selectedSubmission.reviewedAt)}</span>
+                        </div>
+                      )}
                     </div>
-
-                    {(selectedSubmission.createdAt || selectedSubmission.reviewedAt) && (
-                      <div className="detail-timestamps detail-timestamps-left">
-                        {selectedSubmission.createdAt && (
-                          <div className="detail-timestamp-item">
-                            <span className="detail-timestamp-icon">📅</span>
-                            <div>
-                              <span className="detail-timestamp-value">{formatDate(selectedSubmission.createdAt)}</span>
-                            </div>
-                          </div>
-                        )}
-                        {selectedSubmission.reviewedAt && (
-                          <div className="detail-timestamp-item">
-                            <span className="detail-timestamp-icon">✅</span>
-                            <div>
-                              <span className="detail-timestamp-value">{formatDate(selectedSubmission.reviewedAt)}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
 
                   <div className="detail-map-column">
-                    <div className="detail-card detail-map-card">
-                      <div className="detail-map-wrapper">
-                        <MapPicker
-                          markerPosition={isEditing ? (editForm.location ?? null) : (selectedSubmission.location ?? null)}
-                          onMapClick={isEditing ? (coords: Location) => setEditForm(prev => ({ ...prev, location: coords })) : () => {}}
-                        />
-                      </div>
+                    <div className="detail-map-wrapper">
+                      <MapPicker
+                        markerPosition={isEditing ? (editForm.location ?? null) : (selectedSubmission.location ?? null)}
+                        onMapClick={isEditing ? handleModalMapClick : () => {}}
+                        clickRejected={clickRejected}
+                        playingArea={isEditing ? playingArea : null}
+                      />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+            {!isEditing && selectedSubmission._source === 'submission' && selectedSubmission.status === 'pending' && (
+              <div className="modal-bottom-actions">
+                <button
+                  className="approve-button"
+                  onClick={() => {
+                    handleApprove(selectedSubmission.id)
+                    setSelectedSubmission(null)
+                  }}
+                >
+                  Approve
+                </button>
+                <button
+                  className="deny-button"
+                  onClick={() => {
+                    handleDeny(selectedSubmission.id)
+                    setSelectedSubmission(null)
+                  }}
+                >
+                  Deny
+                </button>
+              </div>
+            )}
           </div>
         </div>,
         document.body

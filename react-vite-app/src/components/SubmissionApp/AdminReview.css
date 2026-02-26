@@ -404,13 +404,14 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  background: rgba(51, 65, 85, 0.42);
+  backdrop-filter: blur(10px) saturate(0.85);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  padding: 26px 20px;
+  overflow: hidden;
   animation: modalOverlayIn 0.2s ease-out;
 }
 
@@ -420,31 +421,37 @@
 }
 
 .modal-content {
-  background: linear-gradient(145deg, #1e1e3a 0%, #161630 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(145deg, #2a2b4d 0%, #202143 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 24px;
-  max-width: 1510px;
+  max-width: 1420px;
   width: 100%;
-  max-height: 98vh;
-  overflow: auto;
+  max-height: none;
+  overflow: hidden;
   position: relative;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.08);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.46), 0 0 40px rgba(139, 92, 246, 0.12);
   animation: modalSlideIn 0.3s ease-out;
 }
 
 .modal-shell {
+  --popup-shift-x: 22px;
+  --side-actions-width: 100px;
+  --side-actions-gap: 16px;
   position: relative;
-  width: min(1510px, calc(100vw - 140px));
-  margin-left: 88px;
+  width: min(1420px, calc(100vw - 220px));
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transform: translateX(var(--popup-shift-x));
 }
 
 .modal-shell.is-editing {
-  margin-left: 0;
-  width: min(1380px, calc(100vw - 60px));
+  width: min(1320px, calc(100vw - 220px));
 }
 
 .modal-content-edit {
-  max-width: 1380px;
+  max-width: 1320px;
 }
 
 @keyframes modalSlideIn {
@@ -482,13 +489,6 @@
   z-index: 10;
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
-}
-
-.modal-close-outside {
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  z-index: 20;
 }
 
 .modal-close:hover {
@@ -533,12 +533,13 @@
 
 .modal-side-actions-left {
   position: absolute;
-  left: -96px;
   top: 0;
+  left: calc((var(--side-actions-width) + var(--side-actions-gap)) * -1);
+  width: var(--side-actions-width);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  z-index: 12;
+  z-index: 8;
 }
 
 .modal-side-actions-left .edit-button,
@@ -551,13 +552,11 @@
 }
 
 .modal-bottom-actions {
-  position: absolute;
-  left: 50%;
-  bottom: -62px;
-  transform: translateX(-50%);
+  position: static;
+  align-self: center;
   display: flex;
   gap: 12px;
-  z-index: 12;
+  z-index: 8;
 }
 
 .modal-bottom-actions .approve-button,
@@ -566,6 +565,31 @@
   padding: 14px 28px;
   font-size: 16px;
   font-weight: 800;
+  opacity: 1;
+  border-width: 1px;
+  border-style: solid;
+}
+
+.modal-bottom-actions .approve-button {
+  background: rgba(52, 211, 153, 0.3);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.5);
+}
+
+.modal-bottom-actions .approve-button:hover {
+  background: rgba(52, 211, 153, 0.42);
+  box-shadow: 0 6px 20px rgba(52, 211, 153, 0.35);
+}
+
+.modal-bottom-actions .deny-button {
+  background: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.48);
+}
+
+.modal-bottom-actions .deny-button:hover {
+  background: rgba(248, 113, 113, 0.42);
+  box-shadow: 0 6px 20px rgba(248, 113, 113, 0.35);
 }
 
 .modal-actions .approve-button,
@@ -797,10 +821,10 @@
 }
 
 .modal-details {
-  padding: 8px 24px 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .modal-details-header {
@@ -822,10 +846,20 @@
 }
 
 .detail-split-layout {
+  --details-col-ratio: 1fr;
+  --map-col-ratio: 1.28fr;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(750px, 1.5fr);
+  grid-template-columns: minmax(0, var(--details-col-ratio)) minmax(0, var(--map-col-ratio));
   gap: 18px;
-  align-items: stretch;
+  align-items: start;
+}
+
+.detail-split-layout.approved-layout {
+  --map-col-ratio: 1.16fr;
+}
+
+.detail-split-layout.pending-layout {
+  --map-col-ratio: 1.14fr;
 }
 
 .detail-main-column {
@@ -839,14 +873,18 @@
   overflow: hidden;
   border: 1px solid rgba(173, 191, 255, 0.38);
   background: linear-gradient(145deg, #edf2ff 0%, #e8f0ff 100%);
+  display: inline-block;
+  width: 100%;
 }
 
 .modal-image-inline {
   border-radius: 0;
-  height: clamp(520px, 62vh, 730px);
-  max-height: none;
-  object-fit: cover;
+  width: 100%;
+  height: auto;
+  max-height: 58vh;
+  object-fit: contain;
   background: transparent;
+  display: block;
 }
 
 .detail-map-column {
@@ -866,8 +904,8 @@
 
 /* Description card */
 .detail-card {
-  background: linear-gradient(145deg, #edf2ff 0%, #e8f0ff 100%);
-  border: 1px solid #d8e3ff;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.72) 0%, rgba(51, 65, 85, 0.66) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.32);
   border-radius: 10px;
   padding: 16px;
 }
@@ -877,13 +915,13 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #8592a6;
+  color: #cbd5e1;
   margin-bottom: 8px;
 }
 
 .detail-card-value {
   font-size: 14px;
-  color: #2c3e50;
+  color: #e2e8f0;
   line-height: 1.6;
 }
 
@@ -933,8 +971,8 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  background: linear-gradient(145deg, #eef3ff 0%, #e8f0ff 100%);
-  border: 1px solid #d8e3ff;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.72) 0%, rgba(51, 65, 85, 0.66) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.32);
   border-radius: 10px;
   padding: 14px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -970,8 +1008,64 @@
 .detail-info-value {
   font-size: 14px;
   font-weight: 600;
-  color: #2c3e50;
+  color: #e2e8f0;
   word-break: break-all;
+}
+
+.detail-combined-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.72) 0%, rgba(51, 65, 85, 0.66) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  padding: 0;
+}
+
+.detail-combined-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 4px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.26);
+}
+
+.detail-combined-row:last-child {
+  border-bottom: none;
+}
+
+.detail-combined-key {
+  min-width: 90px;
+  color: #e2e8f0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.detail-combined-value {
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.detail-combined-row-top {
+  align-items: flex-start;
+}
+
+.detail-combined-row-top .detail-inline-textarea {
+  min-height: 64px;
+}
+
+.detail-combined-card .detail-inline-input,
+.detail-combined-card .detail-inline-select,
+.detail-combined-card .detail-inline-textarea {
+  font-size: 15px;
+}
+
+.detail-info-grid-compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .detail-coordinates-edit {
@@ -981,23 +1075,23 @@
 
 .detail-id-value {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 500;
-  color: #6b7b8d;
+  color: #94a3b8;
 }
 
 /* Map card */
 .detail-map-card {
   padding: 16px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  height: auto;
+  display: block;
 }
 
 .detail-map-wrapper {
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid #e0e4ea;
+  width: 100%;
 }
 
 /* Override MapPicker header for read-only view inside the detail modal */
@@ -1009,8 +1103,8 @@
   border: none;
   border-radius: 10px;
   cursor: default;
-  min-height: 0;
-  height: auto;
+  width: 100%;
+  display: block;
 }
 
 .detail-map-wrapper .map-picker:hover {
@@ -1247,11 +1341,13 @@
   .modal-shell,
   .modal-shell.is-editing {
     width: calc(100vw - 24px);
-    margin-left: 0;
+    margin: 0 auto;
+    transform: none;
   }
 
   .modal-side-actions-left {
     position: static;
+    width: auto;
     flex-direction: row;
     margin-bottom: 10px;
   }
