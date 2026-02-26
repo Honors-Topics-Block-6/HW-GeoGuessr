@@ -147,7 +147,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition:
+    background-color 0.2s ease,
+    transform 0.1s ease;
   backdrop-filter: blur(4px);
   pointer-events: auto;
   line-height: 1;
@@ -231,12 +233,16 @@
 }
 
 .actual-pin {
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-light) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--accent-green) 0%,
+    var(--accent-green-light) 100%
+  );
   box-shadow: 0 4px 12px rgba(108, 181, 45, 0.5);
 }
 
 .result-marker .marker-pin::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 50%;
@@ -374,7 +380,11 @@
 
 /* Next Round Button */
 .next-round-button {
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--accent-green) 0%,
+    var(--accent-green-hover) 100%
+  );
   color: var(--text-primary);
   font-size: 1.1rem;
   font-weight: 600;

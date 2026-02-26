@@ -8,6 +8,9 @@ import {
   type Ref
 } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
+
+const MOBILE_BREAKPOINT = 768;
+const MOBILE_MAX_SCALE = 2.5;
 import './MapPicker.css';
 
 export interface MapCoordinates {
@@ -52,6 +55,17 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
       : MAP_HINT_MOUSE
   );
 
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
   const coordsFromClientPos = useCallback((clientX: number, clientY: number): MapCoordinates | null => {
     if (!imageRef.current) return null;
     const rect = imageRef.current.getBoundingClientRect();
@@ -74,7 +88,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     hasMoved,
     isPanning,
     isTouchActive
-  } = useMapZoom(containerRef);
+  } = useMapZoom(containerRef, { maxScale: isMobile ? MOBILE_MAX_SCALE : undefined });
 
   const placeMarkerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

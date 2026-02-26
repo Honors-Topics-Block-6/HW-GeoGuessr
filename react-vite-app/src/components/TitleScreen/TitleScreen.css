@@ -18,7 +18,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: linear-gradient(180deg, rgba(12, 12, 15, 0.7) 0%, transparent 100%);
+  background: transparent;
 }
 
 /* User menu dropdown wrapper */
@@ -124,7 +124,7 @@
 .title-top-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .title-action-icon {
@@ -138,11 +138,12 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  min-height: var(--touch-target-min, 44px);
+  min-height: 52px;
+  min-width: 52px;
 }
 
 .title-leaderboard-button {
-  padding: 8px 16px;
+  padding: 12px 18px;
   background: rgba(255, 215, 0, 0.1);
   border: 1px solid rgba(255, 215, 0, 0.25);
   color: #ffd700;
@@ -159,7 +160,7 @@
 }
 
 .submit-photo-button {
-  padding: 8px 16px;
+  padding: 12px 18px;
   background-color: rgba(52, 152, 219, 0.9);
   color: white;
   border: none;
@@ -178,7 +179,7 @@
 }
 
 .title-bug-report-button {
-  padding: 8px 16px;
+  padding: 12px 18px;
   background: rgba(251, 146, 60, 0.15);
   border: 1px solid rgba(251, 146, 60, 0.3);
   color: #fb923c;
@@ -206,15 +207,23 @@
 }
 
 .title-background::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background-image:
-    radial-gradient(circle at 20% 80%, rgba(108, 181, 45, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(108, 181, 45, 0.08) 0%, transparent 40%);
+    radial-gradient(
+      circle at 20% 80%,
+      rgba(108, 181, 45, 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 20%,
+      rgba(108, 181, 45, 0.08) 0%,
+      transparent 40%
+    );
 }
 
 .title-overlay {
@@ -236,6 +245,7 @@
   align-items: center;
   text-align: center;
   padding: 2rem;
+  margin-top: 4rem;
   max-width: 600px;
 }
 
@@ -250,7 +260,8 @@
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -276,7 +287,11 @@
 
 /* Level badge next to username in top bar */
 .title-level-badge {
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--accent-green) 0%,
+    var(--accent-green-hover) 100%
+  );
   color: white;
   font-size: 0.7rem;
   font-weight: 700;
@@ -285,9 +300,12 @@
   letter-spacing: 0.5px;
 }
 
-
 .start-button {
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--accent-green) 0%,
+    var(--accent-green-hover) 100%
+  );
   color: var(--text-primary);
   font-size: 1.3rem;
   font-weight: 600;
@@ -359,19 +377,12 @@
     padding: 0.9rem 2.5rem;
   }
 
-  /* Single row: user left, actions right - no stacking */
+  /* Single row: user left, actions right */
   .title-top-bar {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px;
-    background: rgba(12, 12, 15, 0.92);
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .title-top-actions {
-    gap: 6px;
-    flex-shrink: 0;
   }
 
   .title-user-info-button {
@@ -392,14 +403,25 @@
     font-size: 3rem;
   }
 
+  /* Stack action buttons beneath user button on thin screens */
   .title-top-bar {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
     padding: 8px 12px;
+  }
+
+  .title-top-actions {
+    display: flex;
+    width: 100%;
+    justify-content: space-evenly;
+    flex-wrap: wrap;
   }
 
   /* Icon-only buttons for compact mobile bar */
   .title-action-icon {
     display: inline;
-    font-size: 1.15rem;
+    font-size: 1.4rem;
   }
 
   .title-action-label {
@@ -410,9 +432,9 @@
   .submit-photo-button,
   .title-bug-report-button {
     font-size: 12px;
-    padding: 8px 10px;
-    min-width: var(--touch-target-min, 44px);
-    min-height: var(--touch-target-min, 44px);
+    padding: 10px 12px;
+    min-width: 48px;
+    min-height: 48px;
   }
 
   .title-user-info-button {
@@ -444,7 +466,8 @@
   .title-leaderboard-button,
   .submit-photo-button,
   .title-bug-report-button {
-    padding: 8px;
-    min-width: var(--touch-target-min, 44px);
+    padding: 10px;
+    min-width: 48px;
+    min-height: 48px;
   }
 }
