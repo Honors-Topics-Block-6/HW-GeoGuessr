@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { collection, query, orderBy, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
+import { getBuildingPolygons, setBuildingPolygons } from '../../services/buildingPolygonService'
+import type { BuildingPolygonData } from '../../services/buildingPolygonService'
 import PolygonDrawer from './PolygonDrawer'
 import RegionPanel from './RegionPanel'
-import type { Region, PolygonPoint, PlayingArea, DrawModeType } from './PolygonDrawer'
+import type { Region, PolygonPoint, PlayingArea, DrawModeType, BuildingPolygonItem } from './PolygonDrawer'
 import type { RegionUpdateData } from './RegionPanel'
 import './MapEditor.css'
 
@@ -11,7 +13,8 @@ import './MapEditor.css'
 const DRAW_MODE = {
   NONE: 'none',
   REGION: 'region',
-  PLAYING_AREA: 'playing_area'
+  PLAYING_AREA: 'playing_area',
+  BUILDING_POLYGON: 'building'
 } as const
 
 export interface MapEditorProps {}
@@ -23,6 +26,7 @@ function MapEditor(_props: MapEditorProps): React.JSX.Element {
   const [drawMode, setDrawMode] = useState<DrawModeType>(DRAW_MODE.NONE)
   const [newPolygonPoints, setNewPolygonPoints] = useState<PolygonPoint[]>([])
   const [playingArea, setPlayingArea] = useState<PlayingArea | null>(null)
+  const [buildingPolygons, setBuildingPolygonsState] = useState<BuildingPolygonItem[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -63,6 +67,23 @@ function MapEditor(_props: MapEditorProps): React.JSX.Element {
     return () => unsubscribe()
   }, [])
 
+  // Fetch building polygons from Firestore
+  useEffect(() => {
+    const buildingPolygonsRef = doc(db, 'settings', 'buildingPolygons')
+    const unsubscribe = onSnapshot(buildingPolygonsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        const polygons = data?.polygons
+        setBuildingPolygonsState(Array.isArray(polygons) ? polygons : [])
+      } else {
+        setBuildingPolygonsState([])
+      }
+    }, (err) => {
+      console.error('Error fetching building polygons:', err)
+    })
+    return () => unsubscribe()
+  }, [])
+
   const handleStartDrawing = useCallback((mode: DrawModeType = DRAW_MODE.REGION): void => {
     setIsDrawing(true)
     setDrawMode(mode)
@@ -94,6 +115,13 @@ function MapEditor(_props: MapEditorProps): React.JSX.Element {
           polygon: newPolygonPoints,
           updatedAt: serverTimestamp()
         })
+      } else if (drawMode === DRAW_MODE.BUILDING_POLYGON) {
+        // Building polygon: prompt for name, add to list, save to Firestore
+        const name = window.prompt('Building / location name for this polygon:')?.trim() || `Building ${buildingPolygons.length + 1}`
+        const newItem: BuildingPolygonData = { name, polygon: newPolygonPoints }
+        const updated = [...buildingPolygons, newItem]
+        setBuildingPolygonsState(updated)
+        await setBuildingPolygons(updated)
       } else {
         // Save regular region
         const newRegion = {
@@ -114,9 +142,9 @@ function MapEditor(_props: MapEditorProps): React.JSX.Element {
       setNewPolygonPoints([])
     } catch (err) {
       console.error('Error saving:', err)
-      setError(drawMode === DRAW_MODE.PLAYING_AREA ? 'Failed to save playing area' : 'Failed to save region')
+      setError(drawMode === DRAW_MODE.PLAYING_AREA ? 'Failed to save playing area' : drawMode === DRAW_MODE.BUILDING_POLYGON ? 'Failed to save building polygon' : 'Failed to save region')
     }
-  }, [newPolygonPoints, regions.length, drawMode])
+  }, [newPolygonPoints, regions.length, drawMode, buildingPolygons])
 
   const handleRegionSelect = useCallback((id: string): void => {
     if (!isDrawing) {
@@ -156,6 +184,21 @@ function MapEditor(_props: MapEditorProps): React.JSX.Element {
       setError('Failed to delete playing area')
     }
   }, [])
+
+  const handleStartDrawingBuildingPolygon = useCallback((): void => {
+    handleStartDrawing(DRAW_MODE.BUILDING_POLYGON as DrawModeType)
+  }, [handleStartDrawing])
+
+  const handleDeleteBuildingPolygon = useCallback(async (index: number): Promise<void> => {
+    const updated = buildingPolygons.filter((_, i) => i !== index)
+    setBuildingPolygonsState(updated)
+    try {
+      await setBuildingPolygons(updated)
+    } catch (err) {
+      console.error('Error deleting building polygon:', err)
+      setError('Failed to delete building polygon')
+    }
+  }, [buildingPolygons])
 
   const handlePointMove = useCallback(async (regionId: string, pointIndex: number, newPosition: PolygonPoint): Promise<void> => {
     const region = regions.find(r => r.id === regionId)
@@ -212,6 +255,7 @@ function MapEditor(_props: MapEditorProps): React.JSX.Element {
           drawMode={drawMode}
           newPolygonPoints={newPolygonPoints}
           playingArea={playingArea}
+          buildingPolygons={buildingPolygons}
           onRegionSelect={handleRegionSelect}
           onPointAdd={handlePointAdd}
           onPolygonComplete={handlePolygonComplete}
@@ -234,6 +278,9 @@ function MapEditor(_props: MapEditorProps): React.JSX.Element {
           playingArea={playingArea}
           onStartDrawingPlayingArea={handleStartDrawingPlayingArea}
           onDeletePlayingArea={handleDeletePlayingArea}
+          buildingPolygons={buildingPolygons}
+          onStartDrawingBuildingPolygon={handleStartDrawingBuildingPolygon}
+          onDeleteBuildingPolygon={handleDeleteBuildingPolygon}
         />
       </div>
     </div>
