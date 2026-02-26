@@ -7,16 +7,37 @@ export interface PhotoUploadProps {
 }
 
 function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploadProps): React.JSX.Element {
-  const [preview, setPreview] = useState<string | null>(selectedPhoto ? URL.createObjectURL(selectedPhoto) : null)
+  const [preview, setPreview] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState<boolean>(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const previewUrlRef = useRef<string | null>(null)
 
-  // Sync preview state when selectedPhoto is cleared by parent (e.g., after form submission)
+  // Sync preview state with selectedPhoto prop and handle object URL cleanup
   useEffect(() => {
-    if (!selectedPhoto) {
-      setPreview(null) // eslint-disable-line react-hooks/set-state-in-effect -- Intentional: syncing derived state from prop
+    // Clean up previous object URL to prevent memory leaks
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current)
+      previewUrlRef.current = null
+    }
+
+    if (selectedPhoto) {
+      // Create new object URL for the selected photo
+      const newUrl = URL.createObjectURL(selectedPhoto)
+      previewUrlRef.current = newUrl
+      setPreview(newUrl)
+    } else {
+      // No photo selected, clear preview
+      setPreview(null)
       if (inputRef.current) {
         inputRef.current.value = ''
+      }
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current)
+        previewUrlRef.current = null
       }
     }
   }, [selectedPhoto])
@@ -24,7 +45,6 @@ function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploadProps): React.
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0]
     if (file && file.type.startsWith('image/')) {
-      setPreview(URL.createObjectURL(file))
       onPhotoSelect(file)
     }
   }
@@ -47,7 +67,6 @@ function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploadProps): React.
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0]
       if (file.type.startsWith('image/')) {
-        setPreview(URL.createObjectURL(file))
         onPhotoSelect(file)
       }
     }
@@ -58,11 +77,7 @@ function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploadProps): React.
   }
 
   const handleRemove = (): void => {
-    setPreview(null)
     onPhotoSelect(null)
-    if (inputRef.current) {
-      inputRef.current.value = ''
-    }
   }
 
   return (
@@ -95,7 +110,7 @@ function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploadProps): React.
       ) : (
         <div className="preview-container">
           <img src={preview} alt="Preview" className="preview-image" />
-          <button className="remove-button" onClick={handleRemove}>
+          <button type="button" className="remove-button" onClick={handleRemove}>
             Remove
           </button>
         </div>

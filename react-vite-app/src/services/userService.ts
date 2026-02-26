@@ -23,6 +23,8 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
+  favoriteEmote?: string;
+  photoURL?: string;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
@@ -30,6 +32,17 @@ export interface UserDoc {
   createdAt: unknown;
   permissions?: PermissionsMap;
   lastGameAt?: unknown;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
+  lastUsernameChange?: unknown;
 }
 
 export interface UserDocWithId extends UserDoc {
@@ -38,13 +51,54 @@ export interface UserDocWithId extends UserDoc {
 
 export interface UserProfileUpdates {
   username?: string;
+  favoriteEmote?: string;
   email?: string;
   isAdmin?: boolean;
   emailVerified?: boolean;
   totalXp?: number;
   gamesPlayed?: number;
   lastGameAt?: Date | string | null;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
   [key: string]: unknown;
+}
+
+export interface BuildingStat {
+  building: string;
+  floor: number | null;
+  totalScore: number;
+  count: number;
+}
+
+export interface DailyStatBucket {
+  gamesPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
+  photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
+}
+
+const FALLBACK_FAVORITE_EMOTE = '😎';
+
+export function normalizeFavoriteEmote(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error('Favorite emote cannot be empty.');
+  }
+  if (trimmed.length > 16) {
+    throw new Error('Favorite emote is too long.');
+  }
+  return trimmed;
 }
 
 // ────── Constants ──────
@@ -109,15 +163,31 @@ export function getNoPermissions(): PermissionsMap {
 export async function createUserDoc(uid: string, email: string, username: string): Promise<void> {
   const userRef = doc(db, 'users', uid);
   const isAdmin = uid === HARDCODED_ADMIN_UID;
+  const trimmedUsername = username.trim();
   const userData: Record<string, unknown> = {
     uid,
     email,
-    username,
+    emailLower: email.toLowerCase(),
+    username: trimmedUsername,
+    usernameLower: trimmedUsername.toLowerCase(),
+    favoriteEmote: FALLBACK_FAVORITE_EMOTE,
     isAdmin,
     emailVerified: false,
     totalXp: 0,
     gamesPlayed: 0,
-    createdAt: serverTimestamp()
+    createdAt: serverTimestamp(),
+    totalScore: 0,
+    totalGuessTimeSeconds: 0,
+    fiveKCount: 0,
+    twentyFiveKCount: 0,
+    photosSubmittedCount: 0,
+    followersCount: 0,
+    buildingStats: {},
+    lastOnline: serverTimestamp(),
+    dailyStats: {},
+    dailyStatsByDifficulty: {},
+    // Track when the username was last set to enforce change frequency
+    lastUsernameChange: serverTimestamp()
   };
   // Hardcoded admin gets all permissions on creation
   if (isAdmin) {
@@ -159,17 +229,36 @@ export async function updateUserDoc(uid: string, data: Record<string, unknown>):
  */
 export async function isUsernameTaken(username: string, excludeUid: string | null = null): Promise<boolean> {
   const usersRef = collection(db, 'users');
-  const q = query(usersRef, where('username', '==', username));
-  const snapshot = await getDocs(q);
+  const trimmed = username.trim();
+  const lower = trimmed.toLowerCase();
 
-  if (snapshot.empty) return false;
-
-  // If we're excluding a uid, check if the only match is that user
-  if (excludeUid) {
-    return snapshot.docs.some(docSnap => docSnap.id !== excludeUid);
+  // Prefer case-insensitive index when available
+  const qLower = query(usersRef, where('usernameLower', '==', lower));
+  const snapLower = await getDocs(qLower);
+  if (!snapLower.empty) {
+    if (excludeUid) {
+      return snapLower.docs.some(docSnap => docSnap.id !== excludeUid);
+    }
+    return true;
   }
 
-  return true;
+  // Fallback: exact username match (for users without usernameLower)
+  const qExact = query(usersRef, where('username', '==', trimmed));
+  const snapshot = await getDocs(qExact);
+  if (!snapshot.empty) {
+    if (excludeUid) {
+      return snapshot.docs.some(docSnap => docSnap.id !== excludeUid);
+    }
+    return true;
+  }
+
+  // Final fallback: scan and compare case-insensitively for legacy users
+  const allSnap = await getDocs(usersRef);
+  const match = allSnap.docs.find(docSnap => {
+    const data = docSnap.data() as { username?: string };
+    return (data.username || '').toLowerCase() === lower && docSnap.id !== excludeUid;
+  });
+  return !!match;
 }
 
 /**
@@ -177,6 +266,23 @@ export async function isUsernameTaken(username: string, excludeUid: string | nul
  */
 export function isHardcodedAdmin(uid: string): boolean {
   return uid === HARDCODED_ADMIN_UID;
+}
+
+/**
+ * Check if an account with the given email exists and is verified.
+ * Returns { exists: boolean, verified: boolean }
+ */
+export async function checkEmailVerificationStatus(email: string): Promise<{ exists: boolean; verified: boolean }> {
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('emailLower', '==', email.toLowerCase()));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return { exists: false, verified: false };
+  }
+
+  const userDoc = snapshot.docs[0].data() as UserDoc;
+  return { exists: true, verified: userDoc.emailVerified === true };
 }
 
 /**
@@ -248,6 +354,11 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
 
   // Validate username if being changed
   if ('username' in updates) {
+    const existing = await getUserDoc(uid);
+    if (!existing) {
+      throw new Error('User not found.');
+    }
+
     const trimmed = (updates.username as string).trim();
     if (!trimmed) {
       throw new Error('Username cannot be empty.');
@@ -255,11 +366,33 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
     if (trimmed.length < 3) {
       throw new Error('Username must be at least 3 characters.');
     }
+
+    // Enforce one username change per 30 days
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const lastChange = existing.lastUsernameChange as { toDate?: () => Date } | Date | undefined;
+    if (lastChange) {
+      const lastDate = typeof lastChange === 'object'
+        && 'toDate' in lastChange
+        && typeof lastChange.toDate === 'function'
+        ? lastChange.toDate()
+        : (lastChange as Date);
+      const now = Date.now();
+      if (lastDate instanceof Date && !isNaN(lastDate.getTime())) {
+        const diff = now - lastDate.getTime();
+        if (diff < THIRTY_DAYS_MS) {
+          const daysRemaining = Math.ceil((THIRTY_DAYS_MS - diff) / (24 * 60 * 60 * 1000));
+          throw new Error(`Username can only be changed once every 30 days. Try again in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}.`);
+        }
+      }
+    }
+
     const taken = await isUsernameTaken(trimmed, uid);
     if (taken) {
       throw new Error('Username is already taken. Please choose another.');
     }
     updates.username = trimmed;
+    updates.usernameLower = trimmed.toLowerCase();
+    updates.lastUsernameChange = serverTimestamp();
   }
 
   // Validate totalXp if being changed
@@ -269,6 +402,11 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
       throw new Error('Total XP must be a non-negative number.');
     }
     updates.totalXp = xp;
+  }
+
+  // Validate favoriteEmote if being changed
+  if ('favoriteEmote' in updates && typeof updates.favoriteEmote === 'string') {
+    updates.favoriteEmote = normalizeFavoriteEmote(updates.favoriteEmote);
   }
 
   // Validate gamesPlayed if being changed
@@ -289,5 +427,98 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
     updates.lastGameAt = date;
   }
 
+  // Keep emailLower in sync when email is updated
+  if ('email' in updates && typeof updates.email === 'string') {
+    updates.emailLower = updates.email.toLowerCase();
+  }
+
   await updateUserDoc(uid, updates as Record<string, unknown>);
+
+  // If username changed, propagate to denormalized copies in other collections
+  if ('username' in updates) {
+    const newUsername = updates.username as string;
+    await propagateUsernameChange(uid, newUsername);
+  }
+}
+
+/**
+ * Update denormalized username fields across collections so others see the change.
+ */
+async function propagateUsernameChange(uid: string, newUsername: string): Promise<void> {
+  const tasks: Promise<unknown>[] = [];
+
+  // Update lobbies: hostUsername and players[].username
+  tasks.push((async () => {
+    const lobbiesSnap = await getDocs(collection(db, 'lobbies'));
+    const updates: Promise<unknown>[] = [];
+    lobbiesSnap.forEach(docSnap => {
+      const data = docSnap.data() as { hostUid?: string; hostUsername?: string; players?: Array<{ uid: string; username: string }> };
+      let changed = false;
+      const next: typeof data.players = Array.isArray(data.players)
+        ? data.players.map(p => {
+          if (p.uid === uid && p.username !== newUsername) {
+            changed = true;
+            return { ...p, username: newUsername };
+          }
+          return p;
+        })
+        : [];
+
+      if (data.hostUid === uid && data.hostUsername !== newUsername) {
+        changed = true;
+      }
+
+      if (changed) {
+        const payload: Record<string, unknown> = { players: next };
+        if (data.hostUid === uid) {
+          payload.hostUsername = newUsername;
+        }
+        updates.push(updateDoc(doc(db, 'lobbies', docSnap.id), payload));
+      }
+    });
+    await Promise.all(updates);
+  })());
+
+  // Update friend requests: fromUsername / toUsername
+  tasks.push((async () => {
+    const requestsRef = collection(db, 'friendRequests');
+    const [fromSnap, toSnap] = await Promise.all([
+      getDocs(query(requestsRef, where('fromUid', '==', uid))),
+      getDocs(query(requestsRef, where('toUid', '==', uid)))
+    ]);
+
+    const updates: Promise<unknown>[] = [];
+    fromSnap.forEach(docSnap => {
+      const data = docSnap.data() as { fromUsername?: string };
+      if (data.fromUsername !== newUsername) {
+        updates.push(updateDoc(docSnap.ref, { fromUsername: newUsername }));
+      }
+    });
+    toSnap.forEach(docSnap => {
+      const data = docSnap.data() as { toUsername?: string };
+      if (data.toUsername !== newUsername) {
+        updates.push(updateDoc(docSnap.ref, { toUsername: newUsername }));
+      }
+    });
+
+    await Promise.all(updates);
+  })());
+
+  // Update friendships: usernames map entry
+  tasks.push((async () => {
+    const friendshipsRef = collection(db, 'friendships');
+    const friendshipsSnap = await getDocs(query(friendshipsRef, where('users', 'array-contains', uid)));
+    const updates: Promise<unknown>[] = [];
+    friendshipsSnap.forEach(docSnap => {
+      const data = docSnap.data() as { usernames?: Record<string, string> };
+      const usernames = { ...(data.usernames || {}) };
+      if (usernames[uid] !== newUsername) {
+        usernames[uid] = newUsername;
+        updates.push(updateDoc(docSnap.ref, { usernames }));
+      }
+    });
+    await Promise.all(updates);
+  })());
+
+  await Promise.all(tasks);
 }

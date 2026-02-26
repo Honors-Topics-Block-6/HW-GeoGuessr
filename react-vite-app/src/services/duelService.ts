@@ -11,6 +11,7 @@ import { db } from '../firebase';
 import { getRandomImage } from './imageService';
 import { calculateDistance, calculateLocationScore } from '../hooks/useGameState';
 import { computeTimeMultiplier } from '../utils/timeScoring';
+import { getRegions, getRegionForPoint } from './regionService';
 
 // ────── Types ──────
 
@@ -25,6 +26,7 @@ export interface DuelPlayer {
 }
 
 export interface DuelImage {
+  id?: string;
   url: string;
   correctLocation: MapLocation;
   correctFloor: number | null;
@@ -44,6 +46,12 @@ export interface DuelGuess {
   timeTakenSeconds?: number;
   /** Points deducted due to time */
   timePenalty?: number;
+}
+
+export interface DuelEmoteEvent {
+  emoji: string;
+  sentAt: Timestamp;
+  round: number;
 }
 
 export interface GuessData {
@@ -69,6 +77,7 @@ export interface RoundPlayerResult {
 
 export interface RoundHistoryEntry {
   roundNumber: number;
+  imageId?: string;
   imageUrl: string;
   actualLocation: MapLocation;
   actualFloor: number | null;
@@ -89,17 +98,21 @@ export interface DuelData {
   phase: DuelPhase;
   currentRound: number;
   currentImage: DuelImage;
-  roundStartedAt: Timestamp;
+  roundStartedAt: Timestamp | FieldValue;
   guesses: Record<string, DuelGuess>;
   health: Record<string, number>;
   roundHistory: RoundHistoryEntry[];
   winner: string | null;
   loser: string | null;
+  forfeitBy?: string | null;
   finishedAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
   players: DuelPlayer[];
   difficulty: string;
   timePenaltyEnabled?: boolean;
+  /** Round time in seconds. 0 = no time limit. Falls back to DUEL_ROUND_TIME_SECONDS if absent. */
+  roundTimeSeconds?: number;
+  emotes?: Record<string, DuelEmoteEvent>;
 }
 
 // ────── Constants ──────
@@ -139,6 +152,9 @@ export async function startDuel(
   difficulty: string
 ): Promise<void> {
   const image = await getRandomImage(difficulty);
+  if (!image) {
+    throw new Error('No approved images are available to start a duel.');
+  }
 
   const health: Record<string, number> = {};
   players.forEach(p => {
@@ -151,13 +167,15 @@ export async function startDuel(
     phase: 'guessing',
     currentRound: 1,
     currentImage: {
-      url: image!.url,
-      correctLocation: image!.correctLocation || { x: 50, y: 50 },
-      correctFloor: image!.correctFloor ?? null,
-      difficulty: image!.difficulty || difficulty
+      id: image.id,
+      url: image.url,
+      correctLocation: image.correctLocation || { x: 50, y: 50 },
+      correctFloor: image.correctFloor ?? null,
+      difficulty: image.difficulty || difficulty
     },
-    roundStartedAt: Timestamp.now(),
+    roundStartedAt: serverTimestamp(),
     guesses: {},
+    emotes: {},
     health,
     roundHistory: [],
     winner: null,
@@ -167,8 +185,8 @@ export async function startDuel(
   });
 }
 
-/** RoundStartedAt can be a Firestore Timestamp or millisecond number */
-export type RoundStartedAt = Timestamp | number;
+/** RoundStartedAt can be a Firestore Timestamp, millisecond number, or object with toMillis */
+export type RoundStartedAt = Timestamp | number | { toMillis?: () => number };
 
 /**
  * Submit a player's guess for the current round.
@@ -194,10 +212,15 @@ export async function submitDuelGuess(
     locationScore = calculateLocationScore(distance);
 
     const actualFloor = currentImage.correctFloor ?? null;
+    const regions = await getRegions();
+    const guessedRegion = getRegionForPoint(guessData.location, regions);
+    const actualRegion = getRegionForPoint(actualLocation, regions);
+    const isCorrectBuilding = guessedRegion !== null && actualRegion !== null && guessedRegion.id === actualRegion.id;
 
-    // Floor scoring logic (same as singleplayer)
+    // Floor scoring logic (same as singleplayer):
+    // floor only counts if both building and floor are correct.
     if (guessData.floor !== null && guessData.floor !== undefined && actualFloor !== null) {
-      floorCorrect = guessData.floor === actualFloor;
+      floorCorrect = isCorrectBuilding && guessData.floor === actualFloor;
       score = floorCorrect ? locationScore : Math.round(locationScore * 0.8);
     } else {
       score = locationScore;
@@ -251,6 +274,29 @@ export async function submitDuelGuess(
 }
 
 /**
+ * Send an emote event for a player in the current duel round.
+ */
+export async function sendDuelEmote(
+  docId: string,
+  playerUid: string,
+  emoji: string,
+  round: number
+): Promise<void> {
+  const sanitized = emoji.trim();
+  if (!sanitized) return;
+
+  const lobbyRef = doc(db, 'lobbies', docId);
+  await updateDoc(lobbyRef, {
+    [`emotes.${playerUid}`]: {
+      emoji: sanitized,
+      sentAt: Timestamp.now(),
+      round
+    },
+    updatedAt: serverTimestamp()
+  });
+}
+
+/**
  * Process the round after both players have guessed.
  * Calculates damage, updates health, pushes to roundHistory,
  * and either starts the next round or ends the game.
@@ -298,6 +344,7 @@ export async function processRound(docId: string): Promise<void> {
   // Build round history entry
   const roundEntry: RoundHistoryEntry = {
     roundNumber: currentRound,
+    imageId: currentImage.id,
     imageUrl: currentImage.url,
     actualLocation: currentImage.correctLocation,
     actualFloor: currentImage.correctFloor ?? null,
@@ -368,24 +415,50 @@ export async function processRound(docId: string): Promise<void> {
  * Only the host should call this.
  */
 export async function advanceToNextRound(docId: string, difficulty: string): Promise<void> {
-  const image = await getRandomImage(difficulty);
-
   const lobbyRef = doc(db, 'lobbies', docId);
   const lobbySnap = await getDoc(lobbyRef);
   if (!lobbySnap.exists()) return;
 
   const lobby = lobbySnap.data() as DuelData;
+  const usedImageIds: string[] = [];
+  const usedImageUrls: string[] = [];
+
+  if (lobby.currentImage?.id) {
+    usedImageIds.push(lobby.currentImage.id);
+  }
+  if (lobby.currentImage?.url) {
+    usedImageUrls.push(lobby.currentImage.url);
+  }
+  (lobby.roundHistory || []).forEach((entry) => {
+    if (entry.imageId) usedImageIds.push(entry.imageId);
+    if (entry.imageUrl) usedImageUrls.push(entry.imageUrl);
+  });
+
+  let image = await getRandomImage(difficulty, {
+    excludeImageIds: usedImageIds,
+    excludeImageUrls: usedImageUrls
+  });
+  // If all images have already been seen in this duel, fall back to full pool
+  // so the match can continue instead of getting stuck.
+  if (!image) {
+    image = await getRandomImage(difficulty);
+  }
+  if (!image) {
+    throw new Error('No approved images are available to continue this duel.');
+  }
 
   await updateDoc(lobbyRef, {
     currentRound: (lobby.currentRound || 1) + 1,
     currentImage: {
-      url: image!.url,
-      correctLocation: image!.correctLocation || { x: 50, y: 50 },
-      correctFloor: image!.correctFloor ?? null,
-      difficulty: image!.difficulty || difficulty
+      id: image.id,
+      url: image.url,
+      correctLocation: image.correctLocation || { x: 50, y: 50 },
+      correctFloor: image.correctFloor ?? null,
+      difficulty: image.difficulty || difficulty
     },
-    roundStartedAt: Timestamp.now(),
+    roundStartedAt: serverTimestamp(),
     guesses: {},
+    emotes: {},
     phase: 'guessing',
     updatedAt: serverTimestamp()
   });
@@ -410,11 +483,13 @@ export function subscribeDuel(
 
 /**
  * Handle opponent disconnect — award win to remaining player.
+ * When forfeitBy is provided, records that the loser voluntarily forfeited.
  */
 export async function handleOpponentDisconnect(
   docId: string,
   winnerUid: string,
-  loserUid: string
+  loserUid: string,
+  forfeitBy?: string
 ): Promise<void> {
   const lobbyRef = doc(db, 'lobbies', docId);
   const lobbySnap = await getDoc(lobbyRef);
@@ -426,12 +501,17 @@ export async function handleOpponentDisconnect(
   const health: Record<string, number> = lobby.health || {};
   health[loserUid] = 0;
 
-  await updateDoc(lobbyRef, {
+  const updateData: Record<string, unknown> = {
     health,
     phase: 'finished',
     winner: winnerUid,
     loser: loserUid,
     finishedAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  };
+  if (forfeitBy != null) {
+    updateData.forfeitBy = forfeitBy;
+  }
+
+  await updateDoc(lobbyRef, updateData);
 }

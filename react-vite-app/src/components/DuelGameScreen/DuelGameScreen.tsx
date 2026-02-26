@@ -1,11 +1,14 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import ImageViewer from '../ImageViewer/ImageViewer';
+import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
 import MapPicker from '../MapPicker/MapPicker';
 import type { MapPickerHandle, PlayingArea } from '../MapPicker/MapPicker';
 import FloorSelector from '../FloorSelector/FloorSelector';
 import GuessButton from '../GuessButton/GuessButton';
 import { STARTING_HEALTH } from '../../services/duelService';
 import './DuelGameScreen.css';
+
+const QUICK_EMOTES = ['🔥', '😅', '😎', '🤯', '👏'];
 
 interface MapPosition {
   x: number;
@@ -24,7 +27,7 @@ export interface DuelGameScreenProps {
   currentRound: number;
   clickRejected?: boolean;
   playingArea?: PlayingArea | null;
-  timeRemaining: number;
+  timeRemaining?: number;
   timeLimitSeconds?: number;
   hasSubmitted?: boolean;
   opponentHasSubmitted?: boolean;
@@ -32,6 +35,9 @@ export interface DuelGameScreenProps {
   myHealth: number;
   opponentHealth: number;
   myUsername?: string;
+  myActiveEmote?: string | null;
+  opponentActiveEmote?: string | null;
+  onSendEmote?: (emoji: string) => Promise<void>;
 }
 
 function DuelGameScreen({
@@ -53,9 +59,13 @@ function DuelGameScreen({
   opponentUsername = 'Opponent',
   myHealth,
   opponentHealth,
-  myUsername = 'You'
+  myUsername = 'You',
+  myActiveEmote = null,
+  opponentActiveEmote = null,
+  onSendEmote
 }: DuelGameScreenProps): React.ReactElement {
   const mapPickerRef = useRef<MapPickerHandle>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   const isInRegion = availableFloors !== null && availableFloors.length > 0;
   const canSubmit = !hasSubmitted && guessLocation !== null && (!isInRegion || guessFloor !== null);
@@ -97,7 +107,14 @@ function DuelGameScreen({
       {/* Health Bars at Top */}
       <div className="duel-health-bar-container">
         <div className="duel-health-player duel-health-left">
-          <span className="duel-health-name">{myUsername} (You)</span>
+          <span className="duel-health-name">
+            {myUsername} (You)
+            {myActiveEmote && (
+              <span className="duel-active-emote duel-active-emote-self" aria-label="Your emote">
+                {myActiveEmote}
+              </span>
+            )}
+          </span>
           <div className="duel-health-bar">
             <div
               className={`duel-health-fill duel-health-fill-green ${myHealthPct <= 25 ? 'critical' : ''}`}
@@ -113,7 +130,14 @@ function DuelGameScreen({
         </div>
 
         <div className="duel-health-player duel-health-right">
-          <span className="duel-health-name">{opponentUsername}</span>
+          <span className="duel-health-name">
+            {opponentUsername}
+            {opponentActiveEmote && (
+              <span className="duel-active-emote duel-active-emote-opponent" aria-label={`${opponentUsername} emote`}>
+                {opponentActiveEmote}
+              </span>
+            )}
+          </span>
           <div className="duel-health-bar">
             <div
               className={`duel-health-fill duel-health-fill-red ${opponentHealthPct <= 25 ? 'critical' : ''}`}
@@ -134,7 +158,7 @@ function DuelGameScreen({
         {/* Right panel - Guess controls */}
         <div className="guess-panel">
           <div className="guess-panel-header">
-            <button className="back-button" onClick={onBackToTitle}>
+            <button className="back-button" onClick={() => setShowLeaveConfirm(true)}>
               <span>&larr;</span>
               <span>Quit</span>
             </button>
@@ -177,6 +201,23 @@ function DuelGameScreen({
                   }}
                 />
               </div>
+            </div>
+          )}
+
+          {onSendEmote && (
+            <div className="duel-emote-bar" aria-label="Quick emotes">
+              {QUICK_EMOTES.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  className="duel-emote-button"
+                  onClick={() => { void onSendEmote(emoji); }}
+                  aria-label={`Send emote ${emoji}`}
+                  title={`Send ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
             </div>
           )}
 
@@ -253,6 +294,17 @@ function DuelGameScreen({
           )}
         </div>
       </div>
+
+      {showLeaveConfirm && (
+        <LeaveConfirmModal
+          onConfirm={() => {
+            setShowLeaveConfirm(false);
+            onBackToTitle();
+          }}
+          onCancel={() => setShowLeaveConfirm(false)}
+          isDuel={true}
+        />
+      )}
     </div>
   );
 }

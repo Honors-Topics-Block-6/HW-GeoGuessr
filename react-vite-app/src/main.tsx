@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import './index.css'
 import App from './App'
 import { ErrorBoundary } from './ErrorBoundary'
+import MigrationBanner from './components/MigrationBanner/MigrationBanner'
 
 const rootElement = document.getElementById('root');
 
@@ -13,6 +14,7 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
+    <MigrationBanner />
     <ErrorBoundary>
       <AuthProvider>
         <App />

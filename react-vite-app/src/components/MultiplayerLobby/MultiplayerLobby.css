@@ -49,8 +49,8 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 2rem;
-  max-width: 900px;
+  padding: 2rem 1.2rem;
+  max-width: 1240px;
   width: 100%;
   padding-top: 3rem;
   padding-bottom: 4rem;
@@ -132,16 +132,7 @@
   opacity: 1;
 }
 
-/* Panels (Host + Join) */
-.lobby-panels {
-  display: flex;
-  gap: 1.5rem;
-  width: 100%;
-  margin-bottom: 2.5rem;
-}
-
 .lobby-panel {
-  flex: 1;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-color);
   border-radius: 16px;
@@ -150,6 +141,34 @@
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  width: 100%;
+  margin-bottom: 1.25rem;
+}
+
+.lobby-panel-host {
+  align-items: stretch;
+  margin-bottom: 1.25rem;
+}
+
+.lobby-bottom-sections {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 1.25rem;
+}
+
+.lobby-bottom-sections .lobby-panel {
+  margin-bottom: 0;
+}
+
+.lobby-panel-join {
+  justify-content: center;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.lobby-panel-public {
+  align-items: stretch;
 }
 
 .lobby-panel-heading {
@@ -162,6 +181,62 @@
   font-size: 0.85rem;
   color: var(--text-secondary);
   margin-bottom: 0.25rem;
+}
+
+/* Host Difficulty Section */
+.lobby-host-difficulty {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lobby-host-difficulty-options {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.lobby-host-difficulty-card {
+  border: 2px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  border-radius: 10px;
+  padding: 0.55rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lobby-host-difficulty-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-light);
+}
+
+.lobby-host-difficulty-card.selected {
+  background: rgba(108, 181, 45, 0.12);
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+}
+
+.lobby-host-difficulty-icon {
+  font-size: 0.95rem;
+}
+
+.lobby-host-difficulty-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.lobby-host-difficulty-desc {
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: var(--text-muted);
 }
 
 /* Visibility Toggle */
@@ -201,6 +276,91 @@
 
 .lobby-vis-icon {
   font-size: 1rem;
+}
+
+/* Round Time Section (Host panel) */
+.lobby-time-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lobby-time-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lobby-time-options {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.lobby-time-btn {
+  flex: 1;
+  padding: 0.5rem 0.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.lobby-time-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-light);
+}
+
+.lobby-time-btn.selected {
+  background: rgba(108, 181, 45, 0.12);
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+}
+
+.lobby-time-custom {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.lobby-time-custom-input {
+  flex: 1;
+  padding: 0.5rem 0.6rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lobby-time-custom-input:focus {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 10px rgba(108, 181, 45, 0.2);
+}
+
+.lobby-time-custom-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.lobby-time-custom-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 /* Create Game Button */
@@ -253,10 +413,16 @@
   display: flex;
   gap: 0.5rem;
   width: 100%;
+  flex-direction: row;
+  align-items: center;
+  min-width: 0;
 }
 
 .code-input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.8rem 1rem;
   background: rgba(255, 255, 255, 0.06);
   border: 2px solid var(--border-color);
@@ -283,6 +449,9 @@
 }
 
 .code-join-btn {
+  flex-shrink: 0;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 0.8rem 1.5rem;
   background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
   color: var(--text-primary);
@@ -309,11 +478,6 @@
   cursor: not-allowed;
 }
 
-/* Public Games Section */
-.lobby-public-section {
-  width: 100%;
-}
-
 .lobby-section-heading {
   font-size: 1.5rem;
   font-weight: 700;
@@ -325,6 +489,40 @@
   font-size: 0.85rem;
   color: var(--text-secondary);
   margin-bottom: 1.2rem;
+}
+
+.lobby-public-filters {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.lobby-public-filter-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.lobby-public-filter-select {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.lobby-public-filter-select:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: 0 0 0 2px rgba(108, 181, 45, 0.2);
 }
 
 /* Public Game List */
@@ -469,10 +667,6 @@
     font-size: 1.8rem;
   }
 
-  .lobby-panels {
-    flex-direction: column;
-  }
-
   .lobby-back-button {
     position: static;
     margin-bottom: 1rem;
@@ -480,6 +674,11 @@
 
   .lobby-content {
     padding-top: 1.5rem;
+  }
+
+  .lobby-bottom-sections {
+    grid-template-columns: 1fr;
+    margin-bottom: 1.25rem;
   }
 }
 
@@ -489,7 +688,7 @@
   }
 
   .lobby-content {
-    padding: 1rem;
+    padding: 0.85rem;
     padding-bottom: 3rem;
   }
 
@@ -499,6 +698,10 @@
 
   .code-join-btn {
     justify-content: center;
+  }
+
+  .lobby-public-filters {
+    grid-template-columns: 1fr;
   }
 
   .public-game-card {

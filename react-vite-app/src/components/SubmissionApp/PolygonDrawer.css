@@ -55,6 +55,11 @@
   box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
 
+.polygon-drawer-hint.building {
+  background: rgba(139, 92, 246, 0.85);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
 /* Playing area polygon */
 .playing-area-polygon {
   pointer-events: none;
@@ -77,7 +82,7 @@
 }
 
 .polygon-vertex:hover {
-  r: 10;
+  r: 1.5;
   fill: #8b5cf6;
 }
 
