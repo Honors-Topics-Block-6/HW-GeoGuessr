@@ -6,7 +6,6 @@ import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
 import { useFriends } from './hooks/useFriends';
 import { useChatNotifications } from './hooks/useChatNotifications';
-import { STARTING_HEALTH } from './services/duelService';
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
 import { joinLobby } from './services/lobbyService';
@@ -144,7 +143,7 @@ function App(): React.ReactElement {
 
   // Friends list for chat notification subscriptions
   const { friends } = useFriends(user?.uid, userDoc?.username ?? '');
-  const friendUids = friends.map((f) => f.uid);
+  const friendUids = friends.map((f) => f.friendUid);
   const { notifications: chatNotifications, dismissNotification: dismissChatNotification } =
     useChatNotifications(user?.uid ?? null, friendUids, chatFriend?.uid ?? null);
 

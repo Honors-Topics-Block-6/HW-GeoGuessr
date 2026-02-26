@@ -255,52 +255,51 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
             />
           </div>
 
-        {/* Browse Public Games */}
-        <div className="lobby-public-section">
-          <h2 className="lobby-section-heading">Public Games</h2>
-          <p className="lobby-section-desc">
-            Join an open game — only {diffInfo.label} difficulty games can be joined
-          </p>
-          <div className="lobby-public-filters">
-            <label className="lobby-public-filter-item">
-              <span>Difficulty</span>
-              <select
-                className="lobby-public-filter-select"
-                value={publicDifficultyFilter}
-                onChange={(e) => setPublicDifficultyFilter(e.target.value as PublicDifficultyFilter)}
-              >
-                <option value="any">Any</option>
-                <option value="all">All</option>
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            </label>
-            <label className="lobby-public-filter-item">
-              <span>Round Time</span>
-              <select
-                className="lobby-public-filter-select"
-                value={publicRoundTimeFilter}
-                onChange={(e) => setPublicRoundTimeFilter(e.target.value as PublicRoundTimeFilter)}
-              >
-                <option value="any">Any</option>
-                <option value="10">10s</option>
-                <option value="20">20s</option>
-                <option value="30">30s</option>
-                <option value="0">No Limit</option>
-              </select>
-            </label>
+          {/* Browse Public Games */}
+          <div className="lobby-public-section">
+            <h2 className="lobby-section-heading">Public Games</h2>
+            <p className="lobby-section-desc">
+              Join an open game — only {diffInfo.label} difficulty games can be joined
+            </p>
+            <div className="lobby-public-filters">
+              <label className="lobby-public-filter-item">
+                <span>Difficulty</span>
+                <select
+                  className="lobby-public-filter-select"
+                  value={publicDifficultyFilter}
+                  onChange={(e) => setPublicDifficultyFilter(e.target.value as PublicDifficultyFilter)}
+                >
+                  <option value="any">Any</option>
+                  <option value="all">All</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </label>
+              <label className="lobby-public-filter-item">
+                <span>Round Time</span>
+                <select
+                  className="lobby-public-filter-select"
+                  value={publicRoundTimeFilter}
+                  onChange={(e) => setPublicRoundTimeFilter(e.target.value as PublicRoundTimeFilter)}
+                >
+                  <option value="any">Any</option>
+                  <option value="10">10s</option>
+                  <option value="20">20s</option>
+                  <option value="30">30s</option>
+                  <option value="0">No Limit</option>
+                </select>
+              </label>
+            </div>
+            <PublicGameList
+              lobbies={filteredPublicLobbies}
+              selectedDifficulty={difficulty}
+              onJoin={handleJoinPublic}
+              isJoining={isJoining}
+            />
           </div>
-          <PublicGameList
-            lobbies={filteredPublicLobbies}
-            selectedDifficulty={difficulty}
-            onJoin={handleJoinPublic}
-            isJoining={isJoining}
-          />
         </div>
       </div>
-      </div>
-    </div>
     </div>
   );
 }
