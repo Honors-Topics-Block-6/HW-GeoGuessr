@@ -2,8 +2,8 @@
  * Compresses an image file using pica (Lanczos3 resampling) and returns a
  * Base64 data URL encoded as WebP.
  *
- * Pica's Lanczos3 filter produces clean downscales without the aliasing
- * artifacts that canvas bilinear/bicubic interpolation can introduce.
+ * HEIC/HEIF files are automatically converted to JPEG first via heic-to.
+ * Iteratively lowers quality until the Base64 output fits within maxBytes.
  *
  * @param file - The image file to compress
  * @param options - Compression options
@@ -11,22 +11,103 @@
  */
 
 import Pica from 'pica'
+import { heicTo } from 'heic-to'
 
 const pica = new Pica()
 
+const HEIC_TYPES = ['image/heic', 'image/heif']
+const HEIC_EXTENSIONS = ['.heic', '.heif']
+
+export function isHeicFile(file: File): boolean {
+  if (HEIC_TYPES.includes(file.type.toLowerCase())) return true
+  const name = file.name.toLowerCase()
+  return HEIC_EXTENSIONS.some(ext => name.endsWith(ext))
+}
+
+/**
+ * Converts a HEIC/HEIF file to a JPEG File.
+ * Tries native browser decoding first (Safari), then falls back to heic-to
+ * (which bundles libheif 1.21.2 and supports modern iPhone HEIC files).
+ */
+async function convertHeicToJpeg(file: File): Promise<File> {
+  const jpegName = file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg')
+
+  // Safari can decode HEIC natively — draw to canvas and export as JPEG
+  try {
+    const bitmap = await createImageBitmap(file)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(bitmap, 0, 0)
+    bitmap.close()
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))),
+        'image/jpeg',
+        0.92
+      )
+    })
+    return new File([blob], jpegName, { type: 'image/jpeg' })
+  } catch {
+    // Native decoding unavailable — fall back to heic-to
+  }
+
+  const jpegBlob = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 })
+  return new File([jpegBlob], jpegName, { type: 'image/jpeg' })
+}
+
+/**
+ * If the file is HEIC/HEIF, converts it to JPEG so the browser can display
+ * and process it. Non-HEIC files are returned as-is.
+ *
+ * Call this at file-selection time so previews work in all browsers.
+ */
+export async function normalizeImageFile(file: File): Promise<File> {
+  if (!isHeicFile(file)) return file
+  console.log('[normalizeImageFile] HEIC detected — converting to JPEG…')
+  const converted = await convertHeicToJpeg(file)
+  console.log(`[normalizeImageFile] Converted: ${(converted.size / 1024).toFixed(1)}KB`)
+  return converted
+}
+
 export interface CompressImageOptions {
-  /** Max width in pixels (default 1600) */
+  /** Max width in pixels (default 600) */
   maxWidth?: number;
-  /** Max height in pixels (default 1600) */
+  /** Max height in pixels (default 600) */
   maxHeight?: number;
-  /** WebP quality 0-1 (default 0.82) */
+  /** Starting WebP quality 0-1 (default 0.55) */
   quality?: number;
+  /** Max size in bytes for the final Base64 data URL (default 50 000) */
+  maxBytes?: number;
+}
+
+function blobToDataURL(blob: Blob): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('Failed to convert compressed image to data URL'))
+    reader.readAsDataURL(blob)
+  })
 }
 
 export async function compressImage(
   file: File,
-  { maxWidth = 1600, maxHeight = 1600, quality = 0.82 }: CompressImageOptions = {}
+  {
+    maxWidth = 600,
+    maxHeight = 600,
+    quality = 0.55,
+    maxBytes = 50_000,
+  }: CompressImageOptions = {}
 ): Promise<string> {
+  if (isHeicFile(file)) {
+    file = await convertHeicToJpeg(file)
+  }
+
+  const rawSizeKB = (file.size / 1024).toFixed(1)
+  console.log(`[compressImage] Raw file: ${file.name} — ${rawSizeKB}KB (${file.type})`)
+
   const imageBitmap = await createImageBitmap(file)
 
   let targetW = imageBitmap.width
@@ -51,12 +132,24 @@ export async function compressImage(
 
   await pica.resize(srcCanvas, destCanvas)
 
-  const blob = await pica.toBlob(destCanvas, 'image/webp', quality)
+  const MIN_QUALITY = 0.2
+  const QUALITY_STEP = 0.05
+  let currentQuality = quality
 
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('Failed to convert compressed image to data URL'))
-    reader.readAsDataURL(blob)
-  })
+  let dataUrl = await blobToDataURL(
+    await pica.toBlob(destCanvas, 'image/webp', currentQuality)
+  )
+
+  while (dataUrl.length > maxBytes && currentQuality > MIN_QUALITY) {
+    currentQuality = Math.max(currentQuality - QUALITY_STEP, MIN_QUALITY)
+    dataUrl = await blobToDataURL(
+      await pica.toBlob(destCanvas, 'image/webp', currentQuality)
+    )
+  }
+
+  const compressedSizeKB = (dataUrl.length / 1024).toFixed(1)
+  console.log(`[compressImage] Compressed: ${compressedSizeKB}KB (quality: ${currentQuality.toFixed(2)}, ${targetW}x${targetH})`)
+  console.log(`[compressImage] Base64 data URL:\n${dataUrl}`)
+
+  return dataUrl
 }
