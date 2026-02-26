@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
+import { getUserByUid } from '../../services/friendService';
 import { subscribeToAllPresence, type PresenceMap, type PresenceData } from '../../services/presenceService';
 import { searchUsersByUsername, type UserLookup } from '../../services/friendService';
 import './FriendsPanel.css';
@@ -13,6 +14,7 @@ interface Friend {
   pairId: string;
   friendUid: string;
   friendUsername: string;
+  favoriteEmote?: string;
 }
 
 interface IncomingRequest {
@@ -63,6 +65,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
   const [tab, setTab] = useState<FriendsTab>('friends');
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [copiedUid, setCopiedUid] = useState<boolean>(false);
+  const [friendEmotes, setFriendEmotes] = useState<Record<string, string>>({});
 
   // Subscribe to presence for online status
   useEffect(() => {
@@ -71,6 +74,33 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadFavoriteEmotes = async (): Promise<void> => {
+      const friendList = friends as Friend[];
+      if (friendList.length === 0) {
+        if (!cancelled) setFriendEmotes({});
+        return;
+      }
+      const entries = await Promise.all(friendList.map(async (friend) => {
+        try {
+          const lookup = await getUserByUid(friend.friendUid);
+          return [friend.friendUid, lookup?.favoriteEmote || '😎'] as const;
+        } catch {
+          return [friend.friendUid, '😎'] as const;
+        }
+      }));
+      if (!cancelled) {
+        setFriendEmotes(Object.fromEntries(entries));
+      }
+    };
+
+    void loadFavoriteEmotes();
+    return () => {
+      cancelled = true;
+    };
+  }, [friends]);
 
   const isUserOnline = (uid: string): boolean => {
     const presence = presenceMap[uid];
@@ -259,6 +289,9 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                       <div className="friend-info">
                         <span className={`friend-online-dot ${online ? 'online' : 'offline'}`}></span>
                         <span className="friend-username">{friend.friendUsername}</span>
+                        <span className="friend-favorite-emote" role="img" aria-label={`${friend.friendUsername} favorite emote`}>
+                          {friendEmotes[friend.friendUid] || '😎'}
+                        </span>
                         {online && (
                           <span className="friend-status-text">Online</span>
                         )}

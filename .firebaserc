@@ -1,5 +1,17 @@
 {
   "projects": {
     "default": "geogessr-a4adc"
+  },
+  "targets": {
+    "geogessr-a4adc": {
+      "hosting": {
+        "old-site": [
+          "geogessr-a4adc"
+        ],
+        "new-site": [
+          "hwgeoguessr"
+        ]
+      }
+    }
   }
 }

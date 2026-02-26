@@ -8,6 +8,8 @@ import GuessButton from '../GuessButton/GuessButton';
 import { STARTING_HEALTH } from '../../services/duelService';
 import './DuelGameScreen.css';
 
+const QUICK_EMOTES = ['🔥', '😅', '😎', '🤯', '👏'];
+
 interface MapPosition {
   x: number;
   y: number;
@@ -25,7 +27,7 @@ export interface DuelGameScreenProps {
   currentRound: number;
   clickRejected?: boolean;
   playingArea?: PlayingArea | null;
-  timeRemaining: number;
+  timeRemaining?: number;
   timeLimitSeconds?: number;
   hasSubmitted?: boolean;
   opponentHasSubmitted?: boolean;
@@ -33,6 +35,9 @@ export interface DuelGameScreenProps {
   myHealth: number;
   opponentHealth: number;
   myUsername?: string;
+  myActiveEmote?: string | null;
+  opponentActiveEmote?: string | null;
+  onSendEmote?: (emoji: string) => Promise<void>;
 }
 
 function DuelGameScreen({
@@ -54,7 +59,10 @@ function DuelGameScreen({
   opponentUsername = 'Opponent',
   myHealth,
   opponentHealth,
-  myUsername = 'You'
+  myUsername = 'You',
+  myActiveEmote = null,
+  opponentActiveEmote = null,
+  onSendEmote
 }: DuelGameScreenProps): React.ReactElement {
   const mapPickerRef = useRef<MapPickerHandle>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -99,7 +107,14 @@ function DuelGameScreen({
       {/* Health Bars at Top */}
       <div className="duel-health-bar-container">
         <div className="duel-health-player duel-health-left">
-          <span className="duel-health-name">{myUsername} (You)</span>
+          <span className="duel-health-name">
+            {myUsername} (You)
+            {myActiveEmote && (
+              <span className="duel-active-emote duel-active-emote-self" aria-label="Your emote">
+                {myActiveEmote}
+              </span>
+            )}
+          </span>
           <div className="duel-health-bar">
             <div
               className={`duel-health-fill duel-health-fill-green ${myHealthPct <= 25 ? 'critical' : ''}`}
@@ -115,7 +130,14 @@ function DuelGameScreen({
         </div>
 
         <div className="duel-health-player duel-health-right">
-          <span className="duel-health-name">{opponentUsername}</span>
+          <span className="duel-health-name">
+            {opponentUsername}
+            {opponentActiveEmote && (
+              <span className="duel-active-emote duel-active-emote-opponent" aria-label={`${opponentUsername} emote`}>
+                {opponentActiveEmote}
+              </span>
+            )}
+          </span>
           <div className="duel-health-bar">
             <div
               className={`duel-health-fill duel-health-fill-red ${opponentHealthPct <= 25 ? 'critical' : ''}`}
@@ -179,6 +201,23 @@ function DuelGameScreen({
                   }}
                 />
               </div>
+            </div>
+          )}
+
+          {onSendEmote && (
+            <div className="duel-emote-bar" aria-label="Quick emotes">
+              {QUICK_EMOTES.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  className="duel-emote-button"
+                  onClick={() => { void onSendEmote(emoji); }}
+                  aria-label={`Send emote ${emoji}`}
+                  title={`Send ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
             </div>
           )}
 
