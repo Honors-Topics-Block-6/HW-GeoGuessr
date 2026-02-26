@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
+import { getUserByUid } from '../../services/friendService';
 import { subscribeToAllPresence, type PresenceMap, type PresenceData } from '../../services/presenceService';
 import './FriendsPanel.css';
 
@@ -12,6 +13,7 @@ interface Friend {
   pairId: string;
   friendUid: string;
   friendUsername: string;
+  favoriteEmote?: string;
 }
 
 interface IncomingRequest {
@@ -42,6 +44,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
     sendRequest,
     acceptRequest,
     declineRequest,
+    cancelRequest,
     removeFriend,
     loading,
     error: friendsError
@@ -55,6 +58,8 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
   const [presenceMap, setPresenceMap] = useState<PresenceMap>({});
   const [tab, setTab] = useState<FriendsTab>('friends');
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [copiedUid, setCopiedUid] = useState<boolean>(false);
+  const [friendEmotes, setFriendEmotes] = useState<Record<string, string>>({});
 
   // Subscribe to presence for online status
   useEffect(() => {
@@ -63,6 +68,33 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadFavoriteEmotes = async (): Promise<void> => {
+      const friendList = friends as Friend[];
+      if (friendList.length === 0) {
+        if (!cancelled) setFriendEmotes({});
+        return;
+      }
+      const entries = await Promise.all(friendList.map(async (friend) => {
+        try {
+          const lookup = await getUserByUid(friend.friendUid);
+          return [friend.friendUid, lookup?.favoriteEmote || '😎'] as const;
+        } catch {
+          return [friend.friendUid, '😎'] as const;
+        }
+      }));
+      if (!cancelled) {
+        setFriendEmotes(Object.fromEntries(entries));
+      }
+    };
+
+    void loadFavoriteEmotes();
+    return () => {
+      cancelled = true;
+    };
+  }, [friends]);
 
   const isUserOnline = (uid: string): boolean => {
     const presence = presenceMap[uid];
@@ -82,7 +114,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
 
     const trimmed = addUid.trim();
     if (!trimmed) {
-      setAddError('Please enter a user ID.');
+      setAddError('Please enter a User ID, username, or email.');
       return;
     }
 
@@ -117,6 +149,17 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
       await declineRequest(requestId);
     } catch (err) {
       console.error('Decline failed:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancel = async (requestId: string): Promise<void> => {
+    setActionLoading(requestId);
+    try {
+      await cancelRequest(requestId);
+    } catch (err) {
+      console.error('Cancel failed:', err);
     } finally {
       setActionLoading(null);
     }
@@ -182,7 +225,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
               <div className="friends-empty">
                 <span className="friends-empty-icon">👥</span>
                 <p>No friends yet</p>
-                <p className="friends-empty-hint">Add friends by their user ID!</p>
+                <p className="friends-empty-hint">Add friends by their User ID, username, or email!</p>
               </div>
             ) : (
               <div className="friends-list">
@@ -193,6 +236,9 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                       <div className="friend-info">
                         <span className={`friend-online-dot ${online ? 'online' : 'offline'}`}></span>
                         <span className="friend-username">{friend.friendUsername}</span>
+                        <span className="friend-favorite-emote" role="img" aria-label={`${friend.friendUsername} favorite emote`}>
+                          {friendEmotes[friend.friendUid] || '😎'}
+                        </span>
                         {online && (
                           <span className="friend-status-text">Online</span>
                         )}
@@ -288,7 +334,13 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                         <span className="request-username">{req.toUsername}</span>
                         <span className="request-uid">{req.toUid}</span>
                       </div>
-                      <span className="request-pending-badge">Pending</span>
+                      <button
+                        className="request-cancel"
+                        onClick={() => handleCancel(req.id)}
+                        disabled={actionLoading === req.id}
+                      >
+                        {actionLoading === req.id ? '...' : 'Cancel'}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -301,7 +353,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
         {tab === 'add' && (
           <div className="friends-add-section">
             <div className="add-friend-info">
-              <p>Add a friend by entering their User ID.</p>
+              <p>Add a friend by entering their User ID, username, or email address.</p>
               <div className="your-uid-box">
                 <span className="your-uid-label">Your User ID:</span>
                 <code className="your-uid-value">{user?.uid}</code>
@@ -309,9 +361,11 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                   className="copy-uid-button"
                   onClick={() => {
                     navigator.clipboard.writeText(user?.uid || '');
+                    setCopiedUid(true);
+                    setTimeout(() => setCopiedUid(false), 2000);
                   }}
                 >
-                  Copy
+                  {copiedUid ? '✓' : 'Copy'}
                 </button>
               </div>
             </div>
@@ -323,7 +377,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
               <input
                 type="text"
                 className="add-friend-input"
-                placeholder="Enter friend's User ID..."
+                placeholder="Enter User ID, username, or email..."
                 value={addUid}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => {
                   setAddUid(e.target.value);

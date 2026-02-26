@@ -10,8 +10,9 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { createUserDoc, getUserDoc, updateUserDoc, isUsernameTaken, isHardcodedAdmin, getAllPermissions, getNoPermissions, ADMIN_PERMISSIONS } from '../services/userService';
+import { createUserDoc, getUserDoc, updateUserDoc, updateUserProfile, isUsernameTaken, isHardcodedAdmin, getAllPermissions, getNoPermissions, ADMIN_PERMISSIONS, normalizeFavoriteEmote } from '../services/userService';
 import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
+import { compressImage } from '../utils/compressImage';
 
 /**
  * Shape of the admin permissions object.
@@ -29,6 +30,8 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
+  favoriteEmote?: string;
+  photoURL?: string;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
@@ -36,6 +39,33 @@ export interface UserDoc {
   createdAt: unknown; // Firestore Timestamp or serverTimestamp sentinel
   permissions?: AdminPermissions;
   lastGameAt?: unknown;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
+}
+
+export interface BuildingStat {
+  building: string;
+  floor: number | null;
+  totalScore: number;
+  count: number;
+}
+
+export interface DailyStatBucket {
+  gamesPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
+  photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
 }
 
 /**
@@ -70,6 +100,8 @@ export interface AuthContextType {
   completeGoogleSignUp: (username: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
+  updateFavoriteEmote: (favoriteEmote: string) => Promise<void>;
+  updateProfileImage: (file: File) => Promise<string>;
   refreshUserDoc: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
 }
@@ -272,14 +304,36 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
    */
   const updateUsername = useCallback(async (newUsername: string): Promise<void> => {
     if (!user) throw new Error('No authenticated user');
+    // Enforce server-side rules (uniqueness + 30-day cooldown)
+    await updateUserProfile(user.uid, { username: newUsername });
+    // Refresh local userDoc to pick up serverTimestamp fields like lastUsernameChange
+    const doc = await getUserDoc(user.uid) as UserDoc | null;
+    if (doc) setUserDoc(doc);
+  }, [user]);
 
-    const taken = await isUsernameTaken(newUsername, user.uid);
-    if (taken) {
-      throw new Error('Username is already taken. Please choose another.');
-    }
+  /**
+   * Update favorite emote for the current user.
+   */
+  const updateFavoriteEmote = useCallback(async (favoriteEmote: string): Promise<void> => {
+    if (!user) throw new Error('No authenticated user');
+    const normalized = normalizeFavoriteEmote(favoriteEmote);
+    await updateUserDoc(user.uid, { favoriteEmote: normalized });
+    setUserDoc(prev => (prev ? { ...prev, favoriteEmote: normalized } : prev));
+  }, [user]);
 
-    await updateUserDoc(user.uid, { username: newUsername });
-    setUserDoc(prev => prev ? { ...prev, username: newUsername } : prev);
+  /**
+   * Upload and persist a profile photo URL for the current user.
+   */
+  const updateProfileImage = useCallback(async (file: File): Promise<string> => {
+    if (!user) throw new Error('No authenticated user');
+
+    // Mirror submission upload flow: compress and store Base64 data URL in Firestore.
+    const photoURL = await compressImage(file);
+
+    await updateUserDoc(user.uid, { photoURL });
+    setUserDoc(prev => (prev ? { ...prev, photoURL } : prev));
+
+    return photoURL;
   }, [user]);
 
   /**
@@ -334,6 +388,8 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     completeGoogleSignUp,
     logout,
     updateUsername,
+    updateFavoriteEmote,
+    updateProfileImage,
     refreshUserDoc,
     sendVerificationEmail: sendVerificationEmailToUser
   };

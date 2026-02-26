@@ -99,6 +99,94 @@
   font-style: italic;
 }
 
+/* ===== Polygon → Building Name Mapping ===== */
+.polygon-name-mapping {
+  margin-top: 10px;
+  padding: 10px 8px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.polygon-name-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.polygon-name-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.polygon-name-subtitle {
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+.polygon-name-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.polygon-name-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.polygon-name-label {
+  font-size: 0.75rem;
+  color: #cbd5f5;
+  min-width: 78px;
+}
+
+.polygon-name-select {
+  flex: 1;
+  min-height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+}
+
+.polygon-name-select:focus {
+  outline: none;
+  border-color: rgba(129, 140, 248, 0.9);
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.4);
+}
+
+.polygon-name-save-button {
+  align-self: flex-end;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(129, 140, 248, 0.9);
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.9), rgba(59, 130, 246, 0.9));
+  color: #f9fafb;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.polygon-name-save-button:hover:not(:disabled) {
+  box-shadow: 0 0 12px rgba(129, 140, 248, 0.5);
+  transform: translateY(-0.5px);
+}
+
+.polygon-name-save-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+
 /* ===== Status Indicators ===== */
 .location-status {
   display: flex;
@@ -137,6 +225,89 @@
 /* ===== Difficulty Selector ===== */
 .difficulty-selector {
   padding: 0 4px;
+}
+
+/* ===== Building Selector ===== */
+.building-selector {
+  padding: 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.building-selector-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #c4c9d6;
+}
+
+.building-selector-hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.building-selector-button {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #e0e6f0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+}
+
+.building-selector-button:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.building-selector-button:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.7);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+}
+
+.building-selector-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.55);
+  z-index: 10;
+}
+
+.building-selector-option {
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: #e0e6f0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.building-selector-option:hover {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.building-selector-option.selected {
+  background: rgba(139, 92, 246, 0.25);
+  color: #f5f3ff;
 }
 
 .difficulty-selector-header {

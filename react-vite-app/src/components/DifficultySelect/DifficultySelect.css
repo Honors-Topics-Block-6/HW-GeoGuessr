@@ -1,11 +1,11 @@
 .difficulty-screen {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .difficulty-background {
@@ -195,9 +195,107 @@
   font-weight: 700;
 }
 
+/* Time Selection */
+.time-heading {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 2.5rem;
+  margin-bottom: 0.3rem;
+  text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
+}
+
+.time-subheading {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.2rem;
+}
+
+.time-options {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.time-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 1rem 1.2rem;
+  min-width: 90px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  color: var(--text-primary);
+}
+
+.time-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.time-card.selected {
+  border-color: var(--accent-green);
+  background: rgba(108, 181, 45, 0.12);
+  box-shadow: 0 0 16px rgba(108, 181, 45, 0.2);
+}
+
+.time-card-icon {
+  font-size: 1.4rem;
+}
+
+.time-card-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.time-custom-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.time-custom-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.time-custom-input {
+  width: 120px;
+  padding: 0.6rem 1rem;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.time-custom-input:focus {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 12px rgba(108, 181, 45, 0.25);
+}
+
+.time-custom-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
 /* Play Button */
 .play-button {
-  margin-top: 2.5rem;
+  margin-top: 0;
   background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
   color: var(--text-primary);
   font-size: 1.3rem;
@@ -213,6 +311,23 @@
   justify-content: center;
   gap: 0.5rem;
   min-width: 200px;
+}
+
+.difficulty-footer {
+  position: sticky;
+  bottom: 0;
+  width: 100%;
+  margin-top: 1.75rem;
+  padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  background: linear-gradient(
+    0deg,
+    rgba(12, 12, 15, 0.92) 0%,
+    rgba(12, 12, 15, 0.55) 55%,
+    rgba(12, 12, 15, 0) 100%
+  );
+  backdrop-filter: blur(10px);
 }
 
 .play-button:hover:not(:disabled) {
@@ -232,20 +347,76 @@
 /* Responsive */
 @media (max-width: 768px) {
   .difficulty-heading,
-  .mode-heading {
+  .mode-heading,
+  .time-heading {
     font-size: 1.7rem;
+  }
+
+  .difficulty-screen {
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+
+  .difficulty-content {
+    padding: 1rem 1rem 1.5rem;
+  }
+
+  .difficulty-subheading {
+    margin-bottom: 1.2rem;
+  }
+
+  .mode-heading {
+    margin-top: 1.6rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .time-heading {
+    margin-top: 1.6rem;
+  }
+
+  .time-subheading {
+    margin-bottom: 0.9rem;
   }
 
   .difficulty-options,
   .mode-options {
-    flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    max-width: 560px;
+  }
+
+  .time-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+    max-width: 560px;
   }
 
   .difficulty-card,
-  .mode-card {
-    max-width: 280px;
+  .mode-card,
+  .time-card {
+    max-width: none;
     width: 100%;
+    padding: 0.9rem 0.75rem;
+  }
+
+  .difficulty-card-icon,
+  .mode-card-icon {
+    font-size: 1.6rem;
+  }
+
+  .difficulty-card-label,
+  .mode-card-label {
+    font-size: 1rem;
+  }
+
+  .difficulty-card-desc {
+    display: none;
+  }
+
+  .time-card {
+    min-width: 0;
   }
 
   .play-button {
@@ -255,17 +426,37 @@
 
   .difficulty-back-button {
     position: static;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.9rem;
   }
 }
 
 @media (max-width: 480px) {
   .difficulty-heading,
-  .mode-heading {
+  .mode-heading,
+  .time-heading {
     font-size: 1.4rem;
   }
 
   .difficulty-content {
-    padding: 1.5rem 1rem;
+    padding: 0.9rem 0.9rem 1.25rem;
+  }
+
+  .time-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .difficulty-card,
+  .mode-card,
+  .time-card {
+    padding: 0.75rem 0.6rem;
+    border-radius: 12px;
+  }
+
+  .time-card-label {
+    font-size: 0.9rem;
+  }
+
+  .difficulty-footer {
+    margin-top: 1.25rem;
   }
 }
