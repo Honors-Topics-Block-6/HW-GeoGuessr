@@ -127,7 +127,6 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
       setRegions(fetchedRegions)
       setPlayingArea(fetchedPlayingArea)
       setCustomBuildingPolygons(fetchedPolygons)
-      setPolygonNameEdits(fetchedPolygons.map(p => p.name ?? ''))
     }
     loadData()
   }, [])
@@ -253,7 +252,6 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
     setDifficulty(null)
     setAvailableFloors(null)
     setBuilding(null)
-    setPolygonNameEdits(customBuildingPolygons.map(p => p.name ?? ''))
     // Don't reset submitSuccess here - it should persist to show the success message
     setSubmitError('')
   }

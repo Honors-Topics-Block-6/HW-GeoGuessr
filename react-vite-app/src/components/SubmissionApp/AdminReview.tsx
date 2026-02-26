@@ -82,8 +82,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         const data = docSnap.data() as SubmissionItem & { building?: string | null };
         const normalizedBuilding = (data.building || data.buildingName || '').trim() || null;
         return {
-          id: docSnap.id,
           ...data,
+          id: docSnap.id,
           buildingName: normalizedBuilding,
           _source: 'submission' as SubmissionSource
         } as SubmissionItem;
