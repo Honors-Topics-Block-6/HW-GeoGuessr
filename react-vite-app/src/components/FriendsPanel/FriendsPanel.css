@@ -243,6 +243,11 @@
   text-overflow: ellipsis;
 }
 
+.friend-favorite-emote {
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .friend-status-text {
   font-size: 0.75rem;
   color: #34d399;
