@@ -6,7 +6,6 @@ import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
 import { useFriends } from './hooks/useFriends';
 import { useChatNotifications } from './hooks/useChatNotifications';
-import { STARTING_HEALTH } from './services/duelService';
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
 import { joinLobby } from './services/lobbyService';

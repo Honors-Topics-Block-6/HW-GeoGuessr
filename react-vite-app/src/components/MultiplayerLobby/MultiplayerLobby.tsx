@@ -301,7 +301,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
       </div>
       </div>
     </div>
-    </div>
   );
 }
 

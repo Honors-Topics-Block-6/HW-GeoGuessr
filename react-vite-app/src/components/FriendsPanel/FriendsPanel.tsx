@@ -426,14 +426,12 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
             {addError && <div className="add-friend-error">{addError}</div>}
             {addSuccess && <div className="add-friend-success">{addSuccess}</div>}
 
-            <form onSubmit={handleAddFriend} className="add-friend-form">
-              <input
-                type="text"
-                className="add-friend-input"
-                placeholder="Enter User ID, username, or email..."
-                value={addUid}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  setAddUid(e.target.value);
+            <div className="add-friend-mode-buttons">
+              <button
+                type="button"
+                className={`add-friend-mode-button ${addMode === 'uid' ? 'active' : ''}`}
+                onClick={() => {
+                  setAddMode('uid');
                   setAddError(null);
                   setAddSuccess(null);
                   setSearchResults([]);
