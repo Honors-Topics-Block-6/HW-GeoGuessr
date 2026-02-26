@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ResultScreen from './ResultScreen';
 
@@ -263,6 +263,59 @@ describe('ResultScreen', () => {
 
       expect(onViewFinalResults).toHaveBeenCalledTimes(1);
     });
+
+    it('should not render Leave Game button when onBackToTitle not provided', () => {
+      render(<ResultScreen {...defaultProps} />);
+
+      expect(screen.queryByText('Leave Game')).not.toBeInTheDocument();
+    });
+
+    it('should render Leave Game button when onBackToTitle provided', () => {
+      render(<ResultScreen {...defaultProps} onBackToTitle={vi.fn()} />);
+
+      expect(screen.getByText('Leave Game')).toBeInTheDocument();
+    });
+
+    it('should open confirmation modal when Leave Game clicked', async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+      const onBackToTitle = vi.fn();
+
+      render(<ResultScreen {...defaultProps} onBackToTitle={onBackToTitle} />);
+
+      await user.click(screen.getByText('Leave Game'));
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Leave Game?')).toBeInTheDocument();
+      expect(onBackToTitle).not.toHaveBeenCalled();
+    });
+
+    it('should call onBackToTitle when Leave Game confirmed in modal', async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+      const onBackToTitle = vi.fn();
+
+      render(<ResultScreen {...defaultProps} onBackToTitle={onBackToTitle} />);
+
+      await user.click(screen.getByText('Leave Game'));
+      const dialog = screen.getByRole('dialog');
+      await user.click(within(dialog).getByText('Leave Game'));
+
+      expect(onBackToTitle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not call onBackToTitle when Cancel clicked in modal', async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+      const onBackToTitle = vi.fn();
+
+      render(<ResultScreen {...defaultProps} onBackToTitle={onBackToTitle} />);
+
+      await user.click(screen.getByText('Leave Game'));
+      await user.click(screen.getByText('Cancel'));
+
+      expect(onBackToTitle).not.toHaveBeenCalled();
+    });
   });
 
   describe('distance display', () => {
@@ -433,11 +486,11 @@ describe('ResultScreen', () => {
     it('should observe the details panel with ResizeObserver', () => {
       const { container } = render(<ResultScreen {...defaultProps} />);
 
-      const detailsPanel = container.querySelector('.result-details');
+      const detailsPanel = container.querySelector('.result-details') as HTMLElement;
       const observers = (global as Record<string, unknown>)._resizeObserverInstances as Array<{ observe: ReturnType<typeof vi.fn> }>;
-      const observingDetails = observers.some((obs) => obs.observe.mock.calls.some(([arg]) => arg === detailsPanel));
+      const detailsObserver = observers.find((obs) => obs.observe.mock.calls.some(([arg]) => arg === detailsPanel));
 
-      expect(observingDetails).toBe(true);
+      expect(detailsObserver).toBeDefined();
     });
 
     it('should update map height when details panel resizes', () => {

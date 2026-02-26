@@ -420,11 +420,10 @@ describe('useGameState', () => {
       expect(result.current.currentResult!.score).toBe(4000); // 5000 * 0.8
     });
 
-<<<<<<< HEAD
     it('should apply floor penalty when floor matches but building is wrong', async () => {
       const imageInDifferentBuilding: GameImage = {
         ...mockImage,
-        correctLocation: { x: 75, y: 50 }, // Building B
+        correctLocation: { x: 55, y: 50 }, // Building B (avoid zero score)
         correctFloor: 2
       };
       mockedGetRandomImage.mockResolvedValue(imageInDifferentBuilding);
@@ -435,9 +434,6 @@ describe('useGameState', () => {
         return { id: 'building-b', polygon: [], floors: [1, 2, 3] };
       });
 
-=======
-    it('should not award exact spot bonus when guess is not very close', async () => {
->>>>>>> origin/ExactSpotBonus
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
@@ -445,33 +441,45 @@ describe('useGameState', () => {
       });
 
       act(() => {
-<<<<<<< HEAD
-        result.current.placeMarker({ x: 25, y: 50 }); // Building A
+        result.current.placeMarker({ x: 45, y: 50 }); // Building A
       });
 
       act(() => {
         result.current.selectFloor(2); // Correct floor number, wrong building
-=======
-        result.current.placeMarker({ x: 53, y: 50 }); // distance 3 (> exact-spot threshold)
-      });
-
-      act(() => {
-        result.current.selectFloor(2); // Correct floor
->>>>>>> origin/ExactSpotBonus
       });
 
       act(() => {
         result.current.submitGuess();
       });
 
-<<<<<<< HEAD
       expect(result.current.currentResult!.floorCorrect).toBe(false);
-      expect(result.current.currentResult!.score).toBeLessThan(result.current.currentResult!.locationScore);
-=======
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
+      expect(result.current.currentResult!.score).toBe(Math.round(result.current.currentResult!.locationScore * 0.8));
+    });
+
+    it('should not award exact spot bonus when guess is not very close', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 52, y: 50 }); // distance 2 (> exact-spot threshold)
+      });
+
+      act(() => {
+        result.current.selectFloor(2); // Correct floor
+      });
+
+      act(() => {
+        result.current.submitGuess();
+      });
+
       expect(result.current.currentResult!.floorCorrect).toBe(true);
       expect(result.current.currentResult!.exactSpotBonus).toBe(0);
-      expect(result.current.currentResult!.score).toBe(5000);
->>>>>>> origin/ExactSpotBonus
+      expect(result.current.currentResult!.score).toBe(result.current.currentResult!.locationScore);
+      expect(result.current.currentResult!.score).toBeLessThan(5000);
     });
 
     it('should store result in roundResults', async () => {

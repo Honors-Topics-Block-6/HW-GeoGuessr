@@ -9,6 +9,8 @@ import {
   sendHeartbeat,
   removeStalePlayersFromLobby,
   setPlayerReady,
+  updateLobbyRoundTime,
+  updateLobbyDifficulty,
   type LobbyDoc
 } from '../services/lobbyService';
 
@@ -40,7 +42,7 @@ export interface UseLobbyReturn {
   isCreating: boolean;
   isJoining: boolean;
   error: string | null;
-  hostGame: (visibility: 'public' | 'private') => Promise<HostGameResult | null>;
+  hostGame: (visibility: 'public' | 'private', roundTimeSeconds?: number) => Promise<HostGameResult | null>;
   joinByCode: (gameId: string) => Promise<JoinByCodeResult | null>;
   joinPublicGame: (docId: string) => Promise<boolean>;
   clearError: () => void;
@@ -52,6 +54,8 @@ export interface UseWaitingRoomReturn {
   error: string | null;
   leave: () => Promise<void>;
   toggleReady: (ready: boolean) => Promise<void>;
+  updateRoundTime: (roundTimeSeconds: number) => Promise<void>;
+  updateDifficulty: (difficulty: string) => Promise<void>;
 }
 
 /**
@@ -79,11 +83,11 @@ export function useLobby(
   /**
    * Host a new game.
    */
-  const hostGame = useCallback(async (visibility: 'public' | 'private'): Promise<HostGameResult | null> => {
+  const hostGame = useCallback(async (visibility: 'public' | 'private', roundTimeSeconds?: number): Promise<HostGameResult | null> => {
     setIsCreating(true);
     setError(null);
     try {
-      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility);
+      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, roundTimeSeconds);
       return result;
     } catch (err) {
       console.error('Failed to create lobby:', err);
@@ -261,11 +265,39 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     }
   }, [lobbyDocId, userUid]);
 
+  /**
+   * Update the round time setting on the lobby.
+   * Should only be called by the host.
+   */
+  const updateRoundTime = useCallback(async (roundTimeSeconds: number): Promise<void> => {
+    if (!lobbyDocId) return;
+    try {
+      await updateLobbyRoundTime(lobbyDocId, roundTimeSeconds);
+    } catch (err) {
+      console.error('Failed to update round time:', err);
+    }
+  }, [lobbyDocId]);
+
+  /**
+   * Update the difficulty setting on the lobby.
+   * Should only be called by the host.
+   */
+  const updateDifficulty = useCallback(async (difficulty: string): Promise<void> => {
+    if (!lobbyDocId) return;
+    try {
+      await updateLobbyDifficulty(lobbyDocId, difficulty);
+    } catch (err) {
+      console.error('Failed to update difficulty:', err);
+    }
+  }, [lobbyDocId]);
+
   return {
     lobby,
     isLoading,
     error,
     leave,
-    toggleReady
+    toggleReady,
+    updateRoundTime,
+    updateDifficulty
   };
 }

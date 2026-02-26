@@ -3,6 +3,14 @@
 .env.local
 .env.*.local
 
+# Firebase service-account keys (NEVER commit these)
+**/service-account-key.json
+**/serviceAccountKey.json
+
+# Firestore backup snapshots (large data files)
+backup/snapshots/
+backup/node_modules/
+
 # Dependencies
 node_modules
 
