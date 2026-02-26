@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './RegionPanel.css'
-import type { Region, PolygonPoint, PlayingArea, DrawModeType } from './PolygonDrawer'
+import type { Region, PolygonPoint, PlayingArea, DrawModeType, BuildingPolygonItem } from './PolygonDrawer'
 
 // Floor range for toggle buttons
 const FLOOR_OPTIONS: number[] = [1, 2, 3]
@@ -15,7 +15,8 @@ const COLOR_PRESETS: string[] = [
 const DRAW_MODE = {
   NONE: 'none',
   REGION: 'region',
-  PLAYING_AREA: 'playing_area'
+  PLAYING_AREA: 'playing_area',
+  BUILDING: 'building'
 } as const
 
 export interface RegionUpdateData {
@@ -38,6 +39,9 @@ export interface RegionPanelProps {
   playingArea: PlayingArea | null
   onStartDrawingPlayingArea: () => void
   onDeletePlayingArea: () => void
+  buildingPolygons?: BuildingPolygonItem[]
+  onStartDrawingBuildingPolygon?: () => void
+  onDeleteBuildingPolygon?: (index: number) => void
 }
 
 function RegionPanel({
@@ -53,7 +57,10 @@ function RegionPanel({
   newPolygonPoints,
   playingArea,
   onStartDrawingPlayingArea,
-  onDeletePlayingArea
+  onDeletePlayingArea,
+  buildingPolygons = [],
+  onStartDrawingBuildingPolygon,
+  onDeleteBuildingPolygon
 }: RegionPanelProps): React.JSX.Element {
   const [editName, setEditName] = useState<string>('')
   const [editFloors, setEditFloors] = useState<number[]>([])
@@ -177,6 +184,50 @@ function RegionPanel({
               + Draw Playing Area
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Building polygons section */}
+      <div className="building-polygons-section">
+        <h3>Building polygons</h3>
+        <p className="building-polygons-hint">Used for auto-filling building/location when submitting photos. Draw one polygon per building or area.</p>
+        {isDrawing && drawMode === DRAW_MODE.BUILDING ? (
+          <div className="drawing-active">
+            <div className="drawing-status building">
+              <span className="drawing-indicator"></span>
+              Drawing: {newPolygonPoints.length} points — click first point to close
+            </div>
+            <button className="cancel-drawing-button" onClick={onCancelDrawing}>
+              Cancel (Esc)
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              className="new-region-button"
+              onClick={onStartDrawingBuildingPolygon}
+              disabled={isDrawing}
+            >
+              + Create building polygon
+            </button>
+            {buildingPolygons.length > 0 && (
+              <ul className="building-polygon-list">
+                {buildingPolygons.map((b, idx) => (
+                  <li key={`${b.name}-${idx}`} className="building-polygon-item">
+                    <span className="building-polygon-name">{b.name}</span>
+                    <button
+                      type="button"
+                      className="delete-button small"
+                      onClick={() => onDeleteBuildingPolygon?.(idx)}
+                      title="Delete polygon"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </div>
 
