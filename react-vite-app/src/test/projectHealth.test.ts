@@ -10,6 +10,7 @@ const exec = (cmd: string, timeout: number = 60000): Buffer => {
     cwd: PROJECT_ROOT,
     stdio: 'pipe',
     timeout,
+    maxBuffer: 10 * 1024 * 1024,
     env: { ...process.env, NODE_PATH: '' },
   });
 };
