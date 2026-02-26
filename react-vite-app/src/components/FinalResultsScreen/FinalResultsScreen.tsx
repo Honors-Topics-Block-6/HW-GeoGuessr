@@ -67,9 +67,9 @@ function formatRoundTime(timeTakenSeconds: number | undefined): string {
   if (timeTakenSeconds >= 60) {
     const minutes = Math.floor(timeTakenSeconds / 60);
     const seconds = timeTakenSeconds - minutes * 60;
-    return `${minutes}m ${seconds.toFixed(1)}s`;
+    return `${minutes}m ${seconds.toFixed(2)}s`;
   }
-  return `${timeTakenSeconds.toFixed(1)}s`;
+  return `${timeTakenSeconds.toFixed(2)}s`;
 }
 
 const CONFETTI_COLORS: string[] = ['#6cb52d', '#ffc107', '#ff4757', '#3498db', '#9b59b6'];

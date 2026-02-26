@@ -884,7 +884,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
             <div className="profile-stat-row">
               <span className="profile-stat-label">Average Guess Time</span>
               <span className="profile-stat-value">
-                {filteredStats.gamesPlayed > 0 ? `${averageGuessTime.toFixed(1)}s` : 'N/A'}
+                {filteredStats.gamesPlayed > 0 ? `${averageGuessTime.toFixed(2)}s` : 'N/A'}
               </span>
             </div>
             <div className="profile-stat-row">
