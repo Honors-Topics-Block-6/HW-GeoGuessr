@@ -104,7 +104,7 @@ function App(): React.ReactElement {
     timeRemaining,
     roundTimeSeconds,
     difficulty,
-    mode: _mode,
+    mode,
     lobbyDocId,
     isEndlessMode,
     currentHp,
@@ -673,6 +673,7 @@ function App(): React.ReactElement {
           onBackToTitle={resetGame}
           difficulty={difficulty}
           isEndlessMode={isEndlessMode}
+          mode={mode}
         />
       )}
 
