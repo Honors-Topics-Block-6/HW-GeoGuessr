@@ -38,6 +38,7 @@ import {
   unlockAchievement,
   type AchievementUpdateDetail
 } from './services/achievementService';
+import { recordDailyPlay, syncDailyStreakRollover } from './services/streakService';
 import './App.css';
 
 /** Shape of a friend object used when opening chat */
@@ -75,6 +76,12 @@ function App(): React.ReactElement {
   const shownAchievementToastsRef = useRef<Set<AchievementId>>(new Set());
   const [showDailyGoalsReward, setShowDailyGoalsReward] = useState<boolean>(false);
   const [collectingDailyReward, setCollectingDailyReward] = useState<boolean>(false);
+
+  // Ensure the daily streak resets to 0 if a day was missed (once per app load).
+  useEffect(() => {
+    if (!user?.uid) return;
+    syncDailyStreakRollover(user.uid);
+  }, [user?.uid]);
 
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState<boolean>(false);
@@ -326,10 +333,13 @@ function App(): React.ReactElement {
    * Handle transition from WaitingRoom to the duel game
    */
   const handleDuelGameStart = useCallback((): void => {
+    if (user?.uid) {
+      recordDailyPlay(user.uid);
+    }
     setInDuel(true);
     setDuelLobbyDocId(lobbyDocId);
     setScreen('duelGame');
-  }, [lobbyDocId, setScreen]);
+  }, [lobbyDocId, setScreen, user?.uid]);
 
   /**
    * Exit the duel and go back to difficulty select
@@ -499,6 +509,9 @@ function App(): React.ReactElement {
    * Handle starting the game from difficulty select
    */
   const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string, roundTimeSeconds?: number): void => {
+    if (selectedMode === 'singleplayer' && user?.uid) {
+      recordDailyPlay(user.uid);
+    }
     startGame(selectedDifficulty, selectedMode, roundTimeSeconds);
   };
 
@@ -677,6 +690,9 @@ function App(): React.ReactElement {
           myHealth={duel.myHealth}
           opponentHealth={duel.opponentHealth}
           myUsername={myUsername}
+          myActiveEmote={duel.myActiveEmote}
+          opponentActiveEmote={duel.opponentActiveEmote}
+          onSendEmote={duel.sendEmote}
         />
       )}
 
