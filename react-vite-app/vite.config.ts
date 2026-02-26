@@ -9,4 +9,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   plugins: [react()],
   envDir: path.resolve(__dirname, '..'),
+  optimizeDeps: {
+    include: ['canvas-confetti'],
+  },
+  build: {
+    commonjsOptions: {
+      include: [/canvas-confetti/, /node_modules/],
+    },
+  },
 })
