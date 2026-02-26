@@ -103,6 +103,7 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
 
   const totalScore = rounds.reduce((sum: number, round: RoundData) => sum + round.score, 0);
   const maxPossible = rounds.length * 5000;
+  const averageScore = rounds.length > 0 ? totalScore / rounds.length : 0;
   const performance = getPerformanceRating(totalScore, maxPossible);
   const totalGuessTimeSeconds = rounds.reduce((sum: number, round: RoundData) => sum + (round.timeTakenSeconds ?? 0), 0);
   const isPerfectRound = (round: RoundData): boolean =>
@@ -442,6 +443,15 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
             ))}
           </div>
         </div>
+
+        {rounds.length > 0 && (
+          <div className="average-score-summary">
+            <span className="average-score-label">Average score per round</span>
+            <span className="average-score-value">
+              {Math.round(averageScore).toLocaleString()} pts
+            </span>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="final-actions">

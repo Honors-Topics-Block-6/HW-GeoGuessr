@@ -314,6 +314,28 @@
   color: var(--text-muted);
 }
 
+/* Average score summary */
+.average-score-summary {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.18);
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.average-score-label {
+  color: var(--text-secondary);
+}
+
+.average-score-value {
+  font-weight: 700;
+  color: var(--accent-green);
+}
+
 /* Action Buttons */
 .final-actions {
   display: flex;
