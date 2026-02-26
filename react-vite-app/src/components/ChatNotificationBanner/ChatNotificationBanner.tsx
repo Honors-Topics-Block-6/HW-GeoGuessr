@@ -17,10 +17,21 @@ interface FirestoreTimestamp {
 
 function formatTime(sentAt: ChatNotificationItem['sentAt']): string {
   if (!sentAt) return '';
-  const date =
-    typeof sentAt === 'object' && sentAt !== null && 'toDate' in sentAt
-      ? (sentAt as FirestoreTimestamp).toDate?.() ?? new Date()
-      : new Date((sentAt as string | number) as number);
+  let date: Date;
+  if (typeof sentAt === 'object' && sentAt !== null) {
+    const timestamp = sentAt as FirestoreTimestamp;
+    if (typeof timestamp.toDate === 'function') {
+      date = timestamp.toDate();
+    } else if (typeof timestamp.toMillis === 'function') {
+      date = new Date(timestamp.toMillis());
+    } else {
+      return '';
+    }
+  } else if (typeof sentAt === 'string' || typeof sentAt === 'number') {
+    date = new Date(sentAt);
+  } else {
+    return '';
+  }
   if (isNaN(date.getTime())) return '';
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }

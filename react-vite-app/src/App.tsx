@@ -143,7 +143,7 @@ function App(): React.ReactElement {
 
   // Friends list for chat notification subscriptions
   const { friends } = useFriends(user?.uid, userDoc?.username ?? '');
-  const friendUids = friends.map((f) => f.uid);
+  const friendUids = friends.map((f) => f.friendUid);
   const { notifications: chatNotifications, dismissNotification: dismissChatNotification } =
     useChatNotifications(user?.uid ?? null, friendUids, chatFriend?.uid ?? null);
 
