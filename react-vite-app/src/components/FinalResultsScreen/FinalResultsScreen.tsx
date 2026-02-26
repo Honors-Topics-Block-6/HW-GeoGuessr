@@ -104,8 +104,11 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
   const totalScore = rounds.reduce((sum: number, round: RoundData) => sum + round.score, 0);
   const maxPossible = rounds.length * 5000;
   const averageScore = rounds.length > 0 ? totalScore / rounds.length : 0;
+  const roundedAverageScore = Math.round(averageScore);
+  const isPerfectAverageScore = roundedAverageScore === 5000;
   const performance = getPerformanceRating(totalScore, maxPossible);
   const totalGuessTimeSeconds = rounds.reduce((sum: number, round: RoundData) => sum + (round.timeTakenSeconds ?? 0), 0);
+  const averageGuessTimeSeconds = rounds.length > 0 ? totalGuessTimeSeconds / rounds.length : 0;
   const isPerfectRound = (round: RoundData): boolean =>
     round.locationScore === 5000 && round.floorCorrect !== false;
   const fiveKCount = rounds.filter(isPerfectRound).length;
@@ -446,10 +449,19 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty }: 
 
         {rounds.length > 0 && (
           <div className="average-score-summary">
-            <span className="average-score-label">Average score per round</span>
-            <span className="average-score-value">
-              {Math.round(averageScore).toLocaleString()} pts
-            </span>
+            <h2 className="breakdown-title average-summary-title">Per-round averages</h2>
+            <div className="average-score-metrics">
+              <div className="average-metric">
+                <span className="average-metric-label">Avg score</span>
+                <span className={`average-score-value ${isPerfectAverageScore ? 'perfect' : ''}`}>
+                  {roundedAverageScore.toLocaleString()} pts
+                </span>
+              </div>
+              <div className="average-metric">
+                <span className="average-metric-label">Avg time</span>
+                <span className="average-time-value">{formatRoundTime(averageGuessTimeSeconds)}</span>
+              </div>
+            </div>
           </div>
         )}
 

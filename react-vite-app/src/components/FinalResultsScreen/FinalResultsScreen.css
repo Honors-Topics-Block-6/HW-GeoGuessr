@@ -317,23 +317,53 @@
 /* Average score summary */
 .average-score-summary {
   margin-top: 0.75rem;
-  padding: 0.75rem 1rem;
+  padding: 1rem;
   border-radius: 12px;
-  background: rgba(15, 118, 110, 0.18);
-  border: 1px solid rgba(45, 212, 191, 0.35);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.9rem;
+  background: rgba(15, 118, 110, 0.12);
+  border: 1px solid rgba(45, 212, 191, 0.3);
 }
 
-.average-score-label {
-  color: var(--text-secondary);
+.average-summary-title {
+  margin-bottom: 0.75rem;
+}
+
+.average-score-metrics {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.average-metric {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(10, 18, 35, 0.35);
+  border: 1px solid rgba(108, 181, 45, 0.18);
+}
+
+.average-metric-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .average-score-value {
   font-weight: 700;
+  color: var(--text-primary);
+}
+
+.average-score-value.perfect {
   color: var(--accent-green);
+}
+
+.average-time-value {
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 /* Action Buttons */
@@ -653,6 +683,18 @@
   .round-stats {
     grid-template-columns: minmax(80px, 1fr) 56px 56px;
     column-gap: 0.75rem;
+  }
+
+  .average-score-summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .average-score-metrics {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.75rem;
   }
 
   .final-actions {
