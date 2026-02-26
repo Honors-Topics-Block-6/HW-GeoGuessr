@@ -24,6 +24,16 @@ export function isHeicFile(file: File): boolean {
   return HEIC_EXTENSIONS.some(ext => name.endsWith(ext))
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      (e) => { clearTimeout(timer); reject(e) }
+    )
+  })
+}
+
 /**
  * Converts a HEIC/HEIF file to a JPEG File.
  * Tries native browser decoding first (Safari), then falls back to heic-to
@@ -34,7 +44,8 @@ async function convertHeicToJpeg(file: File): Promise<File> {
 
   // Safari can decode HEIC natively — draw to canvas and export as JPEG
   try {
-    const bitmap = await createImageBitmap(file)
+    console.log('[convertHeicToJpeg] Trying native createImageBitmap…')
+    const bitmap = await withTimeout(createImageBitmap(file), 15_000, 'createImageBitmap')
     const canvas = document.createElement('canvas')
     canvas.width = bitmap.width
     canvas.height = bitmap.height
@@ -49,12 +60,19 @@ async function convertHeicToJpeg(file: File): Promise<File> {
         0.92
       )
     })
+    console.log('[convertHeicToJpeg] Native path succeeded')
     return new File([blob], jpegName, { type: 'image/jpeg' })
-  } catch {
-    // Native decoding unavailable — fall back to heic-to
+  } catch (nativeErr) {
+    console.warn('[convertHeicToJpeg] Native decoding failed, falling back to heic-to:', nativeErr)
   }
 
-  const jpegBlob = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 })
+  console.log('[convertHeicToJpeg] Using heic-to library…')
+  const jpegBlob = await withTimeout(
+    heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 }),
+    30_000,
+    'heic-to conversion'
+  )
+  console.log('[convertHeicToJpeg] heic-to succeeded')
   return new File([jpegBlob], jpegName, { type: 'image/jpeg' })
 }
 
@@ -102,13 +120,18 @@ export async function compressImage(
   }: CompressImageOptions = {}
 ): Promise<string> {
   if (isHeicFile(file)) {
+    console.log('[compressImage] HEIC file detected, converting…')
     file = await convertHeicToJpeg(file)
   }
 
   const rawSizeKB = (file.size / 1024).toFixed(1)
   console.log(`[compressImage] Raw file: ${file.name} — ${rawSizeKB}KB (${file.type})`)
 
-  const imageBitmap = await createImageBitmap(file)
+  const imageBitmap = await withTimeout(
+    createImageBitmap(file),
+    15_000,
+    'createImageBitmap (compress)'
+  )
 
   let targetW = imageBitmap.width
   let targetH = imageBitmap.height
