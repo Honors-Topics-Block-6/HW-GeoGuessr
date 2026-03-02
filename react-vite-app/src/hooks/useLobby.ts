@@ -11,6 +11,7 @@ import {
   setPlayerReady,
   kickPlayer,
   updateLobbyRoundTime,
+  updateLobbyDifficulty,
   type LobbyDoc
 } from '../services/lobbyService';
 
@@ -56,6 +57,7 @@ export interface UseWaitingRoomReturn {
   toggleReady: (ready: boolean) => Promise<void>;
   kick: (targetUid: string) => Promise<void>;
   updateRoundTime: (roundTimeSeconds: number) => Promise<void>;
+  updateDifficulty: (difficulty: string) => Promise<void>;
 }
 
 /**
@@ -289,6 +291,19 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     }
   }, [lobbyDocId]);
 
+  /**
+   * Update the difficulty setting on the lobby.
+   * Should only be called by the host.
+   */
+  const updateDifficulty = useCallback(async (difficulty: string): Promise<void> => {
+    if (!lobbyDocId) return;
+    try {
+      await updateLobbyDifficulty(lobbyDocId, difficulty);
+    } catch (err) {
+      console.error('Failed to update difficulty:', err);
+    }
+  }, [lobbyDocId]);
+
   return {
     lobby,
     isLoading,
@@ -296,6 +311,7 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     leave,
     toggleReady,
     kick,
-    updateRoundTime
+    updateRoundTime,
+    updateDifficulty
   };
 }

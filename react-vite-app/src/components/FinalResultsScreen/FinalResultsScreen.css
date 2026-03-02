@@ -161,7 +161,15 @@
 /* Total Score */
 .total-score-container {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.endless-rounds-survived {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .total-score-box {
@@ -262,14 +270,17 @@
 }
 
 .round-stats {
-  display: flex;
-  gap: 1.5rem;
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) 64px 64px;
+  column-gap: 1.25rem;
+  align-items: start;
 }
 
 .round-stat {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+  min-width: 0;
 }
 
 .round-stat-label {
@@ -309,6 +320,58 @@
 .round-score-label {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+/* Average score summary */
+.average-score-summary {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.12);
+  border: 1px solid rgba(45, 212, 191, 0.3);
+}
+
+.average-summary-title {
+  margin-bottom: 0.75rem;
+}
+
+.average-score-metrics {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.average-metric {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(10, 18, 35, 0.35);
+  border: 1px solid rgba(108, 181, 45, 0.18);
+}
+
+.average-metric-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.average-score-value {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.average-score-value.perfect {
+  color: var(--accent-green);
+}
+
+.average-time-value {
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 /* Action Buttons */
@@ -626,7 +689,20 @@
   }
 
   .round-stats {
-    gap: 1rem;
+    grid-template-columns: minmax(80px, 1fr) 56px 56px;
+    column-gap: 0.75rem;
+  }
+
+  .average-score-summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .average-score-metrics {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.75rem;
   }
 
   .final-actions {

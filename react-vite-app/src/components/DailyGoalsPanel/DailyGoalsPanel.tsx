@@ -81,46 +81,47 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
     };
   }, []);
 
-  const handleCelebrate = (): void => {
+  const handleCelebrate = async (): Promise<void> => {
     const durationMs = 3200;
     const endTime = Date.now() + durationMs;
     const colors = ['#ffc107', '#6cb52d', '#ff6b6b', '#4dabf7', '#c77dff'];
 
     stopCelebrateRain();
 
-    void import('canvas-confetti')
-      .then(({ default: confetti }) => {
-        const fireRain = (): void => {
-          const timeLeft = endTime - Date.now();
-          if (timeLeft <= 0) {
-            stopCelebrateRain();
-            return;
+    try {
+      const module = await import('canvas-confetti');
+      const confetti = module.default;
+
+      const fireRain = (): void => {
+        const timeLeft = endTime - Date.now();
+        if (timeLeft <= 0) {
+          stopCelebrateRain();
+          return;
+        }
+
+        const particleCount = 5 + Math.floor((timeLeft / durationMs) * 4);
+        confetti({
+          particleCount,
+          startVelocity: 28,
+          spread: 35,
+          ticks: 240,
+          gravity: 1.1,
+          scalar: 0.9,
+          colors,
+          disableForReducedMotion: true,
+          origin: {
+            x: Math.random(),
+            y: 0
           }
+        });
+      };
 
-          const particleCount = 5 + Math.floor((timeLeft / durationMs) * 4);
-          confetti({
-            particleCount,
-            startVelocity: 28,
-            spread: 35,
-            ticks: 240,
-            gravity: 1.1,
-            scalar: 0.9,
-            colors,
-            disableForReducedMotion: true,
-            origin: {
-              x: Math.random(),
-              y: 0
-            }
-          });
-        };
-
-        fireRain();
-        confettiIntervalRef.current = window.setInterval(fireRain, 140);
-        confettiTimeoutRef.current = window.setTimeout(stopCelebrateRain, durationMs + 400);
-      })
-      .catch((error: unknown) => {
-        console.error('Failed to load confetti animation', error);
-      });
+      fireRain();
+      confettiIntervalRef.current = window.setInterval(fireRain, 140);
+      confettiTimeoutRef.current = window.setTimeout(stopCelebrateRain, durationMs + 400);
+    } catch (error) {
+      console.error('Failed to load confetti animation', error);
+    }
   };
 
   return (

@@ -521,6 +521,21 @@ export async function updateLobbyRoundTime(
 }
 
 /**
+ * Update the difficulty setting on a lobby document.
+ * Only the host should call this (enforce in the UI).
+ */
+export async function updateLobbyDifficulty(
+  docId: string,
+  difficulty: string
+): Promise<void> {
+  const lobbyRef = doc(db, 'lobbies', docId);
+  await updateDoc(lobbyRef, {
+    difficulty,
+    updatedAt: serverTimestamp()
+  });
+}
+
+/**
  * Toggle a player's ready status in the lobby.
  */
 export async function setPlayerReady(

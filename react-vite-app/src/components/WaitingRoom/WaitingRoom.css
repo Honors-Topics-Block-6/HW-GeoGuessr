@@ -225,44 +225,71 @@
   color: #f39c12;
 }
 
-/* Editable Time Badge */
-.waiting-badge-time.editable {
+/* ─── Host Settings Panel ─── */
+
+.waiting-settings-wrapper {
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 1.5rem;
+}
+
+.waiting-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.55rem 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.waiting-badge-time.editable:hover {
+.waiting-settings-toggle:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: var(--accent-green);
+  border-color: var(--border-light);
+  color: var(--text-primary);
 }
 
-.waiting-badge-edit-icon {
-  margin-left: 0.25rem;
+.waiting-settings-toggle.open {
+  background: rgba(108, 181, 45, 0.06);
+  border-color: rgba(108, 181, 45, 0.3);
+  color: var(--accent-green);
+  border-radius: 10px 10px 0 0;
+  border-bottom-color: transparent;
+}
+
+.waiting-settings-toggle-icon {
+  font-size: 1rem;
+}
+
+.waiting-settings-chevron {
   font-size: 0.7rem;
-  opacity: 0.6;
+  transition: transform 0.2s ease;
 }
 
-.waiting-badge-time.editable:hover .waiting-badge-edit-icon {
-  opacity: 1;
+.waiting-settings-chevron.open {
+  transform: rotate(180deg);
 }
 
-/* Time Editor Popover */
-.waiting-time-editor {
+.waiting-settings-panel {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: rgba(20, 20, 30, 0.95);
-  border: 1px solid var(--border-light);
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-  animation: timeEditorFadeIn 0.15s ease;
-  width: 100%;
-  max-width: 320px;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(20, 20, 30, 0.9);
+  border: 1px solid rgba(108, 181, 45, 0.3);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  animation: settingsPanelSlideIn 0.15s ease;
 }
 
-@keyframes timeEditorFadeIn {
+@keyframes settingsPanelSlideIn {
   from {
     opacity: 0;
     transform: translateY(-4px);
@@ -273,23 +300,30 @@
   }
 }
 
-.waiting-time-editor-label {
-  font-size: 0.8rem;
+.waiting-setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.waiting-setting-label {
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.waiting-time-editor-presets {
+.waiting-setting-options {
   display: flex;
   gap: 0.3rem;
-  width: 100%;
+  flex-wrap: wrap;
 }
 
-.waiting-time-preset-btn {
+.waiting-setting-btn {
   flex: 1;
-  padding: 0.45rem 0.2rem;
+  min-width: 0;
+  padding: 0.45rem 0.4rem;
   background: rgba(255, 255, 255, 0.04);
   border: 2px solid var(--border-color);
   border-radius: 8px;
@@ -298,27 +332,39 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.waiting-time-preset-btn:hover {
+.waiting-setting-btn:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--border-light);
 }
 
-.waiting-time-preset-btn.active {
+.waiting-setting-btn.active {
   background: rgba(108, 181, 45, 0.12);
   border-color: var(--accent-green);
   color: var(--text-primary);
 }
 
-.waiting-time-custom-row {
+.waiting-setting-diff-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.waiting-setting-diff-icon {
+  font-size: 0.75rem;
+}
+
+.waiting-setting-custom-row {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  width: 100%;
+  margin-top: 0.2rem;
 }
 
-.waiting-time-custom-input {
+.waiting-setting-custom-input {
   flex: 1;
   padding: 0.45rem 0.6rem;
   text-align: center;
@@ -332,17 +378,17 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.waiting-time-custom-input:focus {
+.waiting-setting-custom-input:focus {
   border-color: var(--accent-green);
   box-shadow: 0 0 8px rgba(108, 181, 45, 0.2);
 }
 
-.waiting-time-custom-input::placeholder {
+.waiting-setting-custom-input::placeholder {
   color: var(--text-muted);
   font-weight: 400;
 }
 
-.waiting-time-custom-ok {
+.waiting-setting-custom-ok {
   padding: 0.45rem 0.8rem;
   background: rgba(108, 181, 45, 0.15);
   border: 1px solid var(--accent-green);
@@ -355,7 +401,7 @@
   white-space: nowrap;
 }
 
-.waiting-time-custom-ok:hover {
+.waiting-setting-custom-ok:hover {
   background: rgba(108, 181, 45, 0.25);
 }
 

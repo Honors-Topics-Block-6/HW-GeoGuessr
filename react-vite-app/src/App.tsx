@@ -4,12 +4,16 @@ import { useGameState, type Difficulty } from './hooks/useGameState';
 import { useDuelGame } from './hooks/useDuelGame';
 import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
+import { useFriends } from './hooks/useFriends';
+import { useChatNotifications } from './hooks/useChatNotifications';
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
 import { joinLobby } from './services/lobbyService';
+import { touchLastActive } from './services/lastActiveService';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
+import ModeSelect from './components/ModeSelect/ModeSelect';
 import DifficultySelect from './components/DifficultySelect/DifficultySelect';
 import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
@@ -27,6 +31,7 @@ import BugReportModal from './components/BugReportModal/BugReportModal';
 import DailyGoalsPanel from './components/DailyGoalsPanel/DailyGoalsPanel';
 import DailyGoalsCompletionModal from './components/DailyGoalsCompletionModal/DailyGoalsCompletionModal';
 import MessageBanner from './components/MessageBanner/MessageBanner';
+import ChatNotificationBanner from './components/ChatNotificationBanner/ChatNotificationBanner';
 import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
 import { getLevelInfo } from './utils/xpLevelling';
 import {
@@ -38,6 +43,7 @@ import {
   unlockAchievement,
   type AchievementUpdateDetail
 } from './services/achievementService';
+import { recordDailyPlay, syncDailyStreakRollover } from './services/streakService';
 import './App.css';
 
 /** Shape of a friend object used when opening chat */
@@ -76,6 +82,12 @@ function App(): React.ReactElement {
   const [showDailyGoalsReward, setShowDailyGoalsReward] = useState<boolean>(false);
   const [collectingDailyReward, setCollectingDailyReward] = useState<boolean>(false);
 
+  // Ensure the daily streak resets to 0 if a day was missed (once per app load).
+  useEffect(() => {
+    if (!user?.uid) return;
+    syncDailyStreakRollover(user.uid);
+  }, [user?.uid]);
+
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState<boolean>(false);
   const [duelLobbyDocId, setDuelLobbyDocId] = useState<string | null>(null);
@@ -97,8 +109,11 @@ function App(): React.ReactElement {
     timeRemaining,
     roundTimeSeconds,
     difficulty,
-    mode: _mode,
+    mode,
     lobbyDocId,
+    isEndlessMode,
+    currentHp,
+    startingHp,
     setScreen,
     startGame,
     placeMarker,
@@ -107,6 +122,7 @@ function App(): React.ReactElement {
     nextRound,
     viewFinalResults,
     resetGame,
+    setMode,
     setLobbyDocId,
     setDifficulty
   } = useGameState();
@@ -130,6 +146,12 @@ function App(): React.ReactElement {
 
   // Listen for admin messages sent to this user
   const { messages, dismissMessage } = useAdminMessages(user?.uid);
+
+  // Friends list for chat notification subscriptions
+  const { friends } = useFriends(user?.uid, userDoc?.username ?? '');
+  const friendUids = friends.map((f) => f.friendUid);
+  const { notifications: chatNotifications, dismissNotification: dismissChatNotification } =
+    useChatNotifications(user?.uid ?? null, friendUids, chatFriend?.uid ?? null);
 
   /**
    * Handle joining a lobby from a chat invite message.
@@ -171,6 +193,10 @@ function App(): React.ReactElement {
     <MessageBanner messages={messages as unknown as React.ComponentProps<typeof MessageBanner>['messages']} onDismiss={dismissMessage} />
   ) : null;
 
+  const chatNotificationBanner: ReactNode =
+    user && chatNotifications.length > 0 ? (
+      <ChatNotificationBanner notifications={chatNotifications} onDismiss={dismissChatNotification} />
+    ) : null;
   useEffect(() => {
     if (!user || !userDoc) return;
     const level = getLevelInfo(userDoc.totalXp ?? 0).level;
@@ -326,19 +352,21 @@ function App(): React.ReactElement {
    * Handle transition from WaitingRoom to the duel game
    */
   const handleDuelGameStart = useCallback((): void => {
+    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    if (user?.uid) recordDailyPlay(user.uid);
     setInDuel(true);
     setDuelLobbyDocId(lobbyDocId);
     setScreen('duelGame');
-  }, [lobbyDocId, setScreen]);
+  }, [lobbyDocId, setScreen, user?.uid]);
 
   /**
-   * Exit the duel and go back to difficulty select
+   * Exit the duel and go back to multiplayer lobby
    */
   const handleExitDuel = useCallback((): void => {
     setInDuel(false);
     setDuelLobbyDocId(null);
     setLobbyDocId(null);
-    setScreen('difficultySelect');
+    setScreen('multiplayerLobby');
   }, [setLobbyDocId, setScreen]);
 
   /**
@@ -392,6 +420,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <ChatWindow
           friendUid={chatFriend.uid}
@@ -409,6 +438,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <FriendsPanel
           onBack={() => setShowFriends(false)}
@@ -424,6 +454,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <ProfileScreen
           onBack={() => setShowProfile(false)}
@@ -442,6 +473,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <LeaderboardScreen onBack={() => setShowLeaderboard(false)} />
         {dailyGoalsRewardModal}
@@ -454,6 +486,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <DailyGoalsPanel onBack={() => setShowDailyGoals(false)} />
         {dailyGoalsRewardModal}
@@ -466,6 +499,7 @@ function App(): React.ReactElement {
     return (
       <>
         {messageBanner}
+        {chatNotificationBanner}
         <EmailVerificationBanner />
         <SubmissionApp onBack={() => setShowSubmissionApp(false)} />
         {dailyGoalsRewardModal}
@@ -489,17 +523,43 @@ function App(): React.ReactElement {
   }
 
   /**
-   * Handle the "Play" button on the title screen -> go to difficulty select
+   * Handle the "Play" button on the title screen -> go to mode select
    */
   const handlePlay = (): void => {
+    setScreen('modeSelect');
+  };
+
+  /**
+   * Handle selecting single-player from mode select.
+   */
+  const handleSelectSinglePlayer = (): void => {
+    setMode('singleplayer');
     setScreen('difficultySelect');
+  };
+
+  /**
+   * Handle selecting multiplayer from mode select.
+   */
+  const handleSelectMultiplayer = (): void => {
+    setMode('multiplayer');
+    setDifficulty((prev) => prev ?? 'all');
+    setScreen('multiplayerLobby');
   };
 
   /**
    * Handle starting the game from difficulty select
    */
-  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string, roundTimeSeconds?: number): void => {
-    startGame(selectedDifficulty, selectedMode, roundTimeSeconds);
+  const handleStartFromDifficulty = (
+    selectedDifficulty: string,
+    selectedMode: string,
+    singleplayerVariant?: 'classic' | 'endless',
+    roundTimeSeconds?: number
+  ): void => {
+    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    if (selectedMode === 'singleplayer' && user?.uid) {
+      recordDailyPlay(user.uid);
+    }
+    startGame(selectedDifficulty, selectedMode, singleplayerVariant, roundTimeSeconds);
   };
 
   /**
@@ -547,6 +607,7 @@ function App(): React.ReactElement {
         </div>
       )}
       {messageBanner}
+      {chatNotificationBanner}
       <EmailVerificationBanner />
 
       {/* --- Single Player Screens --- */}
@@ -564,10 +625,18 @@ function App(): React.ReactElement {
         />
       )}
 
+      {screen === 'modeSelect' && !inDuel && (
+        <ModeSelect
+          onSelectSinglePlayer={handleSelectSinglePlayer}
+          onSelectMultiplayer={handleSelectMultiplayer}
+          onBack={handleBackToTitle}
+        />
+      )}
+
       {screen === 'difficultySelect' && !inDuel && (
         <DifficultySelect
           onStart={handleStartFromDifficulty}
-          onBack={handleBackToTitle}
+          onBack={() => setScreen('modeSelect')}
           isLoading={isLoading}
         />
       )}
@@ -581,7 +650,7 @@ function App(): React.ReactElement {
             setLobbyDocId(docId);
             setScreen('waitingRoom');
           }}
-          onBack={() => setScreen('difficultySelect')}
+          onBack={() => setScreen('modeSelect')}
         />
       )}
 
@@ -613,6 +682,9 @@ function App(): React.ReactElement {
           playingArea={playingArea as React.ComponentProps<typeof GameScreen>['playingArea']}
           timeRemaining={roundTimeSeconds > 0 ? timeRemaining : undefined}
           timeLimitSeconds={roundTimeSeconds}
+          isEndlessMode={isEndlessMode}
+          currentHp={currentHp}
+          maxHp={startingHp}
         />
       )}
 
@@ -633,8 +705,12 @@ function App(): React.ReactElement {
           totalRounds={totalRounds}
           onNextRound={nextRound}
           onViewFinalResults={viewFinalResults}
-          isLastRound={currentRound >= totalRounds}
+          isLastRound={isEndlessMode ? currentHp <= 0 : currentRound >= totalRounds}
           onBackToTitle={resetGame}
+          isEndlessMode={isEndlessMode}
+          currentHp={currentHp}
+          maxHp={startingHp}
+          hpLost={currentResult.hpLost}
         />
       )}
 
@@ -644,6 +720,8 @@ function App(): React.ReactElement {
           onPlayAgain={() => setScreen('difficultySelect')}
           onBackToTitle={resetGame}
           difficulty={difficulty}
+          isEndlessMode={isEndlessMode}
+          mode={mode}
         />
       )}
 
@@ -677,6 +755,9 @@ function App(): React.ReactElement {
           myHealth={duel.myHealth}
           opponentHealth={duel.opponentHealth}
           myUsername={myUsername}
+          myActiveEmote={duel.myActiveEmote}
+          opponentActiveEmote={duel.opponentActiveEmote}
+          onSendEmote={duel.sendEmote}
         />
       )}
 
