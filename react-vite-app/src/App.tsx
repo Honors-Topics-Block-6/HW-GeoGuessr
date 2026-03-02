@@ -118,6 +118,7 @@ function App(): React.ReactElement {
     nextRound,
     viewFinalResults,
     resetGame,
+    setMode,
     setLobbyDocId,
     setDifficulty
   } = useGameState();
@@ -523,6 +524,23 @@ function App(): React.ReactElement {
    */
   const handlePlay = (): void => {
     setScreen('modeSelect');
+  };
+
+  /**
+   * Handle selecting single-player from mode select.
+   */
+  const handleSelectSinglePlayer = (): void => {
+    setMode('singleplayer');
+    setScreen('difficultySelect');
+  };
+
+  /**
+   * Handle selecting multiplayer from mode select.
+   */
+  const handleSelectMultiplayer = (): void => {
+    setMode('multiplayer');
+    setDifficulty((prev) => prev ?? 'all');
+    setScreen('multiplayerLobby');
   };
 
   /**
