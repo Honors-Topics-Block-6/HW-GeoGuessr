@@ -9,6 +9,7 @@ import { useChatNotifications } from './hooks/useChatNotifications';
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
 import { joinLobby } from './services/lobbyService';
+import { touchLastActive } from './services/lastActiveService';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
@@ -348,9 +349,8 @@ function App(): React.ReactElement {
    * Handle transition from WaitingRoom to the duel game
    */
   const handleDuelGameStart = useCallback((): void => {
-    if (user?.uid) {
-      recordDailyPlay(user.uid);
-    }
+    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    if (user?.uid) recordDailyPlay(user.uid);
     setInDuel(true);
     setDuelLobbyDocId(lobbyDocId);
     setScreen('duelGame');
@@ -547,6 +547,7 @@ function App(): React.ReactElement {
    * Handle starting the game from difficulty select
    */
   const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string, roundTimeSeconds?: number): void => {
+    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
     if (selectedMode === 'singleplayer' && user?.uid) {
       recordDailyPlay(user.uid);
     }

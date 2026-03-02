@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth, type BuildingStat, type DailyStatBucket } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
 import { getFavoriteAndWorstBuildings } from '../../utils/buildingStats';
+import { formatLastActive } from '../../utils/formatLastActive';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
 import { DAILY_STREAK_UPDATED_EVENT, getDisplayDailyStreak, syncDailyStreakRollover } from '../../services/streakService';
 import { isHeicFile, normalizeImageFile } from '../../utils/compressImage';
@@ -661,32 +662,42 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
         {activeTab === 'profile' ? (
           <div className="profile-fields">
             <div className="profile-field">
+              <span className="profile-label">Last Active</span>
+              <span className="profile-value">{formatLastActive(userDoc?.lastActive ?? userDoc?.lastOnline)}</span>
+            </div>
+
+            <div className="profile-field">
               <span className="profile-label">Username</span>
               {isEditing ? (
-                <div className="profile-edit-row">
-                  <input
-                    type="text"
-                    value={newUsername}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewUsername(e.target.value)}
-                    className="profile-input"
-                    autoFocus
-                    disabled={isSaving}
-                  />
-                  <button
-                    className="profile-save-button"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button
-                    className="profile-cancel-button"
-                    onClick={handleCancel}
-                    disabled={isSaving}
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <>
+                  <div className="profile-edit-row">
+                    <input
+                      type="text"
+                      value={newUsername}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setNewUsername(e.target.value)}
+                      className="profile-input"
+                      autoFocus
+                      disabled={isSaving}
+                    />
+                    <button
+                      className="profile-save-button"
+                      onClick={handleSave}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      className="profile-cancel-button"
+                      onClick={handleCancel}
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="profile-username-note">
+                    Changing your username is allowed once every 30 days.
+                  </div>
+                </>
               ) : (
                 <div className="profile-value-row">
                   <span className="profile-value">{userDoc?.username}</span>
