@@ -339,7 +339,6 @@ export function useGameState(): UseGameStateReturn {
       selectedMode === 'singleplayer' && !endless
         ? coerceTotalRounds(totalRoundsSetting ?? DEFAULT_TOTAL_ROUNDS)
         : DEFAULT_TOTAL_ROUNDS;
-
     setCurrentRound(1);
     setTotalRounds(effectiveTotalRounds);
     setRoundResults([]);

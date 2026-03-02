@@ -569,13 +569,13 @@ function App(): React.ReactElement {
    */
   const handleStartFromDifficulty = (
     selectedDifficulty: string,
-    requestedMode: string,
+    selectedMode: string,
     singleplayerVariant?: 'classic' | 'endless',
     roundTimeSeconds?: number,
     totalRounds?: number
   ): void => {
     void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
-    const effectiveMode = requestedMode ?? mode ?? 'singleplayer';
+    const effectiveMode = selectedMode ?? mode ?? 'singleplayer';
     if (effectiveMode === 'singleplayer' && user?.uid) {
       recordDailyPlay(user.uid);
     }
