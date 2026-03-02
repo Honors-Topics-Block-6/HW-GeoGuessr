@@ -9,6 +9,7 @@ import { useChatNotifications } from './hooks/useChatNotifications';
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
 import { joinLobby } from './services/lobbyService';
+import { touchLastActive } from './services/lastActiveService';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
@@ -29,6 +30,7 @@ import ChatWindow from './components/ChatWindow/ChatWindow';
 import BugReportModal from './components/BugReportModal/BugReportModal';
 import DailyGoalsPanel from './components/DailyGoalsPanel/DailyGoalsPanel';
 import DailyGoalsCompletionModal from './components/DailyGoalsCompletionModal/DailyGoalsCompletionModal';
+import AchievementsScreen from './components/AchievementsScreen/AchievementsScreen';
 import MessageBanner from './components/MessageBanner/MessageBanner';
 import ChatNotificationBanner from './components/ChatNotificationBanner/ChatNotificationBanner';
 import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
@@ -75,6 +77,7 @@ function App(): React.ReactElement {
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
   const [showBugReport, setShowBugReport] = useState<boolean>(false);
   const [showDailyGoals, setShowDailyGoals] = useState<boolean>(false);
+  const [showAchievements, setShowAchievements] = useState<boolean>(false);
   const [achievementToastQueue, setAchievementToastQueue] = useState<AchievementToastData[]>([]);
   const [achievementToastFading, setAchievementToastFading] = useState<boolean>(false);
   const shownAchievementToastsRef = useRef<Set<AchievementId>>(new Set());
@@ -110,6 +113,9 @@ function App(): React.ReactElement {
     difficulty,
     mode,
     lobbyDocId,
+    isEndlessMode,
+    currentHp,
+    startingHp,
     setScreen,
     startGame,
     placeMarker,
@@ -118,6 +124,7 @@ function App(): React.ReactElement {
     nextRound,
     viewFinalResults,
     resetGame,
+    setMode,
     setLobbyDocId,
     setDifficulty
   } = useGameState();
@@ -347,9 +354,8 @@ function App(): React.ReactElement {
    * Handle transition from WaitingRoom to the duel game
    */
   const handleDuelGameStart = useCallback((): void => {
-    if (user?.uid) {
-      recordDailyPlay(user.uid);
-    }
+    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    if (user?.uid) recordDailyPlay(user.uid);
     setInDuel(true);
     setDuelLobbyDocId(lobbyDocId);
     setScreen('duelGame');
@@ -445,6 +451,18 @@ function App(): React.ReactElement {
     );
   }
 
+  // Show achievements screen
+  if (showAchievements) {
+    return (
+      <>
+        {messageBanner}
+        <EmailVerificationBanner />
+        <AchievementsScreen onBack={() => setShowAchievements(false)} />
+        {dailyGoalsRewardModal}
+      </>
+    );
+  }
+
   // Show profile screen
   if (showProfile) {
     return (
@@ -457,6 +475,10 @@ function App(): React.ReactElement {
           onOpenFriends={() => {
             setShowProfile(false);
             setShowFriends(true);
+          }}
+          onOpenAchievements={() => {
+            setShowProfile(false);
+            setShowAchievements(true);
           }}
         />
         {dailyGoalsRewardModal}
@@ -526,13 +548,36 @@ function App(): React.ReactElement {
   };
 
   /**
+   * Handle selecting single-player from mode select.
+   */
+  const handleSelectSinglePlayer = (): void => {
+    setMode('singleplayer');
+    setScreen('difficultySelect');
+  };
+
+  /**
+   * Handle selecting multiplayer from mode select.
+   */
+  const handleSelectMultiplayer = (): void => {
+    setMode('multiplayer');
+    setDifficulty((prev) => prev ?? 'all');
+    setScreen('multiplayerLobby');
+  };
+
+  /**
    * Handle starting the game from difficulty select
    */
-  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: string, roundTimeSeconds?: number): void => {
+  const handleStartFromDifficulty = (
+    selectedDifficulty: string,
+    selectedMode: string,
+    singleplayerVariant?: 'classic' | 'endless',
+    roundTimeSeconds?: number
+  ): void => {
+    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
     if (selectedMode === 'singleplayer' && user?.uid) {
       recordDailyPlay(user.uid);
     }
-    startGame(selectedDifficulty, selectedMode, roundTimeSeconds);
+    startGame(selectedDifficulty, selectedMode, singleplayerVariant, roundTimeSeconds);
   };
 
   /**
@@ -608,6 +653,7 @@ function App(): React.ReactElement {
           onOpenLeaderboard={() => setShowLeaderboard(true)}
           onOpenBugReport={() => setShowBugReport(true)}
           onOpenDailyGoals={() => setShowDailyGoals(true)}
+        onOpenAchievements={() => setShowAchievements(true)}
           isLoading={isLoading}
         />
       )}
@@ -669,6 +715,9 @@ function App(): React.ReactElement {
           playingArea={playingArea as React.ComponentProps<typeof GameScreen>['playingArea']}
           timeRemaining={roundTimeSeconds > 0 ? timeRemaining : undefined}
           timeLimitSeconds={roundTimeSeconds}
+          isEndlessMode={isEndlessMode}
+          currentHp={currentHp}
+          maxHp={startingHp}
         />
       )}
 
@@ -689,8 +738,12 @@ function App(): React.ReactElement {
           totalRounds={totalRounds}
           onNextRound={nextRound}
           onViewFinalResults={viewFinalResults}
-          isLastRound={currentRound >= totalRounds}
+          isLastRound={isEndlessMode ? currentHp <= 0 : currentRound >= totalRounds}
           onBackToTitle={resetGame}
+          isEndlessMode={isEndlessMode}
+          currentHp={currentHp}
+          maxHp={startingHp}
+          hpLost={currentResult.hpLost}
         />
       )}
 
@@ -700,6 +753,7 @@ function App(): React.ReactElement {
           onPlayAgain={() => setScreen('difficultySelect')}
           onBackToTitle={resetGame}
           difficulty={difficulty}
+          isEndlessMode={isEndlessMode}
           mode={mode}
         />
       )}

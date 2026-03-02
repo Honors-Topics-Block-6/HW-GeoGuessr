@@ -3,11 +3,10 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #0c0c0f 0%, #1a1a2e 100%);
+  background: var(--hw-page-bg);
   padding: 1.5rem;
 }
 
-/* Header */
 .result-header {
   display: flex;
   justify-content: space-between;
@@ -18,19 +17,75 @@
 .result-banner.timeout-banner {
   margin-bottom: 1rem;
   padding: 0.6rem 1rem;
-  border-radius: 999px;
-  background: rgba(255, 193, 7, 0.12);
-  border: 1px solid rgba(255, 193, 7, 0.5);
-  color: #ffe58f;
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  border-left: 4px solid #d97706;
+  color: #92400e;
   font-size: 0.9rem;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
 }
 
+/* Endless mode HP section */
+.result-hp-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.6rem 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.result-hp-bar {
+  flex: 1;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.result-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a9c20 0%, #6cb52d 100%);
+  border-radius: 6px;
+  transition: width 0.8s ease-out;
+}
+
+.result-hp-fill.critical {
+  animation: resultHpPulse 1s ease-in-out infinite;
+}
+
+@keyframes resultHpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.result-hp-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 120px;
+}
+
+.result-hp-value {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.result-hp-lost {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ff4757;
+}
+
 .round-indicator {
   font-size: 1rem;
-  color: var(--text-secondary);
+  color: var(--hw-gray-600);
   font-weight: 500;
 }
 
@@ -50,24 +105,22 @@
 
 .score-label {
   font-size: 0.9rem;
-  color: var(--text-secondary);
+  color: var(--hw-gray-600);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .score-value {
   font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--accent-green);
-  text-shadow: 0 0 20px rgba(108, 181, 45, 0.5);
+  font-weight: 900;
+  color: var(--hw-red);
 }
 
 .score-max {
   font-size: 1rem;
-  color: var(--text-muted);
+  color: var(--hw-gray-500);
 }
 
-/* Main Content */
 .result-content {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
@@ -75,12 +128,10 @@
   align-items: start;
 }
 
-/* Map Container */
 .result-map-container {
-  background-color: var(--bg-card);
-  border-radius: 16px;
+  background-color: #fff;
   padding: 1rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--hw-gray-300);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -92,8 +143,7 @@
   width: 100%;
   flex: 1;
   min-height: 0;
-  background-color: var(--bg-secondary);
-  border-radius: 12px;
+  background-color: var(--hw-gray-200);
   overflow: hidden;
 }
 
@@ -103,7 +153,6 @@
   object-fit: contain;
 }
 
-/* Zoom content wrapper for result map */
 .result-zoom-content {
   position: relative;
   width: 100%;
@@ -112,7 +161,6 @@
   transform-origin: 0 0;
 }
 
-/* Cursor changes when result map is zoomed */
 .result-map.zoomed {
   cursor: grab;
   touch-action: none;
@@ -122,7 +170,6 @@
   cursor: grabbing;
 }
 
-/* Zoom Controls for result map */
 .result-map .zoom-controls {
   position: absolute;
   bottom: 12px;
@@ -137,8 +184,7 @@
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 8px;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(35, 31, 32, 0.8);
   color: white;
   font-size: 1.2rem;
   font-weight: 600;
@@ -147,13 +193,12 @@
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s ease, transform 0.1s ease;
-  backdrop-filter: blur(4px);
   pointer-events: auto;
   line-height: 1;
 }
 
 .result-map .zoom-btn:hover:not(:disabled) {
-  background-color: rgba(0, 0, 0, 0.9);
+  background-color: rgba(35, 31, 32, 0.95);
 }
 
 .result-map .zoom-btn:disabled {
@@ -165,23 +210,19 @@
   transform: scale(0.95);
 }
 
-/* Zoom Indicator for result map */
 .result-map .zoom-indicator {
   position: absolute;
   top: 12px;
   right: 12px;
   padding: 4px 8px;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(35, 31, 32, 0.8);
   color: white;
   font-size: 0.75rem;
   font-weight: 600;
-  border-radius: 6px;
   z-index: 20;
   pointer-events: none;
-  backdrop-filter: blur(4px);
 }
 
-/* Result Line Animation */
 .result-line {
   stroke-dasharray: 1000;
   stroke-dashoffset: 1000;
@@ -189,27 +230,15 @@
 }
 
 @keyframes drawLine {
-  to {
-    stroke-dashoffset: 0;
-  }
+  to { stroke-dashoffset: 0; }
 }
 
-/* Markers */
-/*
- * Pin geometry: 28×28 square with border-radius: 50% 50% 50% 0, rotated -45deg.
- * The tip extends 14 × (√2 − 1) ≈ 5.8px below the 28px layout box.
- * We use a flex column with explicit pin size so the translate places the tip exactly.
- */
 .result-marker {
   position: absolute;
   z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
-  /*
-   * Pin tip offset: 28px layout height + 14×(√2−1) ≈ 5.8px visual overshoot = 33.8px.
-   * Use a fixed pixel translate so the label below the pin doesn't affect the offset.
-   */
   transform: translate(-50%, -33.8px);
 }
 
@@ -218,20 +247,20 @@
   height: 28px;
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   border: 3px solid white;
   animation: markerDrop 0.5s ease-out;
   flex-shrink: 0;
 }
 
 .guess-pin {
-  background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%);
-  box-shadow: 0 4px 12px rgba(255, 71, 87, 0.5);
+  background: var(--hw-gold);
+  box-shadow: 0 4px 12px rgba(240, 179, 35, 0.4);
 }
 
 .actual-pin {
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-light) 100%);
-  box-shadow: 0 4px 12px rgba(108, 181, 45, 0.5);
+  background: var(--hw-red);
+  box-shadow: 0 4px 12px rgba(200, 16, 46, 0.4);
 }
 
 .result-marker .marker-pin::after {
@@ -249,8 +278,7 @@
 .marker-label {
   margin-top: 8px;
   padding: 4px 10px;
-  background-color: rgba(0, 0, 0, 0.8);
-  border-radius: 4px;
+  background-color: rgba(35, 31, 32, 0.85);
   font-size: 0.75rem;
   color: white;
   white-space: nowrap;
@@ -258,20 +286,11 @@
 }
 
 @keyframes markerDrop {
-  0% {
-    opacity: 0;
-    transform: rotate(-45deg) scale(0.5) translateY(-30px);
-  }
-  60% {
-    transform: rotate(-45deg) scale(1.1);
-  }
-  100% {
-    opacity: 1;
-    transform: rotate(-45deg) scale(1);
-  }
+  0% { opacity: 0; transform: rotate(-45deg) scale(0.5) translateY(-30px); }
+  60% { transform: rotate(-45deg) scale(1.1); }
+  100% { opacity: 1; transform: rotate(-45deg) scale(1); }
 }
 
-/* Details Panel */
 .result-details {
   display: flex;
   flex-direction: column;
@@ -279,9 +298,8 @@
 }
 
 .result-image-preview {
-  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--hw-gray-300);
   aspect-ratio: 16 / 9;
 }
 
@@ -292,10 +310,9 @@
 }
 
 .result-stats {
-  background-color: var(--bg-card);
-  border-radius: 12px;
+  background-color: #fff;
   padding: 1.25rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--hw-gray-300);
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -314,7 +331,7 @@
 }
 
 .stat-label {
-  color: var(--text-secondary);
+  color: var(--hw-gray-600);
   font-size: 0.9rem;
   min-width: 70px;
 }
@@ -322,22 +339,21 @@
 .stat-value {
   margin-left: auto;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--hw-black);
 }
 
 .stat-value.correct {
-  color: var(--accent-green);
+  color: #0f5132;
 }
 
 .stat-value.incorrect {
   color: var(--error-red);
 }
 
-/* Score Breakdown */
 .score-breakdown {
   margin-top: 0.5rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--hw-gray-300);
 }
 
 .breakdown-row {
@@ -345,11 +361,11 @@
   justify-content: space-between;
   padding: 0.4rem 0;
   font-size: 0.9rem;
-  color: var(--text-secondary);
+  color: var(--hw-gray-600);
 }
 
 .breakdown-row.bonus {
-  color: var(--accent-green);
+  color: #0f5132;
 }
 
 .breakdown-row.penalty {
@@ -359,33 +375,34 @@
 .breakdown-row.total {
   margin-top: 0.5rem;
   padding-top: 0.5rem;
-  border-top: 1px dashed var(--border-color);
+  border-top: 1px dashed var(--hw-gray-300);
   font-weight: 700;
   font-size: 1.1rem;
-  color: var(--text-primary);
+  color: var(--hw-black);
 }
 
-/* Next Round Button */
 .next-round-button {
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
-  color: var(--text-primary);
+  background: var(--hw-red);
+  color: #fff;
   font-size: 1.1rem;
   font-weight: 600;
   padding: 1rem 2rem;
-  border-radius: 12px;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(108, 181, 45, 0.4);
+  box-shadow: 0 4px 12px rgba(200, 16, 46, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .next-round-button:hover {
+  background: var(--hw-red-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 30px rgba(108, 181, 45, 0.5);
+  box-shadow: 0 6px 20px rgba(200, 16, 46, 0.3);
 }
 
 .next-round-button:active {
@@ -401,7 +418,6 @@
   transform: translateX(4px);
 }
 
-/* Result Actions (Next Round + Leave Game) */
 .result-actions {
   display: flex;
   gap: 1rem;
@@ -414,26 +430,25 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 1rem 2rem;
-  border-radius: 12px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
   background-color: transparent;
-  color: var(--text-secondary);
-  border: 2px solid var(--border-color);
+  color: var(--hw-gray-600);
+  border: 2px solid var(--hw-gray-300);
 }
 
 .leave-game-button:hover {
-  border-color: var(--text-secondary);
-  color: var(--text-primary);
+  border-color: var(--hw-gray-400);
+  color: var(--hw-black);
+  background: var(--hw-gray-100);
 }
 
 .leave-game-button .button-icon {
   font-size: 1.2rem;
 }
 
-/* Progress Dots */
 .round-progress {
   display: flex;
   justify-content: center;
@@ -446,76 +461,35 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background-color: var(--bg-card);
-  border: 2px solid var(--border-color);
+  background-color: #fff;
+  border: 2px solid var(--hw-gray-300);
   transition: all 0.3s ease;
 }
 
 .progress-dot.completed {
-  background-color: var(--accent-green);
-  border-color: var(--accent-green);
+  background-color: var(--hw-red);
+  border-color: var(--hw-red);
 }
 
 .progress-dot.current {
-  border-color: var(--accent-green);
-  box-shadow: 0 0 10px rgba(108, 181, 45, 0.5);
+  border-color: var(--hw-red);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.18);
 }
 
-/* Responsive Design */
 @media (max-width: 900px) {
-  .result-content {
-    grid-template-columns: 1fr;
-  }
-
-  .result-map-container {
-    height: auto !important;
-  }
-
-  .result-map {
-    min-height: 300px;
-  }
-
-  .score-value {
-    font-size: 2rem;
-  }
+  .result-content { grid-template-columns: 1fr; }
+  .result-map-container { height: auto !important; }
+  .result-map { min-height: 300px; }
+  .score-value { font-size: 2rem; }
 }
 
 @media (max-width: 600px) {
-  .result-screen {
-    padding: 1rem;
-  }
-
-  .result-header {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: flex-start;
-  }
-
-  .score-display {
-    align-self: flex-end;
-  }
-
-  .result-map {
-    min-height: 250px;
-  }
-
-  .result-marker {
-    /* 22px pin: tip offset = 22 + 11×(√2−1) ≈ 26.6px */
-    transform: translate(-50%, -26.6px);
-  }
-
-  .result-marker .marker-pin {
-    width: 22px;
-    height: 22px;
-  }
-
-  .marker-label {
-    font-size: 0.65rem;
-    padding: 3px 6px;
-  }
-
-  .next-round-button {
-    padding: 0.9rem 1.5rem;
-    font-size: 1rem;
-  }
+  .result-screen { padding: 1rem; }
+  .result-header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+  .score-display { align-self: flex-end; }
+  .result-map { min-height: 250px; }
+  .result-marker { transform: translate(-50%, -26.6px); }
+  .result-marker .marker-pin { width: 22px; height: 22px; }
+  .marker-label { font-size: 0.65rem; padding: 3px 6px; }
+  .next-round-button { padding: 0.9rem 1.5rem; font-size: 1rem; }
 }
