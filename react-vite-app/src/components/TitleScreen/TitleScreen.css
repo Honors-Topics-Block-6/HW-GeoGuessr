@@ -252,13 +252,15 @@
   z-index: 0;
 }
 
-.title-background::before {
-  content: "";
+.title-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
+  background:
+    linear-gradient(0deg, rgba(12, 12, 15, 0.8) 0%, transparent 50%),
+    linear-gradient(180deg, rgba(12, 12, 15, 0.4) 0%, transparent 30%);
   background-image:
     radial-gradient(
       circle at 20% 80%,
@@ -272,13 +274,16 @@
     );
 }
 
-.title-overlay {
+.title-background::before {
   position: absolute;
+  content: '';
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background:
+    radial-gradient(circle at 20% 80%, rgba(108, 181, 45, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(108, 181, 45, 0.08) 0%, transparent 40%),
     linear-gradient(0deg, rgba(2, 11, 24, 0.8) 0%, transparent 55%),
     linear-gradient(180deg, rgba(2, 11, 24, 0.4) 0%, transparent 35%);
 }
@@ -293,11 +298,6 @@
   padding: 2rem;
   margin-top: 4rem;
   max-width: 600px;
-  background: linear-gradient(135deg, rgba(5, 24, 58, 0.55), rgba(8, 35, 78, 0.35));
-  border: 1px solid rgba(92, 150, 255, 0.18);
-  border-radius: 24px;
-  backdrop-filter: blur(16px);
-  box-shadow: 0 40px 80px rgba(4, 20, 58, 0.55);
 }
 
 .logo-container {
