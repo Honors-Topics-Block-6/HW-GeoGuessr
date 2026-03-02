@@ -75,7 +75,6 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
   const [isEditing, setIsEditing] = useState<boolean>(false)
   const [editForm, setEditForm] = useState<Partial<EditFormState>>({})
   const [isSaving, setIsSaving] = useState<boolean>(false)
-  const [saveError, setSaveError] = useState<string>('')
   const [playingArea, setPlayingArea] = useState<PlayingArea | null>(null)
   const [clickRejected, setClickRejected] = useState<boolean>(false)
   const [notifications, setNotifications] = useState<ToastNotification[]>([])
@@ -223,14 +222,12 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
       difficulty: selectedSubmission.difficulty || null,
       status: selectedSubmission.status,
     })
-    setSaveError('')
     setIsEditing(true)
   }
 
   const handleCancelEdit = (): void => {
     setIsEditing(false)
     setEditForm({})
-    setSaveError('')
     setClickRejected(false)
   }
 
@@ -290,11 +287,7 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
 
     // Validation
     if (!editForm.location || editForm.location.x === undefined || editForm.location.y === undefined) {
-      setSaveError('Location is required')
-      return
-    }
-    if (editForm.floor === null || editForm.floor === undefined) {
-      setSaveError('Floor is required')
+      pushNotification('Location is required', 'error', 2800)
       return
     }
 
@@ -320,7 +313,6 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
     }
 
     if (changedFields.length === 0) {
-      setSaveError('')
       handleCancelEdit()
       pushNotification('No changes made', 'info', 2500)
       return
@@ -335,7 +327,6 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
     const { changedFields, normalizedBuildingName } = saveConfirm
 
     setIsSaving(true)
-    setSaveError('')
     setSaveConfirm(null)
 
     try {
@@ -373,7 +364,7 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
       pushNotification(`Saved changes: ${changedFields.join(', ')}`, 'success', 2800)
     } catch (error) {
       console.error('Error saving edit:', error)
-      setSaveError('Failed to save changes. Please try again.')
+      pushNotification('Failed to save changes', 'error', 3000)
     } finally {
       setIsSaving(false)
     }
@@ -640,8 +631,6 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
 
             <div className="modal-content">
               <div className="modal-details">
-                {saveError && <div className="edit-error">{saveError}</div>}
-
                 <div
                   className={`detail-split-layout${selectedSubmission.status === 'pending' ? ' pending-layout' : ''}${selectedSubmission.status === 'approved' ? ' approved-layout' : ''}`}
                 >

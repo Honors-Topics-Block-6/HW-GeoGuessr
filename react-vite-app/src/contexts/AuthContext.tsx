@@ -15,6 +15,8 @@ import {
   getUserDoc,
   updateUserDoc,
   updateUserProfile,
+  checkUsernameAvailability,
+  UsernameTakenError,
   isUsernameTaken,
   isHardcodedAdmin,
   getAllPermissions,
@@ -152,11 +154,6 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
         // Fetch the user's Firestore document
         const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
         if (doc) {
-          // Best-effort migration: ensure a username reservation exists for this user.
-          ensureUsernameReservation(firebaseUser.uid, doc.username).catch((err) => {
-            console.error('Failed to ensure username reservation:', err);
-          });
-
           // Verified if either Firebase Auth or Firestore says so
           // (admin can set emailVerified in Firestore, user can verify via email link)
           const isVerified = authVerified || doc.emailVerified === true;
@@ -354,8 +351,6 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     if (doc) setUserDoc(doc);
   }, [user]);
 
-    await updateUsernameUnique(user.uid, newUsername);
-    setUserDoc(prev => prev ? { ...prev, username: newUsername } : prev);
   /**
    * Update favorite emote for the current user.
    */
