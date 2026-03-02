@@ -2,9 +2,9 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 4.5;
-const ZOOM_STEP = 1.25;
-const WHEEL_ZOOM_FACTOR = 0.008;
-const PINCH_ZOOM_EXPONENT = 6;
+const ZOOM_STEP = 1.8;
+const WHEEL_ZOOM_FACTOR = 0.016;
+const PINCH_ZOOM_EXPONENT = 8;
 const DRAG_THRESHOLD = 5;
 
 interface Point {
