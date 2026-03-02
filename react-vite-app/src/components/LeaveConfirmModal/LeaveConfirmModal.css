@@ -1,11 +1,13 @@
+/* ===== Leave Confirm Modal – HW Design System ===== */
+
 .leave-confirm-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
+  background: rgba(35, 31, 32, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -24,13 +26,13 @@
 }
 
 .leave-confirm-modal {
-  background: linear-gradient(145deg, #1e1e3a 0%, #161630 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
   max-width: 420px;
   width: 100%;
   overflow: hidden;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   animation: leaveModalSlideIn 0.3s ease-out;
 }
 
@@ -51,14 +53,15 @@
 
 .leave-confirm-title {
   margin: 0 0 10px 0;
-  color: var(--text-primary);
+  color: var(--hw-black, #231f20);
   font-size: 18px;
   font-weight: 700;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
 }
 
 .leave-confirm-message {
   margin: 0 0 20px 0;
-  color: var(--text-secondary);
+  color: var(--text-secondary, #4b5563);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -71,37 +74,37 @@
 .leave-confirm-cancel {
   flex: 1;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-secondary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: var(--hw-surface, #ffffff);
+  color: var(--text-secondary, #4b5563);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   font-weight: 700;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
+  transition: all 0.2s ease;
 }
 
 .leave-confirm-cancel:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--hw-black, #231f20);
+  border-color: var(--hw-gray-400, #9ca3af);
 }
 
 .leave-confirm-leave {
   flex: 1;
   padding: 12px;
-  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-  color: white;
+  background: var(--hw-red, #c8102e);
+  color: #ffffff;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   font-weight: 700;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.25);
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
+  transition: all 0.2s ease;
 }
 
 .leave-confirm-leave:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+  background: var(--hw-red-hover, #a50d26);
 }

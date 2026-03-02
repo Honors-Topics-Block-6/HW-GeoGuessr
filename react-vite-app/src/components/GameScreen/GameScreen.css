@@ -2,23 +2,21 @@
   display: flex;
   width: 100%;
   min-height: 100vh;
-  background-color: var(--bg-dark);
+  background-color: var(--hw-page-bg);
 }
 
-/* Image Panel - Left side */
 .image-panel {
   flex: 7;
   display: flex;
-  background-color: var(--bg-dark);
-  border-right: 1px solid var(--border-color);
+  background-color: var(--hw-gray-200);
+  border-right: 1px solid var(--hw-gray-300);
 }
 
-/* Guess Panel - Right side */
 .guess-panel {
   flex: 3;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-panel);
+  background-color: #fff;
   min-width: 320px;
   max-width: 400px;
 }
@@ -28,7 +26,7 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--hw-gray-300);
 }
 
 .round-timer {
@@ -36,8 +34,8 @@
   flex-direction: column;
   gap: 0.35rem;
   padding: 0.6rem 1.25rem 0.7rem;
-  border-bottom: 1px solid var(--border-color);
-  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid var(--hw-gray-300);
+  background: var(--hw-gray-100);
 }
 
 .round-timer-top {
@@ -48,22 +46,22 @@
 
 .timer-label {
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: var(--hw-gray-600);
 }
 
 .timer-value {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     'Liberation Mono', 'Courier New', monospace;
   font-weight: 600;
-  color: var(--accent-green);
+  color: var(--hw-red);
 }
 
 .timer-value.warning {
-  color: #ffc107;
+  color: #d97706;
 }
 
 .timer-value.critical {
-  color: #ff4757;
+  color: #dc2626;
 }
 
 .timer-bar {
@@ -71,7 +69,7 @@
   width: 100%;
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hw-gray-300);
   overflow: hidden;
 }
 
@@ -80,16 +78,16 @@
   top: 0;
   left: 0;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-green), #9bff8f);
+  background: var(--hw-red);
   transition: width 0.08s linear;
 }
 
 .timer-bar-fill.warning {
-  background: linear-gradient(90deg, #ffc107, #ffe08a);
+  background: #d97706;
 }
 
 .timer-bar-fill.critical {
-  background: linear-gradient(90deg, #ff4757, #ff9aa5);
+  background: #dc2626;
 }
 
 .back-button {
@@ -98,22 +96,22 @@
   gap: 0.3rem;
   padding: 0.5rem 0.8rem;
   background-color: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-secondary);
+  border: 1px solid var(--hw-gray-300);
+  color: var(--hw-gray-600);
   font-size: 0.85rem;
   transition: all 0.2s ease;
 }
 
 .back-button:hover {
-  border-color: var(--text-secondary);
-  color: var(--text-primary);
+  border-color: var(--hw-gray-400);
+  color: var(--hw-black);
+  background: var(--hw-gray-100);
 }
 
 .panel-title {
   font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-weight: 700;
+  color: var(--hw-black);
   flex: 1;
 }
 
@@ -122,10 +120,9 @@
   align-items: center;
   justify-content: center;
   padding: 0.4rem 0.8rem;
-  background-color: var(--bg-card);
-  border: 1px solid var(--accent-green);
-  border-radius: 20px;
-  color: var(--accent-green);
+  background-color: rgba(200, 16, 46, 0.08);
+  border: 1px solid var(--hw-red);
+  color: var(--hw-red);
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -139,14 +136,13 @@
   overflow-y: auto;
 }
 
-/* Guess Status */
 .guess-status {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   padding: 1rem 1.25rem;
-  border-top: 1px solid var(--border-color);
-  background-color: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--hw-gray-300);
+  background-color: var(--hw-gray-100);
 }
 
 .status-item {
@@ -154,12 +150,12 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: var(--hw-gray-500);
   transition: color 0.2s ease;
 }
 
 .status-item.complete {
-  color: var(--accent-green);
+  color: var(--hw-red);
 }
 
 .status-icon {
@@ -168,40 +164,21 @@
   text-align: center;
 }
 
-/* Responsive Design */
 @media (max-width: 1024px) {
-  .game-screen {
-    flex-direction: column;
-  }
-
+  .game-screen { flex-direction: column; }
   .image-panel {
     flex: none;
     height: 50vh;
     border-right: none;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--hw-gray-300);
   }
-
-  .guess-panel {
-    flex: 1;
-    min-width: 100%;
-    max-width: 100%;
-  }
+  .guess-panel { flex: 1; min-width: 100%; max-width: 100%; }
 }
 
 @media (max-width: 768px) {
-  .image-panel {
-    height: 40vh;
-  }
-
-  .guess-panel-header {
-    padding: 0.75rem 1rem;
-  }
-
-  .guess-controls {
-    padding: 1rem;
-    gap: 1rem;
-  }
-
+  .image-panel { height: 40vh; }
+  .guess-panel-header { padding: 0.75rem 1rem; }
+  .guess-controls { padding: 1rem; gap: 1rem; }
   .guess-status {
     flex-direction: row;
     justify-content: center;

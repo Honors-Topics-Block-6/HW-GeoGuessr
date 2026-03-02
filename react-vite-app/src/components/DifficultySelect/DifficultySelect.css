@@ -14,7 +14,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #0c0c0f 0%, #1a1a2e 50%, #16213e 100%);
+  background: var(--hw-page-bg);
   z-index: 0;
 }
 
@@ -26,8 +26,8 @@
   width: 100%;
   height: 100%;
   background-image:
-    radial-gradient(circle at 20% 80%, rgba(108, 181, 45, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(108, 181, 45, 0.08) 0%, transparent 40%);
+    radial-gradient(circle at 20% 80%, rgba(200, 16, 46, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(240, 179, 35, 0.04) 0%, transparent 40%);
 }
 
 .difficulty-overlay {
@@ -36,9 +36,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background:
-    linear-gradient(0deg, rgba(12, 12, 15, 0.8) 0%, transparent 50%),
-    linear-gradient(180deg, rgba(12, 12, 15, 0.4) 0%, transparent 30%);
+  background: transparent;
 }
 
 .difficulty-content {
@@ -58,10 +56,9 @@
   top: 0;
   left: 2rem;
   padding: 8px 18px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--hw-gray-300);
+  color: var(--hw-gray-700);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -69,35 +66,31 @@
 }
 
 .difficulty-back-button:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: var(--text-primary);
+  background: var(--hw-gray-100);
+  color: var(--hw-black);
 }
 
-/* Headings */
 .difficulty-heading {
   font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-weight: 900;
+  color: var(--hw-black);
   margin-bottom: 0.5rem;
-  text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
 }
 
 .difficulty-subheading {
   font-size: 1rem;
-  color: var(--text-secondary);
+  color: var(--hw-gray-600);
   margin-bottom: 2rem;
 }
 
 .mode-heading {
   font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-weight: 900;
+  color: var(--hw-black);
   margin-top: 2.5rem;
   margin-bottom: 1.2rem;
-  text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
 }
 
-/* Difficulty Cards */
 .difficulty-options {
   display: flex;
   gap: 1rem;
@@ -113,25 +106,24 @@
   align-items: center;
   gap: 0.5rem;
   padding: 1.5rem 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 2px solid var(--border-color);
-  border-radius: 14px;
+  background: #fff;
+  border: 2px solid var(--hw-gray-300);
   cursor: pointer;
   transition: all 0.25s ease;
-  color: var(--text-primary);
+  color: var(--hw-black);
 }
 
 .difficulty-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--border-light);
+  background: var(--hw-gray-100);
+  border-color: var(--hw-gray-400);
   transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 .difficulty-card.selected {
-  border-color: var(--accent-green);
-  background: rgba(108, 181, 45, 0.12);
-  box-shadow: 0 0 20px rgba(108, 181, 45, 0.2);
+  border-color: var(--hw-red);
+  background: rgba(200, 16, 46, 0.06);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
 }
 
 .difficulty-card-icon {
@@ -145,11 +137,10 @@
 
 .difficulty-card-desc {
   font-size: 0.8rem;
-  color: var(--text-secondary);
+  color: var(--hw-gray-600);
   line-height: 1.3;
 }
 
-/* Mode Cards */
 .mode-options {
   display: flex;
   gap: 1rem;
@@ -165,25 +156,24 @@
   align-items: center;
   gap: 0.5rem;
   padding: 1.5rem 1rem;
-  border-radius: 14px;
-  border: 2px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid var(--hw-gray-300);
+  background: #fff;
   transition: all 0.25s ease;
-  color: var(--text-primary);
+  color: var(--hw-black);
   cursor: pointer;
 }
 
 .mode-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--border-light);
+  background: var(--hw-gray-100);
+  border-color: var(--hw-gray-400);
   transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 .mode-card.selected {
-  background: rgba(108, 181, 45, 0.12);
-  border-color: var(--accent-green);
-  box-shadow: 0 0 20px rgba(108, 181, 45, 0.2);
+  background: rgba(200, 16, 46, 0.06);
+  border-color: var(--hw-red);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
 }
 
 .mode-card-icon {
@@ -195,19 +185,17 @@
   font-weight: 700;
 }
 
-/* Time Selection */
 .time-heading {
   font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-weight: 900;
+  color: var(--hw-black);
   margin-top: 2.5rem;
   margin-bottom: 0.3rem;
-  text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
 }
 
 .time-subheading {
   font-size: 1rem;
-  color: var(--text-secondary);
+  color: var(--hw-gray-600);
   margin-bottom: 1.2rem;
 }
 
@@ -226,25 +214,24 @@
   gap: 0.3rem;
   padding: 1rem 1.2rem;
   min-width: 90px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 2px solid var(--border-color);
-  border-radius: 12px;
+  background: #fff;
+  border: 2px solid var(--hw-gray-300);
   cursor: pointer;
   transition: all 0.25s ease;
-  color: var(--text-primary);
+  color: var(--hw-black);
 }
 
 .time-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--border-light);
+  background: var(--hw-gray-100);
+  border-color: var(--hw-gray-400);
   transform: translateY(-2px);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .time-card.selected {
-  border-color: var(--accent-green);
-  background: rgba(108, 181, 45, 0.12);
-  box-shadow: 0 0 16px rgba(108, 181, 45, 0.2);
+  border-color: var(--hw-red);
+  background: rgba(200, 16, 46, 0.06);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
 }
 
 .time-card-icon {
@@ -266,7 +253,7 @@
 
 .time-custom-label {
   font-size: 0.85rem;
-  color: var(--text-secondary);
+  color: var(--hw-gray-600);
 }
 
 .time-custom-input {
@@ -275,42 +262,41 @@
   text-align: center;
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
-  border: 2px solid var(--border-color);
-  border-radius: 10px;
+  color: var(--hw-black);
+  background: #fff;
+  border: 2px solid var(--hw-gray-300);
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .time-custom-input:focus {
-  border-color: var(--accent-green);
-  box-shadow: 0 0 12px rgba(108, 181, 45, 0.25);
+  border-color: var(--hw-red);
+  box-shadow: var(--hw-focus-ring);
 }
 
 .time-custom-input::placeholder {
-  color: var(--text-secondary);
+  color: var(--hw-gray-500);
   opacity: 0.6;
 }
 
-/* Play Button */
 .play-button {
   margin-top: 0;
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
-  color: var(--text-primary);
+  background: var(--hw-red);
+  color: #fff;
   font-size: 1.3rem;
   font-weight: 600;
   padding: 1rem 4rem;
-  border-radius: 50px;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(108, 181, 45, 0.4);
+  box-shadow: 0 4px 12px rgba(200, 16, 46, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   min-width: 200px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .difficulty-footer {
@@ -323,16 +309,17 @@
   justify-content: center;
   background: linear-gradient(
     0deg,
-    rgba(12, 12, 15, 0.92) 0%,
-    rgba(12, 12, 15, 0.55) 55%,
-    rgba(12, 12, 15, 0) 100%
+    rgba(242, 240, 236, 0.95) 0%,
+    rgba(242, 240, 236, 0.6) 55%,
+    rgba(242, 240, 236, 0) 100%
   );
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
 }
 
 .play-button:hover:not(:disabled) {
+  background: var(--hw-red-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 30px rgba(108, 181, 45, 0.5);
+  box-shadow: 0 6px 20px rgba(200, 16, 46, 0.35);
 }
 
 .play-button:active:not(:disabled) {
@@ -344,42 +331,21 @@
   cursor: not-allowed;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
-  .difficulty-heading,
-  .mode-heading,
-  .time-heading {
-    font-size: 1.7rem;
-  }
+  .difficulty-heading, .mode-heading, .time-heading { font-size: 1.7rem; }
 
   .difficulty-screen {
     justify-content: flex-start;
     align-items: stretch;
   }
 
-  .difficulty-content {
-    padding: 1rem 1rem 1.5rem;
-  }
+  .difficulty-content { padding: 1rem 1rem 1.5rem; }
+  .difficulty-subheading { margin-bottom: 1.2rem; }
+  .mode-heading { margin-top: 1.6rem; margin-bottom: 0.8rem; }
+  .time-heading { margin-top: 1.6rem; }
+  .time-subheading { margin-bottom: 0.9rem; }
 
-  .difficulty-subheading {
-    margin-bottom: 1.2rem;
-  }
-
-  .mode-heading {
-    margin-top: 1.6rem;
-    margin-bottom: 0.8rem;
-  }
-
-  .time-heading {
-    margin-top: 1.6rem;
-  }
-
-  .time-subheading {
-    margin-bottom: 0.9rem;
-  }
-
-  .difficulty-options,
-  .mode-options {
+  .difficulty-options, .mode-options {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
@@ -393,36 +359,17 @@
     max-width: 560px;
   }
 
-  .difficulty-card,
-  .mode-card,
-  .time-card {
+  .difficulty-card, .mode-card, .time-card {
     max-width: none;
     width: 100%;
     padding: 0.9rem 0.75rem;
   }
 
-  .difficulty-card-icon,
-  .mode-card-icon {
-    font-size: 1.6rem;
-  }
-
-  .difficulty-card-label,
-  .mode-card-label {
-    font-size: 1rem;
-  }
-
-  .difficulty-card-desc {
-    display: none;
-  }
-
-  .time-card {
-    min-width: 0;
-  }
-
-  .play-button {
-    font-size: 1.1rem;
-    padding: 0.9rem 3rem;
-  }
+  .difficulty-card-icon, .mode-card-icon { font-size: 1.6rem; }
+  .difficulty-card-label, .mode-card-label { font-size: 1rem; }
+  .difficulty-card-desc { display: none; }
+  .time-card { min-width: 0; }
+  .play-button { font-size: 1.1rem; padding: 0.9rem 3rem; }
 
   .difficulty-back-button {
     position: static;
@@ -431,32 +378,10 @@
 }
 
 @media (max-width: 480px) {
-  .difficulty-heading,
-  .mode-heading,
-  .time-heading {
-    font-size: 1.4rem;
-  }
-
-  .difficulty-content {
-    padding: 0.9rem 0.9rem 1.25rem;
-  }
-
-  .time-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .difficulty-card,
-  .mode-card,
-  .time-card {
-    padding: 0.75rem 0.6rem;
-    border-radius: 12px;
-  }
-
-  .time-card-label {
-    font-size: 0.9rem;
-  }
-
-  .difficulty-footer {
-    margin-top: 1.25rem;
-  }
+  .difficulty-heading, .mode-heading, .time-heading { font-size: 1.4rem; }
+  .difficulty-content { padding: 0.9rem 0.9rem 1.25rem; }
+  .time-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .difficulty-card, .mode-card, .time-card { padding: 0.75rem 0.6rem; }
+  .time-card-label { font-size: 0.9rem; }
+  .difficulty-footer { margin-top: 1.25rem; }
 }

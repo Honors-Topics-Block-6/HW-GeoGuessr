@@ -39,3 +39,5 @@ lerna-debug.log*
 *.sw?
 *.local
 *.cache
+
+classresources

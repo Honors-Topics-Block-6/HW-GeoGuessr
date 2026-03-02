@@ -1,4 +1,4 @@
-/* ===== Send Message Modal - Dark Glass Theme (matches UserEditModal) ===== */
+/* ===== Send Message Modal - HW Design System ===== */
 
 /* Overlay */
 .send-msg-overlay {
@@ -7,8 +7,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -24,14 +23,14 @@
 
 /* Content card */
 .send-msg-content {
-  background: linear-gradient(145deg, #1e1e3a 0%, #161630 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
   max-width: 480px;
   width: 100%;
   position: relative;
   padding: 32px;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.08);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
   animation: sendMsgSlideIn 0.3s ease-out;
 }
 
@@ -45,55 +44,55 @@
   position: absolute;
   top: 16px;
   right: 18px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hw-gray-100, #f3f4f6);
   border: none;
   font-size: 22px;
   cursor: pointer;
-  color: #8892a8;
+  color: var(--text-secondary, #4b5563);
   line-height: 1;
   padding: 6px 10px;
-  border-radius: 10px;
+  border-radius: 0;
   transition: all 0.2s ease;
 }
 
 .send-msg-close:hover {
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.15);
+  color: var(--hw-red, #c8102e);
+  background: #fee2e2;
 }
 
 /* Title */
 .send-msg-title {
   font-size: 20px;
   font-weight: 700;
-  color: #e0e6f0;
+  color: var(--hw-black, #231f20);
   margin: 0 0 20px 0;
 }
 
 .send-msg-recipient {
-  color: #a78bfa;
+  color: var(--hw-red, #c8102e);
 }
 
 /* Error */
 .send-msg-error {
-  background: rgba(248, 113, 113, 0.1);
-  color: #f87171;
+  background: #fef2f2;
+  color: #991b1b;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: 0;
   margin-bottom: 16px;
   font-size: 14px;
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  border: 1px solid #fca5a5;
 }
 
 /* Success */
 .send-msg-success {
-  background: rgba(52, 211, 153, 0.1);
-  color: #34d399;
+  background: #f0fdf4;
+  color: #166534;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: 0;
   margin-bottom: 16px;
   font-size: 14px;
   font-weight: 600;
-  border: 1px solid rgba(52, 211, 153, 0.2);
+  border: 1px solid #bbf7d0;
 }
 
 /* Form layout */
@@ -116,18 +115,18 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #8892a8;
+  color: var(--text-muted, #6b7280);
 }
 
 /* Textarea */
 .send-msg-textarea {
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
   font-size: 14px;
   font-family: inherit;
-  color: #e0e6f0;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--hw-black, #231f20);
+  background: var(--hw-surface, #ffffff);
   transition: all 0.2s ease;
   width: 100%;
   box-sizing: border-box;
@@ -138,25 +137,24 @@
 
 .send-msg-textarea:focus {
   outline: none;
-  border-color: rgba(139, 92, 246, 0.5);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--hw-red, #c8102e);
+  box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.1);
 }
 
 .send-msg-textarea:disabled {
   opacity: 0.5;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--hw-gray-100, #f3f4f6);
   cursor: not-allowed;
 }
 
 .send-msg-textarea::placeholder {
-  color: #4a5568;
+  color: var(--text-muted, #6b7280);
 }
 
 /* Character count */
 .send-msg-char-count {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--text-muted, #6b7280);
   text-align: right;
 }
 
@@ -169,44 +167,41 @@
 .send-msg-send {
   flex: 1;
   padding: 13px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: var(--hw-red, #c8102e);
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  transition: all 0.2s ease;
 }
 
 .send-msg-send:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+  background: var(--hw-red-hover, #a50d26);
 }
 
 .send-msg-send:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 .send-msg-cancel {
   flex: 1;
   padding: 13px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #b0b8cc;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: var(--hw-surface, #ffffff);
+  color: var(--text-secondary, #4b5563);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
 }
 
 .send-msg-cancel:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--hw-black, #231f20);
 }
 
 .send-msg-cancel:disabled {
@@ -217,12 +212,12 @@
 /* ===== Sender Text Input ===== */
 .send-msg-input {
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
   font-size: 14px;
   font-family: inherit;
-  color: #e0e6f0;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--hw-black, #231f20);
+  background: var(--hw-surface, #ffffff);
   transition: all 0.2s ease;
   width: 100%;
   box-sizing: border-box;
@@ -230,19 +225,18 @@
 
 .send-msg-input:focus {
   outline: none;
-  border-color: rgba(139, 92, 246, 0.5);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--hw-red, #c8102e);
+  box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.1);
 }
 
 .send-msg-input:disabled {
   opacity: 0.5;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--hw-gray-100, #f3f4f6);
   cursor: not-allowed;
 }
 
 .send-msg-input::placeholder {
-  color: #4a5568;
+  color: var(--text-muted, #6b7280);
 }
 
 /* ===== Sender Preview ===== */
@@ -251,22 +245,22 @@
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  background: rgba(139, 92, 246, 0.06);
-  border: 1px solid rgba(139, 92, 246, 0.12);
-  border-radius: 10px;
+  background: var(--hw-gray-100, #f3f4f6);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
 }
 
 .send-msg-preview-label {
   font-size: 11px;
   font-weight: 600;
-  color: #8892a8;
+  color: var(--text-muted, #6b7280);
   white-space: nowrap;
 }
 
 .send-msg-preview-sender {
   font-size: 13px;
   font-weight: 700;
-  color: #a78bfa;
+  color: var(--hw-red, #c8102e);
 }
 
 /* ===== Wide Content Variant (Message All) ===== */
@@ -276,12 +270,11 @@
 
 /* ===== Send All Button Variant ===== */
 .send-msg-send-all {
-  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
-  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+  background: var(--hw-red, #c8102e);
 }
 
 .send-msg-send-all:hover:not(:disabled) {
-  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+  background: var(--hw-red-hover, #a50d26);
 }
 
 /* ===== Responsive ===== */
@@ -289,7 +282,6 @@
   .send-msg-content {
     padding: 22px;
     margin: 10px;
-    border-radius: 20px;
   }
 
   .send-msg-actions {
