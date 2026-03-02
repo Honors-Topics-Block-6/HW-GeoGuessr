@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { useAuth } from './contexts/AuthContext';
-import { useGameState, type Difficulty, type GameMode } from './hooks/useGameState';
+import { useGameState, type Difficulty, type GameMode, type UseGameStateReturn } from './hooks/useGameState';
 import { useDuelGame } from './hooks/useDuelGame';
 import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
@@ -573,14 +573,22 @@ function App(): React.ReactElement {
     selectedMode: GameMode,
     singleplayerVariant?: 'classic' | 'endless',
     roundTimeSeconds?: number,
-    timePenalty?: boolean
+    timePenalty?: boolean,
+    totalRounds?: number
   ): void => {
     void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
-    const modeVal = selectedMode ?? 'singleplayer';
+    const modeVal = selectedMode ?? mode ?? 'singleplayer';
     if (modeVal === 'singleplayer' && user?.uid) {
       recordDailyPlay(user.uid);
     }
-    startGame(selectedDifficulty, modeVal, singleplayerVariant, roundTimeSeconds, timePenalty);
+    (startGame as UseGameStateReturn['startGame'])(
+      selectedDifficulty,
+      modeVal,
+      singleplayerVariant ?? 'classic',
+      roundTimeSeconds,
+      timePenalty,
+      totalRounds
+    );
   };
 
   /**
