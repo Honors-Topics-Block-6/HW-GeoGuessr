@@ -145,51 +145,57 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      setUser(firebaseUser);
-      const authVerified = firebaseUser?.emailVerified ?? false;
+      try {
+        setUser(firebaseUser);
+        const authVerified = firebaseUser?.emailVerified ?? false;
 
-      if (firebaseUser) {
-        // Fetch the user's Firestore document
-        const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
-        if (doc) {
-          // Verified if either Firebase Auth or Firestore says so
-          // (admin can set emailVerified in Firestore, user can verify via email link)
-          const isVerified = authVerified || doc.emailVerified === true;
-          setEmailVerified(isVerified);
+        if (firebaseUser) {
+          // Fetch the user's Firestore document
+          const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
+          if (doc) {
+            // Verified if either Firebase Auth or Firestore says so
+            // (admin can set emailVerified in Firestore, user can verify via email link)
+            const isVerified = authVerified || doc.emailVerified === true;
+            setEmailVerified(isVerified);
 
-          // Sync Firebase Auth -> Firestore when user verifies via email link
-          if (authVerified && !doc.emailVerified) {
-            await updateUserDoc(firebaseUser.uid, { emailVerified: true });
-            doc.emailVerified = true;
-          }
+            // Sync Firebase Auth -> Firestore when user verifies via email link
+            if (authVerified && !doc.emailVerified) {
+              await updateUserDoc(firebaseUser.uid, { emailVerified: true });
+              doc.emailVerified = true;
+            }
 
-          setUserDoc(doc);
-          setNeedsUsername(false);
+            setUserDoc(doc);
+            setNeedsUsername(false);
 
-          // Mark "last active" on session start (throttled, server time).
-          const lastActiveDate = coerceTimestampToDate(doc.lastActive as unknown);
-          const STALE_AFTER_MS = 5 * 60 * 1000;
-          const shouldTouch = !lastActiveDate || (Date.now() - lastActiveDate.getTime() > STALE_AFTER_MS);
-          if (shouldTouch) {
-            void touchLastActive(firebaseUser.uid).then((didWrite) => {
-              if (didWrite) {
-                setUserDoc(prev => (prev ? { ...prev, lastActive: new Date() } : prev));
-              }
-            });
+            // Mark "last active" on session start (throttled, server time).
+            const lastActiveDate = coerceTimestampToDate(doc.lastActive as unknown);
+            const STALE_AFTER_MS = 5 * 60 * 1000;
+            const shouldTouch = !lastActiveDate || (Date.now() - lastActiveDate.getTime() > STALE_AFTER_MS);
+            if (shouldTouch) {
+              void touchLastActive(firebaseUser.uid).then((didWrite) => {
+                if (didWrite) {
+                  setUserDoc(prev => (prev ? { ...prev, lastActive: new Date() } : prev));
+                }
+              });
+            }
+          } else {
+            setEmailVerified(authVerified);
+            // User exists in Auth but not in Firestore (Google sign-in, first time)
+            setUserDoc(null);
+            setNeedsUsername(true);
           }
         } else {
-          setEmailVerified(authVerified);
-          // User exists in Auth but not in Firestore (Google sign-in, first time)
+          setEmailVerified(false);
           setUserDoc(null);
-          setNeedsUsername(true);
+          setNeedsUsername(false);
         }
-      } else {
-        setEmailVerified(false);
+      } catch (err) {
+        console.error('Failed to initialize auth state:', err);
         setUserDoc(null);
         setNeedsUsername(false);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return unsubscribe;
@@ -246,10 +252,10 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
    * Sign up with email and password
    */
   const signup = useCallback(async (email: string, password: string, username: string): Promise<FirebaseUser> => {
-    // Check username uniqueness before creating account
-    const taken = await isUsernameTaken(username);
-    if (taken) {
-      throw new Error('Username is already taken. Please choose another.');
+    // Fast pre-check to avoid creating Auth users for obviously-taken usernames.
+    const availability = await checkUsernameAvailability(username, null, true);
+    if (!availability.available) {
+      throw new UsernameTakenError(availability.suggestions || []);
     }
 
     const credential = await createUserWithEmailAndPassword(auth, email, password);
@@ -261,7 +267,17 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
       console.error('Failed to send verification email:', err);
     }
 
-    await createUserDoc(credential.user.uid, email, username);
+    try {
+      await createUserDoc(credential.user.uid, email, username);
+    } catch (err) {
+      // If the username was taken due to a race, remove the just-created auth user.
+      try {
+        await credential.user.delete();
+      } catch (deleteErr) {
+        console.error('Failed to delete auth user after username conflict:', deleteErr);
+      }
+      throw err;
+    }
     const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
     setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
     setNeedsUsername(false);
@@ -306,9 +322,9 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   const completeGoogleSignUp = useCallback(async (username: string): Promise<void> => {
     if (!user) throw new Error('No authenticated user');
 
-    const taken = await isUsernameTaken(username);
-    if (taken) {
-      throw new Error('Username is already taken. Please choose another.');
+    const availability = await checkUsernameAvailability(username, user.uid, true);
+    if (!availability.available) {
+      throw new UsernameTakenError(availability.suggestions || []);
     }
 
     await createUserDoc(user.uid, user.email!, username);
