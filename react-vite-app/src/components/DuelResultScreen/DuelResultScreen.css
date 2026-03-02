@@ -60,6 +60,7 @@
   background-color: var(--bg-secondary);
   border-radius: 12px;
   overflow: hidden;
+  cursor: zoom-in;
 }
 
 .duel-result-map .map-image {
