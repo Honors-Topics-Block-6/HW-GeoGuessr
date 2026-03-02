@@ -64,19 +64,6 @@ function getPerformanceRating(totalScore: number, maxPossible: number): Performa
 }
 
 /**
- * Calculate performance rating based on total score (classic mode)
- */
-function getPerformanceRating(totalScore: number, maxPossible: number): PerformanceRating {
-  const percentage = (totalScore / maxPossible) * 100;
-  if (percentage >= 95) return { rating: 'Perfect!', emoji: '🏆', class: 'perfect' };
-  if (percentage >= 80) return { rating: 'Excellent!', emoji: '🌟', class: 'excellent' };
-  if (percentage >= 60) return { rating: 'Great!', emoji: '👏', class: 'great' };
-  if (percentage >= 40) return { rating: 'Good', emoji: '👍', class: 'good' };
-  if (percentage >= 20) return { rating: 'Keep Practicing', emoji: '📍', class: 'okay' };
-  return { rating: 'Beginner', emoji: '🎯', class: 'beginner' };
-}
-
-/**
  * Calculate performance rating for endless mode based on rounds survived
  */
 function getEndlessPerformanceRating(roundsSurvived: number): PerformanceRating {
@@ -130,9 +117,6 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
   const [displayedTotal, setDisplayedTotal] = useState<number>(0);
   const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
   const xpAwarded = useRef<boolean>(false);
-  const totalScore = rounds.reduce((sum: number, round: RoundData) => sum + round.score, 0);
-  const roundsSurvived = rounds.length;
-  const maxPossible = rounds.length * 5000;
   const totalScore = rounds.reduce((sum: number, round: RoundData) => sum + round.score, 0);
   const roundsSurvived = rounds.length;
   const maxPossible = rounds.length * 5000;
