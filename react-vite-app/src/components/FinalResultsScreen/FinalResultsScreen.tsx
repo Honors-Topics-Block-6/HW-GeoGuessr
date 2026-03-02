@@ -51,7 +51,7 @@ interface ConfettiPiece {
 }
 
 /**
- * Calculate performance rating based on total score
+ * Calculate performance rating based on total score (classic mode)
  */
 function getPerformanceRating(totalScore: number, maxPossible: number): PerformanceRating {
   const percentage = (totalScore / maxPossible) * 100;
@@ -60,6 +60,18 @@ function getPerformanceRating(totalScore: number, maxPossible: number): Performa
   if (percentage >= 60) return { rating: 'Great!', emoji: '👏', class: 'great' };
   if (percentage >= 40) return { rating: 'Good', emoji: '👍', class: 'good' };
   if (percentage >= 20) return { rating: 'Keep Practicing', emoji: '📍', class: 'okay' };
+  return { rating: 'Beginner', emoji: '🎯', class: 'beginner' };
+}
+
+/**
+ * Calculate performance rating for endless mode based on rounds survived
+ */
+function getEndlessPerformanceRating(roundsSurvived: number): PerformanceRating {
+  if (roundsSurvived >= 16) return { rating: 'Legendary!', emoji: '🏆', class: 'perfect' };
+  if (roundsSurvived >= 11) return { rating: 'Excellent!', emoji: '🌟', class: 'excellent' };
+  if (roundsSurvived >= 8) return { rating: 'Great!', emoji: '👏', class: 'great' };
+  if (roundsSurvived >= 5) return { rating: 'Good', emoji: '👍', class: 'good' };
+  if (roundsSurvived >= 3) return { rating: 'Keep Practicing', emoji: '📍', class: 'okay' };
   return { rating: 'Beginner', emoji: '🎯', class: 'beginner' };
 }
 
@@ -94,23 +106,26 @@ export interface FinalResultsScreenProps {
   onPlayAgain: () => void;
   onBackToTitle: () => void;
   difficulty: string | null;
+  isEndlessMode?: boolean;
   mode?: string | null;
 }
 
-function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mode = null }: FinalResultsScreenProps): React.ReactElement {
+function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, isEndlessMode = false, mode = null }: FinalResultsScreenProps): React.ReactElement {
   const { user, userDoc, totalXp, refreshUserDoc } = useAuth();
   const { recordProgress } = useDailyGoals(user?.uid ?? null);
   const [animationComplete, setAnimationComplete] = useState<boolean>(false);
   const [displayedTotal, setDisplayedTotal] = useState<number>(0);
   const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
   const xpAwarded = useRef<boolean>(false);
-
   const totalScore = rounds.reduce((sum: number, round: RoundData) => sum + round.score, 0);
+  const roundsSurvived = rounds.length;
   const maxPossible = rounds.length * 5000;
   const averageScore = rounds.length > 0 ? totalScore / rounds.length : 0;
   const roundedAverageScore = Math.round(averageScore);
   const isPerfectAverageScore = roundedAverageScore === 5000;
-  const performance = getPerformanceRating(totalScore, maxPossible);
+  const performance = isEndlessMode
+    ? getEndlessPerformanceRating(roundsSurvived)
+    : getPerformanceRating(totalScore, maxPossible);
   const totalGuessTimeSeconds = rounds.reduce((sum: number, round: RoundData) => sum + (round.timeTakenSeconds ?? 0), 0);
   const averageGuessTimeSeconds = rounds.length > 0 ? totalGuessTimeSeconds / rounds.length : 0;
   const isPerfectRound = (round: RoundData): boolean =>
@@ -379,8 +394,14 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mo
           <div className={`performance-badge ${performance.class}`}>
             <span className="performance-emoji">{performance.emoji}</span>
           </div>
-          <h1 className="results-title">Game Complete!</h1>
-          <p className={`performance-text ${performance.class}`}>{performance.rating}</p>
+          <h1 className="results-title">
+            {isEndlessMode ? 'Game Over!' : 'Game Complete!'}
+          </h1>
+          <p className={`performance-text ${performance.class}`}>
+            {isEndlessMode
+              ? `You survived ${roundsSurvived} round${roundsSurvived === 1 ? '' : 's'}! ${performance.rating}`
+              : performance.rating}
+          </p>
         </div>
 
         {/* Total Score Display */}
@@ -388,8 +409,15 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mo
           <div className="total-score-box">
             <span className="total-label">Total Score</span>
             <span className="total-value">{displayedTotal.toLocaleString()}</span>
-            <span className="total-max">/ {maxPossible.toLocaleString()} points</span>
+            <span className="total-max">
+              {isEndlessMode ? ' points' : ` / ${maxPossible.toLocaleString()} points`}
+            </span>
           </div>
+          {isEndlessMode && (
+            <div className="endless-rounds-survived">
+              Rounds survived: {roundsSurvived}
+            </div>
+          )}
         </div>
 
         {/* XP Gained Section */}
