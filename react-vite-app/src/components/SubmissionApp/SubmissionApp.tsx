@@ -38,8 +38,8 @@ function SubmissionApp({ onBack }: SubmissionAppProps): React.JSX.Element {
         <button className="back-to-game-button" onClick={onBack}>
           ← Back to Game
         </button>
-        <h1>{adminScreen ? 'Admin Review Panel' : 'Photo Submission'}</h1>
-        {isAdmin && !adminScreen ? (
+        <h1>Photo Submission</h1>
+        {isAdmin ? (
           <button
             className="review-button"
             onClick={handleAdminClick}

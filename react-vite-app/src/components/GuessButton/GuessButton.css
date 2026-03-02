@@ -5,20 +5,18 @@
   justify-content: center;
   gap: 0.6rem;
   padding: 1rem;
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
-  color: var(--text-primary);
+  background: var(--hw-red, #c8102e);
+  color: #ffffff;
   font-size: 1.2rem;
   font-weight: 600;
-  border-radius: 12px;
+  border-radius: 0;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(108, 181, 45, 0.3);
+  transition: all 0.2s ease;
 }
 
 .guess-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(108, 181, 45, 0.4);
+  background: var(--hw-red-hover, #a50d26);
 }
 
 .guess-button:active:not(:disabled) {
@@ -27,10 +25,9 @@
 
 .guess-button.disabled,
 .guess-button:disabled {
-  background: linear-gradient(135deg, #3a3a4a 0%, #2a2a3a 100%);
+  background: var(--hw-gray-300, #d1d5db);
   color: var(--text-muted);
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 .guess-icon {
