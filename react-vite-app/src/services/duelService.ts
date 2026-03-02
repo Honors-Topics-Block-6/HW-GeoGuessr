@@ -11,6 +11,7 @@ import { db } from '../firebase';
 import { getRandomImage } from './imageService';
 import { calculateDistance, calculateLocationScore } from '../hooks/useGameState';
 import { computeTimeMultiplier } from '../utils/timeScoring';
+import { touchLastActive } from './lastActiveService';
 import { getRegions, getRegionForPoint } from './regionService';
 
 // ────── Types ──────
@@ -199,7 +200,8 @@ export async function submitDuelGuess(
   guessData: GuessData,
   currentImage: DuelImage,
   roundStartedAt?: RoundStartedAt | null,
-  timePenaltyEnabled?: boolean
+  timePenaltyEnabled?: boolean,
+  roundTimeSeconds?: number
 ): Promise<void> {
   let score = 0;
   let locationScore = 0;
@@ -227,21 +229,22 @@ export async function submitDuelGuess(
     }
   }
 
-  // Apply time decay only in hard mode: score decreases as player takes longer
+  // Apply time decay when enabled: score decreases as player takes longer
   let timeTakenSeconds: number | undefined;
   let timePenalty: number | undefined;
-  if (timePenaltyEnabled && roundStartedAt != null && score > 0) {
+  const effectiveRoundTime = (roundTimeSeconds ?? DUEL_ROUND_TIME_SECONDS) || DUEL_ROUND_TIME_SECONDS;
+  if (timePenaltyEnabled && roundStartedAt != null && score > 0 && effectiveRoundTime > 0) {
     const roundStartMs =
       typeof roundStartedAt === 'object' && roundStartedAt?.toMillis
         ? roundStartedAt.toMillis()
         : (roundStartedAt as number);
     timeTakenSeconds = Math.max(
       0,
-      Math.min(DUEL_ROUND_TIME_SECONDS, (Date.now() - roundStartMs) / 1000)
+      Math.min(effectiveRoundTime, (Date.now() - roundStartMs) / 1000)
     );
     const timeMultiplier = computeTimeMultiplier(
       timeTakenSeconds,
-      DUEL_ROUND_TIME_SECONDS,
+      effectiveRoundTime,
       DUEL_TIME_MIN_MULTIPLIER
     );
     const scoreBeforeTime = score;
@@ -267,10 +270,13 @@ export async function submitDuelGuess(
   if (timePenalty !== undefined && timePenalty > 0) {
     guessPayload.timePenalty = timePenalty;
   }
-  await updateDoc(lobbyRef, {
-    [`guesses.${playerUid}`]: guessPayload,
-    updatedAt: serverTimestamp()
-  });
+  await Promise.all([
+    updateDoc(lobbyRef, {
+      [`guesses.${playerUid}`]: guessPayload,
+      updatedAt: serverTimestamp()
+    }),
+    touchLastActive(playerUid, { minIntervalMs: 2 * 60 * 1000 })
+  ]);
 }
 
 /**

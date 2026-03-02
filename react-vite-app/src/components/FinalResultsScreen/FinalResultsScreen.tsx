@@ -63,6 +63,18 @@ function getPerformanceRating(totalScore: number, maxPossible: number): Performa
   return { rating: 'Beginner', emoji: '🎯', class: 'beginner' };
 }
 
+function formatRoundTime(timeTakenSeconds: number | undefined): string {
+  if (typeof timeTakenSeconds !== 'number' || !Number.isFinite(timeTakenSeconds) || timeTakenSeconds < 0) {
+    return '--';
+  }
+  if (timeTakenSeconds >= 60) {
+    const minutes = Math.floor(timeTakenSeconds / 60);
+    const seconds = timeTakenSeconds - minutes * 60;
+    return `${minutes}m ${seconds.toFixed(2)}s`;
+  }
+  return `${timeTakenSeconds.toFixed(2)}s`;
+}
+
 const CONFETTI_COLORS: string[] = ['#6cb52d', '#ffc107', '#ff4757', '#3498db', '#9b59b6'];
 
 /**
@@ -95,8 +107,12 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mo
 
   const totalScore = rounds.reduce((sum: number, round: RoundData) => sum + round.score, 0);
   const maxPossible = rounds.length * 5000;
+  const averageScore = rounds.length > 0 ? totalScore / rounds.length : 0;
+  const roundedAverageScore = Math.round(averageScore);
+  const isPerfectAverageScore = roundedAverageScore === 5000;
   const performance = getPerformanceRating(totalScore, maxPossible);
   const totalGuessTimeSeconds = rounds.reduce((sum: number, round: RoundData) => sum + (round.timeTakenSeconds ?? 0), 0);
+  const averageGuessTimeSeconds = rounds.length > 0 ? totalGuessTimeSeconds / rounds.length : 0;
   const isPerfectRound = (round: RoundData): boolean =>
     round.locationScore === 5000 && round.floorCorrect !== false;
   const fiveKCount = rounds.filter(isPerfectRound).length;
@@ -416,27 +432,26 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mo
                     <img src={round.imageUrl} alt={`Round ${index + 1}`} />
                   </div>
                   <div className="round-stats">
-                    {round.noGuess ? (
-                      <div className="round-stat">
-                        <span className="round-stat-label">No guess</span>
-                        <span className="round-stat-value">0</span>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="round-stat">
-                          <span className="round-stat-label">Location</span>
-                          <span className="round-stat-value">{round.locationScore.toLocaleString()}</span>
-                        </div>
-                        {round.floorCorrect !== null && (
-                          <div className="round-stat">
-                            <span className="round-stat-label">Floor</span>
-                            <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
-                              {round.floorCorrect ? '✓' : '-20%'}
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
+                    <div className="round-stat">
+                      <span className="round-stat-label">Location</span>
+                      <span className="round-stat-value">
+                        {round.noGuess ? 'No guess' : round.locationScore.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="round-stat">
+                      <span className="round-stat-label">Floor</span>
+                      {round.noGuess || round.floorCorrect === null || round.floorCorrect === undefined ? (
+                        <span className="round-stat-value">--</span>
+                      ) : (
+                        <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
+                          {round.floorCorrect ? '✓' : '-20%'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="round-stat">
+                      <span className="round-stat-label">Time</span>
+                      <span className="round-stat-value">{formatRoundTime(round.timeTakenSeconds)}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="round-score">
@@ -447,6 +462,24 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mo
             ))}
           </div>
         </div>
+
+        {rounds.length > 0 && (
+          <div className="average-score-summary">
+            <h2 className="breakdown-title average-summary-title">Per-round averages</h2>
+            <div className="average-score-metrics">
+              <div className="average-metric">
+                <span className="average-metric-label">Avg score</span>
+                <span className={`average-score-value ${isPerfectAverageScore ? 'perfect' : ''}`}>
+                  {roundedAverageScore.toLocaleString()} pts
+                </span>
+              </div>
+              <div className="average-metric">
+                <span className="average-metric-label">Avg time</span>
+                <span className="average-time-value">{formatRoundTime(averageGuessTimeSeconds)}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="final-actions">

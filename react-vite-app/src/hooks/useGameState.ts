@@ -1,12 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getRandomImage, type GameImage as ServiceGameImage } from '../services/imageService';
-<<<<<<< HEAD
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, getRegionForPoint } from '../services/regionService';
 import { computeTimeMultiplier } from '../utils/timeScoring';
-=======
-import { computeTimeMultiplier } from '../utils/timeScoring';
-import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, getRegionForPoint } from '../services/regionService';
->>>>>>> origin/add-time-penalty
 
 const TOTAL_ROUNDS = 5;
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
@@ -55,7 +50,7 @@ export interface RoundResult {
   timePenalty?: number;
 }
 
-export type ScreenState = 'title' | 'game' | 'result' | 'finalResults' | 'multiplayerLobby' | 'waitingRoom' | 'difficultySelect' | 'duelGame';
+export type ScreenState = 'title' | 'modeSelect' | 'game' | 'result' | 'finalResults' | 'multiplayerLobby' | 'waitingRoom' | 'difficultySelect' | 'duelGame';
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'all' | null;
 export type GameMode = 'singleplayer' | 'multiplayer' | null;
 
@@ -529,11 +524,7 @@ export function useGameState(): UseGameStateReturn {
 
     // Show result screen
     setScreen('result');
-<<<<<<< HEAD
   }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, roundTimeSetting, timePenaltyEnabled, regions]);
-=======
-  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, timePenaltyEnabled, regions]]);
->>>>>>> origin/add-time-penalty
 
   const submitGuessRef = useRef<() => void>(submitGuess);
   submitGuessRef.current = submitGuess;

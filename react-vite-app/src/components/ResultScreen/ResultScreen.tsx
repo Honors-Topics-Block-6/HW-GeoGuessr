@@ -123,11 +123,7 @@ function ResultScreen({
   onNextRound,
   onViewFinalResults,
   isLastRound,
-<<<<<<< HEAD
   timePenalty,
-=======
-  timePenalty
->>>>>>> origin/add-time-penalty
   onBackToTitle
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);

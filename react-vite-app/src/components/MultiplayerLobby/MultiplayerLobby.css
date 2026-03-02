@@ -363,6 +363,36 @@
   white-space: nowrap;
 }
 
+/* Time Penalty Toggle */
+.lobby-time-penalty-toggle {
+  width: 100%;
+  margin: 1rem 0;
+  padding: 0.75rem 1.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+.lobby-time-penalty-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.lobby-time-penalty-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-green);
+  cursor: pointer;
+}
+
+.lobby-time-penalty-text {
+  flex: 1;
+}
+
 /* Create Game Button */
 .lobby-create-btn {
   width: 100%;

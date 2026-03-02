@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom';
 import { useAuth, type BuildingStat, type DailyStatBucket } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
 import { getFavoriteAndWorstBuildings } from '../../utils/buildingStats';
+import { formatLastActive } from '../../utils/formatLastActive';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
 import { DAILY_STREAK_UPDATED_EVENT, getDisplayDailyStreak, syncDailyStreakRollover } from '../../services/streakService';
+import { isHeicFile, normalizeImageFile } from '../../utils/compressImage';
 import './ProfileScreen.css';
 
 const QUICK_PROFILE_EMOTES = ['😎', '🔥', '🎯', '🧠', '🚀', '💯'];
@@ -121,21 +123,27 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   };
 
   const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = e.target.files?.[0];
-    // Reset input so selecting the same file again still triggers onChange.
+    let file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
 
     setError('');
     setSuccess('');
 
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith('image/') && !isHeicFile(file)) {
       setError('Please select an image file.');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
       setError('Image must be smaller than 10MB.');
+      return;
+    }
+
+    try {
+      file = await normalizeImageFile(file);
+    } catch {
+      setError('Could not process this image. Please convert it to JPG or PNG first.');
       return;
     }
 
@@ -568,7 +576,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
             {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,.heic,.heif"
               onChange={handlePhotoUpload}
               disabled={isUploadingPhoto}
             />
@@ -654,32 +662,42 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
         {activeTab === 'profile' ? (
           <div className="profile-fields">
             <div className="profile-field">
+              <span className="profile-label">Last Active</span>
+              <span className="profile-value">{formatLastActive(userDoc?.lastActive ?? userDoc?.lastOnline)}</span>
+            </div>
+
+            <div className="profile-field">
               <span className="profile-label">Username</span>
               {isEditing ? (
-                <div className="profile-edit-row">
-                  <input
-                    type="text"
-                    value={newUsername}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewUsername(e.target.value)}
-                    className="profile-input"
-                    autoFocus
-                    disabled={isSaving}
-                  />
-                  <button
-                    className="profile-save-button"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button
-                    className="profile-cancel-button"
-                    onClick={handleCancel}
-                    disabled={isSaving}
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <>
+                  <div className="profile-edit-row">
+                    <input
+                      type="text"
+                      value={newUsername}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setNewUsername(e.target.value)}
+                      className="profile-input"
+                      autoFocus
+                      disabled={isSaving}
+                    />
+                    <button
+                      className="profile-save-button"
+                      onClick={handleSave}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      className="profile-cancel-button"
+                      onClick={handleCancel}
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="profile-username-note">
+                    Changing your username is allowed once every 30 days.
+                  </div>
+                </>
               ) : (
                 <div className="profile-value-row">
                   <span className="profile-value">{userDoc?.username}</span>
@@ -884,7 +902,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
             <div className="profile-stat-row">
               <span className="profile-stat-label">Average Guess Time</span>
               <span className="profile-stat-value">
-                {filteredStats.gamesPlayed > 0 ? `${averageGuessTime.toFixed(1)}s` : 'N/A'}
+                {filteredStats.gamesPlayed > 0 ? `${averageGuessTime.toFixed(2)}s` : 'N/A'}
               </span>
             </div>
             <div className="profile-stat-row">
