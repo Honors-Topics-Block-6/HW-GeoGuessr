@@ -10,6 +10,7 @@ export interface TitleScreenProps {
   onOpenLeaderboard: () => void;
   onOpenBugReport: () => void;
   onOpenDailyGoals: () => void;
+  onOpenAchievements: () => void;
   isLoading: boolean;
 }
 
@@ -69,6 +70,9 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
               </button>
               <button className="title-dropdown-item" onClick={() => { onOpenFriends(); setUserMenuOpen(false); }}>
                 Friends
+              </button>
+              <button className="title-dropdown-item" onClick={() => { onOpenAchievements(); setUserMenuOpen(false); }}>
+                Achievements
               </button>
               <button className="title-dropdown-item" onClick={() => { onOpenDailyGoals(); setUserMenuOpen(false); }}>
                 Daily Goals

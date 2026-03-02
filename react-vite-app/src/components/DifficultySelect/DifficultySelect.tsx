@@ -2,6 +2,8 @@ import { useState } from 'react';
 import './DifficultySelect.css';
 
 type DifficultyId = 'all' | 'easy' | 'medium' | 'hard';
+type GameMode = 'singleplayer' | 'multiplayer';
+type SingleplayerVariant = 'classic' | 'endless';
 
 /** 0 means "no time limit" */
 export type RoundTimeSeconds = number;
@@ -57,7 +59,7 @@ const CUSTOM_TIME_MIN = 3;
 const CUSTOM_TIME_MAX = 600;
 
 export interface DifficultySelectProps {
-  onStart: (difficulty: DifficultyId, roundTimeSeconds: RoundTimeSeconds) => void;
+  onStart: (difficulty: DifficultyId, mode: GameMode, singleplayerVariant?: SingleplayerVariant, roundTimeSeconds?: RoundTimeSeconds) => void;
   onBack: () => void;
   isLoading: boolean;
 }
@@ -65,6 +67,7 @@ export interface DifficultySelectProps {
 function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyId>('all');
   const [selectedMode, setSelectedMode] = useState<GameMode>('singleplayer');
+  const [selectedSingleplayerVariant, setSelectedSingleplayerVariant] = useState<SingleplayerVariant>('classic');
 
   // Time setting: preset value or 'custom'
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(30);
@@ -78,7 +81,12 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
 
   const handleStart = (): void => {
     if (selectedDifficulty) {
-      onStart(selectedDifficulty, resolvedTime);
+      onStart(
+        selectedDifficulty,
+        selectedMode,
+        selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
+        selectedMode === 'singleplayer' ? resolvedTime : undefined
+      );
     }
   };
 
@@ -149,6 +157,30 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
             <span className="time-card-label">Custom</span>
           </button>
         </div>
+
+        {selectedMode === 'singleplayer' && (
+          <>
+            <h2 className="mode-heading">Singleplayer Mode</h2>
+            <div className="mode-options">
+              <button
+                className={`mode-card mode-classic ${selectedSingleplayerVariant === 'classic' ? 'selected' : ''}`}
+                onClick={() => setSelectedSingleplayerVariant('classic')}
+              >
+                <span className="mode-card-icon">📋</span>
+                <span className="mode-card-label">Classic</span>
+                <span className="mode-card-desc">5 rounds</span>
+              </button>
+              <button
+                className={`mode-card mode-endless ${selectedSingleplayerVariant === 'endless' ? 'selected' : ''}`}
+                onClick={() => setSelectedSingleplayerVariant('endless')}
+              >
+                <span className="mode-card-icon">♾️</span>
+                <span className="mode-card-label">Endless</span>
+                <span className="mode-card-desc">HP until you run out</span>
+              </button>
+            </div>
+          </>
+        )}
 
         {timeSelection === 'custom' && (
           <div className="time-custom-input-wrapper">

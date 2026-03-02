@@ -147,8 +147,9 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      setUser(firebaseUser);
-      const authVerified = firebaseUser?.emailVerified ?? false;
+      try {
+        setUser(firebaseUser);
+        const authVerified = firebaseUser?.emailVerified ?? false;
 
       if (firebaseUser) {
         // Fetch the user's Firestore document
@@ -165,33 +166,38 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
             doc.emailVerified = true;
           }
 
-          setUserDoc(doc);
-          setNeedsUsername(false);
+            setUserDoc(doc);
+            setNeedsUsername(false);
 
-          // Mark "last active" on session start (throttled, server time).
-          const lastActiveDate = coerceTimestampToDate(doc.lastActive as unknown);
-          const STALE_AFTER_MS = 5 * 60 * 1000;
-          const shouldTouch = !lastActiveDate || (Date.now() - lastActiveDate.getTime() > STALE_AFTER_MS);
-          if (shouldTouch) {
-            void touchLastActive(firebaseUser.uid).then((didWrite) => {
-              if (didWrite) {
-                setUserDoc(prev => (prev ? { ...prev, lastActive: new Date() } : prev));
-              }
-            });
+            // Mark "last active" on session start (throttled, server time).
+            const lastActiveDate = coerceTimestampToDate(doc.lastActive as unknown);
+            const STALE_AFTER_MS = 5 * 60 * 1000;
+            const shouldTouch = !lastActiveDate || (Date.now() - lastActiveDate.getTime() > STALE_AFTER_MS);
+            if (shouldTouch) {
+              void touchLastActive(firebaseUser.uid).then((didWrite) => {
+                if (didWrite) {
+                  setUserDoc(prev => (prev ? { ...prev, lastActive: new Date() } : prev));
+                }
+              });
+            }
+          } else {
+            setEmailVerified(authVerified);
+            // User exists in Auth but not in Firestore (Google sign-in, first time)
+            setUserDoc(null);
+            setNeedsUsername(true);
           }
         } else {
-          setEmailVerified(authVerified);
-          // User exists in Auth but not in Firestore (Google sign-in, first time)
+          setEmailVerified(false);
           setUserDoc(null);
-          setNeedsUsername(true);
+          setNeedsUsername(false);
         }
-      } else {
-        setEmailVerified(false);
+      } catch (err) {
+        console.error('Failed to initialize auth state:', err);
         setUserDoc(null);
         setNeedsUsername(false);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return unsubscribe;
