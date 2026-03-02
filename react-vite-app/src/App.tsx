@@ -30,6 +30,7 @@ import ChatWindow from './components/ChatWindow/ChatWindow';
 import BugReportModal from './components/BugReportModal/BugReportModal';
 import DailyGoalsPanel from './components/DailyGoalsPanel/DailyGoalsPanel';
 import DailyGoalsCompletionModal from './components/DailyGoalsCompletionModal/DailyGoalsCompletionModal';
+import AchievementsScreen from './components/AchievementsScreen/AchievementsScreen';
 import MessageBanner from './components/MessageBanner/MessageBanner';
 import ChatNotificationBanner from './components/ChatNotificationBanner/ChatNotificationBanner';
 import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
@@ -76,6 +77,7 @@ function App(): React.ReactElement {
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
   const [showBugReport, setShowBugReport] = useState<boolean>(false);
   const [showDailyGoals, setShowDailyGoals] = useState<boolean>(false);
+  const [showAchievements, setShowAchievements] = useState<boolean>(false);
   const [achievementToastQueue, setAchievementToastQueue] = useState<AchievementToastData[]>([]);
   const [achievementToastFading, setAchievementToastFading] = useState<boolean>(false);
   const shownAchievementToastsRef = useRef<Set<AchievementId>>(new Set());
@@ -450,6 +452,18 @@ function App(): React.ReactElement {
     );
   }
 
+  // Show achievements screen
+  if (showAchievements) {
+    return (
+      <>
+        {messageBanner}
+        <EmailVerificationBanner />
+        <AchievementsScreen onBack={() => setShowAchievements(false)} />
+        {dailyGoalsRewardModal}
+      </>
+    );
+  }
+
   // Show profile screen
   if (showProfile) {
     return (
@@ -462,6 +476,10 @@ function App(): React.ReactElement {
           onOpenFriends={() => {
             setShowProfile(false);
             setShowFriends(true);
+          }}
+          onOpenAchievements={() => {
+            setShowProfile(false);
+            setShowAchievements(true);
           }}
         />
         {dailyGoalsRewardModal}
@@ -624,6 +642,7 @@ function App(): React.ReactElement {
           onOpenLeaderboard={() => setShowLeaderboard(true)}
           onOpenBugReport={() => setShowBugReport(true)}
           onOpenDailyGoals={() => setShowDailyGoals(true)}
+        onOpenAchievements={() => setShowAchievements(true)}
           isLoading={isLoading}
         />
       )}
