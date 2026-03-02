@@ -542,6 +542,20 @@ function App(): React.ReactElement {
     setScreen('title');
   };
 
+  /**
+   * Handle selecting single player mode -> go to difficulty select
+   */
+  const handleSelectSinglePlayer = (): void => {
+    setScreen('difficultySelect');
+  };
+
+  /**
+   * Handle selecting multiplayer mode -> go to multiplayer lobby
+   */
+  const handleSelectMultiplayer = (): void => {
+    setScreen('multiplayerLobby');
+  };
+
   // --- Duel game state derivation ---
   // Get the latest round from roundHistory to show in results
   const duelLatestRound = duel.roundHistory?.length > 0
