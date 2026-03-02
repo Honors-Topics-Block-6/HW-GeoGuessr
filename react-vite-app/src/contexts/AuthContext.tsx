@@ -10,9 +10,22 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { createUserDoc, getUserDoc, updateUserDoc, updateUserProfile, isUsernameTaken, isHardcodedAdmin, getAllPermissions, getNoPermissions, ADMIN_PERMISSIONS } from '../services/userService';
+import {
+  createUserDoc,
+  getUserDoc,
+  updateUserDoc,
+  updateUserProfile,
+  isUsernameTaken,
+  isHardcodedAdmin,
+  getAllPermissions,
+  getNoPermissions,
+  ADMIN_PERMISSIONS,
+  normalizeFavoriteEmote
+} from '../services/userService';
+import { touchLastActive } from '../services/lastActiveService';
 import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
 import { compressImage } from '../utils/compressImage';
+import { coerceTimestampToDate } from '../utils/formatLastActive';
 
 /**
  * Shape of the admin permissions object.
@@ -30,6 +43,7 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
+  favoriteEmote?: string;
   photoURL?: string;
   isAdmin: boolean;
   emailVerified: boolean;
@@ -37,7 +51,35 @@ export interface UserDoc {
   gamesPlayed: number;
   createdAt: unknown; // Firestore Timestamp or serverTimestamp sentinel
   permissions?: AdminPermissions;
+  lastActive?: unknown;
   lastGameAt?: unknown;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
+}
+
+export interface BuildingStat {
+  building: string;
+  floor: number | null;
+  totalScore: number;
+  count: number;
+}
+
+export interface DailyStatBucket {
+  gamesPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
+  photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
 }
 
 /**
@@ -72,6 +114,7 @@ export interface AuthContextType {
   completeGoogleSignUp: (username: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
+  updateFavoriteEmote: (favoriteEmote: string) => Promise<void>;
   updateProfileImage: (file: File) => Promise<string>;
   refreshUserDoc: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
@@ -109,6 +152,11 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
         // Fetch the user's Firestore document
         const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
         if (doc) {
+          // Best-effort migration: ensure a username reservation exists for this user.
+          ensureUsernameReservation(firebaseUser.uid, doc.username).catch((err) => {
+            console.error('Failed to ensure username reservation:', err);
+          });
+
           // Verified if either Firebase Auth or Firestore says so
           // (admin can set emailVerified in Firestore, user can verify via email link)
           const isVerified = authVerified || doc.emailVerified === true;
@@ -122,6 +170,18 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
           setUserDoc(doc);
           setNeedsUsername(false);
+
+          // Mark "last active" on session start (throttled, server time).
+          const lastActiveDate = coerceTimestampToDate(doc.lastActive as unknown);
+          const STALE_AFTER_MS = 5 * 60 * 1000;
+          const shouldTouch = !lastActiveDate || (Date.now() - lastActiveDate.getTime() > STALE_AFTER_MS);
+          if (shouldTouch) {
+            void touchLastActive(firebaseUser.uid).then((didWrite) => {
+              if (didWrite) {
+                setUserDoc(prev => (prev ? { ...prev, lastActive: new Date() } : prev));
+              }
+            });
+          }
         } else {
           setEmailVerified(authVerified);
           // User exists in Auth but not in Firestore (Google sign-in, first time)
@@ -191,10 +251,10 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
    * Sign up with email and password
    */
   const signup = useCallback(async (email: string, password: string, username: string): Promise<FirebaseUser> => {
-    // Check username uniqueness before creating account
-    const taken = await isUsernameTaken(username);
-    if (taken) {
-      throw new Error('Username is already taken. Please choose another.');
+    // Fast pre-check to avoid creating Auth users for obviously-taken usernames.
+    const availability = await checkUsernameAvailability(username, null, true);
+    if (!availability.available) {
+      throw new UsernameTakenError(availability.suggestions || []);
     }
 
     const credential = await createUserWithEmailAndPassword(auth, email, password);
@@ -206,9 +266,19 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
       console.error('Failed to send verification email:', err);
     }
 
-    await createUserDoc(credential.user.uid, email, username);
+    try {
+      await createUserDoc(credential.user.uid, email, username);
+    } catch (err) {
+      // If the username was taken due to a race, remove the just-created auth user.
+      try {
+        await credential.user.delete();
+      } catch (deleteErr) {
+        console.error('Failed to delete auth user after username conflict:', deleteErr);
+      }
+      throw err;
+    }
     const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
-    setUserDoc(doc);
+    setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
     setNeedsUsername(false);
     return credential.user;
   }, []);
@@ -218,8 +288,9 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
    */
   const login = useCallback(async (email: string, password: string): Promise<FirebaseUser> => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
+    await touchLastActive(credential.user.uid);
     const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
-    setUserDoc(doc);
+    setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
     return credential.user;
   }, []);
 
@@ -233,7 +304,8 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     // Check if user already has a Firestore doc
     const existingDoc = await getUserDoc(credential.user.uid) as UserDoc | null;
     if (existingDoc) {
-      setUserDoc(existingDoc);
+      await touchLastActive(credential.user.uid);
+      setUserDoc({ ...existingDoc, lastActive: new Date() });
       setNeedsUsername(false);
     } else {
       // New Google user -- needs to pick a username
@@ -249,14 +321,14 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   const completeGoogleSignUp = useCallback(async (username: string): Promise<void> => {
     if (!user) throw new Error('No authenticated user');
 
-    const taken = await isUsernameTaken(username);
-    if (taken) {
-      throw new Error('Username is already taken. Please choose another.');
+    const availability = await checkUsernameAvailability(username, user.uid, true);
+    if (!availability.available) {
+      throw new UsernameTakenError(availability.suggestions || []);
     }
 
     await createUserDoc(user.uid, user.email!, username);
     const doc = await getUserDoc(user.uid) as UserDoc | null;
-    setUserDoc(doc);
+    setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
     setNeedsUsername(false);
   }, [user]);
 
@@ -280,6 +352,18 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     // Refresh local userDoc to pick up serverTimestamp fields like lastUsernameChange
     const doc = await getUserDoc(user.uid) as UserDoc | null;
     if (doc) setUserDoc(doc);
+  }, [user]);
+
+    await updateUsernameUnique(user.uid, newUsername);
+    setUserDoc(prev => prev ? { ...prev, username: newUsername } : prev);
+  /**
+   * Update favorite emote for the current user.
+   */
+  const updateFavoriteEmote = useCallback(async (favoriteEmote: string): Promise<void> => {
+    if (!user) throw new Error('No authenticated user');
+    const normalized = normalizeFavoriteEmote(favoriteEmote);
+    await updateUserDoc(user.uid, { favoriteEmote: normalized });
+    setUserDoc(prev => (prev ? { ...prev, favoriteEmote: normalized } : prev));
   }, [user]);
 
   /**
@@ -349,6 +433,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     completeGoogleSignUp,
     logout,
     updateUsername,
+    updateFavoriteEmote,
     updateProfileImage,
     refreshUserDoc,
     sendVerificationEmail: sendVerificationEmailToUser
