@@ -238,15 +238,13 @@
   z-index: 0;
 }
 
-.title-overlay {
+.title-background::before {
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background:
-    linear-gradient(0deg, rgba(12, 12, 15, 0.8) 0%, transparent 50%),
-    linear-gradient(180deg, rgba(12, 12, 15, 0.4) 0%, transparent 30%);
   background-image:
     radial-gradient(circle at 20% 80%, rgba(61, 130, 255, 0.3) 0%, transparent 60%),
     radial-gradient(circle at 80% 20%, rgba(24, 201, 255, 0.25) 0%, transparent 55%);
@@ -260,16 +258,13 @@
   pointer-events: none;
 }
 
-.title-background::before {
+.title-overlay {
   position: absolute;
-  content: '';
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background:
-    radial-gradient(circle at 20% 80%, rgba(108, 181, 45, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(108, 181, 45, 0.08) 0%, transparent 40%);
     linear-gradient(0deg, rgba(2, 11, 24, 0.8) 0%, transparent 55%),
     linear-gradient(180deg, rgba(2, 11, 24, 0.4) 0%, transparent 35%);
 }

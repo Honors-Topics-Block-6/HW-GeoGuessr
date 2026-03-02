@@ -83,9 +83,6 @@ function GameScreen({
 
   return (
     <div className="game-screen">
-      <button className="game-leave-button" onClick={() => setShowLeaveConfirm(true)}>
-        Leave Game
-      </button>
       {/* Left panel - Image */}
       <div className="image-panel">
         <ImageViewer imageUrl={imageUrl} />
@@ -95,8 +92,8 @@ function GameScreen({
       <div className="guess-panel">
         <div className="guess-panel-header">
           <button className="back-button" onClick={() => setShowLeaveConfirm(true)}>
-            <span>⏻</span>
-            <span>Leave Game</span>
+            <span>←</span>
+            <span>Back</span>
           </button>
           <h2 className="panel-title">Make Your Guess</h2>
           <div className="round-badge">
