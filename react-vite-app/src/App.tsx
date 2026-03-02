@@ -12,6 +12,7 @@ import { joinLobby } from './services/lobbyService';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
+import ModeSelect from './components/ModeSelect/ModeSelect';
 import DifficultySelect from './components/DifficultySelect/DifficultySelect';
 import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
@@ -355,13 +356,13 @@ function App(): React.ReactElement {
   }, [lobbyDocId, setScreen, user?.uid]);
 
   /**
-   * Exit the duel and go back to difficulty select
+   * Exit the duel and go back to multiplayer lobby
    */
   const handleExitDuel = useCallback((): void => {
     setInDuel(false);
     setDuelLobbyDocId(null);
     setLobbyDocId(null);
-    setScreen('difficultySelect');
+    setScreen('multiplayerLobby');
   }, [setLobbyDocId, setScreen]);
 
   /**
@@ -518,10 +519,10 @@ function App(): React.ReactElement {
   }
 
   /**
-   * Handle the "Play" button on the title screen -> go to difficulty select
+   * Handle the "Play" button on the title screen -> go to mode select
    */
   const handlePlay = (): void => {
-    setScreen('difficultySelect');
+    setScreen('modeSelect');
   };
 
   /**
@@ -597,10 +598,18 @@ function App(): React.ReactElement {
         />
       )}
 
+      {screen === 'modeSelect' && !inDuel && (
+        <ModeSelect
+          onSelectSinglePlayer={handleSelectSinglePlayer}
+          onSelectMultiplayer={handleSelectMultiplayer}
+          onBack={handleBackToTitle}
+        />
+      )}
+
       {screen === 'difficultySelect' && !inDuel && (
         <DifficultySelect
           onStart={handleStartFromDifficulty}
-          onBack={handleBackToTitle}
+          onBack={() => setScreen('modeSelect')}
           isLoading={isLoading}
         />
       )}
@@ -614,7 +623,7 @@ function App(): React.ReactElement {
             setLobbyDocId(docId);
             setScreen('waitingRoom');
           }}
-          onBack={() => setScreen('difficultySelect')}
+          onBack={() => setScreen('modeSelect')}
         />
       )}
 

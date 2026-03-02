@@ -101,7 +101,7 @@ describe('SubmissionForm', () => {
     vi.clearAllMocks();
 
     // Default mock implementations
-    mockCompressImage.mockResolvedValue('data:image/jpeg;base64,mockBase64Data');
+    mockCompressImage.mockResolvedValue('data:image/webp;base64,mockBase64Data');
     mockAddDoc.mockResolvedValue({ id: 'test-doc-id' });
     mockGetRegions.mockResolvedValue([]);
     mockGetPlayingArea.mockResolvedValue(null);
@@ -310,7 +310,7 @@ describe('SubmissionForm', () => {
       const user = userEvent.setup();
 
       // Make compression take some time
-      mockCompressImage.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve('data:image/jpeg;base64,mock'), 100)));
+      mockCompressImage.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve('data:image/webp;base64,mock'), 100)));
 
       render(<SubmissionForm />);
 
@@ -348,7 +348,7 @@ describe('SubmissionForm', () => {
       expect(screen.getByRole('button', { name: 'Submitting...' })).toBeDisabled();
 
       // Resolve to cleanup
-      resolveCompress!('data:image/jpeg;base64,mock');
+      resolveCompress!('data:image/webp;base64,mock');
     });
 
     it('should call compress and Firestore during successful submission', async () => {
