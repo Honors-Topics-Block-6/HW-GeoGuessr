@@ -13,7 +13,7 @@
 import Pica from 'pica'
 import { heicTo } from 'heic-to'
 
-const pica = new Pica()
+const picaInstance = Pica()
 
 const HEIC_TYPES = ['image/heic', 'image/heif']
 const HEIC_EXTENSIONS = ['.heic', '.heif']
@@ -153,20 +153,20 @@ export async function compressImage(
   destCanvas.width = targetW
   destCanvas.height = targetH
 
-  await pica.resize(srcCanvas, destCanvas)
+  await picaInstance.resize(srcCanvas, destCanvas)
 
   const MIN_QUALITY = 0.2
   const QUALITY_STEP = 0.05
   let currentQuality = quality
 
   let dataUrl = await blobToDataURL(
-    await pica.toBlob(destCanvas, 'image/webp', currentQuality)
+    await picaInstance.toBlob(destCanvas, 'image/webp', currentQuality)
   )
 
   while (dataUrl.length > maxBytes && currentQuality > MIN_QUALITY) {
     currentQuality = Math.max(currentQuality - QUALITY_STEP, MIN_QUALITY)
     dataUrl = await blobToDataURL(
-      await pica.toBlob(destCanvas, 'image/webp', currentQuality)
+      await picaInstance.toBlob(destCanvas, 'image/webp', currentQuality)
     )
   }
 
