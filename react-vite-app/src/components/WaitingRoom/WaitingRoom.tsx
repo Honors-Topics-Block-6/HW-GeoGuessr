@@ -325,7 +325,7 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
                         onClick={() => kick(player.uid)}
                         title={`Kick ${player.username}`}
                       >
-                        ✕
+                        ✕ Kick
                       </button>
                     )}
                   </div>

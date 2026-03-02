@@ -201,7 +201,7 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
         // Use sendBeacon-style fire-and-forget; leaveLobby is async but
         // we can't await in beforeunload. The call will still reach Firestore
         // in most cases. Stale lobbies are acceptable at this stage.
-        leaveLobby(docIdRef.current, uidRef.current).catch(() => {});
+        leaveLobby(docIdRef.current, uidRef.current).catch(() => { });
       }
     };
 
@@ -216,11 +216,11 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     if (!lobbyDocId || !userUid) return;
 
     // Send an initial heartbeat immediately
-    sendHeartbeat(lobbyDocId, userUid).catch(() => {});
+    sendHeartbeat(lobbyDocId, userUid).catch(() => { });
 
     const heartbeatInterval = setInterval(() => {
       if (!hasLeft.current) {
-        sendHeartbeat(docIdRef.current, uidRef.current).catch(() => {});
+        sendHeartbeat(docIdRef.current, uidRef.current).catch(() => { });
       }
     }, 10_000); // every 10 seconds
 
@@ -233,7 +233,7 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
 
     const staleCheckInterval = setInterval(() => {
       if (!hasLeft.current) {
-        removeStalePlayersFromLobby(docIdRef.current, uidRef.current).catch(() => {});
+        removeStalePlayersFromLobby(docIdRef.current, uidRef.current).catch(() => { });
       }
     }, 15_000); // every 15 seconds
 
