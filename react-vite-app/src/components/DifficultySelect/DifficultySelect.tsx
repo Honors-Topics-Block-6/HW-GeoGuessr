@@ -133,23 +133,28 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
           ))}
         </div>
 
-        <h2 className="mode-heading">Game Mode</h2>
+        <h2 className="time-heading">Round Time</h2>
+        <p className="time-subheading">How long each round lasts</p>
 
-        <div className="mode-options">
+        <div className="time-options">
+          {TIME_PRESETS.map((preset) => (
+            <button
+              key={preset.value}
+              className={`time-card ${timeSelection === preset.value ? 'selected' : ''}`}
+              onClick={() => setTimeSelection(preset.value)}
+            >
+              <span className="time-card-icon">
+                {preset.value === 0 ? '∞' : '⏱'}
+              </span>
+              <span className="time-card-label">{preset.label}</span>
+            </button>
+          ))}
           <button
-            className={`mode-card mode-singleplayer ${selectedMode === 'singleplayer' ? 'selected' : ''}`}
-            onClick={() => setSelectedMode('singleplayer')}
+            className={`time-card ${timeSelection === 'custom' ? 'selected' : ''}`}
+            onClick={() => setTimeSelection('custom')}
           >
-            <span className="mode-card-icon">👤</span>
-            <span className="mode-card-label">Singleplayer</span>
-          </button>
-
-          <button
-            className={`mode-card mode-multiplayer ${selectedMode === 'multiplayer' ? 'selected' : ''}`}
-            onClick={() => setSelectedMode('multiplayer')}
-          >
-            <span className="mode-card-icon">👥</span>
-            <span className="mode-card-label">Multiplayer</span>
+            <span className="time-card-icon">✏️</span>
+            <span className="time-card-label">Custom</span>
           </button>
         </div>
 
@@ -177,53 +182,24 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
           </>
         )}
 
-        {selectedMode === 'singleplayer' && (
-          <>
-            <h2 className="time-heading">Round Time</h2>
-            <p className="time-subheading">How long each round lasts</p>
-
-            <div className="time-options">
-              {TIME_PRESETS.map((preset) => (
-                <button
-                  key={preset.value}
-                  className={`time-card ${timeSelection === preset.value ? 'selected' : ''}`}
-                  onClick={() => setTimeSelection(preset.value)}
-                >
-                  <span className="time-card-icon">
-                    {preset.value === 0 ? '∞' : '⏱'}
-                  </span>
-                  <span className="time-card-label">{preset.label}</span>
-                </button>
-              ))}
-              <button
-                className={`time-card ${timeSelection === 'custom' ? 'selected' : ''}`}
-                onClick={() => setTimeSelection('custom')}
-              >
-                <span className="time-card-icon">✏️</span>
-                <span className="time-card-label">Custom</span>
-              </button>
-            </div>
-
-            {timeSelection === 'custom' && (
-              <div className="time-custom-input-wrapper">
-                <label className="time-custom-label" htmlFor="custom-time-input">
-                  Seconds ({CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX})
-                </label>
-                <input
-                  id="custom-time-input"
-                  className="time-custom-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={customTime}
-                  onChange={(e) => handleCustomTimeChange(e.target.value)}
-                  onBlur={handleCustomTimeBlur}
-                  min={CUSTOM_TIME_MIN}
-                  max={CUSTOM_TIME_MAX}
-                  placeholder="e.g. 60"
-                />
-              </div>
-            )}
-          </>
+        {timeSelection === 'custom' && (
+          <div className="time-custom-input-wrapper">
+            <label className="time-custom-label" htmlFor="custom-time-input">
+              Seconds ({CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX})
+            </label>
+            <input
+              id="custom-time-input"
+              className="time-custom-input"
+              type="text"
+              inputMode="numeric"
+              value={customTime}
+              onChange={(e) => handleCustomTimeChange(e.target.value)}
+              onBlur={handleCustomTimeBlur}
+              min={CUSTOM_TIME_MIN}
+              max={CUSTOM_TIME_MAX}
+              placeholder="e.g. 60"
+            />
+          </div>
         )}
 
         <div className="difficulty-footer">

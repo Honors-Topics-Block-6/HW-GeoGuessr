@@ -30,6 +30,7 @@ export interface UserDoc {
   totalXp: number;
   gamesPlayed: number;
   createdAt: unknown;
+  lastActive?: unknown;
   permissions?: PermissionsMap;
   lastGameAt?: unknown;
   totalScore?: number;
@@ -176,6 +177,8 @@ export async function createUserDoc(uid: string, email: string, username: string
     totalXp: 0,
     gamesPlayed: 0,
     createdAt: serverTimestamp(),
+    // Updated on login + meaningful activity via server time.
+    lastActive: serverTimestamp(),
     totalScore: 0,
     totalGuessTimeSeconds: 0,
     fiveKCount: 0,
@@ -340,7 +343,7 @@ export async function updateUserPermissions(uid: string, permissions: Permission
  */
 export async function updateUserProfile(uid: string, updates: UserProfileUpdates): Promise<void> {
   // Prevent changing system-managed fields
-  const forbidden = ['uid', 'createdAt', 'permissions'];
+  const forbidden = ['uid', 'createdAt', 'permissions', 'lastActive'];
   for (const key of forbidden) {
     if (key in updates) {
       throw new Error(`Cannot modify the "${key}" field.`);

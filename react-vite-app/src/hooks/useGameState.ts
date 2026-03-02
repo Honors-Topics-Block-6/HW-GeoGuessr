@@ -49,7 +49,7 @@ export interface RoundResult {
   hpLost?: number;
 }
 
-export type ScreenState = 'title' | 'game' | 'result' | 'finalResults' | 'multiplayerLobby' | 'waitingRoom' | 'difficultySelect' | 'duelGame';
+export type ScreenState = 'title' | 'modeSelect' | 'game' | 'result' | 'finalResults' | 'multiplayerLobby' | 'waitingRoom' | 'difficultySelect' | 'duelGame';
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'all' | null;
 export type GameMode = 'singleplayer' | 'multiplayer' | null;
 
