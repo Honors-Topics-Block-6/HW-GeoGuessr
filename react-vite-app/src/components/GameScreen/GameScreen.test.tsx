@@ -49,7 +49,7 @@ describe('GameScreen', () => {
     it('should render round badge', () => {
       render(<GameScreen {...defaultProps} currentRound={3} totalRounds={5} />);
 
-      expect(screen.getByText('3 / 5')).toBeInTheDocument();
+      expect(screen.getByText('Round 3 / 5')).toBeInTheDocument();
     });
   });
 
@@ -57,23 +57,23 @@ describe('GameScreen', () => {
     it('should show current round number', () => {
       render(<GameScreen {...defaultProps} currentRound={2} totalRounds={5} />);
 
-      expect(screen.getByText('2 / 5')).toBeInTheDocument();
+      expect(screen.getByText('Round 2 / 5')).toBeInTheDocument();
     });
 
     it('should update when round changes', () => {
       const { rerender } = render(<GameScreen {...defaultProps} currentRound={1} />);
 
-      expect(screen.getByText('1 / 5')).toBeInTheDocument();
+      expect(screen.getByText('Round 1 / 5')).toBeInTheDocument();
 
       rerender(<GameScreen {...defaultProps} currentRound={4} />);
 
-      expect(screen.getByText('4 / 5')).toBeInTheDocument();
+      expect(screen.getByText('Round 4 / 5')).toBeInTheDocument();
     });
 
     it('should use default values if not provided', () => {
       render(<GameScreen {...defaultProps} currentRound={undefined as unknown as number} totalRounds={undefined as unknown as number} />);
 
-      expect(screen.getByText('1 / 5')).toBeInTheDocument();
+      expect(screen.getByText('Round 1 / 5')).toBeInTheDocument();
     });
   });
 

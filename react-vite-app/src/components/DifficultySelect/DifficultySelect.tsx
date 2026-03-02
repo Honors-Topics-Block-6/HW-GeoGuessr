@@ -3,6 +3,7 @@ import type { GameMode } from '../../hooks/useGameState';
 import './DifficultySelect.css';
 
 type DifficultyId = 'all' | 'easy' | 'medium' | 'hard';
+type TotalRounds = 5 | 10 | 20;
 type SingleplayerVariant = 'classic' | 'endless';
 
 /** 0 means "no time limit" */
@@ -55,17 +56,30 @@ const TIME_PRESETS: TimePreset[] = [
   { value: 0, label: 'No Limit' },
 ];
 
+const ROUND_PRESETS: { value: TotalRounds; label: string }[] = [
+  { value: 5, label: '5' },
+  { value: 10, label: '10' },
+  { value: 20, label: '20' },
+];
+
 const CUSTOM_TIME_MIN = 3;
 const CUSTOM_TIME_MAX = 600;
 
 export interface DifficultySelectProps {
-  onStart: (difficulty: DifficultyId, mode: GameMode, singleplayerVariant?: SingleplayerVariant, roundTimeSeconds?: RoundTimeSeconds) => void;
+  onStart: (
+    difficulty: DifficultyId,
+    mode: GameMode,
+    singleplayerVariant?: SingleplayerVariant,
+    roundTimeSeconds?: RoundTimeSeconds,
+    totalRounds?: TotalRounds
+  ) => void;
   onBack: () => void;
   isLoading: boolean;
 }
 
 function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyId>('all');
+  const [selectedRounds, setSelectedRounds] = useState<TotalRounds>(5);
   const [selectedMode, setSelectedMode] = useState<GameMode>('singleplayer');
   const [selectedSingleplayerVariant, setSelectedSingleplayerVariant] = useState<SingleplayerVariant>('classic');
 
@@ -89,7 +103,8 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
         selectedDifficulty,
         selectedMode,
         selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
-        selectedMode === 'singleplayer' ? resolvedTime : undefined
+        selectedMode === 'singleplayer' ? resolvedTime : undefined,
+        selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' ? selectedRounds : undefined
       );
     }
   };
@@ -225,6 +240,27 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
               placeholder="e.g. 60"
             />
           </div>
+        )}
+
+        {selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' && (
+          <>
+            <h2 className="rounds-heading">Number of Rounds</h2>
+            <p className="rounds-subheading">How many rounds you&apos;ll play this game</p>
+
+            <div className="rounds-options">
+              {ROUND_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  className={`rounds-card ${selectedRounds === preset.value ? 'selected' : ''}`}
+                  onClick={() => setSelectedRounds(preset.value)}
+                >
+                  <span className="rounds-card-icon">🔁</span>
+                  <span className="rounds-card-label">{preset.label}</span>
+                  <span className="rounds-card-suffix">Rounds</span>
+                </button>
+              ))}
+            </div>
+          </>
         )}
 
         <div className="difficulty-footer">

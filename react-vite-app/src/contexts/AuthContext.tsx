@@ -16,6 +16,8 @@ import {
   updateUserDoc,
   updateUserProfile,
   isUsernameTaken,
+  checkUsernameAvailability,
+  UsernameTakenError,
   isHardcodedAdmin,
   getAllPermissions,
   getNoPermissions,
