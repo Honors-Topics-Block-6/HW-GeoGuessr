@@ -110,6 +110,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     isPanning,
     isTouchActive
   } = useMapZoom(containerRef, { maxScale: isMobile ? MOBILE_MAX_SCALE : undefined });
+  const { onDoubleClick: _ignoredOnDoubleClick, ...mapHandlers } = handlers;
 
   const placeMarkerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -227,7 +228,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         ref={containerRef}
         onClick={handleClick}
         onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
-        {...handlers}
+        {...mapHandlers}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >

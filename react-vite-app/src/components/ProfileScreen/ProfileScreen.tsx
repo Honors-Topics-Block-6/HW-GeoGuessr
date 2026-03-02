@@ -5,6 +5,7 @@ import { useFriends } from '../../hooks/useFriends';
 import { getFavoriteAndWorstBuildings } from '../../utils/buildingStats';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
 import { DAILY_STREAK_UPDATED_EVENT, getDisplayDailyStreak, syncDailyStreakRollover } from '../../services/streakService';
+import { isHeicFile, normalizeImageFile } from '../../utils/compressImage';
 import './ProfileScreen.css';
 
 const QUICK_PROFILE_EMOTES = ['😎', '🔥', '🎯', '🧠', '🚀', '💯'];
@@ -121,21 +122,27 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   };
 
   const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = e.target.files?.[0];
-    // Reset input so selecting the same file again still triggers onChange.
+    let file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
 
     setError('');
     setSuccess('');
 
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith('image/') && !isHeicFile(file)) {
       setError('Please select an image file.');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
       setError('Image must be smaller than 10MB.');
+      return;
+    }
+
+    try {
+      file = await normalizeImageFile(file);
+    } catch {
+      setError('Could not process this image. Please convert it to JPG or PNG first.');
       return;
     }
 
@@ -568,7 +575,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
             {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,.heic,.heif"
               onChange={handlePhotoUpload}
               disabled={isUploadingPhoto}
             />

@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import type { GameMode } from '../../hooks/useGameState';
 import './DifficultySelect.css';
 
 type DifficultyId = 'all' | 'easy' | 'medium' | 'hard';
-type GameMode = 'singleplayer' | 'multiplayer';
 
 /** 0 means "no time limit" */
 export type RoundTimeSeconds = number;
@@ -58,7 +58,7 @@ const CUSTOM_TIME_MIN = 3;
 const CUSTOM_TIME_MAX = 600;
 
 export interface DifficultySelectProps {
-  onStart: (difficulty: DifficultyId, mode: GameMode, roundTimeSeconds: RoundTimeSeconds) => void;
+  onStart: (difficulty: DifficultyId, roundTimeSeconds: RoundTimeSeconds) => void;
   onBack: () => void;
   isLoading: boolean;
 }
@@ -78,8 +78,12 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
       : timeSelection;
 
   const handleStart = (): void => {
+    if (selectedMode === 'multiplayer') {
+      onBack();
+      return;
+    }
     if (selectedDifficulty) {
-      onStart(selectedDifficulty, selectedMode, resolvedTime);
+      onStart(selectedDifficulty, resolvedTime);
     }
   };
 
@@ -130,28 +134,28 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
         <div className="mode-group">
           <h2 className="mode-heading">Game Mode</h2>
           <div className="mode-options">
-          <button
-            className={`mode-card mode-singleplayer ${selectedMode === 'singleplayer' ? 'selected' : ''}`}
-            onClick={() => setSelectedMode('singleplayer')}
-          >
-            <span className="mode-card-icon">👤</span>
-            <span className="mode-card-label">Singleplayer</span>
-          </button>
-
-          <button
-            className={`mode-card mode-multiplayer ${selectedMode === 'multiplayer' ? 'selected' : ''}`}
-            onClick={() => setSelectedMode('multiplayer')}
-          >
-            <span className="mode-card-icon">👥</span>
-            <span className="mode-card-label">Multiplayer</span>
-          </button>
+            <button
+              className={`mode-card ${selectedMode === 'singleplayer' ? 'selected' : ''}`}
+              onClick={() => setSelectedMode('singleplayer')}
+            >
+              <span className="mode-card-icon">👤</span>
+              <span className="mode-card-label">Singleplayer</span>
+            </button>
+            <button
+              className={`mode-card ${selectedMode === 'multiplayer' ? 'selected' : ''}`}
+              onClick={() => setSelectedMode('multiplayer')}
+            >
+              <span className="mode-card-icon">👥</span>
+              <span className="mode-card-label">Multiplayer</span>
+            </button>
           </div>
         </div>
 
         {selectedMode === 'singleplayer' && (
-          <div className="time-group">
+          <>
             <h2 className="time-heading">Round Time</h2>
             <p className="time-subheading">How long each round lasts</p>
+
             <div className="time-options">
               {TIME_PRESETS.map((preset) => (
                 <button
@@ -173,26 +177,26 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
                 <span className="time-card-label">Custom</span>
               </button>
             </div>
+          </>
+        )}
 
-            {timeSelection === 'custom' && (
-              <div className="time-custom-input-wrapper">
-                <label className="time-custom-label" htmlFor="custom-time-input">
-                  Seconds ({CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX})
-                </label>
-                <input
-                  id="custom-time-input"
-                  className="time-custom-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={customTime}
-                  onChange={(e) => handleCustomTimeChange(e.target.value)}
-                  onBlur={handleCustomTimeBlur}
-                  min={CUSTOM_TIME_MIN}
-                  max={CUSTOM_TIME_MAX}
-                  placeholder="e.g. 60"
-                />
-              </div>
-            )}
+        {selectedMode === 'singleplayer' && timeSelection === 'custom' && (
+          <div className="time-custom-input-wrapper">
+            <label className="time-custom-label" htmlFor="custom-time-input">
+              Seconds ({CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX})
+            </label>
+            <input
+              id="custom-time-input"
+              className="time-custom-input"
+              type="text"
+              inputMode="numeric"
+              value={customTime}
+              onChange={(e) => handleCustomTimeChange(e.target.value)}
+              onBlur={handleCustomTimeBlur}
+              min={CUSTOM_TIME_MIN}
+              max={CUSTOM_TIME_MAX}
+              placeholder="e.g. 60"
+            />
           </div>
         )}
 
