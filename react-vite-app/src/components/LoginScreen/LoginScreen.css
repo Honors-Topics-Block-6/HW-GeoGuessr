@@ -61,6 +61,13 @@
   display: block;
 }
 
+.login-logo-crest {
+  width: 150px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
 .login-title {
   font-size: 2rem;
   font-weight: 900;
@@ -427,4 +434,5 @@
 
   .login-title { font-size: 1.7rem; }
   .login-logo-icon { font-size: 2.8rem; }
+  .login-logo-crest { width: 115px; }
 }

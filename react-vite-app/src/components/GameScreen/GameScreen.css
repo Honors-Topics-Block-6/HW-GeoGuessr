@@ -5,6 +5,27 @@
   background-color: var(--hw-page-bg);
 }
 
+.game-leave-button {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 12;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.game-leave-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
 .image-panel {
   flex: 7;
   display: flex;
@@ -27,6 +48,56 @@
   gap: 1rem;
   padding: 1rem;
   border-bottom: 1px solid var(--hw-gray-300);
+}
+
+/* Endless mode HP bar */
+.endless-hp-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.endless-hp-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 24px;
+}
+
+.endless-hp-track {
+  flex: 1;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.endless-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a9c20 0%, #6cb52d 100%);
+  border-radius: 6px;
+  transition: width 0.8s ease-out;
+}
+
+.endless-hp-fill.critical {
+  animation: endlessHpPulse 1s ease-in-out infinite;
+}
+
+@keyframes endlessHpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.endless-hp-value {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  min-width: 45px;
+  text-align: right;
 }
 
 /* Endless mode HP bar */

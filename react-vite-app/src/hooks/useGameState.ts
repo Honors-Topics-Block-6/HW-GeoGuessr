@@ -3,7 +3,14 @@ import { getRandomImage, type GameImage as ServiceGameImage } from '../services/
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, getRegionForPoint } from '../services/regionService';
 import { STARTING_HEALTH } from '../services/duelService';
 
-const TOTAL_ROUNDS = 5;
+const DEFAULT_TOTAL_ROUNDS = 5;
+const ALLOWED_TOTAL_ROUNDS = [5, 10, 20] as const;
+type TotalRounds = (typeof ALLOWED_TOTAL_ROUNDS)[number];
+
+function coerceTotalRounds(value: unknown): TotalRounds {
+  if (ALLOWED_TOTAL_ROUNDS.includes(value as TotalRounds)) return value as TotalRounds;
+  return DEFAULT_TOTAL_ROUNDS;
+}
 const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
 /** Default round time (used when no custom setting is provided). */
 export const ROUND_TIME_SECONDS = 20;
@@ -79,7 +86,13 @@ export interface UseGameStateReturn {
 
   // Actions
   setScreen: React.Dispatch<React.SetStateAction<ScreenState>>;
-  startGame: (selectedDifficulty: string, selectedMode?: string, singleplayerVariant?: 'classic' | 'endless', roundTimeSetting?: number) => Promise<void>;
+  startGame: (
+    selectedDifficulty: string,
+    selectedMode?: string,
+    singleplayerVariant?: 'classic' | 'endless',
+    roundTimeSetting?: number,
+    totalRoundsSetting?: number
+  ) => Promise<void>;
   placeMarker: (coords: MapCoords) => boolean;
   selectFloor: (floor: number) => void;
   submitGuess: () => void;
@@ -137,6 +150,9 @@ export function useGameState(): UseGameStateReturn {
 
   // Current round number (1-5)
   const [currentRound, setCurrentRound] = useState<number>(1);
+
+  // Total rounds for this singleplayer game (5/10/20)
+  const [totalRounds, setTotalRounds] = useState<TotalRounds>(DEFAULT_TOTAL_ROUNDS);
 
   // Current image being shown
   const [currentImage, setCurrentImage] = useState<GameImage | null>(null);
@@ -314,9 +330,17 @@ export function useGameState(): UseGameStateReturn {
     selectedDifficulty: string,
     selectedMode: string = 'singleplayer',
     singleplayerVariant: 'classic' | 'endless' = 'classic',
-    roundTimeSeconds?: number
+    roundTimeSeconds?: number,
+    totalRoundsSetting?: number
   ): Promise<void> => {
+    const endless = selectedMode === 'singleplayer' && singleplayerVariant === 'endless';
+    const effectiveRoundTime = roundTimeSeconds ?? ROUND_TIME_SECONDS;
+    const effectiveTotalRounds: TotalRounds =
+      selectedMode === 'singleplayer' && !endless
+        ? coerceTotalRounds(totalRoundsSetting ?? DEFAULT_TOTAL_ROUNDS)
+        : DEFAULT_TOTAL_ROUNDS;
     setCurrentRound(1);
+    setTotalRounds(effectiveTotalRounds);
     setRoundResults([]);
     setCurrentResult(null);
     setDifficulty(selectedDifficulty as Difficulty);
@@ -324,10 +348,8 @@ export function useGameState(): UseGameStateReturn {
     setLobbyDocId(null);
     setUsedImageIds([]);
     setUsedImageUrls([]);
-    const endless = selectedMode === 'singleplayer' && singleplayerVariant === 'endless';
     setIsEndlessMode(endless);
-    setCurrentHp(endless ? STARTING_HEALTH : STARTING_HEALTH);
-    const effectiveRoundTime = roundTimeSeconds ?? ROUND_TIME_SECONDS;
+    setCurrentHp(STARTING_HEALTH);
     setRoundTimeSetting(effectiveRoundTime);
 
     // Multiplayer: go to lobby screen instead of starting a game
@@ -525,7 +547,7 @@ export function useGameState(): UseGameStateReturn {
 
     // Show result screen
     setScreen('result');
-  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, regions, isEndlessMode]);
+  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, roundTimeSetting, regions, isEndlessMode]);
 
   const submitGuessRef = useRef<() => void>(submitGuess);
   submitGuessRef.current = submitGuess;
@@ -590,13 +612,12 @@ export function useGameState(): UseGameStateReturn {
    */
   const nextRound = useCallback(async (): Promise<void> => {
     // Endless mode: game over when HP reaches 0
-    if (isEndlessMode && currentHp <= 0) {
-      setScreen('finalResults');
-      return;
-    }
-
-    if (!isEndlessMode && currentRound >= TOTAL_ROUNDS) {
-      // Show final results (classic mode)
+    if (isEndlessMode) {
+      if (currentHp <= 0) {
+        setScreen('finalResults');
+        return;
+      }
+    } else if (currentRound >= totalRounds) {
       setScreen('finalResults');
       return;
     }
@@ -619,7 +640,7 @@ export function useGameState(): UseGameStateReturn {
     setTimeRemaining(roundTimeSetting > 0 ? roundTimeSetting : 0);
     setRoundStartTime(roundTimeSetting > 0 ? performance.now() : null);
     setScreen('game');
-  }, [currentRound, currentImage?.id, currentImage?.url, usedImageIds, usedImageUrls, loadNewImage, isEndlessMode, currentHp]);
+  }, [currentRound, totalRounds, currentHp, isEndlessMode, currentImage?.id, currentImage?.url, usedImageIds, usedImageUrls, loadNewImage, roundTimeSetting]);
 
   /**
    * View final results (called from last round's result screen)
@@ -634,6 +655,7 @@ export function useGameState(): UseGameStateReturn {
   const resetGame = useCallback((): void => {
     setScreen('title');
     setCurrentRound(1);
+    setTotalRounds(DEFAULT_TOTAL_ROUNDS);
     setCurrentImage(null);
     setGuessLocation(null);
     setGuessFloor(null);
@@ -657,7 +679,7 @@ export function useGameState(): UseGameStateReturn {
     // State
     screen,
     currentRound,
-    totalRounds: isEndlessMode ? 999 : TOTAL_ROUNDS,
+    totalRounds,
     currentImage,
     guessLocation,
     guessFloor,
