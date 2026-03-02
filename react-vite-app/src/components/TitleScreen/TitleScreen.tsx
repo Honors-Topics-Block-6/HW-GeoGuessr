@@ -103,7 +103,7 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
       </div>
       <div className="title-content">
         <div className="logo-container">
-          <span className="logo-icon">🌍</span>
+          <img className="logo-crest" src="/Crest.png" alt="Harvard-Westlake Crest" />
         </div>
         <h1 className="game-title">
           <span className="game-title-initial game-title-initial-h">H</span>
