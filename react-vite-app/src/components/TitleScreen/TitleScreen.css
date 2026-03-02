@@ -221,39 +221,7 @@
 }
 
 .title-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background:
-    linear-gradient(0deg, rgba(12, 12, 15, 0.8) 0%, transparent 50%),
-    linear-gradient(180deg, rgba(12, 12, 15, 0.4) 0%, transparent 30%);
-  background-image:
-    radial-gradient(circle at 20% 80%, rgba(200, 16, 46, 0.04) 0%, transparent 60%),
-    radial-gradient(circle at 80% 20%, rgba(240, 179, 35, 0.05) 0%, transparent 55%);
-}
-
-.title-background::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.3) 0%, transparent 45%);
-  pointer-events: none;
-}
-
-.title-background::before {
-  position: absolute;
-  content: '';
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background:
-    radial-gradient(circle at 20% 80%, rgba(108, 181, 45, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(108, 181, 45, 0.08) 0%, transparent 40%),
-    linear-gradient(0deg, rgba(2, 11, 24, 0.8) 0%, transparent 55%),
-    linear-gradient(180deg, rgba(2, 11, 24, 0.4) 0%, transparent 35%);
+  display: none;
 }
 
 .title-content {
@@ -272,7 +240,6 @@
 
 .logo-container {
   margin-bottom: 1.5rem;
-  animation: float 3s ease-in-out infinite;
   position: relative;
 }
 
@@ -282,7 +249,7 @@
 }
 
 .logo-crest {
-  width: 175px;
+  width: 260px;
   height: auto;
   display: block;
 }
@@ -394,7 +361,7 @@
   .game-title { font-size: 3.1rem; }
   .tagline { font-size: 1.2rem; }
   .logo-icon { font-size: 4.5rem; }
-  .logo-crest { width: 150px; }
+  .logo-crest { width: 220px; }
   .start-button { font-size: 1.1rem; padding: 0.9rem 2.5rem; }
 
   .title-top-bar {
@@ -414,7 +381,7 @@
   .game-title { font-size: 2.4rem; }
   .tagline { font-size: 1.05rem; }
   .logo-icon { font-size: 3.3rem; }
-  .logo-crest { width: 115px; }
+  .logo-crest { width: 170px; }
 
   .title-top-actions { gap: 6px; }
 
