@@ -112,6 +112,9 @@ function App(): React.ReactElement {
     mode,
     lobbyDocId,
     timePenaltyEnabled,
+    isEndlessMode,
+    currentHp,
+    startingHp,
     setScreen,
     startGame,
     placeMarker,
@@ -547,13 +550,19 @@ function App(): React.ReactElement {
   /**
    * Handle starting the game from difficulty select
    */
-  const handleStartFromDifficulty = (selectedDifficulty: string, selectedMode: GameMode, roundTimeSeconds: number, timePenaltyEnabled: boolean): void => {
+  const handleStartFromDifficulty = (
+    selectedDifficulty: string,
+    selectedMode: GameMode,
+    singleplayerVariant?: 'classic' | 'endless',
+    roundTimeSeconds?: number,
+    timePenalty?: boolean
+  ): void => {
     void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
-    const mode = selectedMode ?? 'singleplayer';
-    if (mode === 'singleplayer' && user?.uid) {
+    const modeVal = selectedMode ?? 'singleplayer';
+    if (modeVal === 'singleplayer' && user?.uid) {
       recordDailyPlay(user.uid);
     }
-    startGame(selectedDifficulty, mode, roundTimeSeconds, timePenaltyEnabled);
+    startGame(selectedDifficulty, modeVal, singleplayerVariant, roundTimeSeconds, timePenalty);
   };
 
   /**
@@ -676,6 +685,9 @@ function App(): React.ReactElement {
           playingArea={playingArea as React.ComponentProps<typeof GameScreen>['playingArea']}
           timeRemaining={roundTimeSeconds > 0 ? timeRemaining : undefined}
           timeLimitSeconds={roundTimeSeconds}
+          isEndlessMode={isEndlessMode}
+          currentHp={currentHp}
+          maxHp={startingHp}
         />
       )}
 
@@ -697,8 +709,12 @@ function App(): React.ReactElement {
           totalRounds={totalRounds}
           onNextRound={nextRound}
           onViewFinalResults={viewFinalResults}
-          isLastRound={currentRound >= totalRounds}
+          isLastRound={isEndlessMode ? currentHp <= 0 : currentRound >= totalRounds}
           onBackToTitle={resetGame}
+          isEndlessMode={isEndlessMode}
+          currentHp={currentHp}
+          maxHp={startingHp}
+          hpLost={currentResult.hpLost}
         />
       )}
 
@@ -708,6 +724,7 @@ function App(): React.ReactElement {
           onPlayAgain={() => setScreen('difficultySelect')}
           onBackToTitle={resetGame}
           difficulty={difficulty}
+          isEndlessMode={isEndlessMode}
           mode={mode}
         />
       )}
