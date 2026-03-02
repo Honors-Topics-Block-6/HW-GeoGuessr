@@ -21,14 +21,14 @@ export interface AdminTabsProps {
   onBack: () => void
 }
 
-function AdminTabs({ activeTab, onTabChange, onBack: _onBack }: AdminTabsProps): React.JSX.Element {
+function AdminTabs({ activeTab, onTabChange, onBack }: AdminTabsProps): React.JSX.Element {
   const { hasPermission } = useAuth()
 
   // Define which permissions gate each tab
   const tabs: TabDefinition[] = [
     {
       key: 'review',
-      label: 'Review',
+      label: 'Review Submissions',
       // Visible if user can review submissions OR delete photos
       visible: hasPermission(ADMIN_PERMISSIONS.REVIEW_SUBMISSIONS) || hasPermission(ADMIN_PERMISSIONS.DELETE_PHOTOS),
     },
@@ -60,25 +60,27 @@ function AdminTabs({ activeTab, onTabChange, onBack: _onBack }: AdminTabsProps):
   ]
 
   const visibleTabs: TabDefinition[] = tabs.filter(t => t.visible)
-  const displayTabs: TabDefinition[] = visibleTabs.filter(
-    (tab) => !(tab.key === 'review' && activeTab === 'review')
-  )
 
   return (
     <div className="admin-panel">
-      {displayTabs.length > 0 && (
-        <div className="admin-tabs">
-          {displayTabs.map(tab => (
-            <button
-              key={tab.key}
-              className={`admin-tab ${activeTab === tab.key ? 'active' : ''}`}
-              onClick={() => onTabChange(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="admin-panel-header">
+        <button className="back-button" onClick={onBack}>
+          ← Back to Submission
+        </button>
+        <h2>Admin Panel</h2>
+      </div>
+
+      <div className="admin-tabs">
+        {visibleTabs.map(tab => (
+          <button
+            key={tab.key}
+            className={`admin-tab ${activeTab === tab.key ? 'active' : ''}`}
+            onClick={() => onTabChange(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       <div className="admin-content">
         {activeTab === 'review' && (hasPermission(ADMIN_PERMISSIONS.REVIEW_SUBMISSIONS) || hasPermission(ADMIN_PERMISSIONS.DELETE_PHOTOS)) && <AdminReview />}
