@@ -278,6 +278,12 @@
   display: block;
 }
 
+.logo-crest {
+  width: 175px;
+  height: auto;
+  display: block;
+}
+
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-10px); }
@@ -385,6 +391,7 @@
   .game-title { font-size: 3.1rem; }
   .tagline { font-size: 1.2rem; }
   .logo-icon { font-size: 4.5rem; }
+  .logo-crest { width: 150px; }
   .start-button { font-size: 1.1rem; padding: 0.9rem 2.5rem; }
 
   .title-top-bar {
@@ -404,6 +411,7 @@
   .game-title { font-size: 2.4rem; }
   .tagline { font-size: 1.05rem; }
   .logo-icon { font-size: 3.3rem; }
+  .logo-crest { width: 115px; }
 
   .title-top-actions { gap: 6px; }
 

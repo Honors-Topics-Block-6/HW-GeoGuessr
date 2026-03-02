@@ -166,7 +166,7 @@ function LoginScreen(): React.ReactElement {
         </div>
         <div className="login-card">
           <div className="login-logo">
-            <span className="login-logo-icon">🌍</span>
+            <img className="login-logo-crest" src="/Crest.png" alt="Harvard-Westlake Crest" />
           </div>
           <h1 className="login-title">Choose a Username</h1>
           <p className="login-subtitle">One last step to complete your account</p>
@@ -238,7 +238,7 @@ function LoginScreen(): React.ReactElement {
       </div>
       <div className="login-card">
         <div className="login-logo">
-          <span className="login-logo-icon">🌍</span>
+          <img className="login-logo-crest" src="/Crest.png" alt="Harvard-Westlake Crest" />
         </div>
         <h1 className="login-title">HW Geoguessr</h1>
         <p className="login-subtitle">
