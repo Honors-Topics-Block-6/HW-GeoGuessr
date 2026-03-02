@@ -95,6 +95,8 @@ export class UsernameTakenError extends Error {
     this.name = 'UsernameTakenError';
     this.suggestions = suggestions;
   }
+}
+
 export interface BuildingStat {
   building: string;
   floor: number | null;

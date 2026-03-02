@@ -145,56 +145,57 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      setUser(firebaseUser);
-      const authVerified = firebaseUser?.emailVerified ?? false;
+      try {
+        setUser(firebaseUser);
+        const authVerified = firebaseUser?.emailVerified ?? false;
 
-      if (firebaseUser) {
-        // Fetch the user's Firestore document
-        const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
-        if (doc) {
-          // Best-effort migration: ensure a username reservation exists for this user.
-          ensureUsernameReservation(firebaseUser.uid, doc.username).catch((err) => {
-            console.error('Failed to ensure username reservation:', err);
-          });
+        if (firebaseUser) {
+          // Fetch the user's Firestore document
+          const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
+          if (doc) {
+            // Verified if either Firebase Auth or Firestore says so
+            // (admin can set emailVerified in Firestore, user can verify via email link)
+            const isVerified = authVerified || doc.emailVerified === true;
+            setEmailVerified(isVerified);
 
-          // Verified if either Firebase Auth or Firestore says so
-          // (admin can set emailVerified in Firestore, user can verify via email link)
-          const isVerified = authVerified || doc.emailVerified === true;
-          setEmailVerified(isVerified);
+            // Sync Firebase Auth -> Firestore when user verifies via email link
+            if (authVerified && !doc.emailVerified) {
+              await updateUserDoc(firebaseUser.uid, { emailVerified: true });
+              doc.emailVerified = true;
+            }
 
-          // Sync Firebase Auth -> Firestore when user verifies via email link
-          if (authVerified && !doc.emailVerified) {
-            await updateUserDoc(firebaseUser.uid, { emailVerified: true });
-            doc.emailVerified = true;
-          }
+            setUserDoc(doc);
+            setNeedsUsername(false);
 
-          setUserDoc(doc);
-          setNeedsUsername(false);
-
-          // Mark "last active" on session start (throttled, server time).
-          const lastActiveDate = coerceTimestampToDate(doc.lastActive as unknown);
-          const STALE_AFTER_MS = 5 * 60 * 1000;
-          const shouldTouch = !lastActiveDate || (Date.now() - lastActiveDate.getTime() > STALE_AFTER_MS);
-          if (shouldTouch) {
-            void touchLastActive(firebaseUser.uid).then((didWrite) => {
-              if (didWrite) {
-                setUserDoc(prev => (prev ? { ...prev, lastActive: new Date() } : prev));
-              }
-            });
+            // Mark "last active" on session start (throttled, server time).
+            const lastActiveDate = coerceTimestampToDate(doc.lastActive as unknown);
+            const STALE_AFTER_MS = 5 * 60 * 1000;
+            const shouldTouch = !lastActiveDate || (Date.now() - lastActiveDate.getTime() > STALE_AFTER_MS);
+            if (shouldTouch) {
+              void touchLastActive(firebaseUser.uid).then((didWrite) => {
+                if (didWrite) {
+                  setUserDoc(prev => (prev ? { ...prev, lastActive: new Date() } : prev));
+                }
+              });
+            }
+          } else {
+            setEmailVerified(authVerified);
+            // User exists in Auth but not in Firestore (Google sign-in, first time)
+            setUserDoc(null);
+            setNeedsUsername(true);
           }
         } else {
-          setEmailVerified(authVerified);
-          // User exists in Auth but not in Firestore (Google sign-in, first time)
+          setEmailVerified(false);
           setUserDoc(null);
-          setNeedsUsername(true);
+          setNeedsUsername(false);
         }
-      } else {
-        setEmailVerified(false);
+      } catch (err) {
+        console.error('Failed to initialize auth state:', err);
         setUserDoc(null);
         setNeedsUsername(false);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return unsubscribe;
@@ -354,8 +355,6 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     if (doc) setUserDoc(doc);
   }, [user]);
 
-    await updateUsernameUnique(user.uid, newUsername);
-    setUserDoc(prev => prev ? { ...prev, username: newUsername } : prev);
   /**
    * Update favorite emote for the current user.
    */
