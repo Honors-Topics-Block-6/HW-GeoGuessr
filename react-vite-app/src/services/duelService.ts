@@ -45,6 +45,12 @@ export interface DuelGuess {
   submittedAt: Timestamp;
 }
 
+export interface DuelEmoteEvent {
+  emoji: string;
+  sentAt: Timestamp;
+  round: number;
+}
+
 export interface GuessData {
   location: MapLocation | null;
   floor?: number | null;
@@ -86,7 +92,7 @@ export interface DuelData {
   phase: DuelPhase;
   currentRound: number;
   currentImage: DuelImage;
-  roundStartedAt: Timestamp;
+  roundStartedAt: Timestamp | FieldValue;
   guesses: Record<string, DuelGuess>;
   health: Record<string, number>;
   roundHistory: RoundHistoryEntry[];
@@ -99,6 +105,7 @@ export interface DuelData {
   difficulty: string;
   /** Round time in seconds. 0 = no time limit. Falls back to DUEL_ROUND_TIME_SECONDS if absent. */
   roundTimeSeconds?: number;
+  emotes?: Record<string, DuelEmoteEvent>;
 }
 
 // ────── Constants ──────
@@ -156,8 +163,9 @@ export async function startDuel(
       correctFloor: image.correctFloor ?? null,
       difficulty: image.difficulty || difficulty
     },
-    roundStartedAt: Timestamp.now(),
+    roundStartedAt: serverTimestamp(),
     guesses: {},
+    emotes: {},
     health,
     roundHistory: [],
     winner: null,
@@ -222,6 +230,29 @@ export async function submitDuelGuess(
     // Meaningful activity: user submitted a score/guess (throttled, server time).
     touchLastActive(playerUid, { minIntervalMs: 2 * 60 * 1000 })
   ]);
+}
+
+/**
+ * Send an emote event for a player in the current duel round.
+ */
+export async function sendDuelEmote(
+  docId: string,
+  playerUid: string,
+  emoji: string,
+  round: number
+): Promise<void> {
+  const sanitized = emoji.trim();
+  if (!sanitized) return;
+
+  const lobbyRef = doc(db, 'lobbies', docId);
+  await updateDoc(lobbyRef, {
+    [`emotes.${playerUid}`]: {
+      emoji: sanitized,
+      sentAt: Timestamp.now(),
+      round
+    },
+    updatedAt: serverTimestamp()
+  });
 }
 
 /**
@@ -380,8 +411,9 @@ export async function advanceToNextRound(docId: string, difficulty: string): Pro
       correctFloor: image.correctFloor ?? null,
       difficulty: image.difficulty || difficulty
     },
-    roundStartedAt: Timestamp.now(),
+    roundStartedAt: serverTimestamp(),
     guesses: {},
+    emotes: {},
     phase: 'guessing',
     updatedAt: serverTimestamp()
   });

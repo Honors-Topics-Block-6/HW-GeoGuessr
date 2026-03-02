@@ -10,7 +10,18 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { createUserDoc, getUserDoc, updateUserDoc, updateUserProfile, isUsernameTaken, isHardcodedAdmin, getAllPermissions, getNoPermissions, ADMIN_PERMISSIONS } from '../services/userService';
+import {
+  createUserDoc,
+  getUserDoc,
+  updateUserDoc,
+  updateUserProfile,
+  isUsernameTaken,
+  isHardcodedAdmin,
+  getAllPermissions,
+  getNoPermissions,
+  ADMIN_PERMISSIONS,
+  normalizeFavoriteEmote
+} from '../services/userService';
 import { touchLastActive } from '../services/lastActiveService';
 import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
 import { compressImage } from '../utils/compressImage';
@@ -32,6 +43,7 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
+  favoriteEmote?: string;
   photoURL?: string;
   isAdmin: boolean;
   emailVerified: boolean;
@@ -41,6 +53,33 @@ export interface UserDoc {
   permissions?: AdminPermissions;
   lastActive?: unknown;
   lastGameAt?: unknown;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
+}
+
+export interface BuildingStat {
+  building: string;
+  floor: number | null;
+  totalScore: number;
+  count: number;
+}
+
+export interface DailyStatBucket {
+  gamesPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
+  photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
 }
 
 /**
@@ -75,6 +114,7 @@ export interface AuthContextType {
   completeGoogleSignUp: (username: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
+  updateFavoriteEmote: (favoriteEmote: string) => Promise<void>;
   updateProfileImage: (file: File) => Promise<string>;
   refreshUserDoc: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
@@ -300,6 +340,16 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   }, [user]);
 
   /**
+   * Update favorite emote for the current user.
+   */
+  const updateFavoriteEmote = useCallback(async (favoriteEmote: string): Promise<void> => {
+    if (!user) throw new Error('No authenticated user');
+    const normalized = normalizeFavoriteEmote(favoriteEmote);
+    await updateUserDoc(user.uid, { favoriteEmote: normalized });
+    setUserDoc(prev => (prev ? { ...prev, favoriteEmote: normalized } : prev));
+  }, [user]);
+
+  /**
    * Upload and persist a profile photo URL for the current user.
    */
   const updateProfileImage = useCallback(async (file: File): Promise<string> => {
@@ -366,6 +416,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     completeGoogleSignUp,
     logout,
     updateUsername,
+    updateFavoriteEmote,
     updateProfileImage,
     refreshUserDoc,
     sendVerificationEmail: sendVerificationEmailToUser

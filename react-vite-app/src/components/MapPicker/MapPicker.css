@@ -108,8 +108,9 @@ body.map-fullscreen-open {
   transition: transform 0.12s linear;
 }
 
-/* No transition during touch (pinch/pan) so two-finger zoom feels instant and responsive */
-.map-picker.touch-active .map-zoom-content {
+/* No transition during touch (pinch/pan) or mouse panning so it feels instant and responsive */
+.map-picker.touch-active .map-zoom-content,
+.map-picker.is-panning .map-zoom-content {
   transition: none !important;
 }
 
@@ -131,8 +132,8 @@ body.map-fullscreen-open {
   max-width: 100%;
 }
 
-.map-picker.zoomed {
-  cursor: grab;
+.map-picker.is-panning {
+  cursor: grabbing;
 }
 
 /* ===== Marker ===== */
@@ -227,6 +228,26 @@ body.map-fullscreen-open {
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+/* Building polygons overlay (submission form hitboxes) */
+.building-polygons-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.building-polygon-label {
+  fill: #f9fafb;
+  font-size: 2.4px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(15, 23, 42, 0.9);
+  stroke-width: 0.6;
 }
 
 /* ===== Zoom Controls ===== */

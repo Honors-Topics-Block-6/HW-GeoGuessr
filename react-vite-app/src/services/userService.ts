@@ -23,6 +23,7 @@ export interface UserDoc {
   uid: string;
   email: string;
   username: string;
+  favoriteEmote?: string;
   photoURL?: string;
   isAdmin: boolean;
   emailVerified: boolean;
@@ -32,6 +33,16 @@ export interface UserDoc {
   lastActive?: unknown;
   permissions?: PermissionsMap;
   lastGameAt?: unknown;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
   lastUsernameChange?: unknown;
 }
 
@@ -41,13 +52,54 @@ export interface UserDocWithId extends UserDoc {
 
 export interface UserProfileUpdates {
   username?: string;
+  favoriteEmote?: string;
   email?: string;
   isAdmin?: boolean;
   emailVerified?: boolean;
   totalXp?: number;
   gamesPlayed?: number;
   lastGameAt?: Date | string | null;
+  totalScore?: number;
+  totalGuessTimeSeconds?: number;
+  fiveKCount?: number;
+  twentyFiveKCount?: number;
+  photosSubmittedCount?: number;
+  followersCount?: number;
+  buildingStats?: Record<string, BuildingStat>;
+  lastOnline?: unknown;
+  dailyStats?: Record<string, DailyStatBucket>;
+  dailyStatsByDifficulty?: Record<string, Record<string, DailyStatBucket>>;
   [key: string]: unknown;
+}
+
+export interface BuildingStat {
+  building: string;
+  floor: number | null;
+  totalScore: number;
+  count: number;
+}
+
+export interface DailyStatBucket {
+  gamesPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
+  photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
+}
+
+const FALLBACK_FAVORITE_EMOTE = '😎';
+
+export function normalizeFavoriteEmote(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error('Favorite emote cannot be empty.');
+  }
+  if (trimmed.length > 16) {
+    throw new Error('Favorite emote is too long.');
+  }
+  return trimmed;
 }
 
 // ────── Constants ──────
@@ -119,6 +171,7 @@ export async function createUserDoc(uid: string, email: string, username: string
     emailLower: email.toLowerCase(),
     username: trimmedUsername,
     usernameLower: trimmedUsername.toLowerCase(),
+    favoriteEmote: FALLBACK_FAVORITE_EMOTE,
     isAdmin,
     emailVerified: false,
     totalXp: 0,
@@ -126,6 +179,16 @@ export async function createUserDoc(uid: string, email: string, username: string
     createdAt: serverTimestamp(),
     // Updated on login + meaningful activity via server time.
     lastActive: serverTimestamp(),
+    totalScore: 0,
+    totalGuessTimeSeconds: 0,
+    fiveKCount: 0,
+    twentyFiveKCount: 0,
+    photosSubmittedCount: 0,
+    followersCount: 0,
+    buildingStats: {},
+    lastOnline: serverTimestamp(),
+    dailyStats: {},
+    dailyStatsByDifficulty: {},
     // Track when the username was last set to enforce change frequency
     lastUsernameChange: serverTimestamp()
   };
@@ -311,10 +374,10 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
     const lastChange = existing.lastUsernameChange as { toDate?: () => Date } | Date | undefined;
     if (lastChange) {
-      const lastDate = typeof lastChange === 'object'
+      const lastDate = (typeof lastChange === 'object'
         && lastChange !== null
         && 'toDate' in lastChange
-        && typeof (lastChange as { toDate?: unknown }).toDate === 'function'
+        && typeof (lastChange as { toDate?: unknown }).toDate === 'function')
         ? (lastChange as { toDate: () => Date }).toDate()
         : (lastChange as Date);
       const now = Date.now();
@@ -343,6 +406,11 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
       throw new Error('Total XP must be a non-negative number.');
     }
     updates.totalXp = xp;
+  }
+
+  // Validate favoriteEmote if being changed
+  if ('favoriteEmote' in updates && typeof updates.favoriteEmote === 'string') {
+    updates.favoriteEmote = normalizeFavoriteEmote(updates.favoriteEmote);
   }
 
   // Validate gamesPlayed if being changed

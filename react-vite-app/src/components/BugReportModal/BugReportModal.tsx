@@ -10,7 +10,7 @@ import {
   type BugReportCategory,
   type BugReportSeverity
 } from '../../services/bugReportService'
-import { compressImage } from '../../utils/compressImage'
+import { compressImage, isHeicFile, normalizeImageFile } from '../../utils/compressImage'
 import './BugReportModal.css'
 
 type CategoryKey = 'gameplay' | 'ui' | 'performance' | 'map' | 'multiplayer' | 'other';
@@ -103,14 +103,13 @@ function BugReportModal({ onClose, userId, username, userEmail }: BugReportModal
   const [historyLoaded, setHistoryLoaded] = useState<boolean>(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const autoCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoCloseTimerRef = useRef<number | null>(null)
 
-  // Cleanup any pending auto-close timer on unmount
   useEffect(() => {
     return () => {
-      if (autoCloseTimeoutRef.current) {
-        clearTimeout(autoCloseTimeoutRef.current)
-        autoCloseTimeoutRef.current = null
+      if (autoCloseTimerRef.current !== null) {
+        window.clearTimeout(autoCloseTimerRef.current)
+        autoCloseTimerRef.current = null
       }
     }
   }, [])
@@ -146,22 +145,21 @@ function BugReportModal({ onClose, userId, username, userEmail }: BugReportModal
   }, [activeTab, historyLoaded, userId])
 
   const handleScreenshotSelect = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = e.target.files?.[0]
+    let file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith('image/') && !isHeicFile(file)) {
       setError('Please select an image file.')
       return
     }
 
-    // Validate file size (max 10MB before compression)
     if (file.size > 10 * 1024 * 1024) {
       setError('Image file is too large (max 10MB).')
       return
     }
 
     try {
+      file = await normalizeImageFile(file)
       const compressed = await compressImage(file, {
         maxWidth: 600,
         maxHeight: 600,
@@ -233,10 +231,10 @@ function BugReportModal({ onClose, userId, username, userEmail }: BugReportModal
       setHistoryLoaded(false)
 
       // Auto-close after 2 seconds
-      if (autoCloseTimeoutRef.current) {
-        clearTimeout(autoCloseTimeoutRef.current)
+      if (autoCloseTimerRef.current !== null) {
+        window.clearTimeout(autoCloseTimerRef.current)
       }
-      autoCloseTimeoutRef.current = setTimeout(() => {
+      autoCloseTimerRef.current = window.setTimeout(() => {
         onClose()
       }, 2000)
     } catch (err: unknown) {
@@ -413,7 +411,7 @@ function BugReportModal({ onClose, userId, username, userEmail }: BugReportModal
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.heic,.heif"
                   className="bug-report-screenshot-file-input"
                   onChange={handleScreenshotSelect}
                   disabled={submitting || success}
