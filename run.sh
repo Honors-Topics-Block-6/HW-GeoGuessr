@@ -1,4 +1,4 @@
-#!/bin/bash
+c#!/bin/bash
 
 # Kill any running Vite dev server processes for THIS project only
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"

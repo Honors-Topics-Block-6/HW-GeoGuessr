@@ -51,7 +51,7 @@ interface ConfettiPiece {
 }
 
 /**
- * Calculate performance rating based on total score
+ * Calculate performance rating based on total score (classic mode)
  */
 function getPerformanceRating(totalScore: number, maxPossible: number): PerformanceRating {
   const percentage = (totalScore / maxPossible) * 100;
@@ -61,6 +61,30 @@ function getPerformanceRating(totalScore: number, maxPossible: number): Performa
   if (percentage >= 40) return { rating: 'Good', emoji: '👍', class: 'good' };
   if (percentage >= 20) return { rating: 'Keep Practicing', emoji: '📍', class: 'okay' };
   return { rating: 'Beginner', emoji: '🎯', class: 'beginner' };
+}
+
+/**
+ * Calculate performance rating for endless mode based on rounds survived
+ */
+function getEndlessPerformanceRating(roundsSurvived: number): PerformanceRating {
+  if (roundsSurvived >= 16) return { rating: 'Legendary!', emoji: '🏆', class: 'perfect' };
+  if (roundsSurvived >= 11) return { rating: 'Excellent!', emoji: '🌟', class: 'excellent' };
+  if (roundsSurvived >= 8) return { rating: 'Great!', emoji: '👏', class: 'great' };
+  if (roundsSurvived >= 5) return { rating: 'Good', emoji: '👍', class: 'good' };
+  if (roundsSurvived >= 3) return { rating: 'Keep Practicing', emoji: '📍', class: 'okay' };
+  return { rating: 'Beginner', emoji: '🎯', class: 'beginner' };
+}
+
+function formatRoundTime(timeTakenSeconds: number | undefined): string {
+  if (typeof timeTakenSeconds !== 'number' || !Number.isFinite(timeTakenSeconds) || timeTakenSeconds < 0) {
+    return '--';
+  }
+  if (timeTakenSeconds >= 60) {
+    const minutes = Math.floor(timeTakenSeconds / 60);
+    const seconds = timeTakenSeconds - minutes * 60;
+    return `${minutes}m ${seconds.toFixed(2)}s`;
+  }
+  return `${timeTakenSeconds.toFixed(2)}s`;
 }
 
 const CONFETTI_COLORS: string[] = ['#6cb52d', '#ffc107', '#ff4757', '#3498db', '#9b59b6'];
@@ -82,21 +106,28 @@ export interface FinalResultsScreenProps {
   onPlayAgain: () => void;
   onBackToTitle: () => void;
   difficulty: string | null;
+  isEndlessMode?: boolean;
   mode?: string | null;
 }
 
-function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mode = null }: FinalResultsScreenProps): React.ReactElement {
+function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, isEndlessMode = false, mode = null }: FinalResultsScreenProps): React.ReactElement {
   const { user, userDoc, totalXp, refreshUserDoc } = useAuth();
   const { recordProgress } = useDailyGoals(user?.uid ?? null);
   const [animationComplete, setAnimationComplete] = useState<boolean>(false);
   const [displayedTotal, setDisplayedTotal] = useState<number>(0);
   const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
   const xpAwarded = useRef<boolean>(false);
-
   const totalScore = rounds.reduce((sum: number, round: RoundData) => sum + round.score, 0);
+  const roundsSurvived = rounds.length;
   const maxPossible = rounds.length * 5000;
-  const performance = getPerformanceRating(totalScore, maxPossible);
+  const averageScore = rounds.length > 0 ? totalScore / rounds.length : 0;
+  const roundedAverageScore = Math.round(averageScore);
+  const isPerfectAverageScore = roundedAverageScore === 5000;
+  const performance = isEndlessMode
+    ? getEndlessPerformanceRating(roundsSurvived)
+    : getPerformanceRating(totalScore, maxPossible);
   const totalGuessTimeSeconds = rounds.reduce((sum: number, round: RoundData) => sum + (round.timeTakenSeconds ?? 0), 0);
+  const averageGuessTimeSeconds = rounds.length > 0 ? totalGuessTimeSeconds / rounds.length : 0;
   const isPerfectRound = (round: RoundData): boolean =>
     round.locationScore === 5000 && round.floorCorrect !== false;
   const fiveKCount = rounds.filter(isPerfectRound).length;
@@ -363,8 +394,14 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mo
           <div className={`performance-badge ${performance.class}`}>
             <span className="performance-emoji">{performance.emoji}</span>
           </div>
-          <h1 className="results-title">Game Complete!</h1>
-          <p className={`performance-text ${performance.class}`}>{performance.rating}</p>
+          <h1 className="results-title">
+            {isEndlessMode ? 'Game Over!' : 'Game Complete!'}
+          </h1>
+          <p className={`performance-text ${performance.class}`}>
+            {isEndlessMode
+              ? `You survived ${roundsSurvived} round${roundsSurvived === 1 ? '' : 's'}! ${performance.rating}`
+              : performance.rating}
+          </p>
         </div>
 
         {/* Total Score Display */}
@@ -372,8 +409,15 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mo
           <div className="total-score-box">
             <span className="total-label">Total Score</span>
             <span className="total-value">{displayedTotal.toLocaleString()}</span>
-            <span className="total-max">/ {maxPossible.toLocaleString()} points</span>
+            <span className="total-max">
+              {isEndlessMode ? ' points' : ` / ${maxPossible.toLocaleString()} points`}
+            </span>
           </div>
+          {isEndlessMode && (
+            <div className="endless-rounds-survived">
+              Rounds survived: {roundsSurvived}
+            </div>
+          )}
         </div>
 
         {/* XP Gained Section */}
@@ -416,27 +460,26 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mo
                     <img src={round.imageUrl} alt={`Round ${index + 1}`} />
                   </div>
                   <div className="round-stats">
-                    {round.noGuess ? (
-                      <div className="round-stat">
-                        <span className="round-stat-label">No guess</span>
-                        <span className="round-stat-value">0</span>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="round-stat">
-                          <span className="round-stat-label">Location</span>
-                          <span className="round-stat-value">{round.locationScore.toLocaleString()}</span>
-                        </div>
-                        {round.floorCorrect !== null && (
-                          <div className="round-stat">
-                            <span className="round-stat-label">Floor</span>
-                            <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
-                              {round.floorCorrect ? '✓' : '-20%'}
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
+                    <div className="round-stat">
+                      <span className="round-stat-label">Location</span>
+                      <span className="round-stat-value">
+                        {round.noGuess ? 'No guess' : round.locationScore.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="round-stat">
+                      <span className="round-stat-label">Floor</span>
+                      {round.noGuess || round.floorCorrect === null || round.floorCorrect === undefined ? (
+                        <span className="round-stat-value">--</span>
+                      ) : (
+                        <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
+                          {round.floorCorrect ? '✓' : '-20%'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="round-stat">
+                      <span className="round-stat-label">Time</span>
+                      <span className="round-stat-value">{formatRoundTime(round.timeTakenSeconds)}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="round-score">
@@ -447,6 +490,24 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, mo
             ))}
           </div>
         </div>
+
+        {rounds.length > 0 && (
+          <div className="average-score-summary">
+            <h2 className="breakdown-title average-summary-title">Per-round averages</h2>
+            <div className="average-score-metrics">
+              <div className="average-metric">
+                <span className="average-metric-label">Avg score</span>
+                <span className={`average-score-value ${isPerfectAverageScore ? 'perfect' : ''}`}>
+                  {roundedAverageScore.toLocaleString()} pts
+                </span>
+              </div>
+              <div className="average-metric">
+                <span className="average-metric-label">Avg time</span>
+                <span className="average-time-value">{formatRoundTime(averageGuessTimeSeconds)}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="final-actions">
