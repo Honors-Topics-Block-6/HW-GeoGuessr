@@ -9,6 +9,7 @@ import { useChatNotifications } from './hooks/useChatNotifications';
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
 import { joinLobby } from './services/lobbyService';
+import { touchLastActive } from './services/lastActiveService';
 import LoginScreen from './components/LoginScreen/LoginScreen';
 import ProfileScreen from './components/ProfileScreen/ProfileScreen';
 import TitleScreen from './components/TitleScreen/TitleScreen';
@@ -118,6 +119,7 @@ function App(): React.ReactElement {
     nextRound,
     viewFinalResults,
     resetGame,
+    setMode,
     setLobbyDocId,
     setDifficulty
   } = useGameState();
@@ -347,9 +349,8 @@ function App(): React.ReactElement {
    * Handle transition from WaitingRoom to the duel game
    */
   const handleDuelGameStart = useCallback((): void => {
-    if (user?.uid) {
-      recordDailyPlay(user.uid);
-    }
+    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    if (user?.uid) recordDailyPlay(user.uid);
     setInDuel(true);
     setDuelLobbyDocId(lobbyDocId);
     setScreen('duelGame');
@@ -526,9 +527,10 @@ function App(): React.ReactElement {
   };
 
   /**
-   * Handle selecting single player from mode select -> go to difficulty select
+   * Handle selecting single-player from mode select -> go to difficulty select
    */
   const handleSelectSinglePlayer = (): void => {
+    setMode('singleplayer');
     setScreen('difficultySelect');
   };
 
@@ -536,6 +538,8 @@ function App(): React.ReactElement {
    * Handle selecting multiplayer from mode select -> go to multiplayer lobby
    */
   const handleSelectMultiplayer = (): void => {
+    setMode('multiplayer');
+    setDifficulty((prev) => prev ?? 'all');
     setScreen('multiplayerLobby');
   };
 
@@ -543,6 +547,7 @@ function App(): React.ReactElement {
    * Handle starting the game from difficulty select (singleplayer only)
    */
   const handleStartFromDifficulty = (selectedDifficulty: string, roundTimeSeconds: number): void => {
+    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
     if (user?.uid) {
       recordDailyPlay(user.uid);
     }
