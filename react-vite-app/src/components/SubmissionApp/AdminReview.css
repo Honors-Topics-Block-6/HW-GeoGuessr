@@ -952,7 +952,7 @@
 }
 
 .detail-inline-number {
-  max-width: 110px;
+  max-width: 170px;
 }
 
 .detail-description {
@@ -1070,7 +1070,23 @@
 
 .detail-coordinates-edit {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+}
+
+.detail-coordinate-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detail-coordinate-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #dbe6ff;
+}
+
+.detail-coordinate-input {
+  min-width: 154px;
 }
 
 .detail-id-value {
@@ -1078,6 +1094,112 @@
   font-size: 16px;
   font-weight: 500;
   color: #94a3b8;
+}
+
+.ui-notification-stack {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1400;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.ui-notification {
+  width: min(92vw, 440px);
+  border-radius: 14px;
+  border: 1px solid rgba(108, 181, 45, 0.42);
+  background: rgba(13, 19, 38, 0.92);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+  color: #e8eefc;
+  overflow: hidden;
+  pointer-events: auto;
+  animation: uiNotificationEnter 220ms ease-out forwards;
+}
+
+.ui-notification.fading {
+  animation: uiNotificationFadeOut 260ms ease forwards;
+}
+
+.ui-notification-message {
+  padding: 12px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #c4c9d6;
+  line-height: 1.35;
+}
+
+.ui-notification-title {
+  padding: 12px 14px 4px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #e8eefc;
+}
+
+.ui-notification-success {
+  border-color: rgba(108, 181, 45, 0.5);
+}
+
+.ui-notification-error {
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+.ui-notification-confirm {
+  width: min(92vw, 460px);
+  border-color: rgba(147, 197, 253, 0.45);
+}
+
+.ui-notification-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.ui-notification-btn {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ui-notification-btn-yes {
+  background: rgba(108, 181, 45, 0.2);
+  color: #b8e986;
+  border-color: rgba(108, 181, 45, 0.42);
+}
+
+.ui-notification-btn-no {
+  background: rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.38);
+}
+
+@keyframes uiNotificationEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes uiNotificationFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 
 /* Map card */

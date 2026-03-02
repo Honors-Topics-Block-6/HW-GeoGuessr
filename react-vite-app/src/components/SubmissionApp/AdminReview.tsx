@@ -51,6 +51,19 @@ export interface AdminReviewProps {
   onBack?: () => void
 }
 
+interface ToastNotification {
+  id: string
+  message: string
+  type: 'info' | 'success' | 'error'
+  durationMs: number
+  isFading?: boolean
+}
+
+interface SaveConfirmState {
+  changedFields: string[]
+  normalizedBuildingName: string | null
+}
+
 function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([])
   const [firestoreImages, setFirestoreImages] = useState<SubmissionItem[]>([])
@@ -65,6 +78,8 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
   const [saveError, setSaveError] = useState<string>('')
   const [playingArea, setPlayingArea] = useState<PlayingArea | null>(null)
   const [clickRejected, setClickRejected] = useState<boolean>(false)
+  const [notifications, setNotifications] = useState<ToastNotification[]>([])
+  const [saveConfirm, setSaveConfirm] = useState<SaveConfirmState | null>(null)
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<SubmissionItem | null>(null)
@@ -138,14 +153,35 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
     }
   }, [])
 
+  function pushNotification(
+    message: string,
+    type: ToastNotification['type'] = 'info',
+    durationMs = 2800
+  ): void {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const fadeMs = 260
+    const fadeStartMs = Math.max(0, durationMs - fadeMs)
+    setNotifications(prev => [...prev, { id, message, type, durationMs, isFading: false }])
+    window.setTimeout(() => {
+      setNotifications(prev => prev.map(notification =>
+        notification.id === id ? { ...notification, isFading: true } : notification
+      ))
+    }, fadeStartMs)
+    window.setTimeout(() => {
+      setNotifications(prev => prev.filter(notification => notification.id !== id))
+    }, durationMs)
+  }
+
   const handleApprove = async (submissionId: string): Promise<void> => {
     try {
       await updateDoc(doc(db, 'submissions', submissionId), {
         status: 'approved',
         reviewedAt: serverTimestamp()
       })
+      pushNotification('Submission approved', 'success', 2500)
     } catch (error) {
       console.error('Error approving submission:', error)
+      pushNotification('Failed to approve submission', 'error', 3000)
     }
   }
 
@@ -155,8 +191,10 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
         status: 'denied',
         reviewedAt: serverTimestamp()
       })
+      pushNotification('Submission denied', 'info', 2500)
     } catch (error) {
       console.error('Error denying submission:', error)
+      pushNotification('Failed to deny submission', 'error', 3000)
     }
   }
 
@@ -166,8 +204,10 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
         status: 'pending',
         reviewedAt: null
       })
+      pushNotification('Submission reset to pending', 'info', 2500)
     } catch (error) {
       console.error('Error resetting submission:', error)
+      pushNotification('Failed to reset submission', 'error', 3000)
     }
   }
 
@@ -195,6 +235,7 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
   }
 
   const handleCloseModal = (): void => {
+    setSaveConfirm(null)
     handleCancelEdit()
     setSelectedSubmission(null)
   }
@@ -239,7 +280,12 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
     setEditForm(prev => ({ ...prev, location: coords }))
   }
 
-  const handleSaveEdit = async (): Promise<void> => {
+  const handleNumberInputWheel = (event: React.WheelEvent<HTMLInputElement>): void => {
+    // Prevent accidental value changes when scrolling over number fields.
+    event.currentTarget.blur()
+  }
+
+  const handleSaveEdit = (): void => {
     if (!selectedSubmission) return
 
     // Validation
@@ -256,7 +302,6 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
     const normalizedBuildingName = (editForm.buildingName || '').trim() || null
     const originalBuildingName = selectedSubmission.buildingName || null
     if (normalizedBuildingName !== originalBuildingName) changedFields.push('Building Name')
-    if ((editForm.description || '') !== (selectedSubmission.description || '')) changedFields.push('Description')
     if (selectedSubmission._source === 'submission' && (editForm.photoName || '') !== (selectedSubmission.photoName || '')) {
       changedFields.push('File Name')
     }
@@ -275,30 +320,29 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
     }
 
     if (changedFields.length === 0) {
-      setSaveError('No changes to save.')
+      setSaveError('')
+      handleCancelEdit()
+      pushNotification('No changes made', 'info', 2500)
       return
     }
 
-    const shouldSave = window.confirm(`Save these changes?\n- ${changedFields.join('\n- ')}`)
-    if (!shouldSave) return
+    setSaveConfirm({ changedFields, normalizedBuildingName })
+  }
+
+  const handleConfirmSave = async (): Promise<void> => {
+    if (!selectedSubmission || !saveConfirm) return
+
+    const { changedFields, normalizedBuildingName } = saveConfirm
 
     setIsSaving(true)
     setSaveError('')
+    setSaveConfirm(null)
 
     try {
-      let photoURL = selectedSubmission?.photoURL
-
-      // If new photo was uploaded, compress it
-      if (newPhoto) {
-        photoURL = await compressImage(newPhoto)
-      }
-
       if (selectedSubmission?._source === 'submission') {
-        const normalizedBuilding = (editForm.buildingName || '').trim() || null;
         await updateDoc(doc(db, 'submissions', selectedSubmission.id), {
-          description: editForm.description,
           photoName: editForm.photoName,
-          buildingName: normalizedBuilding,
+          buildingName: normalizedBuildingName,
           location: editForm.location,
           floor: editForm.floor,
           difficulty: editForm.difficulty || null,
@@ -307,7 +351,6 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
         // Real-time listener will auto-update submissions state
       } else if (selectedSubmission._source === 'image') {
         await updateDoc(doc(db, 'images', selectedSubmission.id), {
-          description: editForm.description,
           correctLocation: editForm.location,
           correctFloor: editForm.floor,
           difficulty: editForm.difficulty || null,
@@ -317,8 +360,6 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
           img.id === selectedSubmission.id
             ? {
                 ...img,
-                description: editForm.description,
-                photoName: editForm.description || selectedSubmission.id,
                 location: editForm.location!,
                 floor: editForm.floor,
                 difficulty: editForm.difficulty || null,
@@ -329,7 +370,7 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
 
       setIsEditing(false)
       setSelectedSubmission(null)
-      window.alert(`Saved changes:\n- ${changedFields.join('\n- ')}`)
+      pushNotification(`Saved changes: ${changedFields.join(', ')}`, 'success', 2800)
     } catch (error) {
       console.error('Error saving edit:', error)
       setSaveError('Failed to save changes. Please try again.')
@@ -365,9 +406,11 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
         setSelectedSubmission(null)
         handleCancelEdit()
       }
+      pushNotification('Photo deleted', 'success', 2600)
       setDeleteTarget(null)
     } catch (error) {
       console.error('Error deleting photo:', error)
+      pushNotification('Failed to delete photo', 'error', 3000)
     } finally {
       setIsDeleting(false)
     }
@@ -613,10 +656,9 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
                         {isEditing ? (
                           <select
                             className="detail-inline-select"
-                            value={editForm.difficulty || ''}
-                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value || null }))}
+                            value={editForm.difficulty || DIFFICULTY_OPTIONS[0]}
+                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value }))}
                           >
-                            <option value="">No difficulty</option>
                             {DIFFICULTY_OPTIONS.map(d => (
                               <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
                             ))}
@@ -644,30 +686,38 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
                         <span className="detail-combined-key">📍 Location</span>
                         {isEditing ? (
                           <div className="detail-coordinates-edit">
-                            <input
-                              className="detail-inline-input detail-inline-number"
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.1"
-                              value={editForm.location?.x ?? ''}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
-                                ...prev,
-                                location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
-                              }))}
-                            />
-                            <input
-                              className="detail-inline-input detail-inline-number"
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.1"
-                              value={editForm.location?.y ?? ''}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
-                                ...prev,
-                                location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
-                              }))}
-                            />
+                            <label className="detail-coordinate-field">
+                              <span className="detail-coordinate-label">X:</span>
+                              <input
+                                className="detail-inline-input detail-inline-number detail-coordinate-input"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                value={editForm.location?.x ?? ''}
+                                onWheel={handleNumberInputWheel}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
+                                  ...prev,
+                                  location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
+                                }))}
+                              />
+                            </label>
+                            <label className="detail-coordinate-field">
+                              <span className="detail-coordinate-label">Y:</span>
+                              <input
+                                className="detail-inline-input detail-inline-number detail-coordinate-input"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                value={editForm.location?.y ?? ''}
+                                onWheel={handleNumberInputWheel}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
+                                  ...prev,
+                                  location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
+                                }))}
+                              />
+                            </label>
                           </div>
                         ) : (
                           <span className="detail-combined-value">
@@ -685,6 +735,7 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
                             min="1"
                             step="1"
                             value={editForm.floor ?? ''}
+                            onWheel={handleNumberInputWheel}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                               const value = e.target.value
                               setEditForm(prev => ({ ...prev, floor: value === '' ? null : parseInt(value, 10) }))
@@ -694,33 +745,16 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
                           <span className="detail-combined-value">{selectedSubmission.floor ? `Floor ${selectedSubmission.floor}` : '\u2014'}</span>
                         )}
                       </div>
-                      {(isEditing || selectedSubmission.description) && (
+                      {selectedSubmission.description && (
                         <div className="detail-combined-row detail-combined-row-top">
                           <span className="detail-combined-key">📝 Description</span>
-                          {isEditing ? (
-                            <textarea
-                              className="detail-inline-textarea"
-                              value={editForm.description || ''}
-                              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                            />
-                          ) : (
-                            <span className="detail-combined-value detail-description">{selectedSubmission.description}</span>
-                          )}
+                          <span className="detail-combined-value detail-description">{selectedSubmission.description}</span>
                         </div>
                       )}
                       {selectedSubmission._source === 'submission' && (
                         <div className="detail-combined-row">
                           <span className="detail-combined-key">📄 File</span>
-                          {isEditing ? (
-                            <input
-                              className="detail-inline-input"
-                              type="text"
-                              value={editForm.photoName || ''}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, photoName: e.target.value }))}
-                            />
-                          ) : (
-                            <span className="detail-combined-value">{selectedSubmission.photoName || '\u2014'}</span>
-                          )}
+                          <span className="detail-combined-value">{selectedSubmission.photoName || '\u2014'}</span>
                         </div>
                       )}
                       <div className="detail-combined-row">
@@ -777,6 +811,44 @@ function AdminReview({ onBack: _onBack }: AdminReviewProps): React.JSX.Element {
                 </button>
               </div>
             )}
+          </div>
+        </div>,
+        document.body
+      )}
+      {notifications.length > 0 && createPortal(
+        <div className="ui-notification-stack">
+          {notifications.map(notification => (
+            <div
+              key={notification.id}
+              className={`ui-notification ui-notification-${notification.type}${notification.isFading ? ' fading' : ''}`}
+            >
+              <div className="ui-notification-message">{notification.message}</div>
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
+      {saveConfirm && createPortal(
+        <div className="ui-notification-stack">
+          <div className="ui-notification ui-notification-confirm">
+            <div className="ui-notification-title">Save changes?</div>
+            <div className="ui-notification-message">{saveConfirm.changedFields.join(', ')}</div>
+            <div className="ui-notification-actions">
+              <button
+                className="ui-notification-btn ui-notification-btn-yes"
+                onClick={handleConfirmSave}
+                disabled={isSaving}
+              >
+                Yes
+              </button>
+              <button
+                className="ui-notification-btn ui-notification-btn-no"
+                onClick={() => setSaveConfirm(null)}
+                disabled={isSaving}
+              >
+                No
+              </button>
+            </div>
           </div>
         </div>,
         document.body
