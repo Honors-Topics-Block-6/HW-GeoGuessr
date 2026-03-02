@@ -152,6 +152,11 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
         // Fetch the user's Firestore document
         const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
         if (doc) {
+          // Best-effort migration: ensure a username reservation exists for this user.
+          ensureUsernameReservation(firebaseUser.uid, doc.username).catch((err) => {
+            console.error('Failed to ensure username reservation:', err);
+          });
+
           // Verified if either Firebase Auth or Firestore says so
           // (admin can set emailVerified in Firestore, user can verify via email link)
           const isVerified = authVerified || doc.emailVerified === true;
@@ -246,10 +251,10 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
    * Sign up with email and password
    */
   const signup = useCallback(async (email: string, password: string, username: string): Promise<FirebaseUser> => {
-    // Check username uniqueness before creating account
-    const taken = await isUsernameTaken(username);
-    if (taken) {
-      throw new Error('Username is already taken. Please choose another.');
+    // Fast pre-check to avoid creating Auth users for obviously-taken usernames.
+    const availability = await checkUsernameAvailability(username, null, true);
+    if (!availability.available) {
+      throw new UsernameTakenError(availability.suggestions || []);
     }
 
     const credential = await createUserWithEmailAndPassword(auth, email, password);
@@ -261,7 +266,17 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
       console.error('Failed to send verification email:', err);
     }
 
-    await createUserDoc(credential.user.uid, email, username);
+    try {
+      await createUserDoc(credential.user.uid, email, username);
+    } catch (err) {
+      // If the username was taken due to a race, remove the just-created auth user.
+      try {
+        await credential.user.delete();
+      } catch (deleteErr) {
+        console.error('Failed to delete auth user after username conflict:', deleteErr);
+      }
+      throw err;
+    }
     const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
     setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
     setNeedsUsername(false);
@@ -306,9 +321,9 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   const completeGoogleSignUp = useCallback(async (username: string): Promise<void> => {
     if (!user) throw new Error('No authenticated user');
 
-    const taken = await isUsernameTaken(username);
-    if (taken) {
-      throw new Error('Username is already taken. Please choose another.');
+    const availability = await checkUsernameAvailability(username, user.uid, true);
+    if (!availability.available) {
+      throw new UsernameTakenError(availability.suggestions || []);
     }
 
     await createUserDoc(user.uid, user.email!, username);
@@ -339,6 +354,8 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     if (doc) setUserDoc(doc);
   }, [user]);
 
+    await updateUsernameUnique(user.uid, newUsername);
+    setUserDoc(prev => prev ? { ...prev, username: newUsername } : prev);
   /**
    * Update favorite emote for the current user.
    */
