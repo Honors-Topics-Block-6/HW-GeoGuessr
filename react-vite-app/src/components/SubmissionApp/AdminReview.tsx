@@ -5,6 +5,7 @@ import { db } from '../../firebase'
 import { getAllImages, getAllSampleImages, deleteSubmission, deleteImage } from '../../services/imageService'
 import {
   backfillImagePool,
+  type BackfillImagePoolResult,
   buildImagePoolEntryFromImageDoc,
   buildImagePoolEntryFromSubmissionDoc,
   removeImagePoolEntry,
@@ -80,6 +81,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<SubmissionItem | null>(null)
   const [isDeleting, setIsDeleting] = useState<boolean>(false)
 
+  const BACKFILL_IMAGE_CURSOR_KEY = 'admin.imagePool.backfill.imageCursor.v1'
+  const BACKFILL_SUBMISSION_CURSOR_KEY = 'admin.imagePool.backfill.submissionCursor.v1'
+
   // Fetch submissions from Firestore (real-time)
   useEffect(() => {
     const q = query(collection(db, 'submissions'), orderBy('createdAt', 'desc'))
@@ -107,9 +111,51 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
   // Fetch images from Firestore images collection and sample/testing images
   useEffect(() => {
-    void backfillImagePool().catch((error) => {
+    let cancelled = false
+    async function runBackfillPasses(): Promise<void> {
+      let imageCursor = window.localStorage.getItem(BACKFILL_IMAGE_CURSOR_KEY)
+      let submissionCursor = window.localStorage.getItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+
+      // Run a few paced passes per mount to avoid backend throttling.
+      for (let pass = 0; pass < 4; pass += 1) {
+        if (cancelled) return
+        const result: BackfillImagePoolResult = await backfillImagePool({
+          imageCursor,
+          submissionCursor,
+          maxDocsPerSource: 20,
+          commitChunkSize: 10,
+          maxRetriesPerChunk: 5
+        })
+
+        imageCursor = result.nextImageCursor
+        submissionCursor = result.nextSubmissionCursor
+
+        if (imageCursor) {
+          window.localStorage.setItem(BACKFILL_IMAGE_CURSOR_KEY, imageCursor)
+        } else {
+          window.localStorage.removeItem(BACKFILL_IMAGE_CURSOR_KEY)
+        }
+        if (submissionCursor) {
+          window.localStorage.setItem(BACKFILL_SUBMISSION_CURSOR_KEY, submissionCursor)
+        } else {
+          window.localStorage.removeItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+        }
+
+        if (result.done) {
+          window.localStorage.removeItem(BACKFILL_IMAGE_CURSOR_KEY)
+          window.localStorage.removeItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+          break
+        }
+      }
+    }
+
+    void runBackfillPasses().catch((error) => {
       console.error('Error backfilling imagePool:', error)
     })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {

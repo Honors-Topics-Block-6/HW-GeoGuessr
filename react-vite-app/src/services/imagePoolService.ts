@@ -4,30 +4,47 @@ import {
   getDocs,
   query,
   setDoc,
+  orderBy,
+  startAfter,
+  limit,
+  documentId,
   where,
   writeBatch,
-  type Firestore
+  type DocumentData,
+  type Firestore,
+  type QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export type ImagePoolSourceType = 'image' | 'submission';
 
-export interface ImagePoolLocation {
-  x: number;
-  y: number;
-}
-
 export interface ImagePoolEntry {
   sourceType: ImagePoolSourceType;
   sourceId: string;
-  url: string;
   difficulty: string | null;
-  correctLocation: ImagePoolLocation;
-  correctFloor: number | null;
-  buildingName: string | null;
-  description: string | null;
   active: boolean;
+  randomKey: number;
   updatedAtMs: number;
+}
+
+export interface BackfillImagePoolOptions {
+  imageCursor?: string | null;
+  submissionCursor?: string | null;
+  maxDocsPerSource?: number;
+  commitChunkSize?: number;
+  maxRetriesPerChunk?: number;
+}
+
+export interface BackfillImagePoolResult {
+  processedImages: number;
+  processedSubmissions: number;
+  written: number;
+  skipped: number;
+  nextImageCursor: string | null;
+  nextSubmissionCursor: string | null;
+  imageDone: boolean;
+  submissionDone: boolean;
+  done: boolean;
 }
 
 function normalizeString(value: unknown): string | null {
@@ -36,11 +53,26 @@ function normalizeString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function normalizeLocation(value: unknown): ImagePoolLocation | null {
-  if (!value || typeof value !== 'object') return null;
-  const maybe = value as { x?: unknown; y?: unknown };
-  if (typeof maybe.x !== 'number' || typeof maybe.y !== 'number') return null;
-  return { x: maybe.x, y: maybe.y };
+function hasPlayableImageFields(data: Record<string, unknown>): boolean {
+  const url = normalizeString(data.url);
+  const location = data.correctLocation as { x?: unknown; y?: unknown } | undefined;
+  return Boolean(
+    url &&
+    location &&
+    typeof location.x === 'number' &&
+    typeof location.y === 'number'
+  );
+}
+
+function hasPlayableSubmissionFields(data: Record<string, unknown>): boolean {
+  const url = normalizeString(data.photoURL);
+  const location = data.location as { x?: unknown; y?: unknown } | undefined;
+  return Boolean(
+    url &&
+    location &&
+    typeof location.x === 'number' &&
+    typeof location.y === 'number'
+  );
 }
 
 function poolDocId(sourceType: ImagePoolSourceType, sourceId: string): string {
@@ -50,58 +82,36 @@ function poolDocId(sourceType: ImagePoolSourceType, sourceId: string): string {
 function buildEntry(
   sourceType: ImagePoolSourceType,
   sourceId: string,
-  payload: {
-    url: unknown;
-    difficulty: unknown;
-    correctLocation: unknown;
-    correctFloor: unknown;
-    buildingName?: unknown;
-    description?: unknown;
-  }
-): ImagePoolEntry | null {
-  const url = normalizeString(payload.url);
-  const correctLocation = normalizeLocation(payload.correctLocation);
-  if (!url || !correctLocation) return null;
-
+  payload: { difficulty: unknown; active?: unknown; randomKey?: unknown }
+): ImagePoolEntry {
   const difficultyValue = normalizeString(payload.difficulty);
   const difficulty = difficultyValue === 'all' ? null : difficultyValue;
-  const correctFloor = typeof payload.correctFloor === 'number' ? payload.correctFloor : null;
-  const buildingName = normalizeString(payload.buildingName);
-  const description = normalizeString(payload.description) ?? buildingName;
+  const active = typeof payload.active === 'boolean' ? payload.active : true;
+  const randomKey = typeof payload.randomKey === 'number' ? payload.randomKey : Math.random();
 
   return {
     sourceType,
     sourceId,
-    url,
     difficulty,
-    correctLocation,
-    correctFloor,
-    buildingName,
-    description,
-    active: true,
+    active,
+    randomKey,
     updatedAtMs: Date.now()
   };
 }
 
 export function buildImagePoolEntryFromImageDoc(sourceId: string, data: Record<string, unknown>): ImagePoolEntry | null {
+  if (!hasPlayableImageFields(data)) return null;
   return buildEntry('image', sourceId, {
-    url: data.url,
     difficulty: data.difficulty,
-    correctLocation: data.correctLocation,
-    correctFloor: data.correctFloor,
-    buildingName: data.buildingName ?? data.building,
-    description: data.description
+    active: true
   });
 }
 
 export function buildImagePoolEntryFromSubmissionDoc(sourceId: string, data: Record<string, unknown>): ImagePoolEntry | null {
+  if (!hasPlayableSubmissionFields(data)) return null;
   return buildEntry('submission', sourceId, {
-    url: data.photoURL,
     difficulty: data.difficulty,
-    correctLocation: data.location,
-    correctFloor: data.floor,
-    buildingName: data.buildingName ?? data.building,
-    description: data.description
+    active: (normalizeString(data.status) ?? 'approved') === 'approved'
   });
 }
 
@@ -117,35 +127,155 @@ export async function removeImagePoolEntry(sourceType: ImagePoolSourceType, sour
   );
 }
 
-async function writeEntriesInChunks(database: Firestore, entries: ImagePoolEntry[], chunkSize = 400): Promise<void> {
-  for (let start = 0; start < entries.length; start += chunkSize) {
-    const batch = writeBatch(database);
-    const chunk = entries.slice(start, start + chunkSize);
-    chunk.forEach((entry) => {
-      batch.set(doc(database, 'imagePool', poolDocId(entry.sourceType, entry.sourceId)), entry, { merge: true });
-    });
-    await batch.commit();
-  }
+function getLastDocId(snapshotDocs: QueryDocumentSnapshot<DocumentData>[]): string | null {
+  if (snapshotDocs.length === 0) return null;
+  return snapshotDocs[snapshotDocs.length - 1].id;
 }
 
-export async function backfillImagePool(): Promise<void> {
-  const [imagesSnapshot, approvedSubsSnapshot] = await Promise.all([
-    getDocs(collection(db, 'images')),
-    getDocs(query(collection(db, 'submissions'), where('status', '==', 'approved')))
+async function commitChunkWithRetry(
+  database: Firestore,
+  entries: ImagePoolEntry[],
+  chunkSize: number,
+  maxRetriesPerChunk: number
+): Promise<number> {
+  let written = 0;
+  for (let start = 0; start < entries.length; start += chunkSize) {
+    const chunk = entries.slice(start, start + chunkSize);
+    let attempt = 0;
+    while (attempt <= maxRetriesPerChunk) {
+      const batch = writeBatch(database);
+      chunk.forEach((entry) => {
+        batch.set(doc(database, 'imagePool', poolDocId(entry.sourceType, entry.sourceId)), entry, { merge: true });
+      });
+      try {
+        await batch.commit();
+        written += chunk.length;
+        break;
+      } catch (error) {
+        attempt += 1;
+        if (attempt > maxRetriesPerChunk) {
+          throw error;
+        }
+        const backoffMs = Math.min(8_000, 500 * 2 ** attempt);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+    }
+  }
+  return written;
+}
+
+async function fetchImageBatch(cursor: string | null, maxDocsPerSource: number): Promise<QueryDocumentSnapshot<DocumentData>[]> {
+  const snapshot = cursor
+    ? await getDocs(query(collection(db, 'images'), orderBy(documentId()), startAfter(cursor), limit(maxDocsPerSource)))
+    : await getDocs(query(collection(db, 'images'), orderBy(documentId()), limit(maxDocsPerSource)));
+  return snapshot.docs;
+}
+
+async function fetchSubmissionBatch(cursor: string | null, maxDocsPerSource: number): Promise<QueryDocumentSnapshot<DocumentData>[]> {
+  const snapshot = cursor
+    ? await getDocs(query(
+      collection(db, 'submissions'),
+      where('status', '==', 'approved'),
+      orderBy(documentId()),
+      startAfter(cursor),
+      limit(maxDocsPerSource)
+    ))
+    : await getDocs(query(
+      collection(db, 'submissions'),
+      where('status', '==', 'approved'),
+      orderBy(documentId()),
+      limit(maxDocsPerSource)
+    ));
+  return snapshot.docs;
+}
+
+export async function backfillImagePool(options: BackfillImagePoolOptions = {}): Promise<BackfillImagePoolResult> {
+  const maxDocsPerSource = options.maxDocsPerSource ?? 40;
+  const commitChunkSize = options.commitChunkSize ?? 20;
+  const maxRetriesPerChunk = options.maxRetriesPerChunk ?? 4;
+  const imageCursor = options.imageCursor ?? null;
+  const submissionCursor = options.submissionCursor ?? null;
+
+  const [imageDocs, submissionDocs] = await Promise.all([
+    fetchImageBatch(imageCursor, maxDocsPerSource),
+    fetchSubmissionBatch(submissionCursor, maxDocsPerSource)
   ]);
 
   const entries: ImagePoolEntry[] = [];
+  let skipped = 0;
 
-  imagesSnapshot.docs.forEach((docSnap) => {
+  imageDocs.forEach((docSnap) => {
     const entry = buildImagePoolEntryFromImageDoc(docSnap.id, docSnap.data() as Record<string, unknown>);
     if (entry) entries.push(entry);
+    else skipped += 1;
   });
 
-  approvedSubsSnapshot.docs.forEach((docSnap) => {
+  submissionDocs.forEach((docSnap) => {
     const entry = buildImagePoolEntryFromSubmissionDoc(docSnap.id, docSnap.data() as Record<string, unknown>);
     if (entry) entries.push(entry);
+    else skipped += 1;
   });
 
-  if (entries.length === 0) return;
-  await writeEntriesInChunks(db, entries);
+  const written = entries.length > 0
+    ? await commitChunkWithRetry(db, entries, commitChunkSize, maxRetriesPerChunk)
+    : 0;
+
+  const nextImageCursor = getLastDocId(imageDocs);
+  const nextSubmissionCursor = getLastDocId(submissionDocs);
+  const imageDone = imageDocs.length < maxDocsPerSource;
+  const submissionDone = submissionDocs.length < maxDocsPerSource;
+
+  return {
+    processedImages: imageDocs.length,
+    processedSubmissions: submissionDocs.length,
+    written,
+    skipped,
+    nextImageCursor,
+    nextSubmissionCursor,
+    imageDone,
+    submissionDone,
+    done: imageDone && submissionDone
+  };
+}
+
+export async function backfillImagePoolAllPasses(
+  options: Omit<BackfillImagePoolOptions, 'imageCursor' | 'submissionCursor'> = {}
+): Promise<BackfillImagePoolResult> {
+  let imageCursor: string | null = null;
+  let submissionCursor: string | null = null;
+  let totals: BackfillImagePoolResult = {
+    processedImages: 0,
+    processedSubmissions: 0,
+    written: 0,
+    skipped: 0,
+    nextImageCursor: null,
+    nextSubmissionCursor: null,
+    imageDone: false,
+    submissionDone: false,
+    done: false
+  };
+
+  for (let pass = 0; pass < 500; pass += 1) {
+    const result = await backfillImagePool({
+      ...options,
+      imageCursor,
+      submissionCursor
+    });
+    totals = {
+      processedImages: totals.processedImages + result.processedImages,
+      processedSubmissions: totals.processedSubmissions + result.processedSubmissions,
+      written: totals.written + result.written,
+      skipped: totals.skipped + result.skipped,
+      nextImageCursor: result.nextImageCursor,
+      nextSubmissionCursor: result.nextSubmissionCursor,
+      imageDone: result.imageDone,
+      submissionDone: result.submissionDone,
+      done: result.done
+    };
+    if (result.done) return totals;
+    imageCursor = result.nextImageCursor;
+    submissionCursor = result.nextSubmissionCursor;
+  }
+
+  return totals;
 }
