@@ -2,11 +2,11 @@
 .lobby-screen {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .lobby-background {
@@ -45,24 +45,26 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 2rem 1.2rem;
+  padding: 1rem 1.2rem;
   max-width: 1240px;
   width: 100%;
-  padding-top: 3rem;
-  padding-bottom: 4rem;
+  padding-top: 1.5rem;
+  padding-bottom: 1rem;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 /* Back Button */
 .lobby-back-button {
   position: absolute;
-  top: 2rem;
-  left: 2rem;
-  padding: 8px 18px;
+  top: 1rem;
+  left: 1.2rem;
+  padding: 6px 14px;
   background: var(--hw-surface);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   border-radius: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -75,39 +77,39 @@
 
 /* Heading */
 .lobby-heading {
-  font-size: 2.4rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.4rem;
 }
 
 .lobby-difficulty-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 1rem;
+  gap: 0.4rem;
+  padding: 0.25rem 0.75rem;
   background: rgba(200, 16, 46, 0.06);
   border: 1px solid rgba(200, 16, 46, 0.2);
   border-radius: 0;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--hw-red);
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 /* Error Banner */
 .lobby-error {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   background: rgba(200, 16, 46, 0.06);
   border: 1px solid rgba(200, 16, 46, 0.2);
   color: var(--hw-red);
-  padding: 0.7rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 0;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
   max-width: 500px;
   width: 100%;
 }
@@ -131,25 +133,27 @@
   background: var(--hw-surface);
   border: 1px solid var(--border-color);
   border-radius: 0;
-  padding: 1.5rem;
+  padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
   width: 100%;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.75rem;
 }
 
 .lobby-panel-host {
   align-items: stretch;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.75rem;
 }
 
 .lobby-bottom-sections {
   width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: 1.25rem;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
 }
 
 .lobby-bottom-sections .lobby-panel {
@@ -167,15 +171,15 @@
 }
 
 .lobby-panel-heading {
-  font-size: 1.3rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .lobby-panel-desc {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.1rem;
 }
 
 /* Host Difficulty Section */
@@ -390,10 +394,10 @@
 /* Create Game Button */
 .lobby-create-btn {
   width: 100%;
-  padding: 0.8rem 1.5rem;
+  padding: 0.6rem 1.2rem;
   background: var(--hw-red);
   color: #ffffff;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   border: none;
   border-radius: 0;
@@ -498,24 +502,24 @@
 }
 
 .lobby-section-heading {
-  font-size: 1.5rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.2rem;
 }
 
 .lobby-section-desc {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  margin-bottom: 1.2rem;
+  margin-bottom: 0.6rem;
 }
 
 .lobby-public-filters {
   width: 100%;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .lobby-public-filter-item {
@@ -547,8 +551,10 @@
 .public-list {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0.75rem;
   width: 100%;
+  overflow-y: auto;
+  max-height: 300px;
 }
 
 .public-list-empty {
@@ -681,22 +687,29 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .lobby-screen {
+    min-height: 100vh;
+    height: auto;
+    overflow-y: auto;
+  }
+
+  .lobby-content {
+    height: auto;
+    padding-top: 1.5rem;
+  }
+
   .lobby-heading {
-    font-size: 1.8rem;
+    font-size: 1.5rem;
   }
 
   .lobby-back-button {
     position: static;
-    margin-bottom: 1rem;
-  }
-
-  .lobby-content {
-    padding-top: 1.5rem;
+    margin-bottom: 0.75rem;
   }
 
   .lobby-bottom-sections {
     grid-template-columns: 1fr;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
   }
 }
 

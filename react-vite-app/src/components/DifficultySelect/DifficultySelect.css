@@ -1,11 +1,11 @@
 .difficulty-screen {
   position: relative;
   width: 100%;
-  min-height: 100svh;
+  height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .difficulty-background {
@@ -46,7 +46,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 2rem;
+  padding: 1rem 2rem;
   max-width: 900px;
   width: 100%;
 }
@@ -55,11 +55,11 @@
   position: absolute;
   top: 0;
   left: 2rem;
-  padding: 8px 18px;
+  padding: 6px 14px;
   background: #fff;
   border: 1px solid var(--hw-gray-300);
   color: var(--hw-gray-700);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -71,24 +71,24 @@
 }
 
 .difficulty-heading {
-  font-size: 2.2rem;
+  font-size: 1.5rem;
   font-weight: 900;
   color: var(--hw-black);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
 }
 
 .difficulty-subheading {
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: var(--hw-gray-600);
-  margin-bottom: 2rem;
+  margin-bottom: 0.75rem;
 }
 
 .mode-heading {
-  font-size: 2.2rem;
+  font-size: 1.3rem;
   font-weight: 900;
   color: var(--hw-black);
-  margin-top: 2.5rem;
-  margin-bottom: 1.2rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .time-penalty-toggle {
@@ -134,8 +134,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.5rem 1rem;
+  gap: 0.25rem;
+  padding: 0.75rem 0.75rem;
   background: #fff;
   border: 2px solid var(--hw-gray-300);
   cursor: pointer;
@@ -157,11 +157,11 @@
 }
 
 .difficulty-card-icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
 }
 
 .difficulty-card-label {
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -184,8 +184,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.5rem 1rem;
+  gap: 0.25rem;
+  padding: 0.75rem 0.75rem;
   border: 2px solid var(--hw-gray-300);
   background: #fff;
   transition: all 0.25s ease;
@@ -207,7 +207,7 @@
 }
 
 .mode-card-icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
 }
 
 .mode-card-label {
@@ -224,18 +224,18 @@
 /* Time Selection */
 .time-heading,
 .rounds-heading {
-  font-size: 2.2rem;
+  font-size: 1.3rem;
   font-weight: 900;
   color: var(--hw-black);
-  margin-top: 2.5rem;
-  margin-bottom: 0.3rem;
+  margin-top: 1rem;
+  margin-bottom: 0.2rem;
 }
 
 .time-subheading,
 .rounds-subheading {
-  font-size: 1rem;
+  font-size: 0.85rem;
   color: var(--hw-gray-600);
-  margin-bottom: 1.2rem;
+  margin-bottom: 0.5rem;
 }
 
 .time-options,
@@ -252,9 +252,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  padding: 1rem 1.2rem;
-  min-width: 90px;
+  gap: 0.2rem;
+  padding: 0.6rem 0.9rem;
+  min-width: 80px;
   background: #fff;
   border: 2px solid var(--hw-gray-300);
   cursor: pointer;
@@ -279,7 +279,7 @@
 
 .time-card-icon,
 .rounds-card-icon {
-  font-size: 1.4rem;
+  font-size: 1.1rem;
 }
 
 .time-card-label,
@@ -298,8 +298,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: 1rem;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
 }
 
 .time-custom-label {
@@ -325,6 +325,12 @@
   box-shadow: var(--hw-focus-ring);
 }
 
+.time-custom-error {
+  color: #e74c3c;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
 .time-custom-input::placeholder {
   color: var(--hw-gray-500);
   opacity: 0.6;
@@ -334,9 +340,9 @@
   margin-top: 0;
   background: var(--hw-red);
   color: #fff;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  padding: 1rem 4rem;
+  padding: 0.75rem 3rem;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -345,26 +351,17 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-width: 200px;
+  min-width: 180px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .difficulty-footer {
-  position: sticky;
-  bottom: 0;
   width: 100%;
-  margin-top: 1.75rem;
-  padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom));
+  margin-top: 0.75rem;
+  padding: 0.5rem 0;
   display: flex;
   justify-content: center;
-  background: linear-gradient(
-    0deg,
-    rgba(242, 240, 236, 0.95) 0%,
-    rgba(242, 240, 236, 0.6) 55%,
-    rgba(242, 240, 236, 0) 100%
-  );
-  backdrop-filter: blur(8px);
 }
 
 .play-button:hover:not(:disabled) {
@@ -382,17 +379,96 @@
   cursor: not-allowed;
 }
 
+.play-button:disabled:hover {
+  position: relative;
+}
+
+.play-button:disabled:hover::after {
+  content: attr(title);
+  position: absolute;
+  top: -42px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.5rem 0.75rem;
+  background: rgba(12, 12, 15, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  font-size: 0.9rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  z-index: 2;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-  .difficulty-heading,
-  .mode-heading,
-  .time-heading,
-  .rounds-heading {
-    font-size: 1.7rem;
-  }
+  .difficulty-heading, .mode-heading, .time-heading { font-size: 1.7rem; }
 
   .difficulty-screen {
     justify-content: flex-start;
     align-items: stretch;
+  }
+
+  .difficulty-content { padding: 1rem 1rem 1.5rem; }
+  .difficulty-subheading { margin-bottom: 1.2rem; }
+  .mode-heading { margin-top: 1.6rem; margin-bottom: 0.8rem; }
+  .time-heading { margin-top: 1.6rem; }
+  .time-subheading { margin-bottom: 0.9rem; }
+
+  .difficulty-options, .mode-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    max-width: 560px;
+  }
+
+  .time-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+    max-width: 560px;
+  }
+
+  .difficulty-card, .mode-card, .time-card {
+    max-width: none;
+    width: 100%;
+    padding: 0.9rem 0.75rem;
+  }
+
+  .difficulty-card-icon, .mode-card-icon { font-size: 1.6rem; }
+  .difficulty-card-label, .mode-card-label { font-size: 1rem; }
+  .difficulty-card-desc { display: none; }
+  .time-card { min-width: 0; }
+  .play-button { font-size: 1.1rem; padding: 0.9rem 3rem; }
+
+  .difficulty-back-button {
+    position: static;
+    margin-bottom: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .difficulty-heading, .mode-heading, .time-heading { font-size: 1.4rem; }
+  .difficulty-content { padding: 0.9rem 0.9rem 1.25rem; }
+  .time-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .difficulty-card, .mode-card, .time-card { padding: 0.75rem 0.6rem; }
+  .time-card-label { font-size: 0.9rem; }
+  .difficulty-footer { margin-top: 1.25rem; }
+}
+@media (max-width: 768px) {
+  .difficulty-screen {
+    min-height: 100vh;
+    height: auto;
+    overflow-y: auto;
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+
+  .difficulty-heading,
+  .mode-heading,
+  .time-heading,
+  .rounds-heading {
+    font-size: 1.4rem;
   }
 
   .difficulty-content { padding: 1rem 1rem 1.5rem; }
