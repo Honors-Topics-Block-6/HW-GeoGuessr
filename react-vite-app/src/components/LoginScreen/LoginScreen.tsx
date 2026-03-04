@@ -19,6 +19,7 @@ function getSuggestionsFromError(err: unknown): string[] | null {
 
 function LoginScreen(): React.ReactElement {
   const { login, signup, loginWithGoogle, needsUsername, completeGoogleSignUp } = useAuth();
+  console.log('[LoginScreen] render, needsUsername:', needsUsername);
 
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
@@ -35,6 +36,14 @@ function LoginScreen(): React.ReactElement {
 
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    console.log('[LoginScreen] handleEmailSubmit called, isSignUp:', isSignUp, 'needsUsername:', needsUsername);
+
+    // If user needs to set username, don't try to login again
+    if (needsUsername) {
+      console.log('[LoginScreen] needsUsername is true, skipping email submit');
+      return;
+    }
+
     setError('');
     setUsernameSuggestions([]);
     setIsSubmitting(true);
@@ -47,11 +56,16 @@ function LoginScreen(): React.ReactElement {
         if (username.trim().length < 3) {
           throw new Error('Username must be at least 3 characters.');
         }
+        console.log('[LoginScreen] Calling signup...');
         await signup(email, password, username.trim());
+        console.log('[LoginScreen] Signup succeeded');
       } else {
+        console.log('[LoginScreen] Calling login...');
         await login(email, password);
+        console.log('[LoginScreen] Login succeeded');
       }
     } catch (err) {
+      console.error('[LoginScreen] Auth error:', err);
       const suggestions = getSuggestionsFromError(err);
       if (suggestions) {
         setUsernameSuggestions(suggestions);
@@ -80,6 +94,7 @@ function LoginScreen(): React.ReactElement {
 
   const handleGoogleUsernameSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    console.log('[LoginScreen] handleGoogleUsernameSubmit called, username:', googleUsername);
     setError('');
     setGoogleUsernameSuggestions([]);
     setIsSubmitting(true);
@@ -91,7 +106,9 @@ function LoginScreen(): React.ReactElement {
       if (googleUsername.trim().length < 3) {
         throw new Error('Username must be at least 3 characters.');
       }
+      console.log('[LoginScreen] Calling completeGoogleSignUp...');
       await completeGoogleSignUp(googleUsername.trim());
+      console.log('[LoginScreen] completeGoogleSignUp succeeded');
     } catch (err) {
       const suggestions = getSuggestionsFromError(err);
       if (suggestions) {
