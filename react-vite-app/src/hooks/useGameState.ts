@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { getRandomImage, primeApprovedImagesCache, type GameImage as ServiceGameImage } from '../services/imageService';
+import { getRandomImage, type GameImage as ServiceGameImage } from '../services/imageService';
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, getRegionForPoint } from '../services/regionService';
 import { STARTING_HEALTH } from '../services/duelService';
 
@@ -16,6 +16,7 @@ const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
 export const ROUND_TIME_SECONDS = 20;
 const SINGLEPLAYER_SEEN_HISTORY_KEY = 'singleplayerSeenImageHistory.v1';
 const MAP_DATA_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const MAX_SEEN_HISTORY_ENTRIES = 300;
 
 export interface MapCoords {
   x: number;
@@ -103,7 +104,6 @@ export interface UseGameStateReturn {
   setMode: React.Dispatch<React.SetStateAction<GameMode>>;
   setLobbyDocId: React.Dispatch<React.SetStateAction<string | null>>;
   setDifficulty: React.Dispatch<React.SetStateAction<Difficulty>>;
-  notifyCurrentImageLoaded: () => void;
 }
 
 /**
@@ -139,12 +139,6 @@ export function calculateLocationScore(distance: number): number {
  * Handles screen transitions, image loading, multi-round tracking, and scoring
  */
 export function useGameState(): UseGameStateReturn {
-  // #region agent log
-  const sendDebugLog = useCallback((runId: string, hypothesisId: string, location: string, message: string, data: Record<string, unknown> = {}): void => {
-    fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  }, []);
-  // #endregion
-
   const getImageBuildingName = (image: GameImage): string | null => {
     const legacyImage = image as GameImage & { building?: string | null };
     const buildingValue = image.buildingName ?? legacyImage.building;
@@ -169,6 +163,7 @@ export function useGameState(): UseGameStateReturn {
   const [usedImageUrls, setUsedImageUrls] = useState<string[]>([]);
   const seenImageIdsRef = useRef<string[]>([]);
   const seenImageUrlsRef = useRef<string[]>([]);
+  const seenHistoryPersistDisabledRef = useRef<boolean>(false);
 
   // User's guess location on the map (x, y in percentages)
   const [guessLocation, setGuessLocation] = useState<MapCoords | null>(null);
@@ -232,6 +227,24 @@ export function useGameState(): UseGameStateReturn {
     return false;
   }, []);
 
+  const isPrefetchInFlight = useCallback((): boolean => prefetchPromiseRef.current !== null, []);
+
+  const consumePrefetchedImage = useCallback((excludeIds: string[], excludeUrls: string[]): GameImage | null => {
+    const prefetchedImage = prefetchedImageRef.current;
+    prefetchedImageRef.current = null;
+    if (!prefetchedImage) return null;
+    if (isImageExcluded(prefetchedImage, excludeIds, excludeUrls)) return null;
+    return prefetchedImage;
+  }, [isImageExcluded]);
+
+  const canStartPrefetch = useCallback((nextDifficulty: string | null, excludeIds: string[], excludeUrls: string[]): boolean => {
+    if (!nextDifficulty) return false;
+    if (isPrefetchInFlight()) return false;
+    const prefetchedImage = prefetchedImageRef.current;
+    if (!prefetchedImage) return true;
+    return isImageExcluded(prefetchedImage, excludeIds, excludeUrls);
+  }, [isImageExcluded, isPrefetchInFlight]);
+
   const preloadImageUrl = useCallback((url: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       const preloader = new Image();
@@ -281,7 +294,9 @@ export function useGameState(): UseGameStateReturn {
     excludeIds: string[],
     excludeUrls: string[]
   ): Promise<void> => {
-    if (!nextDifficulty) return;
+    if (!canStartPrefetch(nextDifficulty, excludeIds, excludeUrls)) {
+      return;
+    }
     if (prefetchPromiseRef.current) {
       return prefetchPromiseRef.current;
     }
@@ -313,14 +328,11 @@ export function useGameState(): UseGameStateReturn {
     });
 
     return prefetchPromiseRef.current;
-  }, [isEndlessMode, preloadImageUrl]);
+  }, [canStartPrefetch, isEndlessMode, preloadImageUrl]);
 
   // Load regions and playing area on mount
   useEffect(() => {
     void refreshMapData(true);
-    void primeApprovedImagesCache().catch((err) => {
-      console.warn('Failed to warm approved image cache:', err);
-    });
   }, [refreshMapData]);
 
   useEffect(() => {
@@ -338,6 +350,7 @@ export function useGameState(): UseGameStateReturn {
   }, []);
 
   const persistSeenHistory = useCallback((): void => {
+    if (seenHistoryPersistDisabledRef.current) return;
     try {
       window.localStorage.setItem(
         SINGLEPLAYER_SEEN_HISTORY_KEY,
@@ -348,17 +361,21 @@ export function useGameState(): UseGameStateReturn {
       );
     } catch (err) {
       console.warn('Failed to persist singleplayer seen-image history:', err);
+      // Stop retrying if storage quota is exhausted.
+      if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+        seenHistoryPersistDisabledRef.current = true;
+      }
     }
   }, []);
 
   const trackSeenImage = useCallback((image: GameImage): void => {
     let changed = false;
     if (image.id && !seenImageIdsRef.current.includes(image.id)) {
-      seenImageIdsRef.current = [...seenImageIdsRef.current, image.id];
+      seenImageIdsRef.current = [...seenImageIdsRef.current, image.id].slice(-MAX_SEEN_HISTORY_ENTRIES);
       changed = true;
     }
     if (image.url && !seenImageUrlsRef.current.includes(image.url)) {
-      seenImageUrlsRef.current = [...seenImageUrlsRef.current, image.url];
+      seenImageUrlsRef.current = [...seenImageUrlsRef.current, image.url].slice(-MAX_SEEN_HISTORY_ENTRIES);
       changed = true;
     }
     if (changed) {
@@ -383,15 +400,7 @@ export function useGameState(): UseGameStateReturn {
         await prefetchPromiseRef.current;
       }
 
-      let image: GameImage | null = null;
-      const prefetchedImage = prefetchedImageRef.current;
-      if (
-        prefetchedImage &&
-        !isImageExcluded(prefetchedImage, excludeIds, excludeUrls)
-      ) {
-        image = prefetchedImage;
-      }
-      prefetchedImageRef.current = null;
+      let image: GameImage | null = consumePrefetchedImage(excludeIds, excludeUrls);
 
       if (!image) {
         image = await getRandomImage(difficulty, {
@@ -434,7 +443,7 @@ export function useGameState(): UseGameStateReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [difficulty, usedImageIds, usedImageUrls, trackSeenImage, isEndlessMode, sendDebugLog]);
+  }, [consumePrefetchedImage, difficulty, usedImageIds, usedImageUrls, trackSeenImage, isEndlessMode]);
 
   /**
    * Start a new game - reset everything and fetch first image
@@ -477,50 +486,18 @@ export function useGameState(): UseGameStateReturn {
 
     try {
       const startLoadAtMs = performance.now();
-      // #region agent log
-      sendDebugLog('spin-debug-1', 'H1', 'useGameState.ts:startGame:entry', 'startGame entry', {
-        selectedDifficulty,
-        selectedMode,
-        singleplayerVariant,
-        roundTimeSeconds: effectiveRoundTime,
-        totalRounds: effectiveTotalRounds,
-        seenIdsCount: seenImageIdsRef.current.length,
-        seenUrlsCount: seenImageUrlsRef.current.length
-      });
-      // #endregion
       // Do not block game start on map metadata refresh.
       void refreshMapData(false);
 
-      const fetchImageStartedAtMs = performance.now();
       let image = await getRandomImage(selectedDifficulty, {
         excludeImageIds: seenImageIdsRef.current,
         excludeImageUrls: seenImageUrlsRef.current
       });
-      // #region agent log
-      sendDebugLog('spin-debug-1', 'H2', 'useGameState.ts:startGame:firstImageFetch', 'first getRandomImage resolved', {
-        elapsedMs: Math.round(performance.now() - fetchImageStartedAtMs),
-        hasImage: Boolean(image),
-        imageId: image?.id ?? null
-      });
-      // #endregion
       if (!image) {
-        const fallbackStartedAtMs = performance.now();
         image = await getRandomImage(selectedDifficulty);
-        // #region agent log
-        sendDebugLog('spin-debug-1', 'H2', 'useGameState.ts:startGame:fallbackImageFetch', 'fallback getRandomImage resolved', {
-          elapsedMs: Math.round(performance.now() - fallbackStartedAtMs),
-          hasImage: Boolean(image),
-          imageId: image?.id ?? null
-        });
-        // #endregion
       }
       if (!image) {
         setError('No approved images are available yet.');
-        // #region agent log
-        sendDebugLog('spin-debug-1', 'H2', 'useGameState.ts:startGame:noImage', 'startGame found no image', {
-          selectedDifficulty
-        });
-        // #endregion
         return;
       }
 
@@ -540,44 +517,21 @@ export function useGameState(): UseGameStateReturn {
       setRoundStartTime(effectiveRoundTime > 0 ? performance.now() : null);
       setScreen('game');
       console.info(`[startGame] prepared first round in ${Math.round(performance.now() - startLoadAtMs)}ms`);
-      // #region agent log
-      sendDebugLog('spin-debug-1', 'H1', 'useGameState.ts:startGame:success', 'startGame success', {
-        elapsedMs: Math.round(performance.now() - startLoadAtMs),
-        imageId: image.id ?? null,
-        hasImageUrl: Boolean(image.url)
-      });
-      // #endregion
     } catch (err) {
       console.error('Failed to start game:', err);
       setError('Failed to load image. Please try again.');
-      // #region agent log
-      sendDebugLog('spin-debug-1', 'H1', 'useGameState.ts:startGame:catch', 'startGame threw', {
-        error: err instanceof Error ? err.message : String(err)
-      });
-      // #endregion
     } finally {
       setIsLoading(false);
     }
-  }, [trackSeenImage, refreshMapData, sendDebugLog]);
+  }, [trackSeenImage, refreshMapData]);
 
-  const notifyCurrentImageLoaded = useCallback((): void => {
-    if (!difficulty || screen !== 'game') return;
-    const excludeIds = currentImage?.id
-      ? (usedImageIds.includes(currentImage.id) ? usedImageIds : [...usedImageIds, currentImage.id])
-      : usedImageIds;
-    const excludeUrls = currentImage?.url
-      ? (usedImageUrls.includes(currentImage.url) ? usedImageUrls : [...usedImageUrls, currentImage.url])
-      : usedImageUrls;
+  useEffect(() => {
+    if (screen !== 'result' || !difficulty) return;
+    const excludeIds = usedImageIds;
+    const excludeUrls = usedImageUrls;
+    if (!canStartPrefetch(difficulty, excludeIds, excludeUrls)) return;
     void prefetchNextImage(difficulty, excludeIds, excludeUrls);
-  }, [
-    currentImage?.id,
-    currentImage?.url,
-    difficulty,
-    prefetchNextImage,
-    screen,
-    usedImageIds,
-    usedImageUrls
-  ]);
+  }, [canStartPrefetch, difficulty, prefetchNextImage, screen, usedImageIds, usedImageUrls]);
 
   /**
    * Timer effect for each guessing phase.
@@ -886,7 +840,6 @@ export function useGameState(): UseGameStateReturn {
     resetGame,
     setMode,
     setLobbyDocId,
-    setDifficulty,
-    notifyCurrentImageLoaded
+    setDifficulty
   };
 }

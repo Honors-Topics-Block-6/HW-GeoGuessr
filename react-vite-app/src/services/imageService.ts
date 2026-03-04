@@ -1,4 +1,16 @@
-import { collection, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  deleteDoc,
+  doc,
+  orderBy,
+  startAt,
+  limit,
+  documentId,
+  type QueryConstraint
+} from 'firebase/firestore';
 import { db } from '../firebase';
 
 // ────── Types ──────
@@ -79,9 +91,19 @@ const SAMPLE_IMAGES: readonly SampleImage[] = [
 ];
 
 const APPROVED_IMAGES_CACHE_TTL_MS = 60_000;
+const RANDOM_WINDOW_SIZE = 40;
+const RANDOM_WINDOW_ATTEMPTS = 4;
 let approvedImagesCache: ApprovedImageCache | null = null;
 let approvedImagesCachePromise: Promise<GameImage[]> | null = null;
-let randomImageCallCount = 0;
+
+function randomFirestoreIdPrefix(length = 20): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let out = '';
+  for (let i = 0; i < length; i += 1) {
+    out += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return out;
+}
 
 function mapByDifficulty(images: GameImage[], difficulty: string | null): GameImage[] {
   // 'all' and null both mean "no filter"
@@ -136,9 +158,6 @@ async function getApprovedImagesFromCache(forceRefresh = false): Promise<GameIma
     now - approvedImagesCache.fetchedAtMs < APPROVED_IMAGES_CACHE_TTL_MS;
 
   if (!forceRefresh && cacheIsFresh && approvedImagesCache) {
-    // #region agent log
-    fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId:'spin-debug-1',hypothesisId:'H2',location:'imageService.ts:getApprovedImagesFromCache:hit',message:'approved images cache hit',data:{cacheAgeMs:now - approvedImagesCache.fetchedAtMs,count:approvedImagesCache.images.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return approvedImagesCache.images;
   }
 
@@ -149,9 +168,6 @@ async function getApprovedImagesFromCache(forceRefresh = false): Promise<GameIma
   approvedImagesCachePromise = fetchApprovedImagesFromFirestore()
     .then((images) => {
       approvedImagesCache = { fetchedAtMs: Date.now(), images };
-      // #region agent log
-      fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId:'spin-debug-1',hypothesisId:'H2',location:'imageService.ts:getApprovedImagesFromCache:miss',message:'approved images cache miss (fetched)',data:{count:images.length},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return images;
     })
     .finally(() => {
@@ -159,6 +175,81 @@ async function getApprovedImagesFromCache(forceRefresh = false): Promise<GameIma
     });
 
   return approvedImagesCachePromise;
+}
+
+async function fetchImagesWindow(difficulty: string | null): Promise<GameImage[]> {
+  const baseConstraints: QueryConstraint[] = [];
+  if (difficulty && difficulty !== 'all') {
+    baseConstraints.push(where('difficulty', '==', difficulty));
+  }
+
+  const pivot = randomFirestoreIdPrefix();
+  const pivotQuery = query(
+    collection(db, 'images'),
+    ...baseConstraints,
+    orderBy(documentId()),
+    startAt(pivot),
+    limit(RANDOM_WINDOW_SIZE)
+  );
+  let snapshot = await getDocs(pivotQuery);
+
+  if (snapshot.empty) {
+    const fallbackQuery = query(
+      collection(db, 'images'),
+      ...baseConstraints,
+      orderBy(documentId()),
+      limit(RANDOM_WINDOW_SIZE)
+    );
+    snapshot = await getDocs(fallbackQuery);
+  }
+
+  return snapshot.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...docSnap.data()
+  })) as GameImage[];
+}
+
+async function fetchApprovedSubmissionsWindow(difficulty: string | null): Promise<GameImage[]> {
+  const baseConstraints: QueryConstraint[] = [where('status', '==', 'approved')];
+  if (difficulty && difficulty !== 'all') {
+    baseConstraints.push(where('difficulty', '==', difficulty));
+  }
+
+  const pivot = randomFirestoreIdPrefix();
+  const pivotQuery = query(
+    collection(db, 'submissions'),
+    ...baseConstraints,
+    orderBy(documentId()),
+    startAt(pivot),
+    limit(RANDOM_WINDOW_SIZE)
+  );
+  let snapshot = await getDocs(pivotQuery);
+
+  if (snapshot.empty) {
+    const fallbackQuery = query(
+      collection(db, 'submissions'),
+      ...baseConstraints,
+      orderBy(documentId()),
+      limit(RANDOM_WINDOW_SIZE)
+    );
+    snapshot = await getDocs(fallbackQuery);
+  }
+
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() as Record<string, unknown>;
+    const buildingName = (
+      ((data.buildingName as string) || (data.building as string) || '').trim()
+    ) || null;
+    return {
+      id: docSnap.id,
+      url: data.photoURL as string,
+      correctLocation: data.location as { x: number; y: number },
+      correctFloor: data.floor as number | null,
+      difficulty: (data.difficulty as string) || null,
+      buildingName,
+      description: buildingName
+    };
+  });
 }
 
 // ────── Functions ──────
@@ -173,36 +264,29 @@ export async function getRandomImage(
   options: RandomImageOptions = {}
 ): Promise<GameImage | null> {
   try {
-    randomImageCallCount += 1;
-    const shouldLogCall = randomImageCallCount <= 20 || randomImageCallCount % 25 === 0;
-    const stackLine = new Error().stack?.split('\n')[2]?.trim() ?? 'unknown-caller';
-    if (shouldLogCall) {
-      // #region agent log
-      fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId:'spin-debug-2',hypothesisId:'H6',location:'imageService.ts:getRandomImage:entry',message:'getRandomImage called',data:{callCount:randomImageCallCount,difficulty,excludeIdsCount:options.excludeImageIds?.length ?? 0,excludeUrlsCount:options.excludeImageUrls?.length ?? 0,caller:stackLine},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-    }
-
-    const approvedImages = await getAllApprovedImages(difficulty);
     const excludedIds = new Set(options.excludeImageIds || []);
     const excludedUrls = new Set(options.excludeImageUrls || []);
-    const availableImages = approvedImages.filter((image) => {
-      if (excludedIds.has(image.id)) return false;
-      if (excludedUrls.has(image.url)) return false;
-      return true;
-    });
-    if (shouldLogCall) {
-      // #region agent log
-      fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId:'spin-debug-2',hypothesisId:'H6',location:'imageService.ts:getRandomImage:postFilter',message:'getRandomImage filtered pool',data:{callCount:randomImageCallCount,approvedCount:approvedImages.length,availableCount:availableImages.length},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+
+    // Fetch only small random metadata windows per attempt (not full collections).
+    for (let attempt = 0; attempt < RANDOM_WINDOW_ATTEMPTS; attempt += 1) {
+      const [imageWindow, submissionWindow] = await Promise.all([
+        fetchImagesWindow(difficulty),
+        fetchApprovedSubmissionsWindow(difficulty)
+      ]);
+      const availableImages = [...imageWindow, ...submissionWindow].filter((image) => {
+        if (!image?.url) return false;
+        if (excludedIds.has(image.id)) return false;
+        if (excludedUrls.has(image.url)) return false;
+        return true;
+      });
+
+      if (availableImages.length > 0) {
+        const randomIndex = Math.floor(Math.random() * availableImages.length);
+        return availableImages[randomIndex];
+      }
     }
 
-    if (availableImages.length === 0) {
-      console.warn('No approved images found in any source');
-      return null;
-    }
-
-    const randomIndex = Math.floor(Math.random() * availableImages.length);
-    return availableImages[randomIndex];
+    return null;
   } catch (error) {
     console.error('Error fetching random image:', error);
     return null;
