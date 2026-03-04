@@ -21,7 +21,8 @@ import {
   getAllPermissions,
   getNoPermissions,
   ADMIN_PERMISSIONS,
-  normalizeFavoriteEmote
+  normalizeFavoriteEmote,
+  UsernameTakenError
 } from '../services/userService';
 import { touchLastActive } from '../services/lastActiveService';
 import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
