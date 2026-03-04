@@ -3,6 +3,13 @@ import { createPortal } from 'react-dom'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { getAllImages, getAllSampleImages, deleteSubmission, deleteImage } from '../../services/imageService'
+import {
+  backfillImagePool,
+  buildImagePoolEntryFromImageDoc,
+  buildImagePoolEntryFromSubmissionDoc,
+  removeImagePoolEntry,
+  upsertImagePoolEntry
+} from '../../services/imagePoolService'
 import MapPicker from '../MapPicker/MapPicker'
 import FloorSelector from '../FloorSelector/FloorSelector'
 import PhotoUpload from './PhotoUpload'
@@ -100,6 +107,12 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
   // Fetch images from Firestore images collection and sample/testing images
   useEffect(() => {
+    void backfillImagePool().catch((error) => {
+      console.error('Error backfilling imagePool:', error)
+    })
+  }, [])
+
+  useEffect(() => {
     async function fetchImages(): Promise<void> {
       const images = await getAllImages()
       setFirestoreImages((images as Array<{
@@ -148,6 +161,20 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'approved',
         reviewedAt: serverTimestamp()
       })
+      const target = submissions.find((item) => item.id === submissionId)
+      if (target) {
+        const poolEntry = buildImagePoolEntryFromSubmissionDoc(submissionId, {
+          photoURL: target.photoURL,
+          difficulty: target.difficulty,
+          location: target.location,
+          floor: target.floor,
+          buildingName: target.buildingName,
+          description: target.description
+        })
+        if (poolEntry) {
+          await upsertImagePoolEntry(poolEntry)
+        }
+      }
     } catch (error) {
       console.error('Error approving submission:', error)
     }
@@ -159,6 +186,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'denied',
         reviewedAt: serverTimestamp()
       })
+      await removeImagePoolEntry('submission', submissionId)
     } catch (error) {
       console.error('Error denying submission:', error)
     }
@@ -170,6 +198,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'pending',
         reviewedAt: null
       })
+      await removeImagePoolEntry('submission', submissionId)
     } catch (error) {
       console.error('Error resetting submission:', error)
     }
@@ -237,6 +266,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           updateData.floor = editForm.floor;
         }
         await updateDoc(doc(db, 'submissions', selectedSubmission.id), updateData)
+        if ((editForm.status || '').toLowerCase() === 'approved') {
+          const poolEntry = buildImagePoolEntryFromSubmissionDoc(selectedSubmission.id, updateData as Record<string, unknown>)
+          if (poolEntry) {
+            await upsertImagePoolEntry(poolEntry)
+          }
+        } else {
+          await removeImagePoolEntry('submission', selectedSubmission.id)
+        }
         // Real-time listener will auto-update submissions state
       } else if (selectedSubmission?._source === 'image') {
         const updateData: Record<string, unknown> = {
@@ -249,6 +286,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           updateData.correctFloor = editForm.floor;
         }
         await updateDoc(doc(db, 'images', selectedSubmission.id), updateData)
+        const poolEntry = buildImagePoolEntryFromImageDoc(selectedSubmission.id, updateData)
+        if (poolEntry) {
+          await upsertImagePoolEntry(poolEntry)
+        }
         // Manually update firestoreImages state (no real-time listener)
         setFirestoreImages(prev => prev.map(img =>
           img.id === selectedSubmission.id
@@ -292,8 +333,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     try {
       if (deleteTarget._source === 'submission') {
         await deleteSubmission(deleteTarget.id)
+        await removeImagePoolEntry('submission', deleteTarget.id)
       } else if (deleteTarget._source === 'image') {
         await deleteImage(deleteTarget.id)
+        await removeImagePoolEntry('image', deleteTarget.id)
         setFirestoreImages(prev => prev.filter(img => img.id !== deleteTarget.id))
       }
 

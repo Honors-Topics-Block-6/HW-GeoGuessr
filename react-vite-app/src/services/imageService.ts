@@ -8,10 +8,10 @@ import {
   orderBy,
   startAt,
   limit,
-  documentId,
-  type QueryConstraint
+  documentId
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import type { ImagePoolEntry } from './imagePoolService';
 
 // ────── Types ──────
 
@@ -37,11 +37,6 @@ export interface SampleImage {
 export interface RandomImageOptions {
   excludeImageIds?: string[];
   excludeImageUrls?: string[];
-}
-
-interface ApprovedImageCache {
-  fetchedAtMs: number;
-  images: GameImage[];
 }
 
 // ────── Constants ──────
@@ -90,11 +85,8 @@ const SAMPLE_IMAGES: readonly SampleImage[] = [
   }
 ];
 
-const APPROVED_IMAGES_CACHE_TTL_MS = 60_000;
 const RANDOM_WINDOW_SIZE = 40;
 const RANDOM_WINDOW_ATTEMPTS = 4;
-let approvedImagesCache: ApprovedImageCache | null = null;
-let approvedImagesCachePromise: Promise<GameImage[]> | null = null;
 
 function randomFirestoreIdPrefix(length = 20): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -105,88 +97,26 @@ function randomFirestoreIdPrefix(length = 20): string {
   return out;
 }
 
-function mapByDifficulty(images: GameImage[], difficulty: string | null): GameImage[] {
-  // 'all' and null both mean "no filter"
-  if (!difficulty || difficulty === 'all') {
-    return images;
-  }
-  const filtered = images.filter((img) => img.difficulty === difficulty);
-  if (filtered.length > 0) {
-    return filtered;
-  }
-  console.warn(`No images found for difficulty "${difficulty}", using all images`);
-  return images;
+function mapPoolDocToGameImage(id: string, data: ImagePoolEntry): GameImage | null {
+  if (!data?.url || !data?.correctLocation) return null;
+  return {
+    id,
+    url: data.url,
+    correctLocation: data.correctLocation,
+    correctFloor: data.correctFloor ?? null,
+    difficulty: data.difficulty ?? null,
+    buildingName: data.buildingName ?? null,
+    description: data.description ?? data.buildingName ?? null
+  };
 }
 
-async function fetchApprovedImagesFromFirestore(): Promise<GameImage[]> {
-  // Fetch from both sources in parallel
-  const [imagesSnapshot, submissionsSnapshot] = await Promise.all([
-    getDocs(collection(db, 'images')),
-    getDocs(query(collection(db, 'submissions'), where('status', '==', 'approved')))
-  ]);
-
-  // Map images collection docs to the standard format
-  const images: GameImage[] = imagesSnapshot.docs.map(docSnap => ({
-    id: docSnap.id,
-    ...docSnap.data()
-  })) as GameImage[];
-
-  // Map approved submissions to the same format the game expects
-  const approvedSubmissions: GameImage[] = submissionsSnapshot.docs.map(docSnap => {
-    const data = docSnap.data() as Record<string, unknown>;
-    const buildingName = (
-      ((data.buildingName as string) || (data.building as string) || '').trim()
-    ) || null;
-    return {
-      id: docSnap.id,
-      url: data.photoURL as string,
-      correctLocation: data.location as { x: number; y: number },
-      correctFloor: data.floor as number | null,
-      difficulty: (data.difficulty as string) || null,
-      buildingName,
-      description: buildingName
-    };
-  });
-
-  return [...images, ...approvedSubmissions];
-}
-
-async function getApprovedImagesFromCache(forceRefresh = false): Promise<GameImage[]> {
-  const now = Date.now();
-  const cacheIsFresh =
-    approvedImagesCache &&
-    now - approvedImagesCache.fetchedAtMs < APPROVED_IMAGES_CACHE_TTL_MS;
-
-  if (!forceRefresh && cacheIsFresh && approvedImagesCache) {
-    return approvedImagesCache.images;
-  }
-
-  if (approvedImagesCachePromise) {
-    return approvedImagesCachePromise;
-  }
-
-  approvedImagesCachePromise = fetchApprovedImagesFromFirestore()
-    .then((images) => {
-      approvedImagesCache = { fetchedAtMs: Date.now(), images };
-      return images;
-    })
-    .finally(() => {
-      approvedImagesCachePromise = null;
-    });
-
-  return approvedImagesCachePromise;
-}
-
-async function fetchImagesWindow(difficulty: string | null): Promise<GameImage[]> {
-  const baseConstraints: QueryConstraint[] = [];
-  if (difficulty && difficulty !== 'all') {
-    baseConstraints.push(where('difficulty', '==', difficulty));
-  }
-
+async function fetchImagePoolWindow(difficulty: string | null): Promise<GameImage[]> {
   const pivot = randomFirestoreIdPrefix();
+  const difficultyFilter = difficulty && difficulty !== 'all' ? [where('difficulty', '==', difficulty)] : [];
+
   const pivotQuery = query(
-    collection(db, 'images'),
-    ...baseConstraints,
+    collection(db, 'imagePool'),
+    ...difficultyFilter,
     orderBy(documentId()),
     startAt(pivot),
     limit(RANDOM_WINDOW_SIZE)
@@ -195,61 +125,17 @@ async function fetchImagesWindow(difficulty: string | null): Promise<GameImage[]
 
   if (snapshot.empty) {
     const fallbackQuery = query(
-      collection(db, 'images'),
-      ...baseConstraints,
+      collection(db, 'imagePool'),
+      ...difficultyFilter,
       orderBy(documentId()),
       limit(RANDOM_WINDOW_SIZE)
     );
     snapshot = await getDocs(fallbackQuery);
   }
 
-  return snapshot.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...docSnap.data()
-  })) as GameImage[];
-}
-
-async function fetchApprovedSubmissionsWindow(difficulty: string | null): Promise<GameImage[]> {
-  const baseConstraints: QueryConstraint[] = [where('status', '==', 'approved')];
-  if (difficulty && difficulty !== 'all') {
-    baseConstraints.push(where('difficulty', '==', difficulty));
-  }
-
-  const pivot = randomFirestoreIdPrefix();
-  const pivotQuery = query(
-    collection(db, 'submissions'),
-    ...baseConstraints,
-    orderBy(documentId()),
-    startAt(pivot),
-    limit(RANDOM_WINDOW_SIZE)
-  );
-  let snapshot = await getDocs(pivotQuery);
-
-  if (snapshot.empty) {
-    const fallbackQuery = query(
-      collection(db, 'submissions'),
-      ...baseConstraints,
-      orderBy(documentId()),
-      limit(RANDOM_WINDOW_SIZE)
-    );
-    snapshot = await getDocs(fallbackQuery);
-  }
-
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data() as Record<string, unknown>;
-    const buildingName = (
-      ((data.buildingName as string) || (data.building as string) || '').trim()
-    ) || null;
-    return {
-      id: docSnap.id,
-      url: data.photoURL as string,
-      correctLocation: data.location as { x: number; y: number },
-      correctFloor: data.floor as number | null,
-      difficulty: (data.difficulty as string) || null,
-      buildingName,
-      description: buildingName
-    };
-  });
+  return snapshot.docs
+    .map((docSnap) => mapPoolDocToGameImage(docSnap.id, docSnap.data() as ImagePoolEntry))
+    .filter((image): image is GameImage => Boolean(image));
 }
 
 // ────── Functions ──────
@@ -269,11 +155,8 @@ export async function getRandomImage(
 
     // Fetch only small random metadata windows per attempt (not full collections).
     for (let attempt = 0; attempt < RANDOM_WINDOW_ATTEMPTS; attempt += 1) {
-      const [imageWindow, submissionWindow] = await Promise.all([
-        fetchImagesWindow(difficulty),
-        fetchApprovedSubmissionsWindow(difficulty)
-      ]);
-      const availableImages = [...imageWindow, ...submissionWindow].filter((image) => {
+      const window = await fetchImagePoolWindow(difficulty);
+      const availableImages = window.filter((image) => {
         if (!image?.url) return false;
         if (excludedIds.has(image.id)) return false;
         if (excludedUrls.has(image.url)) return false;
@@ -299,8 +182,13 @@ export async function getRandomImage(
  */
 export async function getAllApprovedImages(difficulty: string | null = null): Promise<GameImage[]> {
   try {
-    const allImages = await getApprovedImagesFromCache();
-    return mapByDifficulty(allImages, difficulty);
+    const difficultyFilter = difficulty && difficulty !== 'all'
+      ? query(collection(db, 'imagePool'), where('difficulty', '==', difficulty))
+      : query(collection(db, 'imagePool'));
+    const snapshot = await getDocs(difficultyFilter);
+    return snapshot.docs
+      .map((docSnap) => mapPoolDocToGameImage(docSnap.id, docSnap.data() as ImagePoolEntry))
+      .filter((image): image is GameImage => Boolean(image));
   } catch (error) {
     console.error('Error fetching approved images:', error);
     return [];
@@ -311,7 +199,7 @@ export async function getAllApprovedImages(difficulty: string | null = null): Pr
  * Warm the approved image metadata cache.
  */
 export async function primeApprovedImagesCache(): Promise<void> {
-  await getApprovedImagesFromCache();
+  return;
 }
 
 /**
