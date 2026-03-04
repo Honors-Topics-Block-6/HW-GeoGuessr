@@ -21,6 +21,7 @@ export interface GameScreenProps {
   onFloorSelect: (floor: number) => void;
   onSubmitGuess: () => void;
   onBackToTitle: () => void;
+  onImageLoad?: () => void;
   currentRound?: number;
   totalRounds?: number;
   clickRejected?: boolean;
@@ -41,6 +42,7 @@ function GameScreen({
   onFloorSelect,
   onSubmitGuess,
   onBackToTitle,
+  onImageLoad,
   currentRound = 1,
   totalRounds = 5,
   clickRejected = false,
@@ -94,7 +96,7 @@ function GameScreen({
       </button>
       {/* Left panel - Image */}
       <div className="image-panel">
-        <ImageViewer imageUrl={imageUrl} />
+        <ImageViewer imageUrl={imageUrl} onImageLoad={onImageLoad} />
       </div>
 
       {/* Right panel - Guess controls */}

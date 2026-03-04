@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { getRandomImage, type GameImage as ServiceGameImage } from '../services/imageService';
+import { getRandomImage, primeApprovedImagesCache, type GameImage as ServiceGameImage } from '../services/imageService';
 import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, getRegionForPoint } from '../services/regionService';
 import { STARTING_HEALTH } from '../services/duelService';
 
@@ -15,6 +15,7 @@ const MAX_SCORE_PER_ROUND = 5500; // 5000 for location + 500 floor bonus
 /** Default round time (used when no custom setting is provided). */
 export const ROUND_TIME_SECONDS = 20;
 const SINGLEPLAYER_SEEN_HISTORY_KEY = 'singleplayerSeenImageHistory.v1';
+const MAP_DATA_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 export interface MapCoords {
   x: number;
@@ -102,6 +103,7 @@ export interface UseGameStateReturn {
   setMode: React.Dispatch<React.SetStateAction<GameMode>>;
   setLobbyDocId: React.Dispatch<React.SetStateAction<string | null>>;
   setDifficulty: React.Dispatch<React.SetStateAction<Difficulty>>;
+  notifyCurrentImageLoaded: () => void;
 }
 
 /**
@@ -137,6 +139,12 @@ export function calculateLocationScore(distance: number): number {
  * Handles screen transitions, image loading, multi-round tracking, and scoring
  */
 export function useGameState(): UseGameStateReturn {
+  // #region agent log
+  const sendDebugLog = useCallback((runId: string, hypothesisId: string, location: string, message: string, data: Record<string, unknown> = {}): void => {
+    fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
+  }, []);
+  // #endregion
+
   const getImageBuildingName = (image: GameImage): string | null => {
     const legacyImage = image as GameImage & { building?: string | null };
     const buildingValue = image.buildingName ?? legacyImage.building;
@@ -212,10 +220,40 @@ export function useGameState(): UseGameStateReturn {
   // Endless mode: HP-based, continues until HP = 0
   const [isEndlessMode, setIsEndlessMode] = useState<boolean>(false);
   const [currentHp, setCurrentHp] = useState<number>(STARTING_HEALTH);
+  const mapDataLastFetchedAtRef = useRef<number>(0);
+  const mapDataRefreshPromiseRef = useRef<Promise<void> | null>(null);
+  const prefetchedImageRef = useRef<GameImage | null>(null);
+  const prefetchPromiseRef = useRef<Promise<void> | null>(null);
+  const activeImageLoadTokenRef = useRef<number>(0);
 
-  // Load regions and playing area on mount
-  useEffect(() => {
-    async function loadData(): Promise<void> {
+  const isImageExcluded = useCallback((image: GameImage, excludeIds: string[], excludeUrls: string[]): boolean => {
+    if (image.id && excludeIds.includes(image.id)) return true;
+    if (image.url && excludeUrls.includes(image.url)) return true;
+    return false;
+  }, []);
+
+  const preloadImageUrl = useCallback((url: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const preloader = new Image();
+      preloader.decoding = 'async';
+      preloader.onload = () => resolve();
+      preloader.onerror = () => reject(new Error(`Failed to preload image: ${url}`));
+      preloader.src = url;
+    });
+  }, []);
+
+  const refreshMapData = useCallback(async (forceRefresh = false): Promise<void> => {
+    const hasMapData = regions.length > 0 || playingArea !== null;
+    const stale = Date.now() - mapDataLastFetchedAtRef.current > MAP_DATA_REFRESH_INTERVAL_MS;
+    if (!forceRefresh && hasMapData && !stale) {
+      return;
+    }
+
+    if (mapDataRefreshPromiseRef.current) {
+      return mapDataRefreshPromiseRef.current;
+    }
+
+    const refreshPromise = (async () => {
       try {
         const [fetchedRegions, fetchedPlayingArea] = await Promise.all([
           getRegions(),
@@ -223,14 +261,67 @@ export function useGameState(): UseGameStateReturn {
         ]);
         setRegions(fetchedRegions);
         setPlayingArea(fetchedPlayingArea);
+        mapDataLastFetchedAtRef.current = Date.now();
       } catch (err) {
         console.error('Failed to load regions/playing area:', err);
         setRegions([]);
         setPlayingArea(null);
       }
+    })();
+
+    mapDataRefreshPromiseRef.current = refreshPromise.finally(() => {
+      mapDataRefreshPromiseRef.current = null;
+    });
+
+    return mapDataRefreshPromiseRef.current;
+  }, [regions.length, playingArea]);
+
+  const prefetchNextImage = useCallback(async (
+    nextDifficulty: string | null,
+    excludeIds: string[],
+    excludeUrls: string[]
+  ): Promise<void> => {
+    if (!nextDifficulty) return;
+    if (prefetchPromiseRef.current) {
+      return prefetchPromiseRef.current;
     }
-    loadData();
-  }, []);
+
+    const prefetchPromise = (async () => {
+      try {
+        let nextImage = await getRandomImage(nextDifficulty, {
+          excludeImageIds: excludeIds,
+          excludeImageUrls: excludeUrls
+        });
+        if (!nextImage && isEndlessMode) {
+          nextImage = await getRandomImage(nextDifficulty);
+        }
+        if (!nextImage || !nextImage.url) {
+          prefetchedImageRef.current = null;
+          return;
+        }
+
+        await preloadImageUrl(nextImage.url);
+        prefetchedImageRef.current = nextImage as GameImage;
+      } catch (err) {
+        console.warn('Failed to prefetch next image:', err);
+        prefetchedImageRef.current = null;
+      }
+    })();
+
+    prefetchPromiseRef.current = prefetchPromise.finally(() => {
+      prefetchPromiseRef.current = null;
+    });
+
+    return prefetchPromiseRef.current;
+  }, [isEndlessMode, preloadImageUrl]);
+
+  // Load regions and playing area on mount
+  useEffect(() => {
+    void refreshMapData(true);
+    void primeApprovedImagesCache().catch((err) => {
+      console.warn('Failed to warm approved image cache:', err);
+    });
+  }, [refreshMapData]);
 
   useEffect(() => {
     try {
@@ -286,19 +377,40 @@ export function useGameState(): UseGameStateReturn {
     setError(null);
 
     try {
-      let image = await getRandomImage(difficulty, {
-        excludeImageIds: excludeIds,
-        excludeImageUrls: excludeUrls
-      });
+      const loadStartedAtMs = performance.now();
+      const loadToken = ++activeImageLoadTokenRef.current;
+      if (prefetchPromiseRef.current) {
+        await prefetchPromiseRef.current;
+      }
+
+      let image: GameImage | null = null;
+      const prefetchedImage = prefetchedImageRef.current;
+      if (
+        prefetchedImage &&
+        !isImageExcluded(prefetchedImage, excludeIds, excludeUrls)
+      ) {
+        image = prefetchedImage;
+      }
+      prefetchedImageRef.current = null;
+
+      if (!image) {
+        image = await getRandomImage(difficulty, {
+          excludeImageIds: excludeIds,
+          excludeImageUrls: excludeUrls
+        }) as GameImage | null;
+      }
       // Fall back to no excludes when: we didn't exclude anything, OR endless mode (allow repeats)
       if (!image && (excludeIds.length === 0 && excludeUrls.length === 0 || isEndlessMode)) {
-        image = await getRandomImage(difficulty);
+        image = await getRandomImage(difficulty) as GameImage | null;
       }
       if (!image) {
         setError(excludeIds.length > 0 && excludeUrls.length > 0 && !isEndlessMode
           ? 'No more unique images for this game. Try again with a different difficulty.'
           : 'No approved images are available yet.');
         setCurrentImage(null);
+        return false;
+      }
+      if (loadToken !== activeImageLoadTokenRef.current) {
         return false;
       }
       setCurrentImage(image as GameImage | null);
@@ -313,6 +425,7 @@ export function useGameState(): UseGameStateReturn {
       setGuessFloor(null);
       setAvailableFloors(null);
       // Timer will be (re)started when the game screen is shown for this image
+      console.info(`[loadNewImage] prepared next round image in ${Math.round(performance.now() - loadStartedAtMs)}ms`);
       return true;
     } catch (err) {
       console.error('Failed to load image:', err);
@@ -321,7 +434,7 @@ export function useGameState(): UseGameStateReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [difficulty, usedImageIds, usedImageUrls, trackSeenImage, isEndlessMode]);
+  }, [difficulty, usedImageIds, usedImageUrls, trackSeenImage, isEndlessMode, sendDebugLog]);
 
   /**
    * Start a new game - reset everything and fetch first image
@@ -351,6 +464,7 @@ export function useGameState(): UseGameStateReturn {
     setIsEndlessMode(endless);
     setCurrentHp(STARTING_HEALTH);
     setRoundTimeSetting(effectiveRoundTime);
+    prefetchedImageRef.current = null;
 
     // Multiplayer: go to lobby screen instead of starting a game
     if (selectedMode === 'multiplayer') {
@@ -362,25 +476,54 @@ export function useGameState(): UseGameStateReturn {
     setError(null);
 
     try {
-      // Reload playing area and regions in case they were updated in the editor
+      const startLoadAtMs = performance.now();
+      // #region agent log
+      sendDebugLog('spin-debug-1', 'H1', 'useGameState.ts:startGame:entry', 'startGame entry', {
+        selectedDifficulty,
+        selectedMode,
+        singleplayerVariant,
+        roundTimeSeconds: effectiveRoundTime,
+        totalRounds: effectiveTotalRounds,
+        seenIdsCount: seenImageIdsRef.current.length,
+        seenUrlsCount: seenImageUrlsRef.current.length
+      });
+      // #endregion
+      // Do not block game start on map metadata refresh.
+      void refreshMapData(false);
+
+      const fetchImageStartedAtMs = performance.now();
       let image = await getRandomImage(selectedDifficulty, {
         excludeImageIds: seenImageIdsRef.current,
         excludeImageUrls: seenImageUrlsRef.current
       });
+      // #region agent log
+      sendDebugLog('spin-debug-1', 'H2', 'useGameState.ts:startGame:firstImageFetch', 'first getRandomImage resolved', {
+        elapsedMs: Math.round(performance.now() - fetchImageStartedAtMs),
+        hasImage: Boolean(image),
+        imageId: image?.id ?? null
+      });
+      // #endregion
       if (!image) {
+        const fallbackStartedAtMs = performance.now();
         image = await getRandomImage(selectedDifficulty);
+        // #region agent log
+        sendDebugLog('spin-debug-1', 'H2', 'useGameState.ts:startGame:fallbackImageFetch', 'fallback getRandomImage resolved', {
+          elapsedMs: Math.round(performance.now() - fallbackStartedAtMs),
+          hasImage: Boolean(image),
+          imageId: image?.id ?? null
+        });
+        // #endregion
       }
-      const [fetchedPlayingArea, fetchedRegions] = await Promise.all([
-        getPlayingArea(),
-        getRegions()
-      ]);
       if (!image) {
         setError('No approved images are available yet.');
+        // #region agent log
+        sendDebugLog('spin-debug-1', 'H2', 'useGameState.ts:startGame:noImage', 'startGame found no image', {
+          selectedDifficulty
+        });
+        // #endregion
         return;
       }
 
-      setPlayingArea(fetchedPlayingArea);
-      setRegions(fetchedRegions);
       setCurrentImage(image as GameImage | null);
       if (image?.id) {
         setUsedImageIds([image.id]);
@@ -396,13 +539,45 @@ export function useGameState(): UseGameStateReturn {
       setTimeRemaining(effectiveRoundTime > 0 ? effectiveRoundTime : 0);
       setRoundStartTime(effectiveRoundTime > 0 ? performance.now() : null);
       setScreen('game');
+      console.info(`[startGame] prepared first round in ${Math.round(performance.now() - startLoadAtMs)}ms`);
+      // #region agent log
+      sendDebugLog('spin-debug-1', 'H1', 'useGameState.ts:startGame:success', 'startGame success', {
+        elapsedMs: Math.round(performance.now() - startLoadAtMs),
+        imageId: image.id ?? null,
+        hasImageUrl: Boolean(image.url)
+      });
+      // #endregion
     } catch (err) {
       console.error('Failed to start game:', err);
       setError('Failed to load image. Please try again.');
+      // #region agent log
+      sendDebugLog('spin-debug-1', 'H1', 'useGameState.ts:startGame:catch', 'startGame threw', {
+        error: err instanceof Error ? err.message : String(err)
+      });
+      // #endregion
     } finally {
       setIsLoading(false);
     }
-  }, [trackSeenImage]);
+  }, [trackSeenImage, refreshMapData, sendDebugLog]);
+
+  const notifyCurrentImageLoaded = useCallback((): void => {
+    if (!difficulty || screen !== 'game') return;
+    const excludeIds = currentImage?.id
+      ? (usedImageIds.includes(currentImage.id) ? usedImageIds : [...usedImageIds, currentImage.id])
+      : usedImageIds;
+    const excludeUrls = currentImage?.url
+      ? (usedImageUrls.includes(currentImage.url) ? usedImageUrls : [...usedImageUrls, currentImage.url])
+      : usedImageUrls;
+    void prefetchNextImage(difficulty, excludeIds, excludeUrls);
+  }, [
+    currentImage?.id,
+    currentImage?.url,
+    difficulty,
+    prefetchNextImage,
+    screen,
+    usedImageIds,
+    usedImageUrls
+  ]);
 
   /**
    * Timer effect for each guessing phase.
@@ -673,6 +848,7 @@ export function useGameState(): UseGameStateReturn {
     setUsedImageUrls([]);
     setIsEndlessMode(false);
     setCurrentHp(STARTING_HEALTH);
+    prefetchedImageRef.current = null;
   }, []);
 
   return {
@@ -710,6 +886,7 @@ export function useGameState(): UseGameStateReturn {
     resetGame,
     setMode,
     setLobbyDocId,
-    setDifficulty
+    setDifficulty,
+    notifyCurrentImageLoaded
   };
 }

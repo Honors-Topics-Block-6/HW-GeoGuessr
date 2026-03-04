@@ -27,6 +27,11 @@ export interface RandomImageOptions {
   excludeImageUrls?: string[];
 }
 
+interface ApprovedImageCache {
+  fetchedAtMs: number;
+  images: GameImage[];
+}
+
 // ────── Constants ──────
 
 // Sample images for development/testing
@@ -73,6 +78,89 @@ const SAMPLE_IMAGES: readonly SampleImage[] = [
   }
 ];
 
+const APPROVED_IMAGES_CACHE_TTL_MS = 60_000;
+let approvedImagesCache: ApprovedImageCache | null = null;
+let approvedImagesCachePromise: Promise<GameImage[]> | null = null;
+let randomImageCallCount = 0;
+
+function mapByDifficulty(images: GameImage[], difficulty: string | null): GameImage[] {
+  // 'all' and null both mean "no filter"
+  if (!difficulty || difficulty === 'all') {
+    return images;
+  }
+  const filtered = images.filter((img) => img.difficulty === difficulty);
+  if (filtered.length > 0) {
+    return filtered;
+  }
+  console.warn(`No images found for difficulty "${difficulty}", using all images`);
+  return images;
+}
+
+async function fetchApprovedImagesFromFirestore(): Promise<GameImage[]> {
+  // Fetch from both sources in parallel
+  const [imagesSnapshot, submissionsSnapshot] = await Promise.all([
+    getDocs(collection(db, 'images')),
+    getDocs(query(collection(db, 'submissions'), where('status', '==', 'approved')))
+  ]);
+
+  // Map images collection docs to the standard format
+  const images: GameImage[] = imagesSnapshot.docs.map(docSnap => ({
+    id: docSnap.id,
+    ...docSnap.data()
+  })) as GameImage[];
+
+  // Map approved submissions to the same format the game expects
+  const approvedSubmissions: GameImage[] = submissionsSnapshot.docs.map(docSnap => {
+    const data = docSnap.data() as Record<string, unknown>;
+    const buildingName = (
+      ((data.buildingName as string) || (data.building as string) || '').trim()
+    ) || null;
+    return {
+      id: docSnap.id,
+      url: data.photoURL as string,
+      correctLocation: data.location as { x: number; y: number },
+      correctFloor: data.floor as number | null,
+      difficulty: (data.difficulty as string) || null,
+      buildingName,
+      description: buildingName
+    };
+  });
+
+  return [...images, ...approvedSubmissions];
+}
+
+async function getApprovedImagesFromCache(forceRefresh = false): Promise<GameImage[]> {
+  const now = Date.now();
+  const cacheIsFresh =
+    approvedImagesCache &&
+    now - approvedImagesCache.fetchedAtMs < APPROVED_IMAGES_CACHE_TTL_MS;
+
+  if (!forceRefresh && cacheIsFresh && approvedImagesCache) {
+    // #region agent log
+    fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId:'spin-debug-1',hypothesisId:'H2',location:'imageService.ts:getApprovedImagesFromCache:hit',message:'approved images cache hit',data:{cacheAgeMs:now - approvedImagesCache.fetchedAtMs,count:approvedImagesCache.images.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return approvedImagesCache.images;
+  }
+
+  if (approvedImagesCachePromise) {
+    return approvedImagesCachePromise;
+  }
+
+  approvedImagesCachePromise = fetchApprovedImagesFromFirestore()
+    .then((images) => {
+      approvedImagesCache = { fetchedAtMs: Date.now(), images };
+      // #region agent log
+      fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId:'spin-debug-1',hypothesisId:'H2',location:'imageService.ts:getApprovedImagesFromCache:miss',message:'approved images cache miss (fetched)',data:{count:images.length},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return images;
+    })
+    .finally(() => {
+      approvedImagesCachePromise = null;
+    });
+
+  return approvedImagesCachePromise;
+}
+
 // ────── Functions ──────
 
 /**
@@ -85,6 +173,15 @@ export async function getRandomImage(
   options: RandomImageOptions = {}
 ): Promise<GameImage | null> {
   try {
+    randomImageCallCount += 1;
+    const shouldLogCall = randomImageCallCount <= 20 || randomImageCallCount % 25 === 0;
+    const stackLine = new Error().stack?.split('\n')[2]?.trim() ?? 'unknown-caller';
+    if (shouldLogCall) {
+      // #region agent log
+      fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId:'spin-debug-2',hypothesisId:'H6',location:'imageService.ts:getRandomImage:entry',message:'getRandomImage called',data:{callCount:randomImageCallCount,difficulty,excludeIdsCount:options.excludeImageIds?.length ?? 0,excludeUrlsCount:options.excludeImageUrls?.length ?? 0,caller:stackLine},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    }
+
     const approvedImages = await getAllApprovedImages(difficulty);
     const excludedIds = new Set(options.excludeImageIds || []);
     const excludedUrls = new Set(options.excludeImageUrls || []);
@@ -93,6 +190,11 @@ export async function getRandomImage(
       if (excludedUrls.has(image.url)) return false;
       return true;
     });
+    if (shouldLogCall) {
+      // #region agent log
+      fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId:'spin-debug-2',hypothesisId:'H6',location:'imageService.ts:getRandomImage:postFilter',message:'getRandomImage filtered pool',data:{callCount:randomImageCallCount,approvedCount:approvedImages.length,availableCount:availableImages.length},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    }
 
     if (availableImages.length === 0) {
       console.warn('No approved images found in any source');
@@ -113,53 +215,19 @@ export async function getRandomImage(
  */
 export async function getAllApprovedImages(difficulty: string | null = null): Promise<GameImage[]> {
   try {
-    // Fetch from both sources in parallel
-    const [imagesSnapshot, submissionsSnapshot] = await Promise.all([
-      getDocs(collection(db, 'images')),
-      getDocs(query(collection(db, 'submissions'), where('status', '==', 'approved')))
-    ]);
-
-    // Map images collection docs to the standard format
-    const images: GameImage[] = imagesSnapshot.docs.map(docSnap => ({
-      id: docSnap.id,
-      ...docSnap.data()
-    })) as GameImage[];
-
-    // Map approved submissions to the same format the game expects
-    const approvedSubmissions: GameImage[] = submissionsSnapshot.docs.map(docSnap => {
-      const data = docSnap.data() as Record<string, unknown>;
-      const buildingName = (
-        ((data.buildingName as string) || (data.building as string) || '').trim()
-      ) || null;
-      return {
-        id: docSnap.id,
-        url: data.photoURL as string,
-        correctLocation: data.location as { x: number; y: number },
-        correctFloor: data.floor as number | null,
-        difficulty: (data.difficulty as string) || null,
-        buildingName,
-        description: buildingName
-      };
-    });
-
-    let allImages: GameImage[] = [...images, ...approvedSubmissions];
-
-    // Filter by difficulty if specified ('all' or null means no filter)
-    if (difficulty && difficulty !== 'all') {
-      const filtered = allImages.filter(img => img.difficulty === difficulty);
-      // Fall back to all images if none match the difficulty
-      if (filtered.length > 0) {
-        allImages = filtered;
-      } else {
-        console.warn(`No images found for difficulty "${difficulty}", using all images`);
-      }
-    }
-
-    return allImages;
+    const allImages = await getApprovedImagesFromCache();
+    return mapByDifficulty(allImages, difficulty);
   } catch (error) {
     console.error('Error fetching approved images:', error);
     return [];
   }
+}
+
+/**
+ * Warm the approved image metadata cache.
+ */
+export async function primeApprovedImagesCache(): Promise<void> {
+  await getApprovedImagesFromCache();
 }
 
 /**

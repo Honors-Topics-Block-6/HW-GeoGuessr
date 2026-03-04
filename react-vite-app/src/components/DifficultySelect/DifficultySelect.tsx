@@ -116,25 +116,15 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
       // Normalize the input to the clamped value so the user sees what will be used
       setCustomTime(String(resolvedTime));
       setCustomTimeError(null);
-   if (selectedDifficulty) {
-      onStart(
-        selectedDifficulty,
-        selectedMode,
-        selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
-        selectedMode === 'singleplayer' ? resolvedTime : undefined,
-        selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' ? selectedRounds : undefined
-      );
     }
 
     onStart(
       selectedDifficulty,
       selectedMode,
       selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
-      selectedMode === 'singleplayer' ? resolvedTime : undefined
+      selectedMode === 'singleplayer' ? resolvedTime : undefined,
+      selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' ? selectedRounds : undefined
     );
-    }
-
-    onStart(selectedDifficulty, selectedMode, resolvedTime);
   };
 
   const disabledReason: string | null = (() => {

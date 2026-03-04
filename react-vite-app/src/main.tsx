@@ -23,6 +23,12 @@ function ScaledAppWrapper({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  useEffect(() => {
+    // Warm the map image cache so the first game render is faster.
+    const mapPreload = new Image();
+    mapPreload.src = '/FINAL_MAP.png';
+  }, []);
+
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--hw-page-bg)' }}>
       <div style={{

@@ -126,8 +126,15 @@ function App(): React.ReactElement {
     resetGame,
     setMode,
     setLobbyDocId,
-    setDifficulty
+    setDifficulty,
+    notifyCurrentImageLoaded
   } = useGameState();
+
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86e883'},body:JSON.stringify({sessionId:'86e883',runId:'spin-debug-1',hypothesisId:'H5',location:'App.tsx:screenStateEffect',message:'app screen/loading state changed',data:{screen,isLoading,hasCurrentImage:Boolean(currentImage),inDuel},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [screen, isLoading, currentImage, inDuel]);
 
   const {
     allCompleted: dailyGoalsAllCompleted,
@@ -703,6 +710,7 @@ function App(): React.ReactElement {
           onFloorSelect={selectFloor}
           onSubmitGuess={submitGuess}
           onBackToTitle={resetGame}
+          onImageLoad={notifyCurrentImageLoaded}
           currentRound={currentRound}
           totalRounds={totalRounds}
           clickRejected={clickRejected}
