@@ -1,13 +1,12 @@
 .duel-final-screen {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding: 2rem;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .duel-final-background {
