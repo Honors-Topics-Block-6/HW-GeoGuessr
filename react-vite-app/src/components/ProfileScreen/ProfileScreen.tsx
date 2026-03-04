@@ -76,7 +76,7 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
   const [cropOffset, setCropOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [cropImageSize, setCropImageSize] = useState<{ width: number; height: number } | null>(null);
   const [isDraggingCrop, setIsDraggingCrop] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'stats'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'achievements'>('profile');
   const [statsInterval, setStatsInterval] = useState<'day' | 'week' | 'month' | 'all'>('all');
   const [statsDifficulty, setStatsDifficulty] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
   const cropImageRef = useRef<HTMLImageElement | null>(null);
@@ -480,37 +480,42 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
           <div className="profile-tabs">
             <button className={`profile-tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')} type="button">Profile</button>
             <button className={`profile-tab ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')} type="button">Statistics</button>
+            <button className={`profile-tab ${activeTab === 'achievements' ? 'active' : ''}`} onClick={() => setActiveTab('achievements')} type="button">Achievements</button>
           </div>
-          {/* ── Level & XP Section ── */}
-          <div className="profile-level-section">
-            <div className="profile-level-header">
-              <span className="profile-level-badge">Lvl {levelInfo.level}</span>
-              <span className="profile-level-title">{levelTitle}</span>
-            </div>
-            <div className="profile-xp-bar-container">
-              <div className="profile-xp-bar">
-                <div className="profile-xp-bar-fill" style={{ width: `${progressPercent}%` }} />
+          {activeTab === 'profile' && (
+            <>
+              {/* ── Level & XP Section ── */}
+              <div className="profile-level-section">
+                <div className="profile-level-header">
+                  <span className="profile-level-badge">Lvl {levelInfo.level}</span>
+                  <span className="profile-level-title">{levelTitle}</span>
+                </div>
+                <div className="profile-xp-bar-container">
+                  <div className="profile-xp-bar">
+                    <div className="profile-xp-bar-fill" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                  <div className="profile-xp-bar-labels">
+                    <span className="profile-xp-current">{levelInfo.xpIntoLevel.toLocaleString()} XP</span>
+                    <span className="profile-xp-needed">{levelInfo.currentLevelXp.toLocaleString()} XP</span>
+                  </div>
+                </div>
+                <div className="profile-xp-stats">
+                  <div className="profile-xp-stat">
+                    <span className="profile-xp-stat-value">{totalXp.toLocaleString()}</span>
+                    <span className="profile-xp-stat-label">Total XP</span>
+                  </div>
+                  <div className="profile-xp-stat">
+                    <span className="profile-xp-stat-value">{gamesPlayed}</span>
+                    <span className="profile-xp-stat-label">Games Played</span>
+                  </div>
+                  <div className="profile-xp-stat">
+                    <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
+                    <span className="profile-xp-stat-label">XP to Next Level</span>
+                  </div>
+                </div>
               </div>
-              <div className="profile-xp-bar-labels">
-                <span className="profile-xp-current">{levelInfo.xpIntoLevel.toLocaleString()} XP</span>
-                <span className="profile-xp-needed">{levelInfo.currentLevelXp.toLocaleString()} XP</span>
-              </div>
-            </div>
-            <div className="profile-xp-stats">
-              <div className="profile-xp-stat">
-                <span className="profile-xp-stat-value">{totalXp.toLocaleString()}</span>
-                <span className="profile-xp-stat-label">Total XP</span>
-              </div>
-              <div className="profile-xp-stat">
-                <span className="profile-xp-stat-value">{gamesPlayed}</span>
-                <span className="profile-xp-stat-label">Games Played</span>
-              </div>
-              <div className="profile-xp-stat">
-                <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
-                <span className="profile-xp-stat-label">XP to Next Level</span>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
           {activeTab === 'profile' ? (
             <div className="profile-fields">
               <div className="profile-field">
@@ -556,7 +561,7 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
                 <span className="profile-value">{formatTimestamp(userDoc?.createdAt)}</span>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'stats' ? (
             <div className="profile-stats">
               <div className="profile-activity">
                 <div className="profile-activity-header">
@@ -658,43 +663,44 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
                 )}
               </div>
             </div>
+          ) : (
+            <section className="profile-achievements-section">
+              <div className="profile-achievements-header">
+                <span className="profile-label">Achievements</span>
+                <span className="profile-achievements-summary">{completedAchievements}/{achievementDefinitions.length} unlocked</span>
+              </div>
+              <div className="profile-achievements-panel">
+                {achievementDefinitions.map((achievement) => {
+                  const isUnlocked = achievement.unlocked;
+                  const progressPct = Math.round((achievement.progress / achievement.target) * 100);
+                  return (
+                    <div key={achievement.id} className={`profile-achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`}>
+                      <div className="profile-achievement-card-header">
+                        <div className={`profile-achievement-circle ${isUnlocked ? 'unlocked' : 'locked'}`}>
+                          <span className="profile-achievement-icon">{achievement.icon}</span>
+                        </div>
+                        <div className="profile-achievement-main">
+                          <span className="profile-achievement-title">{achievement.title}</span>
+                          <span className="profile-achievement-reward">+{achievement.xpReward.toLocaleString()} XP</span>
+                        </div>
+                        <span className={`profile-achievement-status ${isUnlocked ? 'unlocked' : 'locked'}`}>{isUnlocked ? 'Unlocked' : 'Locked'}</span>
+                      </div>
+                      <div className="profile-achievement-progress-row">
+                        <div className="profile-achievement-progress-track">
+                          <div className="profile-achievement-progress-fill" style={{ width: `${progressPct}%` }} />
+                        </div>
+                        <span className="profile-achievement-progress">{achievement.progress.toLocaleString()} / {achievement.target.toLocaleString()}</span>
+                      </div>
+                      <div className="profile-achievement-hover-card" role="tooltip">
+                        <p><strong>{achievement.highlight}</strong> {achievement.details}</p>
+                        <p className="profile-achievement-hover-reward">XP Bonus: +{achievement.xpReward.toLocaleString()} XP</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           )}
-          <section className="profile-achievements-section">
-            <div className="profile-achievements-header">
-              <span className="profile-label">Achievements</span>
-              <span className="profile-achievements-summary">{completedAchievements}/{achievementDefinitions.length} unlocked</span>
-            </div>
-            <div className="profile-achievements-panel">
-              {achievementDefinitions.map((achievement) => {
-                const isUnlocked = achievement.unlocked;
-                const progressPct = Math.round((achievement.progress / achievement.target) * 100);
-                return (
-                  <div key={achievement.id} className={`profile-achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`}>
-                    <div className="profile-achievement-card-header">
-                      <div className={`profile-achievement-circle ${isUnlocked ? 'unlocked' : 'locked'}`}>
-                        <span className="profile-achievement-icon">{achievement.icon}</span>
-                      </div>
-                      <div className="profile-achievement-main">
-                        <span className="profile-achievement-title">{achievement.title}</span>
-                        <span className="profile-achievement-reward">+{achievement.xpReward.toLocaleString()} XP</span>
-                      </div>
-                      <span className={`profile-achievement-status ${isUnlocked ? 'unlocked' : 'locked'}`}>{isUnlocked ? 'Unlocked' : 'Locked'}</span>
-                    </div>
-                    <div className="profile-achievement-progress-row">
-                      <div className="profile-achievement-progress-track">
-                        <div className="profile-achievement-progress-fill" style={{ width: `${progressPct}%` }} />
-                      </div>
-                      <span className="profile-achievement-progress">{achievement.progress.toLocaleString()} / {achievement.target.toLocaleString()}</span>
-                    </div>
-                    <div className="profile-achievement-hover-card" role="tooltip">
-                      <p><strong>{achievement.highlight}</strong> {achievement.details}</p>
-                      <p className="profile-achievement-hover-reward">XP Bonus: +{achievement.xpReward.toLocaleString()} XP</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
         </div>
       </div>
       {cropPreviewUrl &&

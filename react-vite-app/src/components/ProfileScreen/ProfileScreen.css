@@ -5,7 +5,8 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 1.25rem 0;
 }
 
