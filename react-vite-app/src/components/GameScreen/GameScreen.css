@@ -266,6 +266,34 @@
   background-color: var(--hw-gray-100);
 }
 
+.random-guess-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: none;
+  background: var(--hw-red, #c8102e);
+  color: #ffffff;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.random-guess-button:hover {
+  background: var(--hw-red-hover, #a50d26);
+}
+
+@media (max-width: 768px) {
+  .random-guess-button {
+    padding: 0.9rem;
+    font-size: 1.1rem;
+  }
+}
+
 .status-item {
   display: flex;
   align-items: center;

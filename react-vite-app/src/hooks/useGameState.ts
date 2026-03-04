@@ -96,6 +96,7 @@ export interface UseGameStateReturn {
   placeMarker: (coords: MapCoords) => boolean;
   selectFloor: (floor: number) => void;
   submitGuess: () => void;
+  submitRandomGuess: () => void;
   nextRound: () => Promise<void>;
   viewFinalResults: () => void;
   resetGame: () => void;
@@ -130,6 +131,26 @@ export function calculateLocationScore(distance: number): number {
   const ratio = effectiveDistance / maxDistance;
   const score = Math.round(maxScore * Math.exp(-100 * ratio * ratio));
   return Math.max(0, Math.min(maxScore, score));
+}
+
+function isPointInPolygon(point: MapCoords, polygon: MapCoords[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+
+    const intersects =
+      yi > point.y !== yj > point.y &&
+      point.x < ((xj - xi) * (point.y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function randomPointInBounds(min: number, max: number): number {
+  return min + Math.random() * (max - min);
 }
 
 /**
@@ -466,19 +487,47 @@ export function useGameState(): UseGameStateReturn {
     setGuessFloor(floor);
   }, []);
 
-  /**
-   * Submit the guess and calculate score
-   */
-  const submitGuess = useCallback((): void => {
-    // Check if in a region that requires floor selection
-    const isInRegion = availableFloors !== null && availableFloors.length > 0;
+  const getRandomGuessLocation = useCallback((): MapCoords => {
+    const polygon = playingArea?.polygon;
+    if (polygon && polygon.length >= 3) {
+      let minX = polygon[0].x;
+      let maxX = polygon[0].x;
+      let minY = polygon[0].y;
+      let maxY = polygon[0].y;
 
-    if (!guessLocation || !currentImage) {
+      for (const point of polygon) {
+        minX = Math.min(minX, point.x);
+        maxX = Math.max(maxX, point.x);
+        minY = Math.min(minY, point.y);
+        maxY = Math.max(maxY, point.y);
+      }
+
+      for (let attempt = 0; attempt < 500; attempt++) {
+        const candidate = {
+          x: randomPointInBounds(minX, maxX),
+          y: randomPointInBounds(minY, maxY)
+        };
+        if (isPointInPolygon(candidate, polygon)) {
+          return candidate;
+        }
+      }
+    }
+
+    return {
+      x: randomPointInBounds(0, 100),
+      y: randomPointInBounds(0, 100)
+    };
+  }, [playingArea]);
+
+  const submitResolvedGuess = useCallback((resolvedGuessLocation: MapCoords, resolvedGuessFloor: number | null): void => {
+    if (!currentImage) {
       console.warn('Cannot submit: missing location or image');
       return;
     }
 
-    if (isInRegion && !guessFloor) {
+    const floorsAtGuess = getFloorsForPoint(resolvedGuessLocation, regions);
+    const isInRegion = floorsAtGuess !== null && floorsAtGuess.length > 0;
+    if (isInRegion && resolvedGuessFloor === null) {
       console.warn('Cannot submit: missing floor selection for region');
       return;
     }
@@ -488,7 +537,7 @@ export function useGameState(): UseGameStateReturn {
     const actualFloor: number | null = currentImage.correctFloor ?? null;
 
     // Calculate scores
-    const distance = calculateDistance(guessLocation, actualLocation);
+    const distance = calculateDistance(resolvedGuessLocation, actualLocation);
     const locationScore = calculateLocationScore(distance);
 
     // Track how long the guess took (for display only — no effect on scoring)
@@ -503,11 +552,11 @@ export function useGameState(): UseGameStateReturn {
     let floorCorrect: boolean | null = null;
     let totalScore = locationScore;
 
-    if (isInRegion && guessFloor !== null && actualFloor !== null) {
-      const guessedRegion = getRegionForPoint(guessLocation, regions);
+    if (isInRegion && resolvedGuessFloor !== null && actualFloor !== null) {
+      const guessedRegion = getRegionForPoint(resolvedGuessLocation, regions);
       const actualRegion = getRegionForPoint(actualLocation, regions);
       const isCorrectBuilding = guessedRegion !== null && actualRegion !== null && guessedRegion.id === actualRegion.id;
-      floorCorrect = isCorrectBuilding && guessFloor === actualFloor;
+      floorCorrect = isCorrectBuilding && resolvedGuessFloor === actualFloor;
       // Multiply by 0.8 for incorrect floor instead of bonus system
       totalScore = floorCorrect
         ? locationScore
@@ -526,9 +575,9 @@ export function useGameState(): UseGameStateReturn {
       imageUrl: currentImage.url,
       imageBuildingName: getImageBuildingName(currentImage),
       imageDescription: currentImage.description ?? null,
-      guessLocation,
+      guessLocation: resolvedGuessLocation,
       actualLocation,
-      guessFloor,
+      guessFloor: resolvedGuessFloor,
       actualFloor,
       distance,
       locationScore,
@@ -547,7 +596,40 @@ export function useGameState(): UseGameStateReturn {
 
     // Show result screen
     setScreen('result');
-  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, roundTimeSetting, regions, isEndlessMode]);
+  }, [currentImage, currentRound, roundStartTime, roundTimeSetting, regions, isEndlessMode]);
+
+  /**
+   * Submit the guess and calculate score
+   */
+  const submitGuess = useCallback((): void => {
+    if (!guessLocation) {
+      console.warn('Cannot submit: missing location or image');
+      return;
+    }
+    submitResolvedGuess(guessLocation, guessFloor);
+  }, [guessLocation, guessFloor, submitResolvedGuess]);
+
+  /**
+   * Place a random marker without submitting.
+   */
+  const submitRandomGuess = useCallback((): void => {
+    if (!currentImage) {
+      console.warn('Cannot submit random guess: missing image');
+      return;
+    }
+
+    const randomLocation = getRandomGuessLocation();
+    const floors = getFloorsForPoint(randomLocation, regions);
+    const randomFloor =
+      floors && floors.length > 0
+        ? floors[Math.floor(Math.random() * floors.length)]
+        : null;
+
+    setGuessLocation(randomLocation);
+    setAvailableFloors(floors);
+    setGuessFloor(randomFloor);
+    setClickRejected(false);
+  }, [currentImage, getRandomGuessLocation, regions]);
 
   const submitGuessRef = useRef<() => void>(submitGuess);
   submitGuessRef.current = submitGuess;
@@ -705,6 +787,7 @@ export function useGameState(): UseGameStateReturn {
     placeMarker,
     selectFloor,
     submitGuess,
+    submitRandomGuess,
     nextRound,
     viewFinalResults,
     resetGame,

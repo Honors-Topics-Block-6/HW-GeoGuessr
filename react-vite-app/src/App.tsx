@@ -121,6 +121,7 @@ function App(): React.ReactElement {
     placeMarker,
     selectFloor,
     submitGuess,
+    submitRandomGuess,
     nextRound,
     viewFinalResults,
     resetGame,
@@ -702,6 +703,7 @@ function App(): React.ReactElement {
           onMapClick={placeMarker}
           onFloorSelect={selectFloor}
           onSubmitGuess={submitGuess}
+          onSubmitRandomGuess={submitRandomGuess}
           onBackToTitle={resetGame}
           currentRound={currentRound}
           totalRounds={totalRounds}

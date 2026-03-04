@@ -12,6 +12,7 @@ describe('GameScreen', () => {
     onMapClick: vi.fn(),
     onFloorSelect: vi.fn(),
     onSubmitGuess: vi.fn(),
+    onSubmitRandomGuess: vi.fn(),
     onBackToTitle: vi.fn(),
     currentRound: 1,
     totalRounds: 5
@@ -265,6 +266,22 @@ describe('GameScreen', () => {
       await user.click(button);
 
       expect(onSubmitGuess).not.toHaveBeenCalled();
+    });
+
+    it('should call onSubmitRandomGuess when random button clicked', async () => {
+      const user = userEvent.setup();
+      const onSubmitRandomGuess = vi.fn();
+
+      render(
+        <GameScreen
+          {...defaultProps}
+          onSubmitRandomGuess={onSubmitRandomGuess}
+        />
+      );
+
+      await user.click(screen.getByText('Random'));
+
+      expect(onSubmitRandomGuess).toHaveBeenCalledTimes(1);
     });
   });
 

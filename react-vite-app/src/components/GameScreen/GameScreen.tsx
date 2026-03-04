@@ -20,6 +20,7 @@ export interface GameScreenProps {
   onMapClick: (position: MapPosition) => void;
   onFloorSelect: (floor: number) => void;
   onSubmitGuess: () => void;
+  onSubmitRandomGuess: () => void;
   onBackToTitle: () => void;
   currentRound?: number;
   totalRounds?: number;
@@ -40,6 +41,7 @@ function GameScreen({
   onMapClick,
   onFloorSelect,
   onSubmitGuess,
+  onSubmitRandomGuess,
   onBackToTitle,
   currentRound = 1,
   totalRounds = 5,
@@ -183,6 +185,12 @@ function GameScreen({
             disabled={!canSubmit}
             onClick={onSubmitGuess}
           />
+          <button
+            className="random-guess-button"
+            onClick={onSubmitRandomGuess}
+          >
+            Random
+          </button>
         </div>
 
         {/* Guess Status */}
