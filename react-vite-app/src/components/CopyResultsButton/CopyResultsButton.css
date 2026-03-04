@@ -1,0 +1,47 @@
+.copy-results-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.copy-results-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  border-radius: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--hw-surface, #ffffff);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+}
+
+.copy-results-button:hover:enabled {
+  border-color: var(--hw-red);
+  color: var(--hw-red);
+}
+
+.copy-results-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.copy-results-feedback {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.copy-results-feedback.success {
+  color: var(--hw-red);
+}
+
+.copy-results-feedback.error {
+  color: var(--hw-red);
+}

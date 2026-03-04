@@ -39,6 +39,7 @@ describe('TitleScreen', () => {
     onOpenLeaderboard: vi.fn(),
     onOpenBugReport: vi.fn(),
     onOpenDailyGoals: vi.fn(),
+    onOpenAchievements: vi.fn(),
     isLoading: false
   };
 
@@ -156,6 +157,19 @@ describe('TitleScreen', () => {
       await user.click(screen.getByRole('button', { name: /report bug/i }));
 
       expect(onOpenBugReport).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('profile navigation', () => {
+    it('should call onOpenProfile when the username is clicked', async () => {
+      const user = userEvent.setup();
+      const onOpenProfile = vi.fn();
+
+      render(<TitleScreen {...defaultProps} onOpenProfile={onOpenProfile} />);
+
+      await user.click(screen.getByRole('button', { name: 'TestUser' }));
+
+      expect(onOpenProfile).toHaveBeenCalledTimes(1);
     });
   });
 
