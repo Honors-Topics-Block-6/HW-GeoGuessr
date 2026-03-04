@@ -355,7 +355,7 @@
 
 .leaderboard-list-header {
   display: grid;
-  grid-template-columns: 60px 1fr 70px 90px 60px;
+  grid-template-columns: 60px 1fr 70px 110px;
   align-items: center;
   padding: 0.6rem 0.75rem;
   font-size: 0.7rem;
@@ -373,7 +373,7 @@
 /* ── Row ── */
 .leaderboard-row {
   display: grid;
-  grid-template-columns: 60px 1fr 70px 90px 60px;
+  grid-template-columns: 60px 1fr 70px 110px;
   align-items: center;
   padding: 0.45rem 0.75rem;
   border-bottom: 1px solid var(--hw-gray-300, #d1d5db);
@@ -543,7 +543,7 @@
 
   .leaderboard-list-header,
   .leaderboard-row {
-    grid-template-columns: 45px 1fr 60px 75px 50px;
+    grid-template-columns: 45px 1fr 60px 95px;
     padding: 0.6rem 0.5rem;
   }
 

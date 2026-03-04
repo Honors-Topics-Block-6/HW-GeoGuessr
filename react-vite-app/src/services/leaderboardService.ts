@@ -87,6 +87,13 @@ function computeCategoryValue(stats: RawUserStats, category: LeaderboardCategory
   }
 }
 
+function shouldIncludeInCategory(stats: RawUserStats, category: LeaderboardCategory): boolean {
+  if (category === 'averageGuessTime') {
+    return stats.gamesPlayed > 0 && stats.totalGuessTimeSeconds > 0;
+  }
+  return true;
+}
+
 function mapRawStats(docId: string, data: Record<string, unknown>): RawUserStats {
   return {
     uid: docId,
@@ -127,7 +134,7 @@ function toLeaderboardEntry(stats: RawUserStats, category: LeaderboardCategory, 
 
 function sortRawStats(rows: RawUserStats[], category: LeaderboardCategory): RawUserStats[] {
   const direction = getCategorySortDirection(category);
-  const sorted = [...rows];
+  const sorted = rows.filter((entry) => shouldIncludeInCategory(entry, category));
   sorted.sort((a: RawUserStats, b: RawUserStats) => {
     const aValue = computeCategoryValue(a, category);
     const bValue = computeCategoryValue(b, category);
@@ -173,7 +180,7 @@ export async function getUserRankByCategory(
   uid: string,
   category: LeaderboardCategory,
   userValue: number
-): Promise<number> {
+): Promise<number | null> {
   const usersRef = collection(db, 'users');
   const direction = getCategorySortDirection(category);
   const directField = DIRECT_FIELD_BY_CATEGORY[category];
@@ -193,12 +200,14 @@ export async function getUserRankByCategory(
   const sorted = sortRawStats(allUsers, category);
   const foundIndex = sorted.findIndex((entry) => entry.uid === uid);
   if (foundIndex === -1) {
-    return sorted.length + 1;
+    return null;
   }
   return foundIndex + 1;
 }
 
 export async function getComparisonValuesByCategory(category: LeaderboardCategory): Promise<number[]> {
   const allUsers = await fetchAllUserStats();
-  return allUsers.map((stats) => computeCategoryValue(stats, category));
+  return allUsers
+    .filter((stats) => shouldIncludeInCategory(stats, category))
+    .map((stats) => computeCategoryValue(stats, category));
 }

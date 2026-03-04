@@ -93,7 +93,7 @@ function formatCategoryValue(category: LeaderboardCategory, value: number): stri
     return Math.round(value).toLocaleString();
   }
   if (category === 'averageGuessTime') {
-    return `${value.toFixed(1)}s`;
+    return `${value.toFixed(2)}s`;
   }
   if (category === 'averageScore') {
     return value.toFixed(0);
@@ -154,6 +154,7 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
   const topPlayerName = topPlayerEntry?.username ?? '---';
   const topPlayerStatText = topPlayerEntry ? formatCategoryValue(selectedCategory, topPlayerEntry.statValue) : '0';
   const myCategoryValue = getUserCategoryValue(selectedCategory, userDoc, levelInfo.level);
+  const headlineCategoryText = selectedCategory === 'level' ? 'levels' : selectedMeta.shortLabel;
   const gapToFirst = topPlayerEntry && user
     ? selectedMeta.lowerIsBetter
       ? Math.max(0, myCategoryValue - topPlayerEntry.statValue)
@@ -162,10 +163,10 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
   const hypeEmoji = myRank ? (myRank <= 10 ? '🔥' : '🚀') : '👀';
   const hypeHeadline = myRank
     ? myRank === 1
-      ? `You lead ${selectedMeta.shortLabel}!`
+      ? `You lead ${headlineCategoryText}!`
       : myRank <= 10
-        ? `#${myRank} in ${selectedMeta.shortLabel} and climbing!`
-        : `#${myRank} in ${selectedMeta.shortLabel} today.`
+        ? `#${myRank} in ${headlineCategoryText} and climbing!`
+        : `#${myRank} in ${headlineCategoryText} today.`
     : 'Log in to see your rank.';
   const hypeSubline = myRank
     ? myRank === 1
@@ -282,7 +283,6 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
                 <span className="leaderboard-col-player">Player</span>
                 <span className="leaderboard-col-level">Level</span>
                 <span className="leaderboard-col-xp">{selectedMeta.shortLabel}</span>
-                <span className="leaderboard-col-games">Games</span>
               </div>
 
               {entries.map((entry: LeaderboardEntry) => {
@@ -315,10 +315,6 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
                     <span className="leaderboard-col-xp">
                       {formatCategoryValue(selectedCategory, entry.statValue)} <span className="leaderboard-xp-emoji" role="img" aria-hidden="true">{selectedMeta.emoji}</span>
                     </span>
-
-                    <span className="leaderboard-col-games">
-                      {entry.gamesPlayed} <span className="leaderboard-games-emoji" role="img" aria-hidden="true">🎯</span>
-                    </span>
                   </div>
                 );
               })}
@@ -342,9 +338,6 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
                     </span>
                     <span className="leaderboard-col-xp">
                       {formatCategoryValue(selectedCategory, myCategoryValue)} <span className="leaderboard-xp-emoji" role="img" aria-hidden="true">{selectedMeta.emoji}</span>
-                    </span>
-                    <span className="leaderboard-col-games">
-                      {(userDoc?.gamesPlayed ?? 0)} <span className="leaderboard-games-emoji" role="img" aria-hidden="true">🎯</span>
                     </span>
                   </div>
                 </>
