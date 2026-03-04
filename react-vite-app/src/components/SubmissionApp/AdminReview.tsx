@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
-import { getAllImages, getAllSampleImages, deleteSubmission, deleteImage } from '../../services/imageService'
+import { getAllImages, deleteSubmission, deleteImage } from '../../services/imageService'
 import MapPicker from '../MapPicker/MapPicker'
-import FloorSelector from '../FloorSelector/FloorSelector'
-import PhotoUpload from './PhotoUpload'
 import { compressImage } from '../../utils/compressImage'
+import { getPlayingArea, isPointInPlayingArea, type PlayingArea } from '../../services/regionService'
 import './AdminReview.css'
 
 const DIFFICULTY_OPTIONS: string[] = ['easy', 'medium', 'hard']
@@ -21,8 +20,8 @@ export interface Location {
   y: number
 }
 
-type SubmissionSource = 'submission' | 'image' | 'testing'
-type SubmissionStatus = 'pending' | 'approved' | 'denied' | 'testing'
+type SubmissionSource = 'submission' | 'image'
+type SubmissionStatus = 'pending' | 'approved' | 'denied'
 
 export interface SubmissionItem {
   id: string
@@ -53,13 +52,19 @@ export interface AdminReviewProps {
   onBack?: () => void
 }
 
+type ToastType = 'info' | 'success' | 'error'
+
+interface ToastNotification {
+  id: number
+  message: string
+  type: ToastType
+}
+
 function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([])
   const [firestoreImages, setFirestoreImages] = useState<SubmissionItem[]>([])
-  const [sampleImages, setSampleImages] = useState<SubmissionItem[]>([])
   const [loading, setLoading] = useState<boolean>(true)
-  const [filter, setFilter] = useState<string>('all') // pending, approved, denied, all
-  const [sourceFilter, setSourceFilter] = useState<string>('all') // all, submissions, images, testing
+  const [filter, setFilter] = useState<string>('pending') // pending, approved, denied, all
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null)
 
   // Edit mode state
@@ -72,6 +77,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<SubmissionItem | null>(null)
   const [isDeleting, setIsDeleting] = useState<boolean>(false)
+  const [notifications, setNotifications] = useState<ToastNotification[]>([])
+  const [playingArea, setPlayingArea] = useState<PlayingArea | null>(null)
+  const [clickRejected, setClickRejected] = useState<boolean>(false)
 
   // Fetch submissions from Firestore (real-time)
   useEffect(() => {
@@ -98,7 +106,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     return () => unsubscribe()
   }, [])
 
-  // Fetch images from Firestore images collection and sample/testing images
+  // Fetch images from Firestore images collection
   useEffect(() => {
     async function fetchImages(): Promise<void> {
       const images = await getAllImages()
@@ -120,27 +128,36 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         _source: 'image' as SubmissionSource,
         description: img.description
       })))
-
-      const samples = getAllSampleImages()
-      setSampleImages((samples as Array<{
-        id: string
-        url?: string
-        correctLocation?: Location
-        correctFloor?: number
-        description?: string
-      }>).map(img => ({
-        id: img.id,
-        photoURL: img.url,
-        location: img.correctLocation,
-        floor: img.correctFloor,
-        photoName: img.description || img.id,
-        status: 'testing',
-        _source: 'testing' as SubmissionSource,
-        description: img.description
-      })))
     }
     fetchImages()
   }, [])
+
+  useEffect(() => {
+    async function fetchPlayingArea(): Promise<void> {
+      const area = await getPlayingArea()
+      setPlayingArea(area)
+    }
+    fetchPlayingArea()
+  }, [])
+
+  useEffect(() => {
+    if (selectedSubmission || deleteTarget) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [selectedSubmission, deleteTarget])
+
+  const pushNotification = (message: string, type: ToastType = 'info'): void => {
+    const id = Date.now() + Math.floor(Math.random() * 1000)
+    setNotifications(prev => [...prev, { id, message, type }])
+    window.setTimeout(() => {
+      setNotifications(prev => prev.filter(notification => notification.id !== id))
+    }, 2800)
+  }
 
   const handleApprove = async (submissionId: string): Promise<void> => {
     try {
@@ -148,8 +165,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'approved',
         reviewedAt: serverTimestamp()
       })
+      pushNotification('Approved', 'success')
     } catch (error) {
       console.error('Error approving submission:', error)
+      pushNotification('Approve failed', 'error')
     }
   }
 
@@ -159,8 +178,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'denied',
         reviewedAt: serverTimestamp()
       })
+      pushNotification('Denied', 'success')
     } catch (error) {
       console.error('Error denying submission:', error)
+      pushNotification('Deny failed', 'error')
     }
   }
 
@@ -170,8 +191,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'pending',
         reviewedAt: null
       })
+      pushNotification('Reset to pending', 'success')
     } catch (error) {
       console.error('Error resetting submission:', error)
+      pushNotification('Reset failed', 'error')
     }
   }
 
@@ -199,15 +222,75 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     setSaveError('')
   }
 
-  const handleCloseModal = (): void => {
+  const handleCloseModal = (notifyUnsaved: boolean = false): void => {
+    const wasEditing = isEditing
     handleCancelEdit()
     setSelectedSubmission(null)
+    if (notifyUnsaved && wasEditing) {
+      pushNotification('Unsaved changes discarded', 'info')
+    }
+  }
+
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      if (deleteTarget) {
+        event.preventDefault()
+        handleCancelDelete()
+        return
+      }
+      if (selectedSubmission) {
+        event.preventDefault()
+        handleCloseModal(true)
+      }
+    }
+
+    window.addEventListener('keydown', handleEscapeKey)
+    return () => window.removeEventListener('keydown', handleEscapeKey)
+  }, [selectedSubmission, deleteTarget, isEditing])
+
+  const handleNumberInputWheel = (e: React.WheelEvent<HTMLInputElement>): void => {
+    e.currentTarget.blur()
+  }
+
+  const handleEditPhotoSelect = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setNewPhoto(file)
   }
 
   const handleSaveEdit = async (): Promise<void> => {
+    if (!selectedSubmission) return
+
+    const hasPhotoChange = Boolean(newPhoto)
+    const hasDescriptionChange = (editForm.description || '') !== (selectedSubmission.description || '')
+    const hasPhotoNameChange = (editForm.photoName || '') !== (selectedSubmission.photoName || '')
+    const hasBuildingChange = (editForm.buildingName || '').trim() !== (selectedSubmission.buildingName || '')
+    const hasDifficultyChange = (editForm.difficulty || null) !== (selectedSubmission.difficulty || null)
+    const hasStatusChange = (editForm.status || '') !== (selectedSubmission.status || '')
+    const hasFloorChange = (editForm.floor ?? null) !== (selectedSubmission.floor ?? null)
+    const hasLocationChange =
+      (editForm.location?.x ?? null) !== (selectedSubmission.location?.x ?? null) ||
+      (editForm.location?.y ?? null) !== (selectedSubmission.location?.y ?? null)
+    const hasAnyChange =
+      hasPhotoChange ||
+      hasDescriptionChange ||
+      hasPhotoNameChange ||
+      hasBuildingChange ||
+      hasDifficultyChange ||
+      hasStatusChange ||
+      hasFloorChange ||
+      hasLocationChange
+
+    if (!hasAnyChange) {
+      setIsEditing(false)
+      pushNotification('Nothing to save', 'info')
+      return
+    }
+
     // Validation
     if (!editForm.location || editForm.location.x === undefined || editForm.location.y === undefined) {
-      setSaveError('Location is required')
+      pushNotification('Location is required', 'error')
       return
     }
 
@@ -267,9 +350,11 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
       setIsEditing(false)
       setSelectedSubmission(null)
+      pushNotification('Saved', 'success')
     } catch (error) {
       console.error('Error saving edit:', error)
       setSaveError('Failed to save changes. Please try again.')
+      pushNotification('Save failed', 'error')
     } finally {
       setIsSaving(false)
     }
@@ -303,20 +388,20 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         handleCancelEdit()
       }
       setDeleteTarget(null)
+      pushNotification('Deleted', 'success')
     } catch (error) {
       console.error('Error deleting photo:', error)
+      pushNotification('Delete failed', 'error')
     } finally {
       setIsDeleting(false)
     }
   }
 
-  // Combine all image sources
-  const allItems: SubmissionItem[] = [...submissions, ...firestoreImages, ...sampleImages]
+  // Focus review on user submissions only
+  const allItems: SubmissionItem[] = submissions
 
   const filteredSubmissions = allItems.filter(item => {
-    // Apply source filter
-    if (sourceFilter !== 'all' && item._source !== sourceFilter) return false
-    // Apply status filter (only relevant for submissions)
+    // Apply status filter
     if (filter === 'all') return true
     return item.status === filter
   })
@@ -325,26 +410,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     switch (status) {
       case 'approved': return 'badge-approved'
       case 'denied': return 'badge-denied'
-      case 'testing': return 'badge-testing'
       default: return 'badge-pending'
-    }
-  }
-
-  const getSourceBadgeClass = (source: string): string => {
-    switch (source) {
-      case 'submission': return 'source-submission'
-      case 'image': return 'source-image'
-      case 'testing': return 'source-testing'
-      default: return ''
-    }
-  }
-
-  const getSourceLabel = (source: string): string => {
-    switch (source) {
-      case 'submission': return 'Submission'
-      case 'image': return 'Game Image'
-      case 'testing': return 'Testing Data'
-      default: return source
     }
   }
 
@@ -356,7 +422,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     return date.toLocaleString()
   }
 
-  const isEditable = selectedSubmission && selectedSubmission._source !== 'testing'
+  const isEditable = Boolean(selectedSubmission)
 
   if (loading) {
     return (
@@ -374,40 +440,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
             ← Back to Submission
           </button>
         )}
-        <h2>Admin Review Panel</h2>
       </div>
 
       <div className="filter-section">
-        <div className="filter-group">
-          <span className="filter-label">Source:</span>
-          <div className="filter-tabs">
-            <button
-              className={`filter-tab ${sourceFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setSourceFilter('all')}
-            >
-              All ({allItems.length})
-            </button>
-            <button
-              className={`filter-tab ${sourceFilter === 'submission' ? 'active' : ''}`}
-              onClick={() => setSourceFilter('submission')}
-            >
-              Submissions ({submissions.length})
-            </button>
-            <button
-              className={`filter-tab ${sourceFilter === 'image' ? 'active' : ''}`}
-              onClick={() => setSourceFilter('image')}
-            >
-              Game Images ({firestoreImages.length})
-            </button>
-            <button
-              className={`filter-tab ${sourceFilter === 'testing' ? 'active' : ''}`}
-              onClick={() => setSourceFilter('testing')}
-            >
-              Testing Data ({sampleImages.length})
-            </button>
-          </div>
-        </div>
-
         <div className="filter-group">
           <span className="filter-label">Status:</span>
           <div className="filter-tabs">
@@ -435,12 +470,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
             >
               Denied ({allItems.filter(s => s.status === 'denied').length})
             </button>
-            <button
-              className={`filter-tab ${filter === 'testing' ? 'active' : ''}`}
-              onClick={() => setFilter('testing')}
-            >
-              Testing ({allItems.filter(s => s.status === 'testing').length})
-            </button>
           </div>
         </div>
       </div>
@@ -453,47 +482,38 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         <div className="submissions-grid">
           {filteredSubmissions.map(submission => (
             <div key={submission.id} className="submission-card">
-              <div className="card-image">
+              <div
+                className="card-image"
+                onClick={() => setSelectedSubmission(submission)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setSelectedSubmission(submission)
+                  }
+                }}
+              >
                 <img src={submission.photoURL} alt="Submitted photo" />
-                <span className={`status-badge ${getStatusBadgeClass(submission.status)}`}>
-                  {submission.status}
+                <span className={`difficulty-badge difficulty-badge-${submission.difficulty || 'none'} image-difficulty-badge`}>
+                  {submission.difficulty ? submission.difficulty.charAt(0).toUpperCase() + submission.difficulty.slice(1) : 'Not set'}
                 </span>
-                <span className={`source-badge ${getSourceBadgeClass(submission._source)}`}>
-                  {getSourceLabel(submission._source)}
-                </span>
+                <span className="image-click-hint">Click image for details</span>
               </div>
 
               <div className="card-details">
-                {submission.buildingName && (
-                  <div className="detail-row">
-                    <strong>Building:</strong>
-                    <span>{submission.buildingName}</span>
-                  </div>
-                )}
+                <div className="detail-row">
+                  <strong>Building:</strong>
+                  <span>{submission.buildingName || '—'}</span>
+                </div>
+                <div className="detail-row">
+                  <strong>Floor:</strong>
+                  <span>{submission.floor ?? '—'}</span>
+                </div>
                 {submission.description && (
                   <div className="detail-row">
                     <strong>Description:</strong>
                     <span>{submission.description}</span>
-                  </div>
-                )}
-                <div className="detail-row">
-                  <strong>Location:</strong>
-                  <span>X: {submission.location?.x}, Y: {submission.location?.y}</span>
-                </div>
-                <div className="detail-row">
-                  <strong>Floor:</strong>
-                  <span>{submission.floor}</span>
-                </div>
-                <div className="detail-row">
-                  <strong>Difficulty:</strong>
-                  <span className={`difficulty-badge difficulty-badge-${submission.difficulty || 'none'}`}>
-                    {submission.difficulty ? submission.difficulty.charAt(0).toUpperCase() + submission.difficulty.slice(1) : 'Not set'}
-                  </span>
-                </div>
-                {submission.createdAt && (
-                  <div className="detail-row">
-                    <strong>Submitted:</strong>
-                    <span>{formatDate(submission.createdAt)}</span>
                   </div>
                 )}
                 {submission.reviewedAt && (
@@ -504,51 +524,43 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                 )}
               </div>
 
-              {submission._source === 'submission' && submission.status === 'pending' && (
-                <div className="card-actions">
-                  <button
-                    className="approve-button"
-                    onClick={() => handleApprove(submission.id)}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    className="deny-button"
-                    onClick={() => handleDeny(submission.id)}
-                  >
-                    Deny
-                  </button>
-                </div>
+              {submission.status === 'pending' && (
+                <>
+                  <div className="card-actions">
+                    <button
+                      className="approve-button"
+                      onClick={() => handleApprove(submission.id)}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="deny-button"
+                      onClick={() => handleDeny(submission.id)}
+                    >
+                      Deny
+                    </button>
+                  </div>
+                  <div className="card-actions card-actions-delete-row">
+                    <button
+                      className="delete-photo-button preview-delete-button"
+                      onClick={() => handleDeleteClick(submission)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </>
               )}
 
               {submission.status !== 'pending' && (
-                <div className="card-actions">
+                <div className="card-actions card-actions-reset-row">
                   <button
-                    className="reset-button"
+                    className="reset-button preview-reset-button"
                     onClick={() => handleResetToPending(submission.id)}
                   >
                     Reset to Pending
                   </button>
                 </div>
               )}
-
-              {submission._source !== 'testing' && (
-                <div className="card-actions">
-                  <button
-                    className="delete-photo-button"
-                    onClick={() => handleDeleteClick(submission)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-
-              <button
-                className="view-details-button"
-                onClick={() => setSelectedSubmission(submission)}
-              >
-                View Full Details
-              </button>
             </div>
           ))}
         </div>
@@ -590,336 +602,259 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       )}
 
       {selectedSubmission && createPortal(
-        <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal-content" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-            <button className="modal-close" onClick={handleCloseModal}>
-              ×
-            </button>
-
-            {/* Image display / replacement */}
-            {isEditing ? (
-              <div className="edit-photo-section">
-                <img
-                  src={newPhoto ? URL.createObjectURL(newPhoto) : selectedSubmission.photoURL}
-                  alt="Current"
-                  className="modal-image"
-                />
-                <div className="replace-photo-controls">
-                  <PhotoUpload onPhotoSelect={setNewPhoto} selectedPhoto={newPhoto} />
-                </div>
-              </div>
-            ) : (
-              <img src={selectedSubmission.photoURL} alt="Full size" className="modal-image" />
-            )}
-
-            <div className="modal-details">
+        <div className="modal-overlay" onClick={() => handleCloseModal()}>
+          <button className="modal-close modal-close-outside" onClick={() => handleCloseModal()}>
+            ×
+          </button>
+          <div className="modal-shell modal-shell-wide" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <div className="modal-side-actions-left">
               {isEditing ? (
-                /* Edit mode form */
-                <div className="edit-form">
-                  <div className="modal-details-header">
-                    <h3>Edit Image</h3>
-                  </div>
-
-                  {saveError && <div className="edit-error">{saveError}</div>}
-
-                  {/* Description */}
-                  <div className="edit-field">
-                    <label htmlFor="edit-description">Description</label>
-                    <input
-                      id="edit-description"
-                      type="text"
-                      value={editForm.description || ''}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
-
-                  {/* Building Name (submissions only) */}
-                  {selectedSubmission._source === 'submission' && (
-                    <div className="edit-field">
-                      <label htmlFor="edit-buildingname">Building Name</label>
-                      <input
-                        id="edit-buildingname"
-                        type="text"
-                        value={editForm.buildingName || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, buildingName: e.target.value }))}
-                      />
-                    </div>
-                  )}
-
-                  {/* Photo Name (submissions only) */}
-                  {selectedSubmission._source === 'submission' && (
-                    <div className="edit-field">
-                      <label htmlFor="edit-photoname">File Name</label>
-                      <input
-                        id="edit-photoname"
-                        type="text"
-                        value={editForm.photoName || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, photoName: e.target.value }))}
-                      />
-                    </div>
-                  )}
-
-                  {/* Status (submissions only) */}
-                  {selectedSubmission._source === 'submission' && (
-                    <div className="edit-field">
-                      <label htmlFor="edit-status">Status</label>
-                      <select
-                        id="edit-status"
-                        value={editForm.status || ''}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="denied">Denied</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Location via MapPicker */}
-                  <div className="edit-field">
-                    <label>Location</label>
-                    <MapPicker
-                      markerPosition={editForm.location ?? null}
-                      onMapClick={(coords: Location) => setEditForm(prev => ({ ...prev, location: coords }))}
-                    />
-                    <div className="coordinate-inputs">
-                      <label>
-                        X:
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={editForm.location?.x ?? ''}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
-                            ...prev,
-                            location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
-                          }))}
-                        />
-                      </label>
-                      <label>
-                        Y:
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={editForm.location?.y ?? ''}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
-                            ...prev,
-                            location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
-                          }))}
-                        />
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Floor via FloorSelector */}
-                  <div className="edit-field">
-                    <FloorSelector
-                      selectedFloor={editForm.floor ?? null}
-                      onFloorSelect={(f: number) => setEditForm(prev => ({ ...prev, floor: f }))}
-                    />
-                  </div>
-
-                  {/* Difficulty */}
-                  <div className="edit-field">
-                    <label htmlFor="edit-difficulty">Difficulty</label>
-                    <select
-                      id="edit-difficulty"
-                      value={editForm.difficulty || ''}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value || null }))}
-                    >
-                      <option value="">Not set</option>
-                      {DIFFICULTY_OPTIONS.map(d => (
-                        <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Save / Cancel buttons */}
-                  <div className="edit-actions">
-                    <button
-                      className="save-button"
-                      onClick={handleSaveEdit}
-                      disabled={isSaving}
-                    >
-                      {isSaving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                    <button
-                      className="cancel-edit-button"
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Read-only view mode */
                 <>
-                  <div className="modal-details-header">
-                    <h3>Image Details</h3>
-                    <div className="modal-header-actions">
-                      {isEditable && (
-                        <button className="edit-button" onClick={handleStartEdit}>
-                          Edit
-                        </button>
-                      )}
-                      {isEditable && (
-                        <button className="delete-photo-button" onClick={() => handleDeleteClick(selectedSubmission)}>
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Badges row */}
-                  <div className="detail-badges-row">
-                    <span className={`detail-badge ${getSourceBadgeClass(selectedSubmission._source)}`}>
-                      {getSourceLabel(selectedSubmission._source)}
-                    </span>
-                    <span className={`detail-badge ${getStatusBadgeClass(selectedSubmission.status)}`}>
-                      {selectedSubmission.status}
-                    </span>
-                    <span className={`detail-badge difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
-                      {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'No difficulty'}
-                    </span>
-                  </div>
-
-                  {/* Building Name card */}
-                  {selectedSubmission.buildingName && (
-                    <div className="detail-card">
-                      <div className="detail-card-label">Building Name</div>
-                      <div className="detail-card-value">{selectedSubmission.buildingName}</div>
-                    </div>
-                  )}
-
-                  {/* Description card */}
-                  {selectedSubmission.description && (
-                    <div className="detail-card">
-                      <div className="detail-card-label">Description</div>
-                      <div className="detail-card-value detail-description">{selectedSubmission.description}</div>
-                    </div>
-                  )}
-
-                  {/* Info grid */}
-                  <div className="detail-info-grid">
-                    <div className="detail-info-item">
-                      <span className="detail-info-icon">📍</span>
-                      <div className="detail-info-content">
-                        <span className="detail-info-label">Coordinates</span>
-                        <span className="detail-info-value">
-                          X: {selectedSubmission.location?.x !== undefined ? Number(selectedSubmission.location.x).toFixed(1) : '\u2014'},
-                          Y: {selectedSubmission.location?.y !== undefined ? Number(selectedSubmission.location.y).toFixed(1) : '\u2014'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="detail-info-item">
-                      <span className="detail-info-icon">🏢</span>
-                      <div className="detail-info-content">
-                        <span className="detail-info-label">Floor</span>
-                        <span className="detail-info-value">
-                          {selectedSubmission.floor ? `Floor ${selectedSubmission.floor}` : '\u2014'}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedSubmission.photoName && (
-                      <div className="detail-info-item">
-                        <span className="detail-info-icon">📄</span>
-                        <div className="detail-info-content">
-                          <span className="detail-info-label">File Name</span>
-                          <span className="detail-info-value">{selectedSubmission.photoName}</span>
-                        </div>
-                      </div>
-                    )}
-                    <div className="detail-info-item">
-                      <span className="detail-info-icon">🆔</span>
-                      <div className="detail-info-content">
-                        <span className="detail-info-label">ID</span>
-                        <span className="detail-info-value detail-id-value">{selectedSubmission.id}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Location map */}
-                  {selectedSubmission.location && (
-                    <div className="detail-card detail-map-card">
-                      <div className="detail-card-label">Location on Map</div>
-                      <div className="detail-map-wrapper">
-                        <MapPicker
-                          markerPosition={selectedSubmission.location}
-                          onMapClick={() => {}}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Timestamps */}
-                  {(selectedSubmission.createdAt || selectedSubmission.reviewedAt) && (
-                    <div className="detail-timestamps">
-                      {selectedSubmission.createdAt && (
-                        <div className="detail-timestamp-item">
-                          <span className="detail-timestamp-icon">📅</span>
-                          <div>
-                            <span className="detail-timestamp-label">Submitted</span>
-                            <span className="detail-timestamp-value">{formatDate(selectedSubmission.createdAt)}</span>
-                          </div>
-                        </div>
-                      )}
-                      {selectedSubmission.reviewedAt && (
-                        <div className="detail-timestamp-item">
-                          <span className="detail-timestamp-icon">✅</span>
-                          <div>
-                            <span className="detail-timestamp-label">Reviewed</span>
-                            <span className="detail-timestamp-value">{formatDate(selectedSubmission.reviewedAt)}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Action buttons */}
-                  {selectedSubmission._source === 'submission' && selectedSubmission.status === 'pending' && (
-                    <div className="modal-actions">
-                      <button
-                        className="approve-button"
-                        onClick={() => {
-                          handleApprove(selectedSubmission.id)
-                          setSelectedSubmission(null)
-                        }}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="deny-button"
-                        onClick={() => {
-                          handleDeny(selectedSubmission.id)
-                          setSelectedSubmission(null)
-                        }}
-                      >
-                        Deny
-                      </button>
-                    </div>
-                  )}
-
-                  {selectedSubmission.status !== 'pending' && (
-                    <div className="modal-actions">
-                      <button
-                        className="reset-button"
-                        onClick={() => {
-                          handleResetToPending(selectedSubmission.id)
-                          setSelectedSubmission(null)
-                        }}
-                      >
-                        Reset to Pending
-                      </button>
-                    </div>
-                  )}
+                  <button className="save-button" onClick={handleSaveEdit} disabled={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button className="cancel-edit-button" onClick={handleCancelEdit} disabled={isSaving}>
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  {isEditable && <button className="edit-button" onClick={handleStartEdit}>Edit</button>}
+                  {isEditable && <button className="delete-photo-button modal-side-delete-button" onClick={() => handleDeleteClick(selectedSubmission)}>Delete</button>}
                 </>
               )}
             </div>
+
+            <div className="modal-content modal-content-wide" >
+              <div className="modal-details modal-details-wide">
+                <div className="detail-three-layout">
+                  <div className="detail-column-data">
+                    <div className="detail-card detail-combined-card">
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">Difficulty</span>
+                        {isEditing ? (
+                          <select
+                            className="detail-inline-select"
+                            value={editForm.difficulty || DIFFICULTY_OPTIONS[0]}
+                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value }))}
+                          >
+                            {DIFFICULTY_OPTIONS.map(d => (
+                              <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="detail-combined-value">
+                            <span className={`difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
+                              {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'Not set'}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">🏫 Building</span>
+                        {isEditing ? (
+                          <input
+                            className="detail-inline-input"
+                            type="text"
+                            value={editForm.buildingName || ''}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, buildingName: e.target.value }))}
+                          />
+                        ) : (
+                          <span className="detail-combined-value">{selectedSubmission.buildingName || '\u2014'}</span>
+                        )}
+                      </div>
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">📍 Location</span>
+                        {isEditing ? (
+                          <div className="detail-coordinates-edit">
+                            <label className="detail-coordinate-field">
+                              <span className="detail-coordinate-label">X:</span>
+                              <input
+                                className="detail-inline-input detail-inline-number detail-coordinate-input"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                value={editForm.location?.x ?? ''}
+                                onWheel={handleNumberInputWheel}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
+                                  ...prev,
+                                  location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
+                                }))}
+                              />
+                            </label>
+                            <label className="detail-coordinate-field">
+                              <span className="detail-coordinate-label">Y:</span>
+                              <input
+                                className="detail-inline-input detail-inline-number detail-coordinate-input"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                value={editForm.location?.y ?? ''}
+                                onWheel={handleNumberInputWheel}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
+                                  ...prev,
+                                  location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
+                                }))}
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <span className="detail-combined-value">
+                            X: {selectedSubmission.location?.x !== undefined ? Number(selectedSubmission.location.x).toFixed(1) : '\u2014'},
+                            Y: {selectedSubmission.location?.y !== undefined ? Number(selectedSubmission.location.y).toFixed(1) : '\u2014'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">🏢 Floor</span>
+                        {isEditing ? (
+                          <input
+                            className="detail-inline-input detail-inline-number"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={editForm.floor ?? ''}
+                            onWheel={handleNumberInputWheel}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                              const value = e.target.value
+                              setEditForm(prev => ({ ...prev, floor: value === '' ? null : parseInt(value, 10) }))
+                            }}
+                          />
+                        ) : (
+                          <span className="detail-combined-value">{selectedSubmission.floor ? `Floor ${selectedSubmission.floor}` : '\u2014'}</span>
+                        )}
+                      </div>
+                      {selectedSubmission.description && (
+                        <div className="detail-combined-row detail-combined-row-top">
+                          <span className="detail-combined-key">📝 Description</span>
+                          <span className="detail-combined-value detail-description">{selectedSubmission.description}</span>
+                        </div>
+                      )}
+                      {selectedSubmission._source === 'submission' && (
+                        <div className="detail-combined-row">
+                          <span className="detail-combined-key">📄 File</span>
+                          <span className="detail-combined-value">{selectedSubmission.photoName || '\u2014'}</span>
+                        </div>
+                      )}
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">🆔 ID</span>
+                        <span className="detail-combined-value detail-id-value">{selectedSubmission.id}</span>
+                      </div>
+                      {selectedSubmission.createdAt && (
+                        <div className="detail-combined-row">
+                          <span className="detail-combined-key">📅 Submitted</span>
+                          <span className="detail-combined-value">{formatDate(selectedSubmission.createdAt)}</span>
+                        </div>
+                      )}
+                      {selectedSubmission.reviewedAt && (
+                        <div className="detail-combined-row">
+                          <span className="detail-combined-key">✅ Reviewed</span>
+                          <span className="detail-combined-value">{formatDate(selectedSubmission.reviewedAt)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="detail-column-image">
+                    <div className="detail-photo-card">
+                      <img
+                        src={newPhoto ? URL.createObjectURL(newPhoto) : selectedSubmission.photoURL}
+                        alt="Full size"
+                        className="modal-image modal-image-inline"
+                      />
+                      {isEditing && (
+                        <label className="edit-image-overlay" htmlFor="admin-edit-image-upload">
+                          <span className="edit-image-overlay-content">
+                            <span className="edit-image-overlay-icon" aria-hidden="true">📷</span>
+                            <span className="edit-image-overlay-text">
+                              {newPhoto ? 'New image selected - click to change' : 'Click to upload new image'}
+                            </span>
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                    {isEditing && (
+                      <input
+                        id="admin-edit-image-upload"
+                        type="file"
+                        accept="image/*,.heic,.heif"
+                        className="edit-image-upload-input"
+                        onChange={handleEditPhotoSelect}
+                      />
+                    )}
+                  </div>
+
+                  <div className="detail-column-map">
+                    <div className="detail-map-wrapper">
+                      <MapPicker
+                        markerPosition={isEditing ? (editForm.location ?? null) : (selectedSubmission.location ?? null)}
+                        onMapClick={isEditing ? (coords: Location) => {
+                          if (!isPointInPlayingArea(coords, playingArea)) {
+                            setClickRejected(true)
+                            window.setTimeout(() => setClickRejected(false), 350)
+                            return
+                          }
+                          setEditForm(prev => ({ ...prev, location: coords }))
+                        } : () => {}}
+                        clickRejected={isEditing && clickRejected}
+                        playingArea={isEditing ? playingArea : null}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {selectedSubmission.status === 'pending' && (
+              <div className="modal-bottom-actions">
+                <button
+                  className="approve-button"
+                  onClick={() => {
+                    handleApprove(selectedSubmission.id)
+                    setSelectedSubmission(null)
+                  }}
+                >
+                  Approve
+                </button>
+                <button
+                  className="deny-button"
+                  onClick={() => {
+                    handleDeny(selectedSubmission.id)
+                    setSelectedSubmission(null)
+                  }}
+                >
+                  Deny
+                </button>
+              </div>
+            )}
+
+            {!isEditing && selectedSubmission.status !== 'pending' && (
+              <div className="modal-bottom-actions">
+                <button
+                  className="reset-button"
+                  onClick={() => {
+                    handleResetToPending(selectedSubmission.id)
+                    setSelectedSubmission(null)
+                  }}
+                >
+                  Reset to Pending
+                </button>
+              </div>
+            )}
           </div>
+        </div>,
+        document.body
+      )}
+
+      {notifications.length > 0 && createPortal(
+        <div className="ui-notification-stack">
+          {notifications.map(notification => (
+            <div key={notification.id} className={`ui-notification ui-notification-${notification.type}`}>
+              <div className="ui-notification-message">{notification.message}</div>
+            </div>
+          ))}
         </div>,
         document.body
       )}
