@@ -1,4 +1,14 @@
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, type FieldValue, type Timestamp as FirestoreTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+  runTransaction,
+  increment,
+  type FieldValue,
+  type Timestamp as FirestoreTimestamp
+} from 'firebase/firestore';
 import { db } from '../firebase';
 import {
   selectRandomGoals,
@@ -47,7 +57,11 @@ export interface GoalProgressParams {
  * Get today's date string in YYYY-MM-DD format (user's local timezone).
  */
 export function getTodayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -63,6 +77,31 @@ export async function getOrCreateDailyGoals(uid: string): Promise<DailyGoalsDoc>
     const data = snapshot.data() as DailyGoalsDoc;
     if (data.date === today) {
       return data;
+    }
+
+    // Day rolled over: if yesterday's goals were completed but unclaimed,
+    // auto-award bonus XP before creating the new day goals.
+    if (data.allCompleted && !data.bonusXpAwarded && data.bonusXpAmount > 0) {
+      try {
+        const userRef = doc(db, 'users', uid);
+        await runTransaction(db, async (transaction) => {
+          const freshGoalsSnap = await transaction.get(goalsRef);
+          if (!freshGoalsSnap.exists()) return;
+          const freshGoals = freshGoalsSnap.data() as DailyGoalsDoc;
+
+          if (freshGoals.date === today) return;
+          if (!freshGoals.allCompleted || freshGoals.bonusXpAwarded || freshGoals.bonusXpAmount <= 0) return;
+
+          transaction.update(userRef, {
+            totalXp: increment(freshGoals.bonusXpAmount)
+          });
+          transaction.update(goalsRef, {
+            bonusXpAwarded: true
+          });
+        });
+      } catch (err) {
+        console.error('Failed to auto-award stale daily goals bonus XP:', err);
+      }
     }
   }
 
@@ -105,6 +144,7 @@ export async function recordGoalProgress(
 ): Promise<GoalProgressResult> {
   const today = getTodayDateString();
   const goalsRef = doc(db, 'dailyGoals', uid);
+
   let snapshot = await getDoc(goalsRef);
   let data = snapshot.exists() ? (snapshot.data() as DailyGoalsDoc) : null;
 
@@ -118,60 +158,85 @@ export async function recordGoalProgress(
     data = snapshot.data() as DailyGoalsDoc;
   }
 
+  if (!data) {
+    return { updated: false, allCompleted: false };
+  }
+
   // Already all completed + bonus awarded — no further updates needed
   if (data.allCompleted && data.bonusXpAwarded) {
     return { updated: false, allCompleted: true };
   }
 
-  let anyUpdated = false;
-  const updatedGoals = data.goals.map(goal => {
-    if (goal.type !== goalType) return goal;
-    if (goal.completed) return goal;
-
-    // Check extra params (e.g., targetDifficulty must match)
-    if (goal.targetDifficulty && params.targetDifficulty !== goal.targetDifficulty) {
-      return goal;
+  let result: GoalProgressResult = { updated: false, allCompleted: false };
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(goalsRef);
+    if (!snapshot.exists()) {
+      result = { updated: false, allCompleted: false };
+      return;
     }
 
-    const updated = { ...goal };
+    const data = snapshot.data() as DailyGoalsDoc;
 
-    if (goal.isThreshold) {
-      // Threshold: track the best single value
-      updated.current = Math.max(goal.current, value);
-    } else {
-      // Counter: accumulate
-      updated.current = goal.current + value;
+    // Don't update stale goals
+    if (data.date !== today) {
+      result = { updated: false, allCompleted: false };
+      return;
     }
 
-    if (updated.current >= goal.target) {
-      updated.completed = true;
+    // Already all completed + bonus awarded — no further updates needed
+    if (data.allCompleted && data.bonusXpAwarded) {
+      result = { updated: false, allCompleted: true };
+      return;
     }
 
-    anyUpdated = true;
-    return updated;
+    let anyUpdated = false;
+    const updatedGoals = data.goals.map(goal => {
+      if (goal.type !== goalType) return goal;
+      if (goal.completed) return goal;
+
+      // Check extra params (e.g., targetDifficulty must match)
+      if (goal.targetDifficulty && params.targetDifficulty !== goal.targetDifficulty) {
+        return goal;
+      }
+
+      const updated = { ...goal };
+
+      if (goal.isThreshold) {
+        // Threshold: track the best single value
+        updated.current = Math.max(goal.current, value);
+      } else {
+        // Counter: accumulate
+        updated.current = goal.current + value;
+      }
+
+      if (updated.current >= goal.target) {
+        updated.completed = true;
+      }
+
+      anyUpdated = true;
+      return updated;
+    });
+
+    if (!anyUpdated) {
+      result = { updated: false, allCompleted: data.allCompleted };
+      return;
+    }
+
+    const allCompleted = updatedGoals.every(g => g.completed);
+    const updatePayload: Record<string, unknown> = {
+      goals: updatedGoals,
+      allCompleted,
+    };
+
+    if (allCompleted && !data.allCompleted) {
+      updatePayload.completedAt = serverTimestamp();
+    }
+
+    transaction.update(goalsRef, updatePayload);
+    result = { updated: true, allCompleted };
   });
 
-  if (!anyUpdated) {
-    return { updated: false, allCompleted: data.allCompleted };
-  }
-
-  const allCompleted = updatedGoals.every(g => g.completed);
-
-  const updatePayload: Record<string, unknown> = {
-    goals: updatedGoals,
-    allCompleted,
-  };
-
-  if (allCompleted && !data.allCompleted) {
-    updatePayload.completedAt = serverTimestamp();
-  }
-
-  await updateDoc(goalsRef, updatePayload);
-
-  return {
-    updated: true,
-    allCompleted,
-  };
+  return result;
 }
 
 /**

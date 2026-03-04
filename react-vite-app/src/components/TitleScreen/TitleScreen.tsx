@@ -10,10 +10,11 @@ export interface TitleScreenProps {
   onOpenLeaderboard: () => void;
   onOpenBugReport: () => void;
   onOpenDailyGoals: () => void;
+  onOpenAchievements: () => void;
   isLoading: boolean;
 }
 
-function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, onOpenBugReport, onOpenDailyGoals, isLoading }: TitleScreenProps): React.ReactElement {
+function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, onOpenBugReport, onOpenDailyGoals, onOpenAchievements, isLoading }: TitleScreenProps): React.ReactElement {
   const { userDoc, logout, levelInfo, levelTitle: _levelTitle } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -47,7 +48,17 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
             aria-expanded={userMenuOpen}
             aria-haspopup="true"
           >
-            <span className="title-user-icon">👤</span>
+            <span className="title-user-avatar">
+              {userDoc?.photoURL ? (
+                <img
+                  className="title-user-avatar-image"
+                  src={userDoc.photoURL}
+                  alt={`${userDoc.username || 'User'}'s profile`}
+                />
+              ) : (
+                <span className="title-user-avatar-icon" aria-hidden="true">👤</span>
+              )}
+            </span>
             <span className="title-username">{userDoc?.username}</span>
             <span className="title-level-badge">Lvl {levelInfo.level}</span>
             <span className={`title-user-chevron ${userMenuOpen ? 'open' : ''}`}>▾</span>
@@ -59,6 +70,9 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
               </button>
               <button className="title-dropdown-item" onClick={() => { onOpenFriends(); setUserMenuOpen(false); }}>
                 Friends
+              </button>
+              <button className="title-dropdown-item" onClick={() => { onOpenAchievements(); setUserMenuOpen(false); }}>
+                Achievements
               </button>
               <button className="title-dropdown-item" onClick={() => { onOpenDailyGoals(); setUserMenuOpen(false); }}>
                 Daily Goals
@@ -86,9 +100,13 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
       </div>
       <div className="title-content">
         <div className="logo-container">
-          <span className="logo-icon">🌍</span>
+          <img className="logo-crest" src="/Crest.png" alt="Harvard-Westlake Crest" />
         </div>
-        <h1 className="game-title">HW Geoguessr</h1>
+        <h1 className="game-title">
+          <span className="game-title-initial game-title-initial-h">H</span>
+          <span className="game-title-initial game-title-initial-w">W</span>
+          <span className="game-title-rest"> Geoguessr</span>
+        </h1>
         <p className="tagline">Can you guess the location on campus?</p>
 
         <button

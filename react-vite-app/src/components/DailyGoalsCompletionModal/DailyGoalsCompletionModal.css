@@ -1,0 +1,107 @@
+/* ===== Daily Goals Completion Modal – HW Design System ===== */
+
+.daily-goals-reward-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(35, 31, 32, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.daily-goals-reward-modal {
+  position: relative;
+  width: min(92vw, 440px);
+  border-radius: 0;
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  background: var(--hw-surface, #ffffff);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  padding: 1.8rem 1.4rem 1.4rem;
+  text-align: center;
+}
+
+.daily-goals-reward-icon {
+  font-size: 2.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.daily-goals-reward-modal h2 {
+  margin: 0 0 0.4rem;
+  color: var(--hw-black, #231f20);
+  font-size: 1.45rem;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
+}
+
+.daily-goals-reward-modal p {
+  margin: 0 0 1.2rem;
+  color: var(--text-secondary, #4b5563);
+  font-size: 0.95rem;
+}
+
+.daily-goals-reward-collect-btn {
+  border: none;
+  border-radius: 0;
+  padding: 0.78rem 1.2rem;
+  min-width: 220px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
+  color: #ffffff;
+  background: var(--hw-gold, #f0b323);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.daily-goals-reward-collect-btn:hover:not(:disabled) {
+  background: #d9a020;
+}
+
+.daily-goals-reward-collect-btn:disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.daily-goals-reward-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b7280);
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.daily-goals-reward-close:hover {
+  color: var(--hw-black, #231f20);
+}
+
+.daily-goals-reward-confetti {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.daily-goals-confetti-piece {
+  position: absolute;
+  top: -12px;
+  width: 8px;
+  height: 14px;
+  border-radius: 0;
+  animation: daily-goals-confetti-fall 2.2s linear forwards;
+}
+
+@keyframes daily-goals-confetti-fall {
+  0% {
+    transform: translateY(-10px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(105vh) rotate(500deg);
+    opacity: 0.05;
+  }
+}

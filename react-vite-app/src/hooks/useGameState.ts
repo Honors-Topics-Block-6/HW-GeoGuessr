@@ -1,11 +1,20 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getRandomImage, type GameImage as ServiceGameImage } from '../services/imageService';
-import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea } from '../services/regionService';
+import { getRegions, getFloorsForPoint, getPlayingArea, isPointInPlayingArea, getRegionForPoint } from '../services/regionService';
+import { STARTING_HEALTH } from '../services/duelService';
 
-const TOTAL_ROUNDS = 5;
+const DEFAULT_TOTAL_ROUNDS = 5;
+const ALLOWED_TOTAL_ROUNDS = [5, 10, 20] as const;
+type TotalRounds = (typeof ALLOWED_TOTAL_ROUNDS)[number];
+
+function coerceTotalRounds(value: unknown): TotalRounds {
+  if (ALLOWED_TOTAL_ROUNDS.includes(value as TotalRounds)) return value as TotalRounds;
+  return DEFAULT_TOTAL_ROUNDS;
+}
 const EXACT_SPOT_BONUS_POINTS = 500;
 const EXACT_SPOT_MAX_DISTANCE = 1; // map units (~2 ft)
 const MAX_SCORE_PER_ROUND = 5500; // 5000 location + 500 exact-spot bonus
+/** Default round time (used when no custom setting is provided). */
 export const ROUND_TIME_SECONDS = 20;
 const SINGLEPLAYER_SEEN_HISTORY_KEY = 'singleplayerSeenImageHistory.v1';
 
@@ -33,6 +42,8 @@ export interface PlayingArea {
 export interface RoundResult {
   roundNumber: number;
   imageUrl: string;
+  imageBuildingName?: string | null;
+  imageDescription?: string | null;
   guessLocation: MapCoords | null;
   actualLocation: MapCoords;
   guessFloor: number | null;
@@ -45,9 +56,10 @@ export interface RoundResult {
   timeTakenSeconds: number;
   timedOut: boolean;
   noGuess?: boolean;
+  hpLost?: number;
 }
 
-export type ScreenState = 'title' | 'game' | 'result' | 'finalResults' | 'multiplayerLobby' | 'waitingRoom' | 'difficultySelect' | 'duelGame';
+export type ScreenState = 'title' | 'modeSelect' | 'game' | 'result' | 'finalResults' | 'multiplayerLobby' | 'waitingRoom' | 'difficultySelect' | 'duelGame';
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'all' | null;
 export type GameMode = 'singleplayer' | 'multiplayer' | null;
 
@@ -71,10 +83,19 @@ export interface UseGameStateReturn {
   difficulty: Difficulty;
   mode: GameMode;
   lobbyDocId: string | null;
+  isEndlessMode: boolean;
+  currentHp: number;
+  startingHp: number;
 
   // Actions
   setScreen: React.Dispatch<React.SetStateAction<ScreenState>>;
-  startGame: (selectedDifficulty: string, selectedMode?: string) => Promise<void>;
+  startGame: (
+    selectedDifficulty: string,
+    selectedMode?: string,
+    singleplayerVariant?: 'classic' | 'endless',
+    roundTimeSetting?: number,
+    totalRoundsSetting?: number
+  ) => Promise<void>;
   placeMarker: (coords: MapCoords) => boolean;
   selectFloor: (floor: number) => void;
   submitGuess: () => void;
@@ -119,11 +140,22 @@ export function calculateLocationScore(distance: number): number {
  * Handles screen transitions, image loading, multi-round tracking, and scoring
  */
 export function useGameState(): UseGameStateReturn {
+  const getImageBuildingName = (image: GameImage): string | null => {
+    const legacyImage = image as GameImage & { building?: string | null };
+    const buildingValue = image.buildingName ?? legacyImage.building;
+    if (typeof buildingValue !== 'string') return null;
+    const trimmed = buildingValue.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
   // Current screen: 'title', 'game', 'result', or 'finalResults'
   const [screen, setScreen] = useState<ScreenState>('title');
 
   // Current round number (1-5)
   const [currentRound, setCurrentRound] = useState<number>(1);
+
+  // Total rounds for this singleplayer game (5/10/20)
+  const [totalRounds, setTotalRounds] = useState<TotalRounds>(DEFAULT_TOTAL_ROUNDS);
 
   // Current image being shown
   const [currentImage, setCurrentImage] = useState<GameImage | null>(null);
@@ -160,6 +192,9 @@ export function useGameState(): UseGameStateReturn {
   // Available floors based on selected location (null if not in a region)
   const [availableFloors, setAvailableFloors] = useState<number[] | null>(null);
 
+  // Configurable round time (0 = no time limit). Defaults to ROUND_TIME_SECONDS.
+  const [roundTimeSetting, setRoundTimeSetting] = useState<number>(ROUND_TIME_SECONDS);
+
   // Round timer state (seconds remaining in this guessing phase)
   const [timeRemaining, setTimeRemaining] = useState<number>(ROUND_TIME_SECONDS);
   const [roundStartTime, setRoundStartTime] = useState<number | null>(null);
@@ -176,6 +211,10 @@ export function useGameState(): UseGameStateReturn {
 
   // Current lobby document ID (when in multiplayer)
   const [lobbyDocId, setLobbyDocId] = useState<string | null>(null);
+
+  // Endless mode: HP-based, continues until HP = 0
+  const [isEndlessMode, setIsEndlessMode] = useState<boolean>(false);
+  const [currentHp, setCurrentHp] = useState<number>(STARTING_HEALTH);
 
   // Load regions and playing area on mount
   useEffect(() => {
@@ -254,11 +293,14 @@ export function useGameState(): UseGameStateReturn {
         excludeImageIds: excludeIds,
         excludeImageUrls: excludeUrls
       });
-      if (!image) {
+      // Fall back to no excludes when: we didn't exclude anything, OR endless mode (allow repeats)
+      if (!image && (excludeIds.length === 0 && excludeUrls.length === 0 || isEndlessMode)) {
         image = await getRandomImage(difficulty);
       }
       if (!image) {
-        setError('No approved images are available yet.');
+        setError(excludeIds.length > 0 && excludeUrls.length > 0 && !isEndlessMode
+          ? 'No more unique images for this game. Try again with a different difficulty.'
+          : 'No approved images are available yet.');
         setCurrentImage(null);
         return false;
       }
@@ -282,13 +324,26 @@ export function useGameState(): UseGameStateReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [difficulty, usedImageIds, usedImageUrls, trackSeenImage]);
+  }, [difficulty, usedImageIds, usedImageUrls, trackSeenImage, isEndlessMode]);
 
   /**
    * Start a new game - reset everything and fetch first image
    */
-  const startGame = useCallback(async (selectedDifficulty: string, selectedMode: string = 'singleplayer'): Promise<void> => {
+  const startGame = useCallback(async (
+    selectedDifficulty: string,
+    selectedMode: string = 'singleplayer',
+    singleplayerVariant: 'classic' | 'endless' = 'classic',
+    roundTimeSeconds?: number,
+    totalRoundsSetting?: number
+  ): Promise<void> => {
+    const endless = selectedMode === 'singleplayer' && singleplayerVariant === 'endless';
+    const effectiveRoundTime = roundTimeSeconds ?? ROUND_TIME_SECONDS;
+    const effectiveTotalRounds: TotalRounds =
+      selectedMode === 'singleplayer' && !endless
+        ? coerceTotalRounds(totalRoundsSetting ?? DEFAULT_TOTAL_ROUNDS)
+        : DEFAULT_TOTAL_ROUNDS;
     setCurrentRound(1);
+    setTotalRounds(effectiveTotalRounds);
     setRoundResults([]);
     setCurrentResult(null);
     setDifficulty(selectedDifficulty as Difficulty);
@@ -296,6 +351,9 @@ export function useGameState(): UseGameStateReturn {
     setLobbyDocId(null);
     setUsedImageIds([]);
     setUsedImageUrls([]);
+    setIsEndlessMode(endless);
+    setCurrentHp(STARTING_HEALTH);
+    setRoundTimeSetting(effectiveRoundTime);
 
     // Multiplayer: go to lobby screen instead of starting a game
     if (selectedMode === 'multiplayer') {
@@ -337,8 +395,9 @@ export function useGameState(): UseGameStateReturn {
       setGuessLocation(null);
       setGuessFloor(null);
       setAvailableFloors(null);
-      setTimeRemaining(ROUND_TIME_SECONDS);
-      setRoundStartTime(performance.now());
+      // Only start the timer if there IS a time limit (> 0)
+      setTimeRemaining(effectiveRoundTime > 0 ? effectiveRoundTime : 0);
+      setRoundStartTime(effectiveRoundTime > 0 ? performance.now() : null);
       setScreen('game');
     } catch (err) {
       console.error('Failed to start game:', err);
@@ -350,17 +409,20 @@ export function useGameState(): UseGameStateReturn {
 
   /**
    * Timer effect for each guessing phase.
-   * Counts down from ROUND_TIME_SECONDS while on the game screen.
+   * Counts down from roundTimeSetting while on the game screen.
+   * Skipped entirely when roundTimeSetting === 0 (no time limit).
    * When the timer expires, automatically submits the current guess (if valid).
    */
   useEffect(() => {
+    // No timer when there's no time limit
+    if (roundTimeSetting === 0) return;
     if (screen !== 'game' || !roundStartTime) {
       return;
     }
 
     const interval = setInterval(() => {
       const elapsedSeconds = (performance.now() - roundStartTime) / 1000;
-      const remaining = Math.max(0, ROUND_TIME_SECONDS - elapsedSeconds);
+      const remaining = Math.max(0, roundTimeSetting - elapsedSeconds);
       setTimeRemaining(remaining);
 
       if (remaining <= 0) {
@@ -369,7 +431,7 @@ export function useGameState(): UseGameStateReturn {
     }, 50);
 
     return () => clearInterval(interval);
-  }, [screen, roundStartTime]);
+  }, [screen, roundStartTime, roundTimeSetting]);
 
   /**
    * Place a marker on the map
@@ -435,19 +497,21 @@ export function useGameState(): UseGameStateReturn {
     // Track how long the guess took (for display only — no effect on scoring)
     let timeTakenSeconds = 0;
     if (roundStartTime) {
-      timeTakenSeconds = Math.min(
-        ROUND_TIME_SECONDS,
-        (performance.now() - roundStartTime) / 1000
-      );
+      const elapsed = (performance.now() - roundStartTime) / 1000;
+      timeTakenSeconds = roundTimeSetting > 0 ? Math.min(roundTimeSetting, elapsed) : elapsed;
     }
 
-    // Floor scoring only applies when in a region AND the photo has a floor set
+    // Floor scoring only applies when in a region AND the photo has a floor set.
+    // A floor is only "correct" when BOTH building (region) and floor match.
     let floorCorrect: boolean | null = null;
     let exactSpotBonus = 0;
     let totalScore = locationScore;
 
     if (isInRegion && guessFloor !== null && actualFloor !== null) {
-      floorCorrect = guessFloor === actualFloor;
+      const guessedRegion = getRegionForPoint(guessLocation, regions);
+      const actualRegion = getRegionForPoint(actualLocation, regions);
+      const isCorrectBuilding = guessedRegion !== null && actualRegion !== null && guessedRegion.id === actualRegion.id;
+      floorCorrect = isCorrectBuilding && guessFloor === actualFloor;
       // Multiply by 0.8 for incorrect floor instead of bonus system
       totalScore = floorCorrect
         ? locationScore
@@ -460,10 +524,18 @@ export function useGameState(): UseGameStateReturn {
       }
     }
 
+    // Endless mode: compute HP damage (5000 - score, clamped 0-5000)
+    const hpLost = isEndlessMode ? Math.max(0, Math.min(5000, 5000 - totalScore)) : undefined;
+    if (isEndlessMode && hpLost !== undefined) {
+      setCurrentHp(prev => Math.max(0, prev - hpLost));
+    }
+
     // Create result object
     const result: RoundResult = {
       roundNumber: currentRound,
       imageUrl: currentImage.url,
+      imageBuildingName: getImageBuildingName(currentImage),
+      imageDescription: currentImage.description ?? null,
       guessLocation,
       actualLocation,
       guessFloor,
@@ -474,7 +546,8 @@ export function useGameState(): UseGameStateReturn {
       exactSpotBonus,
       score: totalScore,
       timeTakenSeconds,
-      timedOut: timedOutRef.current
+      timedOut: timedOutRef.current,
+      hpLost
     };
 
     timedOutRef.current = false;
@@ -485,7 +558,7 @@ export function useGameState(): UseGameStateReturn {
 
     // Show result screen
     setScreen('result');
-  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime]);
+  }, [guessLocation, guessFloor, availableFloors, currentImage, currentRound, roundStartTime, roundTimeSetting, regions, isEndlessMode]);
 
   const submitGuessRef = useRef<() => void>(submitGuess);
   submitGuessRef.current = submitGuess;
@@ -494,8 +567,10 @@ export function useGameState(): UseGameStateReturn {
    * When the timer hits zero on the game screen, automatically submit.
    * If there is a valid guess, submit it as a timeout-based submission.
    * If there is no guess at all, go to results with a zero-score "no guess" result.
+   * Skipped when roundTimeSetting === 0 (no time limit).
    */
   useEffect(() => {
+    if (roundTimeSetting === 0) return; // No auto-submit for unlimited time
     if (screen !== 'game') return;
     if (timeRemaining > 0) return;
     if (!currentImage) return;
@@ -512,9 +587,17 @@ export function useGameState(): UseGameStateReturn {
       const actualLocation: MapCoords = currentImage.correctLocation || { x: 50, y: 50 };
       const actualFloor: number | null = currentImage.correctFloor ?? null;
 
+      // Endless mode: no guess = full 5000 damage
+      const hpLost = 5000;
+      if (isEndlessMode) {
+        setCurrentHp(prev => Math.max(0, prev - hpLost));
+      }
+
       const result: RoundResult = {
         roundNumber: currentRound,
         imageUrl: currentImage.url,
+        imageBuildingName: getImageBuildingName(currentImage),
+        imageDescription: currentImage.description ?? null,
         guessLocation: null,
         actualLocation,
         guessFloor: null,
@@ -524,34 +607,40 @@ export function useGameState(): UseGameStateReturn {
         floorCorrect: null,
         exactSpotBonus: 0,
         score: 0,
-        timeTakenSeconds: ROUND_TIME_SECONDS,
+        timeTakenSeconds: roundTimeSetting,
         timedOut: true,
-        noGuess: true
+        noGuess: true,
+        hpLost: isEndlessMode ? hpLost : undefined
       };
 
       setCurrentResult(result);
       setRoundResults(prev => [...prev, result]);
       setScreen('result');
     }
-  }, [screen, timeRemaining, availableFloors, guessLocation, guessFloor, currentImage, currentRound]);
+  }, [screen, timeRemaining, availableFloors, guessLocation, guessFloor, currentImage, currentRound, isEndlessMode]);
 
   /**
    * Proceed to the next round
    */
   const nextRound = useCallback(async (): Promise<void> => {
-    if (currentRound >= TOTAL_ROUNDS) {
-      // Show final results
+    // Endless mode: game over when HP reaches 0
+    if (isEndlessMode) {
+      if (currentHp <= 0) {
+        setScreen('finalResults');
+        return;
+      }
+    } else if (currentRound >= totalRounds) {
       setScreen('finalResults');
       return;
     }
 
+    // Exclude only images already used in this game (no repeats within same game).
+    // Do not exclude seen refs here — images may repeat across different games.
     const excludeIds = Array.from(new Set([
-      ...seenImageIdsRef.current,
       ...usedImageIds,
       ...(currentImage?.id ? [currentImage.id] : [])
     ]));
     const excludeUrls = Array.from(new Set([
-      ...seenImageUrlsRef.current,
       ...usedImageUrls,
       ...(currentImage?.url ? [currentImage.url] : [])
     ]));
@@ -560,10 +649,10 @@ export function useGameState(): UseGameStateReturn {
 
     setCurrentRound(prev => prev + 1);
     setCurrentResult(null);
-    setTimeRemaining(ROUND_TIME_SECONDS);
-    setRoundStartTime(performance.now());
+    setTimeRemaining(roundTimeSetting > 0 ? roundTimeSetting : 0);
+    setRoundStartTime(roundTimeSetting > 0 ? performance.now() : null);
     setScreen('game');
-  }, [currentRound, currentImage?.id, currentImage?.url, usedImageIds, usedImageUrls, loadNewImage]);
+  }, [currentRound, totalRounds, currentHp, isEndlessMode, currentImage?.id, currentImage?.url, usedImageIds, usedImageUrls, loadNewImage, roundTimeSetting]);
 
   /**
    * View final results (called from last round's result screen)
@@ -578,6 +667,7 @@ export function useGameState(): UseGameStateReturn {
   const resetGame = useCallback((): void => {
     setScreen('title');
     setCurrentRound(1);
+    setTotalRounds(DEFAULT_TOTAL_ROUNDS);
     setCurrentImage(null);
     setGuessLocation(null);
     setGuessFloor(null);
@@ -587,18 +677,21 @@ export function useGameState(): UseGameStateReturn {
     setError(null);
     setTimeRemaining(ROUND_TIME_SECONDS);
     setRoundStartTime(null);
+    setRoundTimeSetting(ROUND_TIME_SECONDS);
     setDifficulty(null);
     setMode(null);
     setLobbyDocId(null);
     setUsedImageIds([]);
     setUsedImageUrls([]);
+    setIsEndlessMode(false);
+    setCurrentHp(STARTING_HEALTH);
   }, []);
 
   return {
     // State
     screen,
     currentRound,
-    totalRounds: TOTAL_ROUNDS,
+    totalRounds,
     currentImage,
     guessLocation,
     guessFloor,
@@ -610,10 +703,13 @@ export function useGameState(): UseGameStateReturn {
     clickRejected,
     playingArea,
     timeRemaining,
-    roundTimeSeconds: ROUND_TIME_SECONDS,
+    roundTimeSeconds: roundTimeSetting,
     difficulty,
     mode,
     lobbyDocId,
+    isEndlessMode,
+    currentHp,
+    startingHp: STARTING_HEALTH,
 
     // Actions
     setScreen,

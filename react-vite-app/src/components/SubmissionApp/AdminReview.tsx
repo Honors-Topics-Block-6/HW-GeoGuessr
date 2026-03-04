@@ -78,11 +78,16 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     const q = query(collection(db, 'submissions'), orderBy('createdAt', 'desc'))
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const subs: SubmissionItem[] = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-        _source: 'submission' as SubmissionSource
-      } as SubmissionItem))
+      const subs: SubmissionItem[] = snapshot.docs.map(docSnap => {
+        const data = docSnap.data() as SubmissionItem & { building?: string | null };
+        const normalizedBuilding = (data.building || data.buildingName || '').trim() || null;
+        return {
+          ...data,
+          id: docSnap.id,
+          buildingName: normalizedBuilding,
+          _source: 'submission' as SubmissionSource
+        } as SubmissionItem;
+      })
       setSubmissions(subs)
       setLoading(false)
     }, (error) => {
@@ -205,10 +210,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       setSaveError('Location is required')
       return
     }
-    if (editForm.floor === null || editForm.floor === undefined) {
-      setSaveError('Floor is required')
-      return
-    }
 
     setIsSaving(true)
     setSaveError('')
@@ -222,25 +223,32 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       }
 
       if (selectedSubmission?._source === 'submission') {
-        await updateDoc(doc(db, 'submissions', selectedSubmission.id), {
+        const normalizedBuilding = (editForm.buildingName || '').trim() || null;
+        const updateData: Record<string, unknown> = {
           description: editForm.description,
           photoName: editForm.photoName,
-          buildingName: (editForm.buildingName || '').trim() || null,
+          buildingName: normalizedBuilding,
           location: editForm.location,
-          floor: editForm.floor,
           difficulty: editForm.difficulty || null,
           status: editForm.status,
           photoURL: photoURL,
-        })
+        };
+        if (editForm.floor !== undefined) {
+          updateData.floor = editForm.floor;
+        }
+        await updateDoc(doc(db, 'submissions', selectedSubmission.id), updateData)
         // Real-time listener will auto-update submissions state
       } else if (selectedSubmission?._source === 'image') {
-        await updateDoc(doc(db, 'images', selectedSubmission.id), {
+        const updateData: Record<string, unknown> = {
           description: editForm.description,
           correctLocation: editForm.location,
-          correctFloor: editForm.floor,
           difficulty: editForm.difficulty || null,
           url: photoURL,
-        })
+        };
+        if (editForm.floor !== undefined) {
+          updateData.correctFloor = editForm.floor;
+        }
+        await updateDoc(doc(db, 'images', selectedSubmission.id), updateData)
         // Manually update firestoreImages state (no real-time listener)
         setFirestoreImages(prev => prev.map(img =>
           img.id === selectedSubmission.id

@@ -49,7 +49,7 @@ describe('GameScreen', () => {
     it('should render round badge', () => {
       render(<GameScreen {...defaultProps} currentRound={3} totalRounds={5} />);
 
-      expect(screen.getByText('3 / 5')).toBeInTheDocument();
+      expect(screen.getByText('Round 3 / 5')).toBeInTheDocument();
     });
   });
 
@@ -57,28 +57,28 @@ describe('GameScreen', () => {
     it('should show current round number', () => {
       render(<GameScreen {...defaultProps} currentRound={2} totalRounds={5} />);
 
-      expect(screen.getByText('2 / 5')).toBeInTheDocument();
+      expect(screen.getByText('Round 2 / 5')).toBeInTheDocument();
     });
 
     it('should update when round changes', () => {
       const { rerender } = render(<GameScreen {...defaultProps} currentRound={1} />);
 
-      expect(screen.getByText('1 / 5')).toBeInTheDocument();
+      expect(screen.getByText('Round 1 / 5')).toBeInTheDocument();
 
       rerender(<GameScreen {...defaultProps} currentRound={4} />);
 
-      expect(screen.getByText('4 / 5')).toBeInTheDocument();
+      expect(screen.getByText('Round 4 / 5')).toBeInTheDocument();
     });
 
     it('should use default values if not provided', () => {
       render(<GameScreen {...defaultProps} currentRound={undefined as unknown as number} totalRounds={undefined as unknown as number} />);
 
-      expect(screen.getByText('1 / 5')).toBeInTheDocument();
+      expect(screen.getByText('Round 1 / 5')).toBeInTheDocument();
     });
   });
 
   describe('back button', () => {
-    it('should call onBackToTitle when clicked', async () => {
+    it('should open confirmation modal when Back clicked', async () => {
       const user = userEvent.setup();
       const onBackToTitle = vi.fn();
 
@@ -86,7 +86,33 @@ describe('GameScreen', () => {
 
       await user.click(screen.getByText('Back'));
 
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Leave Game?')).toBeInTheDocument();
+      expect(onBackToTitle).not.toHaveBeenCalled();
+    });
+
+    it('should call onBackToTitle when Leave Game confirmed in modal', async () => {
+      const user = userEvent.setup();
+      const onBackToTitle = vi.fn();
+
+      render(<GameScreen {...defaultProps} onBackToTitle={onBackToTitle} />);
+
+      await user.click(screen.getByText('Back'));
+      await user.click(screen.getByText('Leave Game'));
+
       expect(onBackToTitle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not call onBackToTitle when Cancel clicked in modal', async () => {
+      const user = userEvent.setup();
+      const onBackToTitle = vi.fn();
+
+      render(<GameScreen {...defaultProps} onBackToTitle={onBackToTitle} />);
+
+      await user.click(screen.getByText('Back'));
+      await user.click(screen.getByText('Cancel'));
+
+      expect(onBackToTitle).not.toHaveBeenCalled();
     });
   });
 

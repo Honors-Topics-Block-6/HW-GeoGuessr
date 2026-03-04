@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
   background-color: var(--bg-dark);
 }
 
@@ -12,7 +12,7 @@
   align-items: center;
   gap: 1rem;
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(180deg, rgba(15, 15, 35, 0.95) 0%, rgba(12, 12, 15, 0.9) 100%);
+  background: var(--hw-surface);
   border-bottom: 1px solid var(--border-color);
   z-index: 10;
 }
@@ -38,6 +38,9 @@
   color: var(--text-primary);
   white-space: nowrap;
   min-width: 80px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .duel-health-left .duel-health-name {
@@ -51,27 +54,25 @@
 .duel-health-bar {
   flex: 1;
   height: 14px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 7px;
+  background: var(--hw-gray-200, #e5e7eb);
+  border-radius: 0;
   overflow: hidden;
   position: relative;
 }
 
 .duel-health-fill {
   height: 100%;
-  border-radius: 7px;
+  border-radius: 0;
   transition: width 0.8s ease-out;
   position: relative;
 }
 
 .duel-health-fill-green {
-  background: linear-gradient(90deg, #4a9c20 0%, #6cb52d 100%);
-  box-shadow: 0 0 8px rgba(108, 181, 45, 0.4);
+  background: var(--hw-red);
 }
 
 .duel-health-fill-red {
-  background: linear-gradient(90deg, #c0392b 0%, #e74c3c 100%);
-  box-shadow: 0 0 8px rgba(231, 76, 60, 0.4);
+  background: var(--hw-gray-500, #6b7280);
 }
 
 .duel-health-fill.critical {
@@ -84,12 +85,44 @@
 }
 
 .duel-health-value {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--hw-font-sans), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-secondary);
   min-width: 50px;
   text-align: center;
+}
+
+.duel-active-emote {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 0;
+  font-size: 1rem;
+  line-height: 1;
+  background: var(--hw-gray-100, #f3f4f6);
+  border: 1px solid var(--border-color);
+  animation: duelEmotePop 220ms ease-out, duelEmoteBob 1s ease-in-out infinite;
+}
+
+.duel-active-emote-self {
+  box-shadow: 0 2px 8px rgba(200, 16, 46, 0.15);
+}
+
+.duel-active-emote-opponent {
+  box-shadow: 0 2px 8px rgba(75, 85, 99, 0.15);
+}
+
+@keyframes duelEmotePop {
+  from { transform: scale(0.55); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes duelEmoteBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }
 
 .duel-round-badge-center {
@@ -98,9 +131,9 @@
   align-items: center;
   gap: 0.1rem;
   padding: 0.3rem 1rem;
-  background: rgba(108, 181, 45, 0.1);
-  border: 1px solid rgba(108, 181, 45, 0.3);
-  border-radius: 12px;
+  background: rgba(200, 16, 46, 0.06);
+  border: 1px solid rgba(200, 16, 46, 0.2);
+  border-radius: 0;
   min-width: 60px;
 }
 
@@ -114,7 +147,7 @@
 .duel-round-number {
   font-size: 1.4rem;
   font-weight: 800;
-  color: var(--accent-green);
+  color: var(--hw-red);
 }
 
 /* ── Main Game Layout ── */
@@ -135,7 +168,7 @@
   flex: 3;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-panel);
+  background-color: var(--hw-surface);
   min-width: 320px;
   max-width: 400px;
   position: relative;
@@ -176,7 +209,7 @@
 
 .duel-waiting-sub {
   font-size: 0.85rem;
-  color: var(--accent-green);
+  color: var(--hw-red);
   font-weight: 500;
 }
 
@@ -188,7 +221,7 @@
 .duel-dot {
   width: 8px;
   height: 8px;
-  background: var(--accent-green);
+  background: var(--hw-red);
   border-radius: 50%;
   animation: duelDotBounce 1.4s ease-in-out infinite;
 }
@@ -202,14 +235,49 @@
   40% { opacity: 1; transform: translateY(-6px); }
 }
 
+.duel-emote-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0 1rem 0.9rem;
+  padding: 0.5rem;
+  background: var(--hw-gray-100, #f3f4f6);
+  border: 1px solid var(--border-color);
+  border-radius: 0;
+}
+
+.duel-emote-button {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0;
+  background: var(--hw-surface);
+  color: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.duel-emote-button:hover {
+  transform: translateY(-1px);
+  background: rgba(200, 16, 46, 0.06);
+  border-color: rgba(200, 16, 46, 0.4);
+}
+
+.duel-emote-button:active {
+  transform: scale(0.95);
+}
+
 /* ── Opponent guessed indicator ── */
 .duel-opponent-guessed {
   padding: 0.6rem 1rem;
   margin: 0 1rem 1rem;
-  background: rgba(108, 181, 45, 0.1);
-  border: 1px solid rgba(108, 181, 45, 0.3);
-  border-radius: 8px;
-  color: var(--accent-green);
+  background: rgba(200, 16, 46, 0.06);
+  border: 1px solid rgba(200, 16, 46, 0.2);
+  border-radius: 0;
+  color: var(--hw-red);
   font-size: 0.85rem;
   font-weight: 600;
   text-align: center;

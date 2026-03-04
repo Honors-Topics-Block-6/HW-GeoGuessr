@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
+import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
 import './ResultScreen.css';
 
 export interface MapPoint {
@@ -25,6 +26,11 @@ export interface ResultScreenProps {
   onNextRound: () => void;
   onViewFinalResults: () => void;
   isLastRound: boolean;
+  onBackToTitle?: () => void;
+  isEndlessMode?: boolean;
+  currentHp?: number;
+  maxHp?: number;
+  hpLost?: number;
 }
 
 /**
@@ -120,7 +126,12 @@ function ResultScreen({
   totalRounds,
   onNextRound,
   onViewFinalResults,
-  isLastRound
+  isLastRound,
+  onBackToTitle,
+  isEndlessMode = false,
+  currentHp = 6000,
+  maxHp = 6000,
+  hpLost
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
@@ -129,6 +140,7 @@ function ResultScreen({
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [displayedScore, setDisplayedScore] = useState<number>(0);
   const [imageFit, setImageFit] = useState<ImageFit>({ offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 });
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Sync map container height to match the details panel height
   useEffect(() => {
@@ -262,7 +274,7 @@ function ResultScreen({
       {/* Top section - Round info and score */}
       <div className="result-header">
         <div className="round-indicator">
-          Round {roundNumber} of {totalRounds}
+          {isEndlessMode ? `Round ${roundNumber}` : `Round ${roundNumber} of ${totalRounds}`}
         </div>
         <div className={`score-display ${animationPhase >= 3 ? 'visible' : ''}`}>
           <span className="score-label">Score</span>
@@ -270,6 +282,23 @@ function ResultScreen({
           <span className="score-max">/ 5,500</span>
         </div>
       </div>
+
+      {isEndlessMode && (
+        <div className="result-hp-section">
+          <div className="result-hp-bar">
+            <div
+              className={`result-hp-fill ${(currentHp / maxHp) * 100 <= 25 ? 'critical' : ''}`}
+              style={{ width: `${Math.max(0, (currentHp / maxHp) * 100)}%` }}
+            />
+          </div>
+          <div className="result-hp-info">
+            <span className="result-hp-value">{currentHp.toLocaleString()} HP</span>
+            {hpLost !== undefined && hpLost > 0 && (
+              <span className="result-hp-lost">-{hpLost.toLocaleString()} HP</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {noGuess ? (
         <div className="result-banner timeout-banner">
@@ -458,25 +487,46 @@ function ResultScreen({
             </div>
           </div>
 
-          <button
-            className="next-round-button"
-            onClick={isLastRound ? onViewFinalResults : onNextRound}
-          >
-            {isLastRound ? 'View Final Results' : 'Next Round'}
-            <span className="button-arrow">→</span>
-          </button>
+          <div className="result-actions">
+            <button
+              className="next-round-button"
+              onClick={isLastRound ? onViewFinalResults : onNextRound}
+            >
+              {isLastRound ? 'View Final Results' : 'Next Round'}
+              <span className="button-arrow">→</span>
+            </button>
+            {onBackToTitle && (
+              <button className="leave-game-button" onClick={() => setShowLeaveConfirm(true)}>
+                <span className="button-icon">←</span>
+                Leave Game
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="round-progress">
-        {[...Array(totalRounds)].map((_, i) => (
-          <div
-            key={i}
-            className={`progress-dot ${i < roundNumber ? 'completed' : ''} ${i === roundNumber - 1 ? 'current' : ''}`}
-          />
-        ))}
-      </div>
+      {showLeaveConfirm && onBackToTitle && (
+        <LeaveConfirmModal
+          onConfirm={() => {
+            setShowLeaveConfirm(false);
+            onBackToTitle();
+          }}
+          onCancel={() => setShowLeaveConfirm(false)}
+          isDuel={false}
+        />
+      )}
+
+      {/* Progress bar - hidden in endless mode */}
+      {!isEndlessMode && (
+        <div className="round-progress">
+          {[...Array(totalRounds)].map((_, i) => (
+            <div
+              key={i}
+              className={`progress-dot ${i < roundNumber ? 'completed' : ''} ${i === roundNumber - 1 ? 'current' : ''}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

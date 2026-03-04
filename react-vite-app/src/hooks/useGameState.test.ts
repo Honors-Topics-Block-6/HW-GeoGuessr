@@ -24,13 +24,22 @@ vi.mock('../services/regionService', () => ({
   ]),
   getPlayingArea: vi.fn().mockResolvedValue(null),
   getFloorsForPoint: vi.fn().mockReturnValue([1, 2, 3]),
+  getRegionForPoint: vi.fn().mockReturnValue({ id: 'test-region' }),
   isPointInPlayingArea: vi.fn().mockReturnValue(true),
   isPointInPolygon: vi.fn().mockReturnValue(true)
 }));
 
 import { getRandomImage } from '../services/imageService';
+import { getRegionForPoint } from '../services/regionService';
 
 const mockedGetRandomImage = vi.mocked(getRandomImage);
+const mockedGetRegionForPoint = vi.mocked(getRegionForPoint);
+
+const mockRegion = {
+  id: 'test-region',
+  polygon: [],
+  floors: [1, 2, 3]
+};
 
 import type { GameImage } from '../services/imageService';
 
@@ -48,6 +57,7 @@ describe('useGameState', () => {
     vi.clearAllMocks();
     window.localStorage.clear();
     mockedGetRandomImage.mockResolvedValue(mockImage);
+    mockedGetRegionForPoint.mockReturnValue(mockRegion);
   });
 
   afterEach(() => {
@@ -149,6 +159,16 @@ describe('useGameState', () => {
       });
 
       expect(result.current.currentRound).toBe(1);
+    });
+
+    it('should store selected total rounds in state', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium', 'singleplayer', 20, 10);
+      });
+
+      expect(result.current.totalRounds).toBe(10);
     });
 
     it('should clear previous round results', async () => {
@@ -434,6 +454,41 @@ describe('useGameState', () => {
       expect(result.current.currentResult!.score).toBe(5000);
     });
 
+    it('should apply floor penalty when floor matches but building is wrong', async () => {
+      const imageInDifferentBuilding: GameImage = {
+        ...mockImage,
+        correctLocation: { x: 55, y: 50 }, // Building B (avoid zero score)
+        correctFloor: 2
+      };
+      mockedGetRandomImage.mockResolvedValue(imageInDifferentBuilding);
+      mockedGetRegionForPoint.mockImplementation((point) => {
+        if (point.x < 50) {
+          return { id: 'building-a', polygon: [], floors: [1, 2, 3] };
+        }
+        return { id: 'building-b', polygon: [], floors: [1, 2, 3] };
+      });
+
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 45, y: 50 }); // Building A
+      });
+
+      act(() => {
+        result.current.selectFloor(2); // Correct floor number, wrong building
+      });
+
+      act(() => {
+        result.current.submitGuess();
+      });
+
+      expect(result.current.currentResult!.floorCorrect).toBe(false);
+      expect(result.current.currentResult!.score).toBeLessThan(result.current.currentResult!.locationScore);
+    });
     it('should store result in roundResults', async () => {
       const { result } = renderHook(() => useGameState());
 
@@ -669,6 +724,30 @@ describe('useGameState', () => {
         });
       }
 
+      expect(result.current.screen).toBe('finalResults');
+    });
+
+    it('should end the game after the selected total rounds', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium', 'singleplayer', 20, 10);
+      });
+
+      // Play through 10 rounds
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          result.current.placeMarker({ x: 50, y: 50 });
+          result.current.selectFloor(2);
+          result.current.submitGuess();
+        });
+
+        await act(async () => {
+          await result.current.nextRound();
+        });
+      }
+
+      expect(result.current.totalRounds).toBe(10);
       expect(result.current.screen).toBe('finalResults');
     });
 

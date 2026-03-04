@@ -1,6 +1,7 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import ImageViewer from '../ImageViewer/ImageViewer';
 import MapPicker from '../MapPicker/MapPicker';
+import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
 import type { MapPickerHandle, PlayingArea } from '../MapPicker/MapPicker';
 import FloorSelector from '../FloorSelector/FloorSelector';
 import GuessButton from '../GuessButton/GuessButton';
@@ -26,6 +27,9 @@ export interface GameScreenProps {
   playingArea?: PlayingArea | null;
   timeRemaining?: number;
   timeLimitSeconds?: number;
+  isEndlessMode?: boolean;
+  currentHp?: number;
+  maxHp?: number;
 }
 
 function GameScreen({
@@ -42,9 +46,13 @@ function GameScreen({
   clickRejected = false,
   playingArea = null,
   timeRemaining,
-  timeLimitSeconds = 20
+  timeLimitSeconds = 20,
+  isEndlessMode = false,
+  currentHp = 6000,
+  maxHp = 6000
 }: GameScreenProps): React.ReactElement {
   const mapPickerRef = useRef<MapPickerHandle>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Can submit if location is selected AND either:
   // - not in a region (availableFloors is null), OR
@@ -81,6 +89,9 @@ function GameScreen({
 
   return (
     <div className="game-screen">
+      <button className="game-leave-button" onClick={() => setShowLeaveConfirm(true)}>
+        Leave Game
+      </button>
       {/* Left panel - Image */}
       <div className="image-panel">
         <ImageViewer imageUrl={imageUrl} />
@@ -89,15 +100,28 @@ function GameScreen({
       {/* Right panel - Guess controls */}
       <div className="guess-panel">
         <div className="guess-panel-header">
-          <button className="back-button" onClick={onBackToTitle}>
-            <span>←</span>
-            <span>Back</span>
+          <button className="back-button" onClick={() => setShowLeaveConfirm(true)}>
+            <span>⏻</span>
+            <span>Leave Game</span>
           </button>
           <h2 className="panel-title">Make Your Guess</h2>
           <div className="round-badge">
-            {currentRound} / {totalRounds}
+            {isEndlessMode ? `Round ${currentRound}` : `${currentRound} / ${totalRounds}`}
           </div>
         </div>
+
+        {isEndlessMode && (
+          <div className="endless-hp-bar">
+            <span className="endless-hp-label">HP</span>
+            <div className="endless-hp-track">
+              <div
+                className={`endless-hp-fill ${(currentHp / maxHp) * 100 <= 25 ? 'critical' : ''}`}
+                style={{ width: `${Math.max(0, (currentHp / maxHp) * 100)}%` }}
+              />
+            </div>
+            <span className="endless-hp-value">{currentHp.toLocaleString()}</span>
+          </div>
+        )}
 
         {typeof timeRemaining === 'number' && (
           <div className="round-timer">
@@ -175,6 +199,17 @@ function GameScreen({
           )}
         </div>
       </div>
+
+      {showLeaveConfirm && (
+        <LeaveConfirmModal
+          onConfirm={() => {
+            setShowLeaveConfirm(false);
+            onBackToTitle();
+          }}
+          onCancel={() => setShowLeaveConfirm(false)}
+          isDuel={false}
+        />
+      )}
     </div>
   );
 }
