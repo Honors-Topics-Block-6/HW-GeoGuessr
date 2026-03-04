@@ -405,39 +405,30 @@
   .logo-icon { font-size: 3.3rem; }
   .logo-crest { width: 170px; }
 
-  /* Stack action buttons beneath user button on thin screens */
+  /* Stack on mobile: user row, then actions row – gives buttons space for labels */
   .title-top-bar {
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 8px 12px;
   }
 
   .title-top-actions {
     display: flex;
-    width: 100%;
-    justify-content: space-evenly;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     flex-wrap: wrap;
-    gap: 6px;
   }
 
-  /* Icon-only buttons for compact mobile bar */
-  .title-action-icon {
-    display: inline;
-    font-size: 1.4rem;
-  }
-
-  .title-action-label {
-    display: none;
-  }
-
+  /* Desktop-style buttons with labels; compact sizing to fit */
   .title-leaderboard-button,
   .submit-photo-button,
   .title-bug-report-button {
-    font-size: 12px;
-    padding: 10px 12px;
-    min-width: 48px;
-    min-height: 48px;
+    font-size: 11px;
+    padding: 6px 10px;
+    min-height: 40px;
+    min-width: auto;
   }
 
   .title-user-info-button {
@@ -464,13 +455,5 @@
 
   .title-username {
     max-width: 55px;
-  }
-
-  .title-leaderboard-button,
-  .submit-photo-button,
-  .title-bug-report-button {
-    padding: 10px;
-    min-width: 48px;
-    min-height: 48px;
   }
 }

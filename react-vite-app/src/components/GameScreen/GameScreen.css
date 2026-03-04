@@ -6,33 +6,6 @@
   background-color: var(--hw-page-bg);
 }
 
-.game-leave-button {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 12;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-}
-
-.game-leave-button:hover {
-  background: rgba(255, 255, 255, 0.14);
-  transform: translateY(-1px);
-}
-
-.image-panel {
-  flex: 7;
-  display: flex;
-  background-color: var(--hw-gray-200);
-  border-right: 1px solid var(--hw-gray-300);
-}
 .guess-panel {
   flex: 1;
   display: flex;
@@ -41,6 +14,16 @@
   min-width: 320px;
   max-width: 400px;
 }
+
+/* Desktop: image on top above header */
+.image-panel {
+  flex: 7;
+  display: flex;
+  order: -1;
+  background-color: var(--hw-gray-200);
+  border-bottom: 1px solid var(--hw-gray-300);
+}
+
 
 .guess-panel-header {
   display: flex;
@@ -287,13 +270,15 @@
 
 @media (max-width: 1024px) {
   .game-screen { flex-direction: column; }
+  .guess-panel { flex: 1; min-width: 100%; max-width: 100%; }
+  /* Mobile: image below header (natural order) */
   .image-panel {
+    order: 0;
     flex: none;
     height: 50vh;
-    border-right: none;
+    min-height: 160px;
     border-bottom: 1px solid var(--hw-gray-300);
   }
-  .guess-panel { flex: 1; min-width: 100%; max-width: 100%; }
 }
 
 @media (max-width: 768px) {
@@ -312,6 +297,7 @@
   .image-panel {
     height: var(--game-image-height-sm, 200px);
     min-height: 160px;
+    order: 0;
   }
 
   .guess-panel-header {
@@ -332,6 +318,7 @@
   .image-panel {
     height: var(--game-image-height-xs, 180px);
     min-height: 140px;
+    order: 0;
   }
 
   .guess-panel-header {
