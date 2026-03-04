@@ -61,6 +61,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
   ref: Ref<MapPickerHandle>
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const zoomContentRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -87,7 +88,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     hasMoved,
     isPanning,
     isTouchActive
-  } = useMapZoom(containerRef);
+  } = useMapZoom(containerRef, zoomContentRef);
   const { onDoubleClick: _ignoredOnDoubleClick, ...mapHandlers } = handlers;
 
   const placeMarkerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -211,7 +212,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="map-zoom-content" style={{ transform: transformStyle }}>
+        <div className="map-zoom-content" ref={zoomContentRef} style={{ transform: transformStyle }}>
           <img
             ref={imageRef}
             className="map-image"
