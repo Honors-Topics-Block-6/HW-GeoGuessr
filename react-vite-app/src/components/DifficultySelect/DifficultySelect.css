@@ -295,6 +295,12 @@
   box-shadow: var(--hw-focus-ring);
 }
 
+.time-custom-error {
+  color: #e74c3c;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
 .time-custom-input::placeholder {
   color: var(--hw-gray-500);
   opacity: 0.6;
@@ -343,6 +349,82 @@
   cursor: not-allowed;
 }
 
+.play-button:disabled:hover {
+  position: relative;
+}
+
+.play-button:disabled:hover::after {
+  content: attr(title);
+  position: absolute;
+  top: -42px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.5rem 0.75rem;
+  background: rgba(12, 12, 15, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  font-size: 0.9rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  z-index: 2;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .difficulty-heading, .mode-heading, .time-heading { font-size: 1.7rem; }
+
+  .difficulty-screen {
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+
+  .difficulty-content { padding: 1rem 1rem 1.5rem; }
+  .difficulty-subheading { margin-bottom: 1.2rem; }
+  .mode-heading { margin-top: 1.6rem; margin-bottom: 0.8rem; }
+  .time-heading { margin-top: 1.6rem; }
+  .time-subheading { margin-bottom: 0.9rem; }
+
+  .difficulty-options, .mode-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    max-width: 560px;
+  }
+
+  .time-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+    max-width: 560px;
+  }
+
+  .difficulty-card, .mode-card, .time-card {
+    max-width: none;
+    width: 100%;
+    padding: 0.9rem 0.75rem;
+  }
+
+  .difficulty-card-icon, .mode-card-icon { font-size: 1.6rem; }
+  .difficulty-card-label, .mode-card-label { font-size: 1rem; }
+  .difficulty-card-desc { display: none; }
+  .time-card { min-width: 0; }
+  .play-button { font-size: 1.1rem; padding: 0.9rem 3rem; }
+
+  .difficulty-back-button {
+    position: static;
+    margin-bottom: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .difficulty-heading, .mode-heading, .time-heading { font-size: 1.4rem; }
+  .difficulty-content { padding: 0.9rem 0.9rem 1.25rem; }
+  .time-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .difficulty-card, .mode-card, .time-card { padding: 0.75rem 0.6rem; }
+  .time-card-label { font-size: 0.9rem; }
+  .difficulty-footer { margin-top: 1.25rem; }
+}
 @media (max-width: 768px) {
   .difficulty-screen {
     min-height: 100vh;
