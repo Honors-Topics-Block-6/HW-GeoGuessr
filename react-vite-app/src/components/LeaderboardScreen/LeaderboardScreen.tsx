@@ -132,9 +132,8 @@ function LeaderboardScreen({ onBack }: LeaderboardScreenProps): React.ReactEleme
         </button>
 
         <div className="leaderboard-header">
-          <span className="leaderboard-icon" role="img" aria-hidden="true">🏆</span>
           <h1 className="leaderboard-title">
-            Leaderboard <span className="leaderboard-title-emoji">🌟</span>
+            Leaderboard
           </h1>
           <p className="leaderboard-subtitle">
             Claim your place among campus legends.

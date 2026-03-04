@@ -389,137 +389,143 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
       )}
 
       <div className="final-results-content">
-        {/* Header with performance */}
-        <div className="results-hero">
-          <div className={`performance-badge ${performance.class}`}>
-            <span className="performance-emoji">{performance.emoji}</span>
+        {/* LEFT COLUMN — summary */}
+        <div className="final-results-left">
+          {/* Header with performance */}
+          <div className="results-hero">
+            <div className={`performance-badge ${performance.class}`}>
+              <span className="performance-emoji">{performance.emoji}</span>
+            </div>
+            <h1 className="results-title">
+              {isEndlessMode ? 'Game Over!' : 'Game Complete!'}
+            </h1>
+            <p className={`performance-text ${performance.class}`}>
+              {isEndlessMode
+                ? `You survived ${roundsSurvived} round${roundsSurvived === 1 ? '' : 's'}! ${performance.rating}`
+                : performance.rating}
+            </p>
           </div>
-          <h1 className="results-title">
-            {isEndlessMode ? 'Game Over!' : 'Game Complete!'}
-          </h1>
-          <p className={`performance-text ${performance.class}`}>
-            {isEndlessMode
-              ? `You survived ${roundsSurvived} round${roundsSurvived === 1 ? '' : 's'}! ${performance.rating}`
-              : performance.rating}
-          </p>
-        </div>
 
-        {/* Total Score Display */}
-        <div className="total-score-container">
-          <div className="total-score-box">
-            <span className="total-label">Total Score</span>
-            <span className="total-value">{displayedTotal.toLocaleString()}</span>
-            <span className="total-max">
-              {isEndlessMode ? ' points' : ` / ${maxPossible.toLocaleString()} points`}
-            </span>
+          {/* Total Score Display */}
+          <div className="total-score-container">
+            <div className="total-score-box">
+              <span className="total-label">Total Score</span>
+              <span className="total-value">{displayedTotal.toLocaleString()}</span>
+              <span className="total-max">
+                {isEndlessMode ? ' points' : ` / ${maxPossible.toLocaleString()} points`}
+              </span>
+            </div>
+            {isEndlessMode && (
+              <div className="endless-rounds-survived">
+                Rounds survived: {roundsSurvived}
+              </div>
+            )}
           </div>
-          {isEndlessMode && (
-            <div className="endless-rounds-survived">
-              Rounds survived: {roundsSurvived}
+
+          {/* XP Gained Section */}
+          {xpResult && (
+            <div className="xp-gained-section">
+              <div className="xp-gained-box">
+                <div className="xp-gained-header">
+                  <span className="xp-gained-icon">✨</span>
+                  <span className="xp-gained-label">XP Earned</span>
+                </div>
+                <span className="xp-gained-value">+{totalScore.toLocaleString()} XP</span>
+                <div className="xp-level-info">
+                  <span className="xp-level-badge">Lvl {xpResult.levelInfo.level}</span>
+                  <span className="xp-level-title">{getLevelTitle(xpResult.levelInfo.level)}</span>
+                </div>
+                <div className="xp-progress-bar-container">
+                  <div className="xp-progress-bar">
+                    <div
+                      className="xp-progress-fill"
+                      style={{ width: `${Math.round(xpResult.levelInfo.progress * 100)}%` }}
+                    />
+                  </div>
+                  <span className="xp-progress-text">
+                    {xpResult.levelInfo.xpIntoLevel.toLocaleString()} / {xpResult.levelInfo.currentLevelXp.toLocaleString()} XP
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* XP Gained Section */}
-        {xpResult && (
-          <div className="xp-gained-section">
-            <div className="xp-gained-box">
-              <div className="xp-gained-header">
-                <span className="xp-gained-icon">✨</span>
-                <span className="xp-gained-label">XP Earned</span>
-              </div>
-              <span className="xp-gained-value">+{totalScore.toLocaleString()} XP</span>
-              <div className="xp-level-info">
-                <span className="xp-level-badge">Lvl {xpResult.levelInfo.level}</span>
-                <span className="xp-level-title">{getLevelTitle(xpResult.levelInfo.level)}</span>
-              </div>
-              <div className="xp-progress-bar-container">
-                <div className="xp-progress-bar">
-                  <div
-                    className="xp-progress-fill"
-                    style={{ width: `${Math.round(xpResult.levelInfo.progress * 100)}%` }}
-                  />
-                </div>
-                <span className="xp-progress-text">
-                  {xpResult.levelInfo.xpIntoLevel.toLocaleString()} / {xpResult.levelInfo.currentLevelXp.toLocaleString()} XP
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Round by Round Breakdown */}
-        <div className="rounds-breakdown">
-          <h2 className="breakdown-title">Round Breakdown</h2>
-          <div className="rounds-list">
-            {rounds.map((round: RoundData, index: number) => (
-              <div key={index} className="round-item">
-                <div className="round-number">Round {index + 1}</div>
-                <div className="round-details">
-                  <div className="round-image">
-                    <img src={round.imageUrl} alt={`Round ${index + 1}`} />
-                  </div>
-                  <div className="round-stats">
-                    <div className="round-stat">
-                      <span className="round-stat-label">Location</span>
-                      <span className="round-stat-value">
-                        {round.noGuess ? 'No guess' : round.locationScore.toLocaleString()}
-                      </span>
+        {/* RIGHT COLUMN — round details + actions */}
+        <div className="final-results-right">
+          {/* Round by Round Breakdown */}
+          <div className="rounds-breakdown">
+            <h2 className="breakdown-title">Round Breakdown</h2>
+            <div className="rounds-list">
+              {rounds.map((round: RoundData, index: number) => (
+                <div key={index} className="round-item">
+                  <div className="round-number">Round {index + 1}</div>
+                  <div className="round-details">
+                    <div className="round-image">
+                      <img src={round.imageUrl} alt={`Round ${index + 1}`} />
                     </div>
-                    <div className="round-stat">
-                      <span className="round-stat-label">Floor</span>
-                      {round.noGuess || round.floorCorrect === null || round.floorCorrect === undefined ? (
-                        <span className="round-stat-value">--</span>
-                      ) : (
-                        <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
-                          {round.floorCorrect ? '✓' : '-20%'}
+                    <div className="round-stats">
+                      <div className="round-stat">
+                        <span className="round-stat-label">Location</span>
+                        <span className="round-stat-value">
+                          {round.noGuess ? 'No guess' : round.locationScore.toLocaleString()}
                         </span>
-                      )}
-                    </div>
-                    <div className="round-stat">
-                      <span className="round-stat-label">Time</span>
-                      <span className="round-stat-value">{formatRoundTime(round.timeTakenSeconds)}</span>
+                      </div>
+                      <div className="round-stat">
+                        <span className="round-stat-label">Floor</span>
+                        {round.noGuess || round.floorCorrect === null || round.floorCorrect === undefined ? (
+                          <span className="round-stat-value">--</span>
+                        ) : (
+                          <span className={`round-stat-value ${round.floorCorrect ? 'correct' : 'penalty'}`}>
+                            {round.floorCorrect ? '✓' : '-20%'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="round-stat">
+                        <span className="round-stat-label">Time</span>
+                        <span className="round-stat-value">{formatRoundTime(round.timeTakenSeconds)}</span>
+                      </div>
                     </div>
                   </div>
+                  <div className="round-score">
+                    <span className="round-score-value">{round.score.toLocaleString()}</span>
+                    <span className="round-score-label">pts</span>
+                  </div>
                 </div>
-                <div className="round-score">
-                  <span className="round-score-value">{round.score.toLocaleString()}</span>
-                  <span className="round-score-label">pts</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {rounds.length > 0 && (
-          <div className="average-score-summary">
-            <h2 className="breakdown-title average-summary-title">Per-round averages</h2>
-            <div className="average-score-metrics">
-              <div className="average-metric">
-                <span className="average-metric-label">Avg score</span>
-                <span className={`average-score-value ${isPerfectAverageScore ? 'perfect' : ''}`}>
-                  {roundedAverageScore.toLocaleString()} pts
-                </span>
-              </div>
-              <div className="average-metric">
-                <span className="average-metric-label">Avg time</span>
-                <span className="average-time-value">{formatRoundTime(averageGuessTimeSeconds)}</span>
-              </div>
+              ))}
             </div>
           </div>
-        )}
 
-        {/* Action Buttons */}
-        <div className="final-actions">
-          <CopyResultsButton text={shareText} />
-          <button className="play-again-button" onClick={onPlayAgain}>
-            <span className="button-icon">🔄</span>
-            Play Again
-          </button>
-          <button className="home-button" onClick={onBackToTitle}>
-            <span className="button-icon">🏠</span>
-            Back to Home
-          </button>
+          {rounds.length > 0 && (
+            <div className="average-score-summary">
+              <h2 className="breakdown-title average-summary-title">Per-round averages</h2>
+              <div className="average-score-metrics">
+                <div className="average-metric">
+                  <span className="average-metric-label">Avg score</span>
+                  <span className={`average-score-value ${isPerfectAverageScore ? 'perfect' : ''}`}>
+                    {roundedAverageScore.toLocaleString()} pts
+                  </span>
+                </div>
+                <div className="average-metric">
+                  <span className="average-metric-label">Avg time</span>
+                  <span className="average-time-value">{formatRoundTime(averageGuessTimeSeconds)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="final-actions">
+            <CopyResultsButton text={shareText} />
+            <button className="play-again-button" onClick={onPlayAgain}>
+              <span className="button-icon">🔄</span>
+              Play Again
+            </button>
+            <button className="home-button" onClick={onBackToTitle}>
+              <span className="button-icon">🏠</span>
+              Back to Home
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,11 +1,12 @@
 .mode-select-screen {
   position: relative;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .mode-select-background {
@@ -97,6 +98,14 @@
 .mode-select-card-desc {
   color: var(--hw-gray-600);
   font-size: 0.92rem;
+}
+
+@media (max-width: 768px) {
+  .mode-select-screen {
+    min-height: 100vh;
+    height: auto;
+    overflow-y: auto;
+  }
 }
 
 @media (max-width: 700px) {
