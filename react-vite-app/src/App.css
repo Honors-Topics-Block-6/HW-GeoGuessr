@@ -1,9 +1,18 @@
 .app {
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: var(--hw-page-bg);
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .app {
+    min-height: 100vh;
+    height: auto;
+    overflow-y: auto;
+  }
 }
 
 .global-achievement-toast {

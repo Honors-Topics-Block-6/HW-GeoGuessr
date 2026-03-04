@@ -14,7 +14,7 @@ export interface TitleScreenProps {
   isLoading: boolean;
 }
 
-function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, onOpenBugReport, onOpenDailyGoals, isLoading }: TitleScreenProps): React.ReactElement {
+function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, onOpenBugReport, onOpenDailyGoals, onOpenAchievements, isLoading }: TitleScreenProps): React.ReactElement {
   const { userDoc, logout, levelInfo, levelTitle: _levelTitle } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -100,7 +100,7 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
       </div>
       <div className="title-content">
         <div className="logo-container">
-          <span className="logo-icon">🌍</span>
+          <img className="logo-crest" src="/Crest.png" alt="Harvard-Westlake Crest" />
         </div>
         <h1 className="game-title">
           <span className="game-title-initial game-title-initial-h">H</span>
