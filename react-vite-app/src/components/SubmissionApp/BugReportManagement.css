@@ -1,4 +1,4 @@
-/* ===== Bug Report Management - Admin Tab ===== */
+/* ===== Bug Report Management - HW Design System ===== */
 
 .bug-mgmt {
   padding: 24px;
@@ -16,34 +16,34 @@
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: #e0e6f0;
+  color: var(--hw-black, #231f20);
 }
 
 .bug-mgmt-count {
   font-size: 13px;
-  color: #8892a8;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted, #6b7280);
+  background: var(--hw-gray-100, #f3f4f6);
   padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
 }
 
 /* Error */
 .bug-mgmt-error {
-  background: rgba(248, 113, 113, 0.1);
-  color: #f87171;
+  background: #fef2f2;
+  color: #991b1b;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: 0;
   margin-bottom: 16px;
   font-size: 14px;
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  border: 1px solid #fca5a5;
 }
 
 /* Loading */
 .bug-mgmt-loading {
   text-align: center;
   padding: 60px 20px;
-  color: #8892a8;
+  color: var(--text-muted, #6b7280);
   font-size: 14px;
 }
 
@@ -51,7 +51,7 @@
 .bug-mgmt-empty {
   text-align: center;
   padding: 60px 20px;
-  color: #6b7280;
+  color: var(--text-muted, #6b7280);
 }
 
 .bug-mgmt-empty-icon {
@@ -84,7 +84,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: #6b7280;
+  color: var(--text-muted, #6b7280);
   min-width: 60px;
   flex-shrink: 0;
 }
@@ -102,29 +102,28 @@
   align-items: center;
   gap: 5px;
   padding: 6px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 20px;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  background: var(--hw-surface, #ffffff);
+  border-radius: 0;
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
   font-family: inherit;
-  color: #6b7280;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-muted, #6b7280);
+  transition: all 0.2s ease;
   user-select: none;
 }
 
 .bug-mgmt-pill:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #c4c9d6;
-  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--hw-black, #231f20);
+  border-color: var(--hw-gray-400, #9ca3af);
 }
 
 .bug-mgmt-pill.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(139, 92, 246, 0.18) 100%);
-  color: #a78bfa;
-  border-color: rgba(139, 92, 246, 0.3);
-  box-shadow: 0 1px 6px rgba(99, 102, 241, 0.12);
+  background: var(--hw-red, #c8102e);
+  color: #ffffff;
+  border-color: var(--hw-red, #c8102e);
 }
 
 .bug-mgmt-pill.toggle-all {
@@ -143,16 +142,16 @@
 /* Sort select kept as dropdown */
 .bug-mgmt-filter-select {
   padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
   font-size: 13px;
   font-family: inherit;
-  color: #e0e6f0;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--hw-black, #231f20);
+  background: var(--hw-surface, #ffffff);
   cursor: pointer;
   transition: all 0.2s ease;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%238892a8' d='M5 7L1 3h8z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%236b7280' d='M5 7L1 3h8z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 28px;
@@ -161,21 +160,21 @@
 
 .bug-mgmt-filter-select:focus {
   outline: none;
-  border-color: rgba(139, 92, 246, 0.5);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+  border-color: var(--hw-red, #c8102e);
+  box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.1);
 }
 
 .bug-mgmt-filter-select option {
-  background: #1e1e3a;
-  color: #e0e6f0;
+  background: var(--hw-surface, #ffffff);
+  color: var(--hw-black, #231f20);
 }
 
 /* ===== Table ===== */
 .bug-mgmt-table-wrapper {
   overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
+  background: var(--hw-surface, #ffffff);
 }
 
 .bug-mgmt-table {
@@ -185,7 +184,7 @@
 }
 
 .bug-mgmt-table thead {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--hw-gray-100, #f3f4f6);
 }
 
 .bug-mgmt-table th {
@@ -195,15 +194,15 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: #6b7280;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-muted, #6b7280);
+  border-bottom: 1px solid var(--hw-gray-300, #e5e7eb);
   white-space: nowrap;
 }
 
 .bug-mgmt-table td {
   padding: 12px 14px;
-  color: #c4c9d6;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary, #4b5563);
+  border-bottom: 1px solid var(--hw-gray-200, #e5e7eb);
   vertical-align: middle;
 }
 
@@ -212,7 +211,7 @@
 }
 
 .bug-mgmt-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--hw-gray-100, #f3f4f6);
 }
 
 .bug-mgmt-table tbody tr:last-child td {
@@ -226,7 +225,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-  color: #e0e6f0;
+  color: var(--hw-black, #231f20);
 }
 
 /* Reporter cell */
@@ -238,14 +237,14 @@
 .bug-mgmt-date-cell {
   white-space: nowrap;
   font-size: 12px;
-  color: #8892a8;
+  color: var(--text-muted, #6b7280);
 }
 
 /* ===== Badges ===== */
 .bug-mgmt-badge {
   display: inline-block;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
@@ -255,64 +254,64 @@
 
 /* Status badges */
 .bug-mgmt-badge.status-open {
-  background: rgba(96, 165, 250, 0.12);
-  color: #60a5fa;
+  background: #dbeafe;
+  color: #1e40af;
 }
 
 .bug-mgmt-badge.status-in-progress {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .bug-mgmt-badge.status-resolved {
-  background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
+  background: #d1fae5;
+  color: #065f46;
 }
 
 .bug-mgmt-badge.status-wont-fix {
-  background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .bug-mgmt-badge.status-closed {
-  background: rgba(136, 146, 168, 0.12);
-  color: #8892a8;
+  background: var(--hw-gray-200, #e5e7eb);
+  color: var(--text-muted, #6b7280);
 }
 
 /* Severity badges */
 .bug-mgmt-badge.severity-low {
-  background: rgba(96, 165, 250, 0.12);
-  color: #60a5fa;
+  background: #dbeafe;
+  color: #1e40af;
 }
 
 .bug-mgmt-badge.severity-medium {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .bug-mgmt-badge.severity-high {
-  background: rgba(251, 146, 60, 0.12);
-  color: #fb923c;
+  background: #ffedd5;
+  color: #9a3412;
 }
 
 .bug-mgmt-badge.severity-critical {
-  background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 /* Category badges */
 .bug-mgmt-badge.category {
-  background: rgba(139, 92, 246, 0.12);
-  color: #a78bfa;
+  background: rgba(200, 16, 46, 0.08);
+  color: var(--hw-red, #c8102e);
 }
 
 /* View button */
 .bug-mgmt-view-btn {
   padding: 6px 14px;
-  background: rgba(99, 102, 241, 0.12);
-  color: #a78bfa;
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: 6px;
+  background: var(--hw-red, #c8102e);
+  color: #ffffff;
+  border: none;
+  border-radius: 0;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
@@ -321,9 +320,7 @@
 }
 
 .bug-mgmt-view-btn:hover {
-  background: rgba(99, 102, 241, 0.2);
-  color: #c4b5fd;
-  transform: translateY(-1px);
+  background: var(--hw-red-hover, #a50d26);
 }
 
 /* ===== Responsive ===== */

@@ -1,4 +1,4 @@
-/* ===== Map Editor - Modern Dark Glass Theme ===== */
+/* ===== Map Editor - HW Design System ===== */
 
 .map-editor {
   display: grid;
@@ -14,17 +14,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #8892a8;
+  color: var(--text-muted, #6b7280);
   font-size: 16px;
 }
 
 .map-editor-error {
   grid-column: 1 / -1;
-  background: rgba(248, 113, 113, 0.1);
-  border: 1px solid rgba(248, 113, 113, 0.2);
-  border-radius: 14px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 0;
   padding: 14px 18px;
-  color: #f87171;
+  color: #991b1b;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -33,40 +33,38 @@
 }
 
 .map-editor-error button {
-  background: rgba(248, 113, 113, 0.15);
+  background: #fee2e2;
   border: none;
-  color: #f87171;
+  color: #991b1b;
   font-size: 16px;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 8px;
+  border-radius: 0;
   transition: background 0.2s;
 }
 
 .map-editor-error button:hover {
-  background: rgba(248, 113, 113, 0.3);
+  background: #fecaca;
 }
 
 .map-editor-canvas {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 18px;
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 0;
-  backdrop-filter: blur(10px);
 }
 
 .map-editor-panel {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 18px;
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  backdrop-filter: blur(10px);
 }
 
 /* ===== Responsive ===== */
