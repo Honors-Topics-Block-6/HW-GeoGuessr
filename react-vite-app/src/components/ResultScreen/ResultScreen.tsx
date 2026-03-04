@@ -28,6 +28,10 @@ export interface ResultScreenProps {
   onViewFinalResults: () => void;
   isLastRound: boolean;
   onBackToTitle?: () => void;
+  isEndlessMode?: boolean;
+  currentHp?: number;
+  maxHp?: number;
+  hpLost?: number;
 }
 
 /**
@@ -184,7 +188,11 @@ function ResultScreen({
   onNextRound,
   onViewFinalResults,
   isLastRound,
-  onBackToTitle
+  onBackToTitle,
+  isEndlessMode = false,
+  currentHp = 6000,
+  maxHp = 6000,
+  hpLost
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
@@ -349,7 +357,7 @@ function ResultScreen({
       {/* Top section - Round info and score */}
       <div className="result-header">
         <div className="round-indicator">
-          Round {roundNumber} of {totalRounds}
+          {isEndlessMode ? `Round ${roundNumber}` : `Round ${roundNumber} of ${totalRounds}`}
         </div>
         <div className={`score-display ${animationPhase >= 3 ? 'visible' : ''}`}>
           <span className="score-label">Score</span>
@@ -357,6 +365,23 @@ function ResultScreen({
           <span className="score-max">/ 5,000</span>
         </div>
       </div>
+
+      {isEndlessMode && (
+        <div className="result-hp-section">
+          <div className="result-hp-bar">
+            <div
+              className={`result-hp-fill ${(currentHp / maxHp) * 100 <= 25 ? 'critical' : ''}`}
+              style={{ width: `${Math.max(0, (currentHp / maxHp) * 100)}%` }}
+            />
+          </div>
+          <div className="result-hp-info">
+            <span className="result-hp-value">{currentHp.toLocaleString()} HP</span>
+            {hpLost !== undefined && hpLost > 0 && (
+              <span className="result-hp-lost">-{hpLost.toLocaleString()} HP</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {noGuess ? (
         <div className="result-banner timeout-banner">
@@ -610,15 +635,17 @@ function ResultScreen({
         />
       )}
 
-      {/* Progress bar */}
-      <div className="round-progress">
-        {[...Array(totalRounds)].map((_, i) => (
-          <div
-            key={i}
-            className={`progress-dot ${i < roundNumber ? 'completed' : ''} ${i === roundNumber - 1 ? 'current' : ''}`}
-          />
-        ))}
-      </div>
+      {/* Progress bar - hidden in endless mode */}
+      {!isEndlessMode && (
+        <div className="round-progress">
+          {[...Array(totalRounds)].map((_, i) => (
+            <div
+              key={i}
+              className={`progress-dot ${i < roundNumber ? 'completed' : ''} ${i === roundNumber - 1 ? 'current' : ''}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

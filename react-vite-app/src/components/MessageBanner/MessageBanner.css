@@ -1,4 +1,4 @@
-/* ===== Message Banner - Top-of-screen popup for admin messages ===== */
+/* ===== Message Banner – HW Design System ===== */
 
 .message-banner-container {
   position: fixed;
@@ -18,14 +18,11 @@
   align-items: flex-start;
   gap: 14px;
   padding: 14px 18px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(139, 92, 246, 0.18) 100%);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: 14px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    0 0 12px rgba(139, 92, 246, 0.15);
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-left: 4px solid var(--hw-red, #c8102e);
+  border-radius: 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   pointer-events: auto;
   animation: bannerSlideIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
   max-width: 600px;
@@ -59,21 +56,22 @@
 .message-banner-sender {
   font-size: 11px;
   font-weight: 700;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #a78bfa;
+  color: var(--hw-red, #c8102e);
 }
 
 .message-banner-time {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--text-muted, #6b7280);
   font-weight: 500;
 }
 
 .message-banner-text {
   margin: 0;
   font-size: 14px;
-  color: #e0e6f0;
+  color: var(--hw-black, #231f20);
   line-height: 1.5;
   word-wrap: break-word;
 }
@@ -85,10 +83,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #8892a8;
+  background: var(--hw-gray-100, #f3f4f6);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
+  color: var(--text-muted, #6b7280);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -97,9 +95,9 @@
 }
 
 .message-banner-dismiss:hover {
-  background: rgba(248, 113, 113, 0.15);
-  border-color: rgba(248, 113, 113, 0.3);
-  color: #f87171;
+  background: rgba(200, 16, 46, 0.08);
+  border-color: var(--hw-red, #c8102e);
+  color: var(--hw-red, #c8102e);
 }
 
 /* ===== Responsive ===== */
@@ -110,7 +108,7 @@
 
   .message-banner {
     padding: 12px 14px;
-    border-radius: 12px;
+    border-radius: 0;
     max-width: 100%;
   }
 

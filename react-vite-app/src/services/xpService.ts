@@ -41,7 +41,9 @@ export async function awardXp(uid: string, xpEarned: number): Promise<void> {
   await updateDoc(userRef, {
     totalXp: increment(xpEarned),
     gamesPlayed: increment(1),
-    lastGameAt: serverTimestamp()
+    lastGameAt: serverTimestamp(),
+    // Meaningful activity: completed a game and submitted a score.
+    lastActive: serverTimestamp()
   });
 }
 

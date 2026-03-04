@@ -1,4 +1,4 @@
-/* ===== Admin Panel - Modern Glass Tabs ===== */
+/* ===== Admin Panel - HW Design System ===== */
 
 .admin-panel {
   padding: 0;
@@ -17,40 +17,36 @@
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  background: linear-gradient(135deg, #c4b5fd 0%, #60a5fa 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--hw-red, #c8102e);
 }
 
 .admin-panel .back-button {
   padding: 10px 22px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #b0b8cc;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: var(--hw-surface, #ffffff);
+  color: var(--text-secondary, #4b5563);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
 }
 
 .admin-panel .back-button:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--hw-black, #231f20);
+  border-color: var(--hw-gray-400, #9ca3af);
 }
 
 /* ===== Tab Bar ===== */
 .admin-tabs {
   display: flex;
-  gap: 4px;
+  gap: 0;
   margin-bottom: 24px;
-  padding: 4px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0;
+  background: var(--hw-surface, #ffffff);
+  border-radius: 0;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
 }
 
 .admin-tab {
@@ -58,48 +54,48 @@
   padding: 12px 24px;
   border: none;
   background: transparent;
-  border-radius: 12px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  color: #8892a8;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-muted, #6b7280);
+  transition: all 0.2s ease;
   position: relative;
   white-space: nowrap;
+  border-right: 1px solid var(--hw-gray-300, #e5e7eb);
+}
+
+.admin-tab:last-child {
+  border-right: none;
 }
 
 .admin-tab:hover {
-  color: #c4c9d6;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--hw-black, #231f20);
+  background: var(--hw-gray-100, #f3f4f6);
 }
 
 .admin-tab.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
-  color: #a78bfa;
-  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.15);
+  background: var(--hw-red, #c8102e);
+  color: #ffffff;
 }
 
 /* ===== Content Area ===== */
 .admin-content {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 20px;
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
   min-height: 500px;
   overflow: hidden;
-  backdrop-filter: blur(10px);
 }
 
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .admin-tabs {
-    gap: 2px;
-    padding: 3px;
-    border-radius: 14px;
+    gap: 0;
   }
 
   .admin-tab {
     padding: 10px 14px;
     font-size: 12px;
-    border-radius: 10px;
   }
 }

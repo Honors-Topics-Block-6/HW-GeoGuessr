@@ -57,7 +57,7 @@ info "Confirmed Firebase project: ${EXPECTED_PROJECT}"
 
 # ── Build ────────────────────────────────────────────────────────────────────
 info "Installing dependencies for react-vite-app …"
-(cd "${APP_DIR}" && npm install)
+(cd "${APP_DIR}" && npm install --legacy-peer-deps)
 
 info "Building react-vite-app …"
 (cd "${APP_DIR}" && npm run build)

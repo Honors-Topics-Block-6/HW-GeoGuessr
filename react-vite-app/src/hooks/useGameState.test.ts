@@ -166,6 +166,16 @@ describe('useGameState', () => {
       expect(result.current.currentRound).toBe(1);
     });
 
+    it('should store selected total rounds in state', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium', 'singleplayer', 20, 10);
+      });
+
+      expect(result.current.totalRounds).toBe(10);
+    });
+
     it('should clear previous round results', async () => {
       const { result } = renderHook(() => useGameState());
 
@@ -721,6 +731,30 @@ describe('useGameState', () => {
         });
       }
 
+      expect(result.current.screen).toBe('finalResults');
+    });
+
+    it('should end the game after the selected total rounds', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium', 'singleplayer', 20, 10);
+      });
+
+      // Play through 10 rounds
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          result.current.placeMarker({ x: 50, y: 50 });
+          result.current.selectFloor(2);
+          result.current.submitGuess();
+        });
+
+        await act(async () => {
+          await result.current.nextRound();
+        });
+      }
+
+      expect(result.current.totalRounds).toBe(10);
       expect(result.current.screen).toBe('finalResults');
     });
 
