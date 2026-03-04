@@ -1,13 +1,12 @@
 .duel-final-screen {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding: 2rem;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .duel-final-background {
@@ -16,7 +15,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #0c0c0f 0%, #1a1a2e 50%, #16213e 100%);
+  background: var(--hw-page-bg, #f2f0ec);
   z-index: 0;
 }
 
@@ -27,9 +26,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-image:
-    radial-gradient(circle at 30% 20%, rgba(108, 181, 45, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 70% 80%, rgba(231, 76, 60, 0.1) 0%, transparent 40%);
+  background: transparent;
 }
 
 .duel-final-confetti-container {
@@ -42,7 +39,6 @@
   overflow: hidden;
 }
 
-/* Reuse confetti animation from FinalResultsScreen */
 .duel-final-screen .confetti {
   position: absolute;
   top: -20px;
@@ -86,13 +82,11 @@
 }
 
 .duel-final-badge.victory {
-  background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
-  box-shadow: 0 0 50px rgba(255, 215, 0, 0.6);
+  background: var(--hw-gold, #f0b323);
 }
 
 .duel-final-badge.defeat {
-  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-  box-shadow: 0 0 50px rgba(231, 76, 60, 0.5);
+  background: var(--hw-gray-400, #9ca3af);
 }
 
 @keyframes badgePop {
@@ -112,13 +106,11 @@
 }
 
 .duel-final-title.victory {
-  color: #ffd700;
-  text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+  color: var(--hw-red);
 }
 
 .duel-final-title.defeat {
-  color: #e74c3c;
-  text-shadow: 0 0 30px rgba(231, 76, 60, 0.5);
+  color: var(--hw-gray-500, #6b7280);
 }
 
 .duel-final-subtitle {
@@ -141,20 +133,20 @@
   align-items: center;
   gap: 0.4rem;
   padding: 1.5rem 1rem;
-  border-radius: 16px;
+  border-radius: 0;
   border: 1px solid var(--border-color);
   background: var(--bg-card);
   position: relative;
 }
 
 .duel-final-player-card.winner-card {
-  border-color: rgba(108, 181, 45, 0.4);
-  background: linear-gradient(135deg, rgba(108, 181, 45, 0.08) 0%, var(--bg-card) 100%);
+  border-color: rgba(200, 16, 46, 0.3);
+  background: var(--bg-card);
 }
 
 .duel-final-player-card.loser-card {
-  border-color: rgba(231, 76, 60, 0.3);
-  background: linear-gradient(135deg, rgba(231, 76, 60, 0.05) 0%, var(--bg-card) 100%);
+  border-color: var(--border-color);
+  background: var(--bg-card);
 }
 
 .duel-final-card-label {
@@ -162,7 +154,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #ffd700;
+  color: var(--hw-gold, #f0b323);
   min-height: 1.2em;
 }
 
@@ -175,13 +167,11 @@
 .duel-final-card-score {
   font-size: 2.2rem;
   font-weight: 900;
-  color: var(--accent-green);
-  text-shadow: 0 0 20px rgba(108, 181, 45, 0.4);
+  color: var(--hw-red);
 }
 
 .loser-card .duel-final-card-score {
   color: var(--text-muted);
-  text-shadow: none;
 }
 
 .duel-final-card-sub {
@@ -200,29 +190,27 @@
 .duel-final-card-health-bar {
   width: 100%;
   height: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 5px;
+  background: var(--hw-gray-200, #e5e7eb);
+  border-radius: 0;
   overflow: hidden;
 }
 
 .duel-final-card-health-fill {
   height: 100%;
-  border-radius: 5px;
+  border-radius: 0;
   transition: width 1.5s ease-out;
 }
 
 .duel-final-card-health-fill.green {
-  background: linear-gradient(90deg, #4a9c20 0%, #6cb52d 100%);
-  box-shadow: 0 0 6px rgba(108, 181, 45, 0.3);
+  background: var(--hw-red);
 }
 
 .duel-final-card-health-fill.red {
-  background: linear-gradient(90deg, #c0392b 0%, #e74c3c 100%);
-  box-shadow: 0 0 6px rgba(231, 76, 60, 0.3);
+  background: var(--hw-gray-400, #9ca3af);
 }
 
 .duel-final-card-health-value {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--hw-font-sans), ui-monospace, monospace;
   font-size: 0.75rem;
   color: var(--text-muted);
   text-align: center;
@@ -240,7 +228,7 @@
 /* ── Round History ── */
 .duel-final-history {
   background-color: var(--bg-card);
-  border-radius: 16px;
+  border-radius: 0;
   padding: 1.5rem;
   border: 1px solid var(--border-color);
 }
@@ -260,8 +248,8 @@
 
 .duel-final-round-item {
   padding: 0.75rem;
-  background-color: var(--bg-secondary);
-  border-radius: 12px;
+  background-color: var(--hw-gray-100, #f3f4f6);
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -282,10 +270,10 @@
 .duel-final-round-mult {
   font-size: 0.7rem;
   font-weight: 700;
-  color: #ffc107;
+  color: var(--hw-gold, #f0b323);
   padding: 0.15rem 0.5rem;
-  background: rgba(255, 193, 7, 0.1);
-  border-radius: 10px;
+  background: rgba(240, 179, 35, 0.1);
+  border-radius: 0;
 }
 
 .duel-final-round-scores {
@@ -319,7 +307,7 @@
 }
 
 .duel-final-round-player.round-winner .duel-frp-score {
-  color: var(--accent-green);
+  color: var(--hw-red);
 }
 
 .duel-final-round-vs {
@@ -335,7 +323,7 @@
 .duel-frd-text {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #e74c3c;
+  color: var(--hw-red);
 }
 
 .duel-frd-tie {
@@ -357,26 +345,26 @@
 .duel-frh-bar {
   flex: 1;
   height: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
+  background: var(--hw-gray-200, #e5e7eb);
+  border-radius: 0;
   overflow: hidden;
 }
 
 .duel-frh-fill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 .duel-frh-fill.green {
-  background: #6cb52d;
+  background: var(--hw-red);
 }
 
 .duel-frh-fill.red {
-  background: #e74c3c;
+  background: var(--hw-gray-400, #9ca3af);
 }
 
 .duel-frh-val {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--hw-font-sans), ui-monospace, monospace;
   font-size: 0.65rem;
   color: var(--text-muted);
   min-width: 40px;
@@ -398,23 +386,21 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 1rem 2rem;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .duel-final-play-again {
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
-  color: var(--text-primary);
+  background: var(--hw-red);
+  color: #ffffff;
   border: none;
-  box-shadow: 0 4px 20px rgba(108, 181, 45, 0.4);
 }
 
 .duel-final-play-again:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 30px rgba(108, 181, 45, 0.5);
+  background: var(--hw-red-hover, #a50d26);
 }
 
 .duel-final-home {

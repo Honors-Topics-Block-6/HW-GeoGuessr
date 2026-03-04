@@ -1,7 +1,7 @@
 .difficulty-screen {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -14,7 +14,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #0c0c0f 0%, #1a1a2e 50%, #16213e 100%);
+  background: var(--hw-page-bg);
   z-index: 0;
 }
 
@@ -26,8 +26,8 @@
   width: 100%;
   height: 100%;
   background-image:
-    radial-gradient(circle at 20% 80%, rgba(108, 181, 45, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(108, 181, 45, 0.08) 0%, transparent 40%);
+    radial-gradient(circle at 20% 80%, rgba(200, 16, 46, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(240, 179, 35, 0.04) 0%, transparent 40%);
 }
 
 .difficulty-overlay {
@@ -36,9 +36,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background:
-    linear-gradient(0deg, rgba(12, 12, 15, 0.8) 0%, transparent 50%),
-    linear-gradient(180deg, rgba(12, 12, 15, 0.4) 0%, transparent 30%);
+  background: transparent;
 }
 
 .difficulty-content {
@@ -48,7 +46,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 2rem;
+  padding: 1rem 2rem;
   max-width: 900px;
   width: 100%;
 }
@@ -57,47 +55,42 @@
   position: absolute;
   top: 0;
   left: 2rem;
-  padding: 8px 18px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 6px 14px;
+  background: #fff;
+  border: 1px solid var(--hw-gray-300);
+  color: var(--hw-gray-700);
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .difficulty-back-button:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: var(--text-primary);
+  background: var(--hw-gray-100);
+  color: var(--hw-black);
 }
 
-/* Headings */
 .difficulty-heading {
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-  text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--hw-black);
+  margin-bottom: 0.3rem;
 }
 
 .difficulty-subheading {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin-bottom: 2rem;
+  font-size: 0.9rem;
+  color: var(--hw-gray-600);
+  margin-bottom: 0.75rem;
 }
 
 .mode-heading {
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-top: 2.5rem;
-  margin-bottom: 1.2rem;
-  text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: var(--hw-black);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
 }
 
-/* Difficulty Cards */
 .difficulty-options {
   display: flex;
   gap: 1rem;
@@ -111,45 +104,43 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.5rem 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 2px solid var(--border-color);
-  border-radius: 14px;
+  gap: 0.25rem;
+  padding: 0.75rem 0.75rem;
+  background: #fff;
+  border: 2px solid var(--hw-gray-300);
   cursor: pointer;
   transition: all 0.25s ease;
-  color: var(--text-primary);
+  color: var(--hw-black);
 }
 
 .difficulty-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--border-light);
+  background: var(--hw-gray-100);
+  border-color: var(--hw-gray-400);
   transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 .difficulty-card.selected {
-  border-color: var(--accent-green);
-  background: rgba(108, 181, 45, 0.12);
-  box-shadow: 0 0 20px rgba(108, 181, 45, 0.2);
+  border-color: var(--hw-red);
+  background: rgba(200, 16, 46, 0.06);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
 }
 
 .difficulty-card-icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
 }
 
 .difficulty-card-label {
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
 .difficulty-card-desc {
   font-size: 0.8rem;
-  color: var(--text-secondary);
+  color: var(--hw-gray-600);
   line-height: 1.3;
 }
 
-/* Mode Cards */
 .mode-options {
   display: flex;
   gap: 1rem;
@@ -163,31 +154,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.5rem 1rem;
-  border-radius: 14px;
-  border: 2px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.04);
+  gap: 0.25rem;
+  padding: 0.75rem 0.75rem;
+  border: 2px solid var(--hw-gray-300);
+  background: #fff;
   transition: all 0.25s ease;
-  color: var(--text-primary);
+  color: var(--hw-black);
   cursor: pointer;
 }
 
 .mode-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--border-light);
+  background: var(--hw-gray-100);
+  border-color: var(--hw-gray-400);
   transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 .mode-card.selected {
-  background: rgba(108, 181, 45, 0.12);
-  border-color: var(--accent-green);
-  box-shadow: 0 0 20px rgba(108, 181, 45, 0.2);
+  background: rgba(200, 16, 46, 0.06);
+  border-color: var(--hw-red);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
 }
 
 .mode-card-icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
 }
 
 .mode-card-label {
@@ -195,23 +185,31 @@
   font-weight: 700;
 }
 
-/* Time Selection */
-.time-heading {
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-top: 2.5rem;
-  margin-bottom: 0.3rem;
-  text-shadow: 0 0 30px rgba(108, 181, 45, 0.2);
-}
-
-.time-subheading {
-  font-size: 1rem;
+.mode-card-desc {
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  margin-bottom: 1.2rem;
+  line-height: 1.3;
 }
 
-.time-options {
+/* Time Selection */
+.time-heading,
+.rounds-heading {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: var(--hw-black);
+  margin-top: 1rem;
+  margin-bottom: 0.2rem;
+}
+
+.time-subheading,
+.rounds-subheading {
+  font-size: 0.85rem;
+  color: var(--hw-gray-600);
+  margin-bottom: 0.5rem;
+}
+
+.time-options,
+.rounds-options {
   display: flex;
   gap: 0.75rem;
   width: 100%;
@@ -219,54 +217,64 @@
   flex-wrap: wrap;
 }
 
-.time-card {
+.time-card,
+.rounds-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  padding: 1rem 1.2rem;
-  min-width: 90px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 2px solid var(--border-color);
-  border-radius: 12px;
+  gap: 0.2rem;
+  padding: 0.6rem 0.9rem;
+  min-width: 80px;
+  background: #fff;
+  border: 2px solid var(--hw-gray-300);
   cursor: pointer;
   transition: all 0.25s ease;
-  color: var(--text-primary);
+  color: var(--hw-black);
 }
 
-.time-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--border-light);
+.time-card:hover,
+.rounds-card:hover {
+  background: var(--hw-gray-100);
+  border-color: var(--hw-gray-400);
   transform: translateY(-2px);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.time-card.selected {
-  border-color: var(--accent-green);
-  background: rgba(108, 181, 45, 0.12);
-  box-shadow: 0 0 16px rgba(108, 181, 45, 0.2);
+.time-card.selected,
+.rounds-card.selected {
+  border-color: var(--hw-red);
+  background: rgba(200, 16, 46, 0.06);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
 }
 
-.time-card-icon {
-  font-size: 1.4rem;
+.time-card-icon,
+.rounds-card-icon {
+  font-size: 1.1rem;
 }
 
-.time-card-label {
+.time-card-label,
+.rounds-card-label {
   font-size: 0.95rem;
   font-weight: 700;
+}
+
+.rounds-card-suffix {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  opacity: 0.9;
 }
 
 .time-custom-input-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: 1rem;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
 }
 
 .time-custom-label {
   font-size: 0.85rem;
-  color: var(--text-secondary);
+  color: var(--hw-gray-600);
 }
 
 .time-custom-input {
@@ -275,47 +283,55 @@
   text-align: center;
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
-  border: 2px solid var(--border-color);
-  border-radius: 10px;
+  color: var(--hw-black);
+  background: #fff;
+  border: 2px solid var(--hw-gray-300);
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .time-custom-input:focus {
-  border-color: var(--accent-green);
-  box-shadow: 0 0 12px rgba(108, 181, 45, 0.25);
+  border-color: var(--hw-red);
+  box-shadow: var(--hw-focus-ring);
 }
 
 .time-custom-input::placeholder {
-  color: var(--text-secondary);
+  color: var(--hw-gray-500);
   opacity: 0.6;
 }
 
-/* Play Button */
 .play-button {
-  margin-top: 2.5rem;
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
-  color: var(--text-primary);
-  font-size: 1.3rem;
+  margin-top: 0;
+  background: var(--hw-red);
+  color: #fff;
+  font-size: 1.1rem;
   font-weight: 600;
-  padding: 1rem 4rem;
-  border-radius: 50px;
+  padding: 0.75rem 3rem;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(108, 181, 45, 0.4);
+  box-shadow: 0 4px 12px rgba(200, 16, 46, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-width: 200px;
+  min-width: 180px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.difficulty-footer {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0;
+  display: flex;
+  justify-content: center;
 }
 
 .play-button:hover:not(:disabled) {
+  background: var(--hw-red-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 30px rgba(108, 181, 45, 0.5);
+  box-shadow: 0 6px 20px rgba(200, 16, 46, 0.35);
 }
 
 .play-button:active:not(:disabled) {
@@ -327,47 +343,103 @@
   cursor: not-allowed;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
-  .difficulty-heading,
-  .mode-heading,
-  .time-heading {
-    font-size: 1.7rem;
+  .difficulty-screen {
+    min-height: 100vh;
+    height: auto;
+    overflow-y: auto;
+    justify-content: flex-start;
+    align-items: stretch;
   }
 
+  .difficulty-heading,
+  .mode-heading,
+  .time-heading,
+  .rounds-heading {
+    font-size: 1.4rem;
+  }
+
+  .difficulty-content { padding: 1rem 1rem 1.5rem; }
+  .difficulty-subheading { margin-bottom: 1.2rem; }
+  .mode-heading { margin-top: 1.6rem; margin-bottom: 0.8rem; }
+  .time-heading { margin-top: 1.6rem; }
+  .time-subheading { margin-bottom: 0.9rem; }
+
   .difficulty-options,
-  .mode-options,
-  .time-options {
-    flex-direction: column;
-    align-items: center;
+  .mode-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    max-width: 560px;
+    width: 100%;
+  }
+
+  .time-options,
+  .rounds-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+    max-width: 560px;
+    width: 100%;
+  }
+
+  .difficulty-card {
+    max-width: 280px;
+    width: 100%;
+    padding: 0.9rem 0.75rem;
   }
 
   .difficulty-card,
   .mode-card,
-  .time-card {
-    max-width: 280px;
+  .time-card,
+  .rounds-card {
+    max-width: none;
     width: 100%;
+    padding: 0.9rem 0.75rem;
   }
 
-  .play-button {
-    font-size: 1.1rem;
-    padding: 0.9rem 3rem;
-  }
+  .difficulty-card-icon, .mode-card-icon { font-size: 1.6rem; }
+  .difficulty-card-label, .mode-card-label { font-size: 1rem; }
+  .difficulty-card-desc { display: none; }
+  .time-card,
+  .rounds-card { min-width: 0; }
+  .play-button { font-size: 1.1rem; padding: 0.9rem 3rem; }
 
   .difficulty-back-button {
     position: static;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.9rem;
   }
 }
 
 @media (max-width: 480px) {
   .difficulty-heading,
   .mode-heading,
-  .time-heading {
+  .time-heading,
+  .rounds-heading {
     font-size: 1.4rem;
   }
 
   .difficulty-content {
-    padding: 1.5rem 1rem;
+    padding: 0.9rem 0.9rem 1.25rem;
+  }
+
+  .time-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .difficulty-card,
+  .mode-card,
+  .time-card,
+  .rounds-card {
+    padding: 0.75rem 0.6rem;
+    border-radius: 12px;
+  }
+
+  .time-card-label {
+    font-size: 0.9rem;
+  }
+
+  .difficulty-footer {
+    margin-top: 1.25rem;
   }
 }

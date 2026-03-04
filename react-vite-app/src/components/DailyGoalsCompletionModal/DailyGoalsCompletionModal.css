@@ -1,3 +1,5 @@
+/* ===== Daily Goals Completion Modal – HW Design System ===== */
+
 .daily-goals-reward-modal-overlay {
   position: fixed;
   inset: 0;
@@ -5,17 +7,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 10, 18, 0.7);
-  backdrop-filter: blur(3px);
+  background: rgba(35, 31, 32, 0.5);
+  backdrop-filter: blur(4px);
 }
 
 .daily-goals-reward-modal {
   position: relative;
   width: min(92vw, 440px);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: linear-gradient(180deg, rgba(22, 33, 62, 0.96), rgba(14, 21, 42, 0.96));
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  border-radius: 0;
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  background: var(--hw-surface, #ffffff);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   padding: 1.8rem 1.4rem 1.4rem;
   text-align: center;
 }
@@ -27,27 +29,33 @@
 
 .daily-goals-reward-modal h2 {
   margin: 0 0 0.4rem;
-  color: #e9edf7;
+  color: var(--hw-black, #231f20);
   font-size: 1.45rem;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
 }
 
 .daily-goals-reward-modal p {
   margin: 0 0 1.2rem;
-  color: #aab3c8;
+  color: var(--text-secondary, #4b5563);
   font-size: 0.95rem;
 }
 
 .daily-goals-reward-collect-btn {
   border: none;
-  border-radius: 999px;
+  border-radius: 0;
   padding: 0.78rem 1.2rem;
   min-width: 220px;
   font-weight: 700;
   font-size: 0.95rem;
-  color: #1a1a2e;
-  background: linear-gradient(135deg, #ffc107, #ff9800);
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
+  color: #ffffff;
+  background: var(--hw-gold, #f0b323);
   cursor: pointer;
-  box-shadow: 0 8px 22px rgba(255, 193, 7, 0.35);
+  transition: background 0.2s ease;
+}
+
+.daily-goals-reward-collect-btn:hover:not(:disabled) {
+  background: #d9a020;
 }
 
 .daily-goals-reward-collect-btn:disabled {
@@ -61,9 +69,14 @@
   right: 10px;
   border: none;
   background: transparent;
-  color: #93a0bc;
+  color: var(--text-muted, #6b7280);
   font-size: 1.3rem;
   cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.daily-goals-reward-close:hover {
+  color: var(--hw-black, #231f20);
 }
 
 .daily-goals-reward-confetti {
@@ -78,7 +91,7 @@
   top: -12px;
   width: 8px;
   height: 14px;
-  border-radius: 2px;
+  border-radius: 0;
   animation: daily-goals-confetti-fall 2.2s linear forwards;
 }
 
