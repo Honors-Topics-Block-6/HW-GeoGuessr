@@ -86,15 +86,37 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
   // Time setting: preset value or 'custom'
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(30);
   const [customTime, setCustomTime] = useState<string>('60');
+  const [customTimeError, setCustomTimeError] = useState<string | null>(null);
+
+  const parsedCustom = parseInt(customTime, 10);
+  const customIsValid =
+    timeSelection !== 'custom' ||
+    (!isNaN(parsedCustom) && parsedCustom >= CUSTOM_TIME_MIN && parsedCustom <= CUSTOM_TIME_MAX);
 
   /** Resolve the actual round time in seconds (0 = no limit) */
   const resolvedTime: number =
     timeSelection === 'custom'
-      ? Math.max(CUSTOM_TIME_MIN, Math.min(CUSTOM_TIME_MAX, parseInt(customTime, 10) || CUSTOM_TIME_MIN))
+      ? Math.max(
+          CUSTOM_TIME_MIN,
+          Math.min(
+            CUSTOM_TIME_MAX,
+            isNaN(parsedCustom) ? CUSTOM_TIME_MIN : parsedCustom
+          )
+        )
       : timeSelection;
 
   const handleStart = (): void => {
-    if (selectedDifficulty) {
+    if (!selectedDifficulty) return;
+
+    if (timeSelection === 'custom') {
+      if (!customIsValid) {
+        setCustomTimeError(`Enter a time between ${CUSTOM_TIME_MIN} and ${CUSTOM_TIME_MAX} seconds.`);
+        return;
+      }
+      // Normalize the input to the clamped value so the user sees what will be used
+      setCustomTime(String(resolvedTime));
+      setCustomTimeError(null);
+   if (selectedDifficulty) {
       onStart(
         selectedDifficulty,
         selectedMode,
@@ -103,20 +125,42 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
         selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' ? selectedRounds : undefined
       );
     }
+
+    onStart(
+      selectedDifficulty,
+      selectedMode,
+      selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
+      selectedMode === 'singleplayer' ? resolvedTime : undefined
+    );
+    }
+
+    onStart(selectedDifficulty, selectedMode, resolvedTime);
   };
+
+  const disabledReason: string | null = (() => {
+    if (!selectedDifficulty) return 'Select a difficulty.';
+    if (!selectedMode) return 'Select a game mode.';
+    if (timeSelection === 'custom' && !customIsValid) {
+      return `Enter a custom time between ${CUSTOM_TIME_MIN} and ${CUSTOM_TIME_MAX} seconds.`;
+    }
+    return null;
+  })();
 
   const handleCustomTimeChange = (value: string): void => {
     // Allow only digits while typing
     const digits = value.replace(/\D/g, '');
     setCustomTime(digits);
+    setCustomTimeError(null);
   };
 
   const handleCustomTimeBlur = (): void => {
     const parsed = parseInt(customTime, 10);
     if (isNaN(parsed) || parsed < CUSTOM_TIME_MIN) {
       setCustomTime(String(CUSTOM_TIME_MIN));
+      setCustomTimeError(null);
     } else if (parsed > CUSTOM_TIME_MAX) {
       setCustomTime(String(CUSTOM_TIME_MAX));
+      setCustomTimeError(null);
     }
   };
 
@@ -194,6 +238,27 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
                 <span className="mode-card-desc">HP until you run out</span>
               </button>
             </div>
+
+            {timeSelection === 'custom' && (
+              <div className="time-custom-input-wrapper">
+                <label className="time-custom-label" htmlFor="custom-time-input">
+                  Seconds ({CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX})
+                </label>
+                <input
+                  id="custom-time-input"
+                  className="time-custom-input"
+                  type="text"
+                  inputMode="numeric"
+                  value={customTime}
+                  onChange={(e) => handleCustomTimeChange(e.target.value)}
+                  onBlur={handleCustomTimeBlur}
+                  min={CUSTOM_TIME_MIN}
+                  max={CUSTOM_TIME_MAX}
+                  placeholder="e.g. 60"
+                />
+                {customTimeError && <div className="time-custom-error">{customTimeError}</div>}
+              </div>
+            )}
           </>
         )}
 
