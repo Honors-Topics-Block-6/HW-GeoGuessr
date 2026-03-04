@@ -1,11 +1,11 @@
 .difficulty-screen {
   position: relative;
   width: 100%;
-  min-height: 100svh;
+  height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .difficulty-background {
@@ -46,7 +46,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 2rem;
+  padding: 1rem 2rem;
   max-width: 900px;
   width: 100%;
   gap: 1.5rem;
@@ -74,7 +74,7 @@
   background: #fff;
   border: 1px solid var(--hw-gray-300);
   color: var(--hw-gray-700);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -86,24 +86,24 @@
 }
 
 .difficulty-heading {
-  font-size: 2.2rem;
+  font-size: 1.5rem;
   font-weight: 900;
   color: var(--hw-black);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
 }
 
 .difficulty-subheading {
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: var(--hw-gray-600);
-  margin-bottom: 2rem;
+  margin-bottom: 0.75rem;
 }
 
 .mode-heading {
-  font-size: 2.2rem;
+  font-size: 1.3rem;
   font-weight: 900;
   color: var(--hw-black);
-  margin-top: 2.5rem;
-  margin-bottom: 1.2rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
 }
 .difficulty-options {
   display: grid;
@@ -117,8 +117,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.5rem 1rem;
+  gap: 0.25rem;
+  padding: 0.75rem 0.75rem;
   background: #fff;
   border: 2px solid var(--hw-gray-300);
   cursor: pointer;
@@ -140,11 +140,11 @@
 }
 
 .difficulty-card-icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
 }
 
 .difficulty-card-label {
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -165,8 +165,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.5rem 1rem;
+  gap: 0.25rem;
+  padding: 0.75rem 0.75rem;
   border: 2px solid var(--hw-gray-300);
   background: #fff;
   transition: all 0.25s ease;
@@ -188,7 +188,7 @@
 }
 
 .mode-card-icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
 }
 
 .mode-card-label {
@@ -205,18 +205,18 @@
 /* Time Selection */
 .time-heading,
 .rounds-heading {
-  font-size: 2.2rem;
+  font-size: 1.3rem;
   font-weight: 900;
   color: var(--hw-black);
-  margin-top: 2.5rem;
-  margin-bottom: 0.3rem;
+  margin-top: 1rem;
+  margin-bottom: 0.2rem;
 }
 
 .time-subheading,
 .rounds-subheading {
-  font-size: 1rem;
+  font-size: 0.85rem;
   color: var(--hw-gray-600);
-  margin-bottom: 1.2rem;
+  margin-bottom: 0.5rem;
 }
 
 .time-options,
@@ -234,9 +234,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  padding: 1rem 1.2rem;
-  min-width: 90px;
+  gap: 0.2rem;
+  padding: 0.6rem 0.9rem;
+  min-width: 80px;
   background: #fff;
   border: 2px solid var(--hw-gray-300);
   cursor: pointer;
@@ -261,7 +261,7 @@
 
 .time-card-icon,
 .rounds-card-icon {
-  font-size: 1.4rem;
+  font-size: 1.1rem;
 }
 
 .time-card-label,
@@ -280,8 +280,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: 1rem;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
 }
 
 .time-custom-label {
@@ -316,9 +316,9 @@
   margin-top: 0;
   background: var(--hw-red);
   color: #fff;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  padding: 1rem 4rem;
+  padding: 0.75rem 3rem;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -327,26 +327,17 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-width: 200px;
+  min-width: 180px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .difficulty-footer {
-  position: sticky;
-  bottom: 0;
   width: 100%;
-  margin-top: 1.75rem;
-  padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom));
+  margin-top: 0.75rem;
+  padding: 0.5rem 0;
   display: flex;
   justify-content: center;
-  background: linear-gradient(
-    0deg,
-    rgba(242, 240, 236, 0.95) 0%,
-    rgba(242, 240, 236, 0.6) 55%,
-    rgba(242, 240, 236, 0) 100%
-  );
-  backdrop-filter: blur(8px);
 }
 
 .play-button:hover:not(:disabled) {
@@ -373,16 +364,19 @@
 }
 
 @media (max-width: 768px) {
+  .difficulty-screen {
+    min-height: 100vh;
+    height: auto;
+    overflow-y: auto;
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+
   .difficulty-heading,
   .mode-heading,
   .time-heading,
   .rounds-heading {
-    font-size: 1.7rem;
-  }
-
-  .difficulty-screen {
-    justify-content: flex-start;
-    align-items: stretch;
+    font-size: 1.4rem;
   }
 
   .difficulty-content { padding: 1rem 1rem 1.5rem; }

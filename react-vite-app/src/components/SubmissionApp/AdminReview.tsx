@@ -210,10 +210,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       setSaveError('Location is required')
       return
     }
-    if (editForm.floor === null || editForm.floor === undefined) {
-      setSaveError('Floor is required')
-      return
-    }
 
     setIsSaving(true)
     setSaveError('')
@@ -228,25 +224,31 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
       if (selectedSubmission?._source === 'submission') {
         const normalizedBuilding = (editForm.buildingName || '').trim() || null;
-        await updateDoc(doc(db, 'submissions', selectedSubmission.id), {
+        const updateData: Record<string, unknown> = {
           description: editForm.description,
           photoName: editForm.photoName,
           buildingName: normalizedBuilding,
           location: editForm.location,
-          floor: editForm.floor,
           difficulty: editForm.difficulty || null,
           status: editForm.status,
           photoURL: photoURL,
-        })
+        };
+        if (editForm.floor !== undefined) {
+          updateData.floor = editForm.floor;
+        }
+        await updateDoc(doc(db, 'submissions', selectedSubmission.id), updateData)
         // Real-time listener will auto-update submissions state
       } else if (selectedSubmission?._source === 'image') {
-        await updateDoc(doc(db, 'images', selectedSubmission.id), {
+        const updateData: Record<string, unknown> = {
           description: editForm.description,
           correctLocation: editForm.location,
-          correctFloor: editForm.floor,
           difficulty: editForm.difficulty || null,
           url: photoURL,
-        })
+        };
+        if (editForm.floor !== undefined) {
+          updateData.correctFloor = editForm.floor;
+        }
+        await updateDoc(doc(db, 'images', selectedSubmission.id), updateData)
         // Manually update firestoreImages state (no real-time listener)
         setFirestoreImages(prev => prev.map(img =>
           img.id === selectedSubmission.id
