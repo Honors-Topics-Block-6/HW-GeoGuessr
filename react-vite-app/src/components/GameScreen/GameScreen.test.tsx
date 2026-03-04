@@ -207,7 +207,7 @@ describe('GameScreen', () => {
     it('should render MapPicker', () => {
       render(<GameScreen {...defaultProps} />);
 
-      expect(screen.getByText(/Click to place your guess/)).toBeInTheDocument();
+      expect(screen.getByText(/Tap to place|Click to place/)).toBeInTheDocument();
     });
 
     it('should render FloorSelector when in region', () => {

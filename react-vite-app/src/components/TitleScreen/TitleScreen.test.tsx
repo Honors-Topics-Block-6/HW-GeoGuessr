@@ -40,10 +40,7 @@ describe('TitleScreen', () => {
     onOpenBugReport: vi.fn(),
     onOpenDailyGoals: vi.fn(),
     onOpenAchievements: vi.fn(),
-    isLoading: false,
-    invites: [],
-    onJoinInvite: vi.fn().mockResolvedValue(true),
-    onDismissInvite: vi.fn()
+    isLoading: false
   };
 
   beforeEach(() => {
