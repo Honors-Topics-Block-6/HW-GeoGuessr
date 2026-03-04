@@ -727,6 +727,7 @@ function App(): React.ReactElement {
           imageUrl={currentResult.imageUrl}
           locationScore={currentResult.locationScore}
           floorCorrect={currentResult.floorCorrect}
+          exactSpotBonus={currentResult.exactSpotBonus}
           totalScore={currentResult.score}
           timeTakenSeconds={currentResult.timeTakenSeconds}
           timedOut={currentResult.timedOut}
