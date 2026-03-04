@@ -426,7 +426,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
             {addError && <div className="add-friend-error">{addError}</div>}
             {addSuccess && <div className="add-friend-success">{addSuccess}</div>}
 
-            <div className="add-friend-mode">
+            <div className="add-friend-mode add-friend-mode-buttons">
               <button
                 type="button"
                 className={`add-friend-mode-button ${addMode === 'uid' ? 'active' : ''}`}
@@ -445,6 +445,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                   setAddMode('username');
                   setAddError(null);
                   setAddSuccess(null);
+                  setSearchResults([]);
                 }}
               >
                 By Username

@@ -108,6 +108,10 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
       : timeSelection;
 
   const handleStart = (): void => {
+    if (selectedMode === 'multiplayer') {
+      onBack();
+      return;
+    }
     if (!selectedDifficulty) return;
 
     if (timeSelection === 'custom') {
@@ -115,29 +119,18 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
         setCustomTimeError(`Enter a time between ${CUSTOM_TIME_MIN} and ${CUSTOM_TIME_MAX} seconds.`);
         return;
       }
-      // Normalize the input to the clamped value so the user sees what will be used
       setCustomTime(String(resolvedTime));
       setCustomTimeError(null);
-   if (selectedDifficulty) {
-      onStart(
-        selectedDifficulty,
-        selectedMode,
-        selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
-        selectedMode === 'singleplayer' ? resolvedTime : undefined,
-        timePenaltyEnabled,
-        selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' ? selectedRounds : undefined
-      );
     }
 
     onStart(
       selectedDifficulty,
       selectedMode,
       selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
-      selectedMode === 'singleplayer' ? resolvedTime : undefined
+      selectedMode === 'singleplayer' ? resolvedTime : undefined,
+      timePenaltyEnabled,
+      selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' ? selectedRounds : undefined
     );
-    }
-
-    onStart(selectedDifficulty, selectedMode, resolvedTime);
   };
 
   const disabledReason: string | null = (() => {
@@ -178,10 +171,10 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
           ← Back
         </button>
 
-        <h2 className="difficulty-heading">Choose Difficulty</h2>
-        <p className="difficulty-subheading">Select how challenging you want the game to be</p>
-
-        <div className="difficulty-options">
+        <div className="difficulty-group">
+          <h2 className="difficulty-heading">Choose Difficulty</h2>
+          <p className="difficulty-subheading">Select how challenging you want the game to be</p>
+          <div className="difficulty-options">
           {DIFFICULTIES.map((diff: DifficultyOption) => (
             <button
               key={diff.id}
@@ -193,49 +186,43 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
               <span className="difficulty-card-desc">{diff.description}</span>
             </button>
           ))}
+          </div>
         </div>
 
-        <h2 className="mode-heading">Options</h2>
-
-        <div className="time-penalty-toggle">
-          <label className="time-penalty-label">
-            <input
-              type="checkbox"
-              checked={timePenaltyEnabled}
-              onChange={(e) => setTimePenaltyEnabled(e.target.checked)}
-              className="time-penalty-checkbox"
-            />
-            <span className="time-penalty-text">Time penalty (slower guesses = fewer points)</span>
-          </label>
-        </div>
-
-        <h2 className="time-heading">Round Time</h2>
-        <p className="time-subheading">How long each round lasts</p>
-
-        <div className="time-options">
-          {TIME_PRESETS.map((preset) => (
+        <div className="mode-group">
+          <h2 className="mode-heading">Game Mode</h2>
+          <div className="mode-options">
             <button
-              key={preset.value}
-              className={`time-card ${timeSelection === preset.value ? 'selected' : ''}`}
-              onClick={() => setTimeSelection(preset.value)}
+              className={`mode-card ${selectedMode === 'singleplayer' ? 'selected' : ''}`}
+              onClick={() => setSelectedMode('singleplayer')}
             >
-              <span className="time-card-icon">
-                {preset.value === 0 ? '∞' : '⏱'}
-              </span>
-              <span className="time-card-label">{preset.label}</span>
+              <span className="mode-card-icon">👤</span>
+              <span className="mode-card-label">Singleplayer</span>
             </button>
-          ))}
-          <button
-            className={`time-card ${timeSelection === 'custom' ? 'selected' : ''}`}
-            onClick={() => setTimeSelection('custom')}
-          >
-            <span className="time-card-icon">✏️</span>
-            <span className="time-card-label">Custom</span>
-          </button>
+            <button
+              className={`mode-card ${selectedMode === 'multiplayer' ? 'selected' : ''}`}
+              onClick={() => setSelectedMode('multiplayer')}
+            >
+              <span className="mode-card-icon">👥</span>
+              <span className="mode-card-label">Multiplayer</span>
+            </button>
+          </div>
         </div>
 
         {selectedMode === 'singleplayer' && (
           <>
+            <div className="time-penalty-toggle">
+              <label className="time-penalty-label">
+                <input
+                  type="checkbox"
+                  checked={timePenaltyEnabled}
+                  onChange={(e) => setTimePenaltyEnabled(e.target.checked)}
+                  className="time-penalty-checkbox"
+                />
+                <span className="time-penalty-text">Time penalty (slower guesses = fewer points)</span>
+              </label>
+            </div>
+
             <h2 className="mode-heading">Singleplayer Mode</h2>
             <div className="mode-options">
               <button
@@ -253,6 +240,31 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
                 <span className="mode-card-icon">♾️</span>
                 <span className="mode-card-label">Endless</span>
                 <span className="mode-card-desc">HP until you run out</span>
+              </button>
+            </div>
+
+            <h2 className="time-heading">Round Time</h2>
+            <p className="time-subheading">How long each round lasts</p>
+
+            <div className="time-options">
+              {TIME_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  className={`time-card ${timeSelection === preset.value ? 'selected' : ''}`}
+                  onClick={() => setTimeSelection(preset.value)}
+                >
+                  <span className="time-card-icon">
+                    {preset.value === 0 ? '∞' : '⏱'}
+                  </span>
+                  <span className="time-card-label">{preset.label}</span>
+                </button>
+              ))}
+              <button
+                className={`time-card ${timeSelection === 'custom' ? 'selected' : ''}`}
+                onClick={() => setTimeSelection('custom')}
+              >
+                <span className="time-card-icon">✏️</span>
+                <span className="time-card-label">Custom</span>
               </button>
             </div>
 
@@ -277,26 +289,6 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
               </div>
             )}
           </>
-        )}
-
-        {timeSelection === 'custom' && (
-          <div className="time-custom-input-wrapper">
-            <label className="time-custom-label" htmlFor="custom-time-input">
-              Seconds ({CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX})
-            </label>
-            <input
-              id="custom-time-input"
-              className="time-custom-input"
-              type="text"
-              inputMode="numeric"
-              value={customTime}
-              onChange={(e) => handleCustomTimeChange(e.target.value)}
-              onBlur={handleCustomTimeBlur}
-              min={CUSTOM_TIME_MIN}
-              max={CUSTOM_TIME_MAX}
-              placeholder="e.g. 60"
-            />
-          </div>
         )}
 
         {selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' && (

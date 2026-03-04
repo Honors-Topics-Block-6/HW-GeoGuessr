@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import { STARTING_HEALTH } from '../../services/duelService';
 import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
+import { computeContainFit, toContainerPct, type ImageFit } from '../../utils/imageFitUtils';
 import './DuelResultScreen.css';
 
 interface MapPosition {
@@ -74,8 +75,9 @@ function DuelResultScreen({
   isGameOver
 }: DuelResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const detailsRef = useRef<HTMLDivElement>(null);
   const mapOuterRef = useRef<HTMLDivElement>(null);
+  const mapImageRef = useRef<HTMLImageElement>(null);
+  const [imageFit, setImageFit] = useState<ImageFit>({ offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 });
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [displayedMyScore, setDisplayedMyScore] = useState<number>(0);
   const [displayedOpScore, setDisplayedOpScore] = useState<number>(0);
@@ -92,27 +94,32 @@ function DuelResultScreen({
   const isTie = myScore === opScore;
   const iTookDamage = damagedPlayer === myUid;
 
-  // Sync map container height to details panel
-  useEffect(() => {
-    const detailsEl = detailsRef.current;
-    const mapEl = mapOuterRef.current;
-    if (!detailsEl || !mapEl) return;
-
-    const syncHeight = (): void => {
-      const detailsHeight = detailsEl.offsetHeight;
-      if (detailsHeight > 0) {
-        mapEl.style.height = `${detailsHeight}px`;
-      }
-    };
-
-    syncHeight();
-    const observer = new ResizeObserver(syncHeight);
-    observer.observe(detailsEl);
-    return () => observer.disconnect();
-  }, []);
-
   const { scale, transformStyle, handlers, zoomIn, zoomOut, resetZoom, isPanning } = useMapZoom(mapContainerRef);
   const isZoomed = scale > 1;
+
+  const updateImageFit = useCallback((): void => {
+    const img = mapImageRef.current;
+    if (img && img.naturalWidth) {
+      setImageFit(computeContainFit(img));
+    }
+  }, []);
+
+  useEffect(() => {
+    const img = mapImageRef.current;
+    if (!img) return;
+    img.addEventListener('load', updateImageFit);
+    if (img.complete) updateImageFit();
+    const observer = new ResizeObserver(updateImageFit);
+    observer.observe(img);
+    return () => {
+      img.removeEventListener('load', updateImageFit);
+      observer.disconnect();
+    };
+  }, [updateImageFit]);
+
+  const mappedMy = myLocation ? toContainerPct(myLocation, imageFit) : null;
+  const mappedOp = opLocation ? toContainerPct(opLocation, imageFit) : null;
+  const mappedActual = toContainerPct(actualLocation, imageFit);
 
   // Animation sequence
   useEffect(() => {
@@ -196,7 +203,7 @@ function DuelResultScreen({
             {...handlers}
           >
             <div className="duel-result-zoom-content" style={{ transform: transformStyle }}>
-              <img className="map-image" src="/FINAL_MAP.png" alt="Campus Map" draggable="false" onDragStart={(e: React.DragEvent<HTMLImageElement>) => e.preventDefault()} />
+              <img ref={mapImageRef} className="map-image" src="/FINAL_MAP.png" alt="Campus Map" draggable="false" onDragStart={(e: React.DragEvent<HTMLImageElement>) => e.preventDefault()} />
 
               {/* Lines from guesses to actual */}
               {animationPhase >= 2 && (
@@ -207,19 +214,19 @@ function DuelResultScreen({
                     width: '100%', height: '100%', pointerEvents: 'none'
                   }}
                 >
-                  {myLocation && (
+                  {mappedMy && (
                     <line
                       className="duel-result-line"
-                      x1={`${myLocation.x}%`} y1={`${myLocation.y}%`}
-                      x2={`${actualLocation.x}%`} y2={`${actualLocation.y}%`}
+                      x1={`${mappedMy.x}%`} y1={`${mappedMy.y}%`}
+                      x2={`${mappedActual.x}%`} y2={`${mappedActual.y}%`}
                       stroke="#ff6b6b" strokeWidth="2" strokeDasharray="6,4"
                     />
                   )}
-                  {opLocation && (
+                  {mappedOp && (
                     <line
                       className="duel-result-line duel-result-line-delayed"
-                      x1={`${opLocation.x}%`} y1={`${opLocation.y}%`}
-                      x2={`${actualLocation.x}%`} y2={`${actualLocation.y}%`}
+                      x1={`${mappedOp.x}%`} y1={`${mappedOp.y}%`}
+                      x2={`${mappedActual.x}%`} y2={`${mappedActual.y}%`}
                       stroke="#74b9ff" strokeWidth="2" strokeDasharray="6,4"
                     />
                   )}
@@ -227,10 +234,10 @@ function DuelResultScreen({
               )}
 
               {/* My guess marker (red) */}
-              {myLocation && (
+              {mappedMy && (
                 <div
                   className="result-marker duel-my-marker"
-                  style={{ left: `${myLocation.x}%`, top: `${myLocation.y}%` }}
+                  style={{ left: `${mappedMy.x}%`, top: `${mappedMy.y}%` }}
                 >
                   <div className="marker-pin duel-pin-red"></div>
                   <div className="marker-label">{myUsername}</div>
@@ -238,10 +245,10 @@ function DuelResultScreen({
               )}
 
               {/* Opponent guess marker (blue) - Phase 1+ */}
-              {opLocation && animationPhase >= 1 && (
+              {mappedOp && animationPhase >= 1 && (
                 <div
                   className="result-marker duel-opponent-marker"
-                  style={{ left: `${opLocation.x}%`, top: `${opLocation.y}%` }}
+                  style={{ left: `${mappedOp.x}%`, top: `${mappedOp.y}%` }}
                 >
                   <div className="marker-pin duel-pin-blue"></div>
                   <div className="marker-label">{opponentUsername}</div>
@@ -252,7 +259,7 @@ function DuelResultScreen({
               {animationPhase >= 1 && (
                 <div
                   className="result-marker actual-marker"
-                  style={{ left: `${actualLocation.x}%`, top: `${actualLocation.y}%` }}
+                  style={{ left: `${mappedActual.x}%`, top: `${mappedActual.y}%` }}
                 >
                   <div className="marker-pin actual-pin"></div>
                   <div className="marker-label">Correct</div>
@@ -274,7 +281,7 @@ function DuelResultScreen({
         </div>
 
         {/* Details panel */}
-        <div className="duel-result-details" ref={detailsRef}>
+        <div className="duel-result-details">
           {/* Image preview */}
           <div className="duel-result-image-preview">
             <img src={imageUrl} alt="Location" />
