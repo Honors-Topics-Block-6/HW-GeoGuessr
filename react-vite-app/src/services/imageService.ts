@@ -87,30 +87,6 @@ const SAMPLE_IMAGES: readonly SampleImage[] = [
 
 const RANDOM_SELECTION_ATTEMPTS = 8;
 
-function emitDebugLog(
-  hypothesisId: string,
-  location: string,
-  message: string,
-  data: Record<string, unknown>
-): void {
-  fetch('http://127.0.0.1:7912/ingest/4a433f93-726b-4f45-8648-a37cd14c9d3b', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': '86e883'
-    },
-    body: JSON.stringify({
-      sessionId: '86e883',
-      runId: 'initial',
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now()
-    })
-  }).catch(() => {});
-}
-
 function toPoolCandidate(id: string, data: ImagePoolEntry): { id: string; sourceType: 'image' | 'submission'; sourceId: string; difficulty: string | null } | null {
   if (!data?.active) return null;
   if (!data.sourceId || !data.sourceType) return null;
@@ -130,13 +106,6 @@ function randomKey(): number {
 async function pickPoolCandidate(difficulty: string | null): Promise<{ id: string; sourceType: 'image' | 'submission'; sourceId: string; difficulty: string | null } | null> {
   const pivot = randomKey();
   const withDifficulty = Boolean(difficulty && difficulty !== 'all');
-  // #region agent log
-  emitDebugLog('H1_H2', 'imageService.ts:131', 'pickPoolCandidate:start', {
-    difficulty,
-    withDifficulty,
-    pivot
-  });
-  // #endregion
 
   let snap;
   try {
@@ -148,13 +117,6 @@ async function pickPoolCandidate(difficulty: string | null): Promise<{ id: strin
     );
     snap = await getDocs(q1);
   } catch (err) {
-    const e = err as { code?: string; message?: string };
-    // #region agent log
-    emitDebugLog('H1', 'imageService.ts:198', 'pickPoolCandidate:all_query_error', {
-      code: e.code ?? null,
-      message: e.message ?? null
-    });
-    // #endregion
     throw err;
   }
   if (snap.empty) {
@@ -166,23 +128,9 @@ async function pickPoolCandidate(difficulty: string | null): Promise<{ id: strin
       );
       snap = await getDocs(q2);
     } catch (err) {
-      const e = err as { code?: string; message?: string };
-      // #region agent log
-      emitDebugLog('H1', 'imageService.ts:215', 'pickPoolCandidate:all_wrap_query_error', {
-        code: e.code ?? null,
-        message: e.message ?? null
-      });
-      // #endregion
       throw err;
     }
   }
-  // #region agent log
-  emitDebugLog('H3', 'imageService.ts:224', 'pickPoolCandidate:snapshot', {
-    empty: snap.empty,
-    size: snap.size,
-    withDifficulty
-  });
-  // #endregion
   if (snap.empty) return null;
   const docSnap = snap.docs[0];
   return toPoolCandidate(docSnap.id, docSnap.data() as ImagePoolEntry);
@@ -241,12 +189,6 @@ async function selectRandomHydratedImage(
     }
     attemptedCandidateIds.add(candidate.id);
     if (requiresDifficulty && candidate.difficulty !== difficulty) {
-      // #region agent log
-      emitDebugLog('H3', 'imageService.ts:255', 'selectRandomHydratedImage:skip_difficulty_mismatch', {
-        requestedDifficulty: difficulty,
-        candidateDifficulty: candidate.difficulty
-      });
-      // #endregion
       continue;
     }
     if (allowExclusions && excludedIds.has(candidate.id)) {
@@ -282,13 +224,6 @@ export async function getRandomImage(
   try {
     const excludedIds = new Set(options.excludeImageIds || []);
     const excludedUrls = new Set(options.excludeImageUrls || []);
-    // #region agent log
-    emitDebugLog('H4_H5', 'imageService.ts:310', 'getRandomImage:start', {
-      difficulty,
-      excludedIdCount: excludedIds.size,
-      excludedUrlCount: excludedUrls.size
-    });
-    // #endregion
     const withExclusion = await selectRandomHydratedImage(difficulty, excludedIds, excludedUrls, true);
     if (withExclusion) {
       console.info(`[getRandomImage] selected in ${Date.now() - startMs}ms (with exclusions)`);
@@ -298,13 +233,6 @@ export async function getRandomImage(
     console.info(`[getRandomImage] selected in ${Date.now() - startMs}ms (fallback=${fallback ? 'hit' : 'miss'})`);
     return fallback;
   } catch (error) {
-    const e = error as { code?: string; message?: string };
-    // #region agent log
-    emitDebugLog('H1_H2_H3_H4_H5', 'imageService.ts:328', 'getRandomImage:error', {
-      code: e.code ?? null,
-      message: e.message ?? null
-    });
-    // #endregion
     console.error('Error fetching random image:', error);
     return null;
   }
