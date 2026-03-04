@@ -49,13 +49,28 @@
   padding: 1rem 2rem;
   max-width: 900px;
   width: 100%;
+  gap: 1.5rem;
+}
+
+/* Group wrappers for visual grouping */
+.difficulty-group,
+.mode-group,
+.time-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
 }
 
 .difficulty-back-button {
   position: absolute;
   top: 0;
   left: 2rem;
-  padding: 6px 14px;
+  padding: 8px 18px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
   background: #fff;
   border: 1px solid var(--hw-gray-300);
   color: var(--hw-gray-700);
@@ -90,17 +105,15 @@
   margin-top: 1rem;
   margin-bottom: 0.5rem;
 }
-
 .difficulty-options {
-  display: flex;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
   width: 100%;
-  justify-content: center;
+  max-width: 480px;
 }
 
 .difficulty-card {
-  flex: 1;
-  max-width: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -140,17 +153,15 @@
   color: var(--hw-gray-600);
   line-height: 1.3;
 }
-
 .mode-options {
-  display: flex;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
   width: 100%;
-  justify-content: center;
+  max-width: 360px;
 }
 
 .mode-card {
-  flex: 1;
-  max-width: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -211,10 +222,11 @@
 .time-options,
 .rounds-options {
   display: flex;
-  gap: 0.75rem;
-  width: 100%;
-  justify-content: center;
   flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 420px;
+  justify-content: center;
 }
 
 .time-card,
@@ -347,6 +359,14 @@
 .play-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Desktop - single row for difficulty */
+@media (min-width: 769px) {
+  .difficulty-options {
+    grid-template-columns: repeat(4, 1fr);
+    max-width: 560px;
+  }
 }
 
 .play-button:disabled:hover {
@@ -489,7 +509,8 @@
 
   .difficulty-back-button {
     position: static;
-    margin-bottom: 0.9rem;
+    order: 999;
+    margin-top: 1rem;
   }
 }
 
@@ -523,5 +544,15 @@
 
   .difficulty-footer {
     margin-top: 1.25rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .difficulty-content {
+    padding: 1rem;
+  }
+
+  .difficulty-back-button {
+    padding: 6px 20px;
   }
 }
