@@ -97,18 +97,14 @@ body {
   overflow: hidden;
 }
 
+
 @media (max-width: 768px) {
   body {
     min-height: 100vh;
-    height: auto;
-    overflow-x: hidden;
-    overflow-y: auto;
   }
 
   #root {
     min-height: 100vh;
-    height: auto;
-    overflow: visible;
   }
 }
 

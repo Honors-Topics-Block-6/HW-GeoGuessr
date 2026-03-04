@@ -1,10 +1,11 @@
 .result-screen {
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--hw-page-bg);
   padding: 1.5rem;
+  overflow: hidden;
 }
 
 .result-header {
@@ -124,7 +125,10 @@
 }
 
 .result-content {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 1.5rem;
+  align-items: stretch;
   flex: 1;
   min-height: 0;
 }
@@ -306,6 +310,7 @@
   background-color: var(--bg-panel);
   min-width: 280px;
   max-width: 400px;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -313,6 +318,8 @@
   overflow: hidden;
   border: 1px solid var(--hw-gray-300);
   aspect-ratio: 16 / 9;
+  flex-shrink: 1;
+  min-height: 0;
 }
 
 .result-image-preview img {
@@ -328,6 +335,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  flex-shrink: 0;
 }
 
 .stat-row {
@@ -434,6 +442,7 @@
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .leave-game-button {
@@ -466,8 +475,8 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 0.75rem;
-  padding: 1.5rem 0 0.5rem;
-  margin-top: auto;
+  padding: 0.75rem 0 0.25rem;
+  flex-shrink: 0;
 }
 
 .progress-dot {
@@ -492,10 +501,11 @@
 /* Responsive Design - matches GameScreen breakpoints */
 @media (max-width: 1024px) {
   .result-content {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
   }
 
-  /* Image on top when stacked (matches GameScreen: photo top, map/controls below) */
+  /* Details on top, map below when stacked */
   .result-details {
     order: -1;
   }
@@ -505,6 +515,7 @@
     align-self: stretch;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
+    min-height: 280px;
   }
 
   .result-details {

@@ -380,6 +380,10 @@
     overflow-y: auto;
   }
 
+  .title-content {
+    margin-top: 5rem;
+  }
+
   .game-title { font-size: 2.6rem; }
   .tagline { font-size: 1.1rem; }
   .logo-icon { font-size: 4.5rem; }
@@ -405,12 +409,20 @@
   .logo-icon { font-size: 3.3rem; }
   .logo-crest { width: 170px; }
 
+  /* Content card: use viewport width with safe margins */
+  .title-content {
+    width: min(600px, calc(100% - 1.5rem));
+    padding: 1.25rem;
+    margin-top: 6rem;
+  }
+
   /* Stack on mobile: user row, then actions row – gives buttons space for labels */
   .title-top-bar {
     flex-direction: column;
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
+    overflow-x: visible;
   }
 
   .title-top-actions {
@@ -419,6 +431,7 @@
     justify-content: center;
     gap: 8px;
     flex-wrap: wrap;
+    min-width: 0;
   }
 
   /* Desktop-style buttons with labels; compact sizing to fit */

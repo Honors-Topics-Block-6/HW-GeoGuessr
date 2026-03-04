@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
   background-color: var(--bg-dark);
 }
 
@@ -15,6 +15,7 @@
   background: var(--hw-surface);
   border-bottom: 1px solid var(--border-color);
   z-index: 10;
+  flex-shrink: 0;
 }
 
 .duel-health-player {
@@ -297,7 +298,8 @@
 
   .duel-game-main .image-panel {
     flex: none;
-    height: var(--game-image-height-lg, 50vh);
+    height: 65vh;
+    min-height: 280px;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
   }
@@ -326,7 +328,8 @@
 
 @media (max-width: 768px) {
   .duel-game-main .image-panel {
-    height: var(--game-image-height-md, 40vh);
+    height: 55vh;
+    min-height: 260px;
   }
 }
 
@@ -352,13 +355,15 @@
 
 @media (max-width: 480px) {
   .duel-game-main .image-panel {
-    height: var(--game-image-height-sm, 35vh);
+    height: 50vh;
+    min-height: 280px;
   }
 }
 
 @media (max-width: 360px) {
   .duel-game-main .image-panel {
-    height: var(--game-image-height-xs, 32vh);
+    height: 45vh;
+    min-height: 240px;
   }
 
   .duel-health-bar-container {

@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
   background-color: var(--hw-page-bg);
 }
 
@@ -31,6 +31,7 @@
   gap: 1rem;
   padding: 1rem;
   border-bottom: 1px solid var(--hw-gray-300);
+  flex-shrink: 0;
 }
 
 /* Endless mode HP bar */
@@ -271,18 +272,21 @@
 @media (max-width: 1024px) {
   .game-screen { flex-direction: column; }
   .guess-panel { flex: 1; min-width: 100%; max-width: 100%; }
-  /* Mobile: image below header (natural order) */
+  /* Mobile: image below header (natural order), header stays above */
   .image-panel {
     order: 0;
     flex: none;
-    height: 50vh;
-    min-height: 160px;
+    height: 65vh;
+    min-height: 280px;
     border-bottom: 1px solid var(--hw-gray-300);
   }
 }
 
 @media (max-width: 768px) {
-  .image-panel { height: 40vh; }
+  .image-panel {
+    height: 55vh;
+    min-height: 260px;
+  }
   .guess-panel-header { padding: 0.75rem 1rem; }
   .guess-controls { padding: 1rem; gap: 1rem; }
   .guess-status {
@@ -295,8 +299,8 @@
 
 @media (max-width: 480px) {
   .image-panel {
-    height: var(--game-image-height-sm, 200px);
-    min-height: 160px;
+    height: 50vh;
+    min-height: 280px;
     order: 0;
   }
 
@@ -316,8 +320,8 @@
 
 @media (max-width: 360px) {
   .image-panel {
-    height: var(--game-image-height-xs, 180px);
-    min-height: 140px;
+    height: 45vh;
+    min-height: 240px;
     order: 0;
   }
 
