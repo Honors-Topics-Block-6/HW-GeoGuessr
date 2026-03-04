@@ -16,11 +16,13 @@ import {
   updateUserDoc,
   updateUserProfile,
   isUsernameTaken,
+  checkUsernameAvailability,
   isHardcodedAdmin,
   getAllPermissions,
   getNoPermissions,
   ADMIN_PERMISSIONS,
-  normalizeFavoriteEmote
+  normalizeFavoriteEmote,
+  UsernameTakenError
 } from '../services/userService';
 import { touchLastActive } from '../services/lastActiveService';
 import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
@@ -258,7 +260,13 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
       throw new UsernameTakenError(availability.suggestions || []);
     }
 
-    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    let credential;
+    try {
+      credential = await createUserWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      console.error('[signup] Firebase createUserWithEmailAndPassword failed:', err);
+      throw err;
+    }
 
     // Send verification email (non-blocking -- signup succeeds even if this fails)
     try {
@@ -288,11 +296,27 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
    * Log in with email and password
    */
   const login = useCallback(async (email: string, password: string): Promise<FirebaseUser> => {
-    const credential = await signInWithEmailAndPassword(auth, email, password);
-    await touchLastActive(credential.user.uid);
-    const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
-    setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
-    return credential.user;
+    // If already logged in, don't re-login
+    if (auth.currentUser) {
+      console.log('[login] Already logged in, skipping');
+      return auth.currentUser;
+    }
+    console.log('[login] Attempting login for:', email);
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('[login] signInWithEmailAndPassword succeeded:', credential.user.uid);
+      await touchLastActive(credential.user.uid);
+      const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
+      console.log('[login] getUserDoc result:', doc ? 'found' : 'not found');
+      // Don't set needsUsername here - let onAuthStateChanged handle it to avoid race
+      if (doc) {
+        setUserDoc({ ...doc, lastActive: new Date() });
+      }
+      return credential.user;
+    } catch (err) {
+      console.error('[login] Login failed:', err);
+      throw err;
+    }
   }, []);
 
   /**
@@ -317,10 +341,11 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   }, []);
 
   /**
-   * Complete Google sign-in by setting a username (called after Google sign-in for new users)
+   * Complete sign-up by setting a username (called after sign-in for users without Firestore doc)
    */
   const completeGoogleSignUp = useCallback(async (username: string): Promise<void> => {
     if (!user) throw new Error('No authenticated user');
+    console.log('[completeGoogleSignUp] Creating user doc for:', user.uid, 'username:', username);
 
     const availability = await checkUsernameAvailability(username, user.uid, true);
     if (!availability.available) {
@@ -328,8 +353,14 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     }
 
     await createUserDoc(user.uid, user.email!, username);
+    console.log('[completeGoogleSignUp] User doc created, fetching...');
     const doc = await getUserDoc(user.uid) as UserDoc | null;
-    setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
+    console.log('[completeGoogleSignUp] getUserDoc result:', doc ? 'found' : 'not found');
+    if (doc) {
+      setUserDoc({ ...doc, lastActive: new Date() });
+    } else {
+      console.error('[completeGoogleSignUp] Failed to fetch user doc after creation!');
+    }
     setNeedsUsername(false);
   }, [user]);
 
