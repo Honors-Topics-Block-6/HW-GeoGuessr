@@ -35,6 +35,7 @@ export interface UseMapZoomReturn {
   zoomIn: () => void;
   zoomInAtPoint: (x: number, y: number) => void;
   zoomOut: () => void;
+  zoomOutAtPoint: (x: number, y: number) => void;
   resetZoom: () => void;
   hasMoved: () => boolean;
   isPanning: boolean;
@@ -73,14 +74,38 @@ function clampTranslate(
   contentWidth = containerWidth,
   contentHeight = containerHeight
 ): Point {
-  const xA = -contentOffsetX;
-  const xB = containerWidth - contentOffsetX - contentWidth * scale;
-  const yA = -contentOffsetY;
-  const yB = containerHeight - contentOffsetY - contentHeight * scale;
+  const nearlyEqual = (a: number, b: number): boolean => Math.abs(a - b) < 0.5;
+  const matchesContainer =
+    nearlyEqual(contentOffsetX, 0) &&
+    nearlyEqual(contentOffsetY, 0) &&
+    nearlyEqual(contentWidth, containerWidth) &&
+    nearlyEqual(contentHeight, containerHeight);
+
+  // Original strict clamp: content must always cover the viewport.
+  // This is ideal when the zoom content exactly matches container size.
+  if (matchesContainer) {
+    const minX = containerWidth * (1 - scale);
+    const maxX = 0;
+    const minY = containerHeight * (1 - scale);
+    const maxY = 0;
+
+    return {
+      x: Math.max(minX, Math.min(maxX, tx)),
+      y: Math.max(minY, Math.min(maxY, ty))
+    };
+  }
+
+  // Relaxed clamp for centred/non-matching content (e.g. fullscreen map with letterboxing):
+  // keep at least a sliver visible so zoom can stay anchored to cursor.
+  const MIN_VISIBLE_PX = 48;
+  const minX = -contentOffsetX - contentWidth * scale + MIN_VISIBLE_PX;
+  const maxX = containerWidth - contentOffsetX - MIN_VISIBLE_PX;
+  const minY = -contentOffsetY - contentHeight * scale + MIN_VISIBLE_PX;
+  const maxY = containerHeight - contentOffsetY - MIN_VISIBLE_PX;
 
   return {
-    x: Math.max(Math.min(xA, xB), Math.min(Math.max(xA, xB), tx)),
-    y: Math.max(Math.min(yA, yB), Math.min(Math.max(yA, yB), ty))
+    x: Math.max(minX, Math.min(maxX, tx)),
+    y: Math.max(minY, Math.min(maxY, ty))
   };
 }
 
@@ -598,6 +623,7 @@ function useMapZoom(
     zoomIn,
     zoomInAtPoint,
     zoomOut,
+    zoomOutAtPoint,
     resetZoom,
     hasMoved,
     isPanning,

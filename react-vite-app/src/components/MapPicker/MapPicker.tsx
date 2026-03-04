@@ -83,7 +83,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     handlers,
     zoomIn,
     zoomInAtPoint,
-    zoomOut,
+    zoomOutAtPoint,
     resetZoom,
     hasMoved,
     isPanning,
@@ -136,6 +136,23 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     lastMousePos.current = null;
     if (handlers.onMouseLeave) handlers.onMouseLeave();
   };
+
+  const getZoomAnchor = useCallback((): { x: number; y: number } | null => {
+    const container = containerRef.current;
+    if (!container) return null;
+
+    const rect = container.getBoundingClientRect();
+    const mouse = lastMousePos.current;
+    if (mouse) {
+      const x = mouse.x - rect.left;
+      const y = mouse.y - rect.top;
+      if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+        return { x, y };
+      }
+    }
+
+    return { x: rect.width / 2, y: rect.height / 2 };
+  }, []);
 
   const toggleFullscreen = (event: React.MouseEvent<HTMLButtonElement>): void => {
     event.stopPropagation();
@@ -316,7 +333,15 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         <div className="zoom-controls">
           <button
             className="zoom-btn zoom-in-btn"
-            onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); zoomIn(); }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              const anchor = getZoomAnchor();
+              if (anchor) {
+                zoomInAtPoint(anchor.x, anchor.y);
+              } else {
+                zoomIn();
+              }
+            }}
             title="Zoom in"
             aria-label="Zoom in"
           >
@@ -324,7 +349,13 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
           </button>
           <button
             className="zoom-btn zoom-out-btn"
-            onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); zoomOut(); }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              const anchor = getZoomAnchor();
+              if (anchor) {
+                zoomOutAtPoint(anchor.x, anchor.y);
+              }
+            }}
             title="Zoom out"
             aria-label="Zoom out"
             disabled={!isZoomed}
