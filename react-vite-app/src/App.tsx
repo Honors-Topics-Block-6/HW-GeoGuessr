@@ -6,6 +6,7 @@ import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
 import { useFriends } from './hooks/useFriends';
 import { useChatNotifications } from './hooks/useChatNotifications';
+import { useLobbyInvites, type LobbyInvite } from './hooks/useLobbyInvites';
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
 import { joinLobby } from './services/lobbyService';
@@ -154,16 +155,18 @@ function App(): React.ReactElement {
   const friendUids = friends.map((f) => f.friendUid);
   const { notifications: chatNotifications, dismissNotification: dismissChatNotification } =
     useChatNotifications(user?.uid ?? null, friendUids, chatFriend?.uid ?? null);
+  const { invites: lobbyInvites, dismissInvite: dismissLobbyInvite } =
+    useLobbyInvites(user?.uid ?? null, friendUids);
 
   /**
    * Handle joining a lobby from a chat invite message.
    * Joins the lobby and navigates to the WaitingRoom.
    */
-  const handleJoinFromInvite = useCallback(async (inviteMsg: InviteMessage): Promise<void> => {
+  const handleJoinFromInvite = useCallback(async (inviteMsg: InviteMessage): Promise<boolean> => {
     try {
       const lobbyId = inviteMsg.lobbyDocId;
       const diff = inviteMsg.difficulty;
-      if (!lobbyId || !diff) return;
+      if (!lobbyId || !diff) return false;
 
       await joinLobby(
         lobbyId,
@@ -183,12 +186,25 @@ function App(): React.ReactElement {
       setDifficulty(diff as Difficulty);
       setLobbyDocId(lobbyId);
       setScreen('waitingRoom');
+      return true;
     } catch (err: unknown) {
       console.error('Failed to join lobby from invite:', err);
       const message = err instanceof Error ? err.message : 'Failed to join lobby.';
       alert(message);
+      return false;
     }
   }, [user, userDoc, setDifficulty, setLobbyDocId, setScreen]);
+
+  const handleJoinLobbyInvite = useCallback(async (invite: LobbyInvite): Promise<boolean> => {
+    const success = await handleJoinFromInvite({
+      lobbyDocId: invite.lobbyDocId,
+      difficulty: invite.difficulty
+    });
+    if (success) {
+      dismissLobbyInvite(invite.id);
+    }
+    return success;
+  }, [dismissLobbyInvite, handleJoinFromInvite]);
 
   // Prepare the message banner (uses createPortal, renders at viewport top)
   const messageBanner: ReactNode = user && messages.length > 0 ? (
@@ -647,8 +663,11 @@ function App(): React.ReactElement {
           onOpenLeaderboard={() => setShowLeaderboard(true)}
           onOpenBugReport={() => setShowBugReport(true)}
           onOpenDailyGoals={() => setShowDailyGoals(true)}
-        onOpenAchievements={() => setShowAchievements(true)}
+          onOpenAchievements={() => setShowAchievements(true)}
           isLoading={isLoading}
+          invites={lobbyInvites}
+          onJoinInvite={handleJoinLobbyInvite}
+          onDismissInvite={dismissLobbyInvite}
         />
       )}
 
