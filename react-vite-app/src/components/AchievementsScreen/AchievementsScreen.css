@@ -5,6 +5,9 @@
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-muted: #cbd5e1;
 }
 
 .achievements-background {
