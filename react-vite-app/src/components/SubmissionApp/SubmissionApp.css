@@ -2,11 +2,13 @@
 
 .submission-app {
   min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: var(--hw-page-bg, #f2f0ec);
   color: var(--hw-black, #231f20);
   font-family: var(--hw-font-sans, 'Source Sans 3', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  overflow-y: auto;
 }
 
 /* ===== Header ===== */
