@@ -49,3 +49,10 @@
     font-size: 1.2rem;
   }
 }
+
+@media (max-width: 480px) {
+  .guess-button {
+    min-height: var(--touch-target-min, 44px);
+    padding: 0.85rem 1rem;
+  }
+}

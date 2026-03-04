@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from "react";
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 4.5;
@@ -53,7 +53,13 @@ export interface UseMapZoomReturn {
  *   => tx <= 0  and  tx >= containerWidth * (1 - scale)
  *   => containerWidth * (1 - scale) <= tx <= 0
  */
-function clampTranslate(tx: number, ty: number, scale: number, containerWidth: number, containerHeight: number): Point {
+function clampTranslate(
+  tx: number,
+  ty: number,
+  scale: number,
+  containerWidth: number,
+  containerHeight: number,
+): Point {
   const minX = containerWidth * (1 - scale);
   const maxX = 0;
   const minY = containerHeight * (1 - scale);
@@ -61,7 +67,7 @@ function clampTranslate(tx: number, ty: number, scale: number, containerWidth: n
 
   return {
     x: Math.max(minX, Math.min(maxX, tx)),
-    y: Math.max(minY, Math.min(maxY, ty))
+    y: Math.max(minY, Math.min(maxY, ty)),
   };
 }
 
@@ -80,7 +86,7 @@ function getTouchDistance(touches: React.TouchList | TouchList): number {
 function getTouchMidpoint(touches: React.TouchList | TouchList): Point {
   return {
     x: (touches[0].clientX + touches[1].clientX) / 2,
-    y: (touches[0].clientY + touches[1].clientY) / 2
+    y: (touches[0].clientY + touches[1].clientY) / 2,
   };
 }
 
@@ -91,7 +97,16 @@ function getTouchMidpoint(touches: React.TouchList | TouchList): Point {
  * on a wrapper div. All child elements (image, SVG overlay, markers) zoom
  * together automatically.
  */
-function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZoomReturn {
+export interface UseMapZoomOptions {
+  /** Lower max scale for mobile to reduce excessive zoom (default: 4) */
+  maxScale?: number;
+}
+
+function useMapZoom(
+  containerRef: React.RefObject<HTMLElement | null>,
+  options?: UseMapZoomOptions
+): UseMapZoomReturn {
+  const maxScale = options?.maxScale ?? MAX_SCALE;
   const [scale, setScale] = useState<number>(MIN_SCALE);
   const [translate, setTranslate] = useState<Point>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
@@ -174,71 +189,90 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
    * Zoom toward a specific point (in container-relative screen pixels).
    * The point under the cursor/finger stays fixed on screen.
    */
-  const zoomToPoint = useCallback((
-    cursorX: number,
-    cursorY: number,
-    newScale: number,
-    currentScale: number,
-    currentTranslate: Point
-  ): ZoomResult | null => {
-    const container = containerRef.current;
-    if (!container) return null;
+  const zoomToPoint = useCallback(
+    (
+      cursorX: number,
+      cursorY: number,
+      newScale: number,
+      currentScale: number,
+      currentTranslate: Point,
+    ): ZoomResult | null => {
+      const container = containerRef.current;
+      if (!container) return null;
 
-    const rect = container.getBoundingClientRect();
-    const clampedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+      const rect = container.getBoundingClientRect();
+      const clampedScale = Math.max(MIN_SCALE, Math.min(maxScale, newScale));
 
-    if (clampedScale === currentScale) return null;
+      if (clampedScale === currentScale) return null;
 
-    // To keep the point under cursor fixed:
-    // Before zoom: screenPoint = cursorX = tx + contentX * currentScale
-    // After zoom:  screenPoint = cursorX = newTx + contentX * clampedScale
-    // => newTx = cursorX - (cursorX - tx) * (clampedScale / currentScale)
-    const scaleRatio = clampedScale / currentScale;
-    const newTx = cursorX - scaleRatio * (cursorX - currentTranslate.x);
-    const newTy = cursorY - scaleRatio * (cursorY - currentTranslate.y);
+      // To keep the point under cursor fixed:
+      // Before zoom: screenPoint = cursorX = tx + contentX * currentScale
+      // After zoom:  screenPoint = cursorX = newTx + contentX * clampedScale
+      // => newTx = cursorX - (cursorX - tx) * (clampedScale / currentScale)
+      const scaleRatio = clampedScale / currentScale;
+      const newTx = cursorX - scaleRatio * (cursorX - currentTranslate.x);
+      const newTy = cursorY - scaleRatio * (cursorY - currentTranslate.y);
 
-    const clamped = clampTranslate(newTx, newTy, clampedScale, rect.width, rect.height);
+      const clamped = clampTranslate(
+        newTx,
+        newTy,
+        clampedScale,
+        rect.width,
+        rect.height,
+      );
 
-    return { scale: clampedScale, translate: clamped };
-  }, [containerRef]);
+      return { scale: clampedScale, translate: clamped };
+    },
+    [containerRef, maxScale],
+  );
 
   /**
    * Handle wheel zoom - zoom toward cursor position.
    * Attached as native event listener for { passive: false }.
    */
-  const handleWheel = useCallback((e: WheelEvent): void => {
-    e.preventDefault();
+  const handleWheel = useCallback(
+    (e: WheelEvent): void => {
+      e.preventDefault();
 
-    const container = containerRef.current;
-    if (!container) return;
+      const container = containerRef.current;
+      if (!container) return;
 
-    if (animationFrameRef.current !== null) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
 
-    const rect = container.getBoundingClientRect();
-    const cursorX = e.clientX - rect.left;
-    const cursorY = e.clientY - rect.top;
+      const rect = container.getBoundingClientRect();
+      const cursorX = e.clientX - rect.left;
+      const cursorY = e.clientY - rect.top;
 
-    const currentScale = scaleRef.current;
-    const currentTranslate = translateRef.current;
+      const currentScale = scaleRef.current;
+      const currentTranslate = translateRef.current;
 
-    const newScale = currentScale * Math.pow(2, -e.deltaY * WHEEL_ZOOM_FACTOR);
+      const newScale =
+        currentScale * Math.pow(2, -e.deltaY * WHEEL_ZOOM_FACTOR);
 
-    const result = zoomToPoint(cursorX, cursorY, newScale, currentScale, currentTranslate);
-    if (result) {
-      setScale(result.scale);
-      setTranslate(result.translate);
-    }
-  }, [containerRef, zoomToPoint]);
+      const result = zoomToPoint(
+        cursorX,
+        cursorY,
+        newScale,
+        currentScale,
+        currentTranslate,
+      );
+      if (result) {
+        setScale(result.scale);
+        setTranslate(result.translate);
+      }
+    },
+    [containerRef, zoomToPoint],
+  );
 
   // Attach native wheel listener with { passive: false }
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
   }, [containerRef, handleWheel]);
 
   /**
@@ -263,25 +297,34 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
   /**
    * Mouse move - pan if dragging.
    */
-  const handleMouseMove = useCallback((e: React.MouseEvent): void => {
-    if (!isDragging.current) return;
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent): void => {
+      if (!isDragging.current) return;
 
-    const dx = e.clientX - dragStart.current.x;
-    const dy = e.clientY - dragStart.current.y;
+      const dx = e.clientX - dragStart.current.x;
+      const dy = e.clientY - dragStart.current.y;
 
-    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-      dragMoved.current = true;
-    }
+      if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+        dragMoved.current = true;
+      }
 
-    const container = containerRef.current;
-    if (!container) return;
+      const container = containerRef.current;
+      if (!container) return;
 
-    const rect = container.getBoundingClientRect();
-    const newTx = translateStart.current.x + dx;
-    const newTy = translateStart.current.y + dy;
-    const clamped = clampTranslate(newTx, newTy, scaleRef.current, rect.width, rect.height);
-    setTranslate(clamped);
-  }, [containerRef]);
+      const rect = container.getBoundingClientRect();
+      const newTx = translateStart.current.x + dx;
+      const newTy = translateStart.current.y + dy;
+      const clamped = clampTranslate(
+        newTx,
+        newTy,
+        scaleRef.current,
+        rect.width,
+        rect.height,
+      );
+      setTranslate(clamped);
+    },
+    [containerRef],
+  );
 
   /**
    * Mouse up - end drag.
@@ -376,7 +419,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
         translateStart.current.y + dy,
         scaleRef.current,
         rect.width,
-        rect.height
+        rect.height,
       );
       setTranslate(clamped);
     }
@@ -395,8 +438,8 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    return () => el.removeEventListener('touchmove', handleTouchMove);
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", handleTouchMove);
   }, [containerRef, handleTouchMove]);
 
   useEffect(() => {
@@ -420,27 +463,36 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
 
     const currentScale = scaleRef.current;
     const currentTranslate = translateRef.current;
-    const newScale = Math.min(MAX_SCALE, currentScale * ZOOM_STEP);
+    const newScale = Math.min(maxScale, currentScale * ZOOM_STEP);
 
-    const result = zoomToPoint(cx, cy, newScale, currentScale, currentTranslate);
+    const result = zoomToPoint(
+      cx,
+      cy,
+      newScale,
+      currentScale,
+      currentTranslate,
+    );
     if (result) {
       animateTo(result.scale, result.translate);
     }
-  }, [containerRef, zoomToPoint, animateTo]);
+  }, [containerRef, zoomToPoint, animateTo, maxScale]);
 
   /**
    * Zoom in by ZOOM_STEP factor toward a specific point (container-relative coords).
    */
-  const zoomInAtPoint = useCallback((x: number, y: number): void => {
-    const currentScale = scaleRef.current;
-    const currentTranslate = translateRef.current;
-    const newScale = Math.min(MAX_SCALE, currentScale * ZOOM_STEP);
+  const zoomInAtPoint = useCallback(
+    (x: number, y: number): void => {
+      const currentScale = scaleRef.current;
+      const currentTranslate = translateRef.current;
+      const newScale = Math.min(maxScale, currentScale * ZOOM_STEP);
 
-    const result = zoomToPoint(x, y, newScale, currentScale, currentTranslate);
-    if (result) {
-      animateTo(result.scale, result.translate);
-    }
-  }, [zoomToPoint, animateTo]);
+      const result = zoomToPoint(x, y, newScale, currentScale, currentTranslate);
+      if (result) {
+        animateTo(result.scale, result.translate);
+      }
+    },
+    [zoomToPoint, animateTo, maxScale],
+  );
 
   const zoomOutAtPoint = useCallback((x: number, y: number): void => {
     const currentScale = scaleRef.current;
@@ -478,7 +530,13 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
       return;
     }
 
-    const result = zoomToPoint(cx, cy, newScale, currentScale, currentTranslate);
+    const result = zoomToPoint(
+      cx,
+      cy,
+      newScale,
+      currentScale,
+      currentTranslate,
+    );
     if (result) {
       animateTo(result.scale, result.translate);
     }
@@ -524,7 +582,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
     onMouseLeave: handleMouseLeave,
     onTouchStart: handleTouchStart,
     onTouchEnd: handleTouchEnd,
-    onDoubleClick: handleDoubleClick
+    onDoubleClick: handleDoubleClick,
   };
 
   return {
@@ -538,7 +596,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
     resetZoom,
     hasMoved,
     isPanning,
-    isTouchActive
+    isTouchActive,
   };
 }
 

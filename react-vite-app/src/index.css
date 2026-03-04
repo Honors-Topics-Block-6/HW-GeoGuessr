@@ -46,6 +46,18 @@
   --error-red: #b42318;
   --marker-color: #c8102e;
 
+  /* Touch targets - WCAG 2.5.5 minimum for pointer inputs */
+  --touch-target-min: 44px;
+
+  /* Game layout - shared across guessing and result screens */
+  --game-layout-breakpoint: 1024px;
+  --game-image-height-lg: 50vh;
+  --game-image-height-md: 40vh;
+  --game-image-height-sm: 35vh;
+  --game-image-height-xs: 32vh;
+  --game-panel-flex-main: 7;
+  --game-panel-flex-side: 3;
+
   /* Typography */
   --hw-font-sans: "Source Sans 3", "Source Sans Pro", Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 

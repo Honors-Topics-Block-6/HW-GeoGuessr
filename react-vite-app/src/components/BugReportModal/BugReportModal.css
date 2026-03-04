@@ -643,7 +643,16 @@
   .bug-report-content {
     padding: 22px;
     margin: 10px;
+    max-width: calc(100vw - 24px);
     border-radius: 0;
+  }
+
+  .bug-report-close {
+    min-width: var(--touch-target-min, 44px);
+    min-height: var(--touch-target-min, 44px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .bug-report-title {
@@ -654,12 +663,17 @@
     flex-direction: column;
   }
 
+  .bug-report-actions button {
+    min-height: var(--touch-target-min, 44px);
+  }
+
   .bug-report-severity-group {
     flex-wrap: wrap;
   }
 
   .bug-report-severity-btn {
     flex: 1 1 calc(50% - 4px);
+    min-height: var(--touch-target-min, 44px);
   }
 
   .bug-report-tabs {
@@ -669,5 +683,6 @@
   .bug-report-tab {
     font-size: 12px;
     padding: 8px 12px;
+    min-height: var(--touch-target-min, 44px);
   }
 }
