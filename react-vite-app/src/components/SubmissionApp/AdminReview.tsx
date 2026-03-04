@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
@@ -65,6 +65,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const [firestoreImages, setFirestoreImages] = useState<SubmissionItem[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [filter, setFilter] = useState<string>('pending') // pending, approved, denied, all
+  const [difficultyFilter, setDifficultyFilter] = useState<string>('all')
+  const [buildingFilter, setBuildingFilter] = useState<string>('all')
+  const [sourceFilter, setSourceFilter] = useState<string>('all') // all, submission, image
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null)
 
   // Edit mode state
@@ -397,14 +401,43 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     }
   }
 
-  // Focus review on user submissions only
-  const allItems: SubmissionItem[] = submissions
+  const allItems: SubmissionItem[] = useMemo(() => {
+    let items: SubmissionItem[]
+    if (sourceFilter === 'submission') items = submissions
+    else if (sourceFilter === 'image') items = firestoreImages
+    else items = [...submissions, ...firestoreImages]
+    return items
+  }, [submissions, firestoreImages, sourceFilter])
 
-  const filteredSubmissions = allItems.filter(item => {
-    // Apply status filter
-    if (filter === 'all') return true
-    return item.status === filter
-  })
+  const availableBuildings: string[] = useMemo(() => {
+    const names = new Set<string>()
+    for (const item of [...submissions, ...firestoreImages]) {
+      if (item.buildingName) names.add(item.buildingName)
+    }
+    return Array.from(names).sort()
+  }, [submissions, firestoreImages])
+
+  const filteredSubmissions = useMemo(() => {
+    let items = allItems.filter(item => {
+      if (filter !== 'all' && item.status !== filter) return false
+      if (difficultyFilter !== 'all' && (item.difficulty || 'none') !== difficultyFilter) return false
+      if (buildingFilter !== 'all' && (item.buildingName || '') !== buildingFilter) return false
+      return true
+    })
+
+    items.sort((a, b) => {
+      const getTime = (ts: FirestoreTimestamp | string | null | undefined): number => {
+        if (!ts) return 0
+        if (typeof ts === 'object' && ts !== null && 'toDate' in ts) return ts.toDate().getTime()
+        return new Date(ts as string).getTime()
+      }
+      const timeA = getTime(a.createdAt)
+      const timeB = getTime(b.createdAt)
+      return sortOrder === 'newest' ? timeB - timeA : timeA - timeB
+    })
+
+    return items
+  }, [allItems, filter, difficultyFilter, buildingFilter, sortOrder])
 
   const getStatusBadgeClass = (status: string): string => {
     switch (status) {
@@ -446,31 +479,81 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         <div className="filter-group">
           <span className="filter-label">Status:</span>
           <div className="filter-tabs">
-            <button
-              className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
-              onClick={() => setFilter('all')}
-            >
+            <button className={`filter-tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
               All
             </button>
-            <button
-              className={`filter-tab ${filter === 'pending' ? 'active' : ''}`}
-              onClick={() => setFilter('pending')}
-            >
+            <button className={`filter-tab ${filter === 'pending' ? 'active' : ''}`} onClick={() => setFilter('pending')}>
               Pending ({allItems.filter(s => s.status === 'pending').length})
             </button>
-            <button
-              className={`filter-tab ${filter === 'approved' ? 'active' : ''}`}
-              onClick={() => setFilter('approved')}
-            >
+            <button className={`filter-tab ${filter === 'approved' ? 'active' : ''}`} onClick={() => setFilter('approved')}>
               Approved ({allItems.filter(s => s.status === 'approved').length})
             </button>
-            <button
-              className={`filter-tab ${filter === 'denied' ? 'active' : ''}`}
-              onClick={() => setFilter('denied')}
-            >
+            <button className={`filter-tab ${filter === 'denied' ? 'active' : ''}`} onClick={() => setFilter('denied')}>
               Denied ({allItems.filter(s => s.status === 'denied').length})
             </button>
           </div>
+        </div>
+
+        <div className="filter-group">
+          <span className="filter-label">Difficulty:</span>
+          <div className="filter-tabs">
+            <button className={`filter-tab ${difficultyFilter === 'all' ? 'active' : ''}`} onClick={() => setDifficultyFilter('all')}>
+              All
+            </button>
+            {DIFFICULTY_OPTIONS.map(d => (
+              <button
+                key={d}
+                className={`filter-tab filter-tab-difficulty-${d} ${difficultyFilter === d ? 'active' : ''}`}
+                onClick={() => setDifficultyFilter(d)}
+              >
+                {d.charAt(0).toUpperCase() + d.slice(1)}
+              </button>
+            ))}
+            <button className={`filter-tab ${difficultyFilter === 'none' ? 'active' : ''}`} onClick={() => setDifficultyFilter('none')}>
+              Not set
+            </button>
+          </div>
+        </div>
+
+        <div className="filter-group">
+          <span className="filter-label">Building:</span>
+          <select
+            className="filter-select"
+            value={buildingFilter}
+            onChange={(e) => setBuildingFilter(e.target.value)}
+          >
+            <option value="all">All buildings</option>
+            {availableBuildings.map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <span className="filter-label">Source:</span>
+          <div className="filter-tabs">
+            <button className={`filter-tab ${sourceFilter === 'all' ? 'active' : ''}`} onClick={() => setSourceFilter('all')}>
+              All
+            </button>
+            <button className={`filter-tab ${sourceFilter === 'submission' ? 'active' : ''}`} onClick={() => setSourceFilter('submission')}>
+              Submissions
+            </button>
+            <button className={`filter-tab ${sourceFilter === 'image' ? 'active' : ''}`} onClick={() => setSourceFilter('image')}>
+              Images
+            </button>
+          </div>
+
+          <span className="filter-label filter-label-sort">Sort:</span>
+          <button
+            className="filter-sort-button"
+            onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+          >
+            {sortOrder === 'newest' ? '↓ Newest first' : '↑ Oldest first'}
+          </button>
+        </div>
+
+        <div className="filter-results-count">
+          {filteredSubmissions.length} result{filteredSubmissions.length !== 1 ? 's' : ''}
         </div>
       </div>
 

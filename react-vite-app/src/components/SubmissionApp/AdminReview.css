@@ -98,6 +98,61 @@
   border-color: var(--hw-red, #c8102e);
 }
 
+/* ===== Filter Select (dropdowns) ===== */
+.filter-select {
+  padding: 8px 14px;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  background: var(--hw-surface, #ffffff);
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #4b5563);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 160px;
+}
+
+.filter-select:hover {
+  border-color: var(--hw-gray-400, #9ca3af);
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--hw-red, #c8102e);
+}
+
+/* ===== Sort Button ===== */
+.filter-sort-button {
+  padding: 8px 16px;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  background: var(--hw-surface, #ffffff);
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #4b5563);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.filter-sort-button:hover {
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--hw-black, #231f20);
+  border-color: var(--hw-gray-400, #9ca3af);
+}
+
+.filter-label-sort {
+  margin-left: auto;
+}
+
+/* ===== Results Count ===== */
+.filter-results-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted, #6b7280);
+  letter-spacing: 0.3px;
+}
+
 /* ===== Empty State ===== */
 .no-submissions {
   text-align: center;
