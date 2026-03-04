@@ -388,6 +388,21 @@ export async function createUserDoc(uid: string, email: string, username: string
   if (isAdmin) {
     userData.permissions = getAllPermissions();
   }
+
+  // Use a transaction to atomically create user doc and reserve username
+  await runTransaction(db, async (transaction) => {
+    // Check if username is already taken
+    const usernameSnap = await transaction.get(usernameRef);
+    if (usernameSnap.exists()) {
+      throw new Error('Username is already taken.');
+    }
+
+    // Create the user document
+    transaction.set(userRef, userData);
+
+    // Reserve the username
+    transaction.set(usernameRef, { uid, username: trimmedUsername });
+  });
 }
 
 /**
