@@ -73,7 +73,7 @@ async function convertHeicToJpeg(file: File): Promise<File> {
     'heic-to conversion'
   )
   console.log('[convertHeicToJpeg] heic-to succeeded')
-  return new File([jpegBlob], jpegName, { type: 'image/jpeg' })
+  return new File([jpegBlob as Blob], jpegName, { type: 'image/jpeg' })
 }
 
 /**

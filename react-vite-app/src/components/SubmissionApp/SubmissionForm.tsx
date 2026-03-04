@@ -109,6 +109,7 @@ function SubmissionForm(_props: SubmissionFormProps): React.JSX.Element {
   // Region/playing area state (matching game behavior)
   const [regions, setRegions] = useState<RegionData[]>([])
   const [customBuildingPolygons, setCustomBuildingPolygons] = useState<BuildingPolygon[]>([])
+  const [polygonNameEdits, setPolygonNameEdits] = useState<string[]>([])
   const [playingArea, setPlayingArea] = useState<PlayingAreaData | null>(null)
   const [availableFloors, setAvailableFloors] = useState<number[] | null>(null)
   const [clickRejected, setClickRejected] = useState<boolean>(false)

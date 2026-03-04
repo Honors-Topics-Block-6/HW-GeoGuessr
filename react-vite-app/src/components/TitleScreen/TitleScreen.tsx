@@ -84,14 +84,17 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
           )}
         </div>
         <div className="title-top-actions">
-          <button className="submit-photo-button" onClick={onOpenSubmission}>
-            Submit Photo
+          <button className="submit-photo-button" onClick={onOpenSubmission} aria-label="Submit Photo">
+            <span className="title-action-icon" aria-hidden>📷</span>
+            <span className="title-action-label">Submit Photo</span>
           </button>
-          <button className="title-bug-report-button" onClick={onOpenBugReport}>
-            Report Bug
+          <button className="title-bug-report-button" onClick={onOpenBugReport} aria-label="Report Bug">
+            <span className="title-action-icon" aria-hidden>🐛</span>
+            <span className="title-action-label">Report Bug</span>
           </button>
-          <button className="title-leaderboard-button" onClick={onOpenLeaderboard}>
-            Leaderboard
+          <button className="title-leaderboard-button" onClick={onOpenLeaderboard} aria-label="Leaderboard">
+            <span className="title-action-icon" aria-hidden>🏆</span>
+            <span className="title-action-label">Leaderboard</span>
           </button>
         </div>
       </div>

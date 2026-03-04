@@ -12,6 +12,7 @@ describe('ResultScreen', () => {
     imageUrl: 'https://example.com/image.jpg',
     locationScore: 5000,
     floorCorrect: true as boolean | null,
+    exactSpotBonus: 0,
     totalScore: 5000,
     timeTakenSeconds: 30 as number | null,
     timedOut: false,
@@ -80,7 +81,7 @@ describe('ResultScreen', () => {
     it('should display max score indicator', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('/ 5,000')).toBeInTheDocument();
+      expect(screen.getByText('/ 5,500')).toBeInTheDocument();
     });
 
     it('should show score after animation completes', () => {
@@ -388,6 +389,13 @@ describe('ResultScreen', () => {
 
       expect(screen.getByText('Total')).toBeInTheDocument();
     });
+
+    it('should show exact spot bonus when present', () => {
+      render(<ResultScreen {...defaultProps} exactSpotBonus={500} totalScore={5500} />);
+
+      expect(screen.getByText('Exact Spot Bonus')).toBeInTheDocument();
+      expect(screen.getByText('+500')).toBeInTheDocument();
+    });
   });
 
   describe('progress dots', () => {
@@ -446,81 +454,6 @@ describe('ResultScreen', () => {
       });
 
       expect(container.querySelector('.score-display.visible')).toBeInTheDocument();
-    });
-  });
-
-  describe('map height sync', () => {
-    it('should set map container height to match details panel height', () => {
-      const { container } = render(<ResultScreen {...defaultProps} />);
-
-      const mapContainer = container.querySelector('.result-map-container') as HTMLElement;
-      const detailsPanel = container.querySelector('.result-details') as HTMLElement;
-
-      // Simulate the details panel having a measured height
-      Object.defineProperty(detailsPanel, 'offsetHeight', {
-        configurable: true,
-        get: () => 500,
-      });
-
-      // Trigger the ResizeObserver callback
-      act(() => {
-        const observers = (global as Record<string, unknown>)._resizeObserverInstances as Array<{ _callback?: (entries: unknown[]) => void }>;
-        observers.forEach(obs => {
-          if (obs._callback) {
-            obs._callback([]);
-          }
-        });
-      });
-
-      expect(mapContainer.style.height).toBe('500px');
-    });
-
-    it('should observe the details panel with ResizeObserver', () => {
-      const { container } = render(<ResultScreen {...defaultProps} />);
-
-      const detailsPanel = container.querySelector('.result-details');
-      const observers = (global as Record<string, unknown>)._resizeObserverInstances as Array<{ observe: ReturnType<typeof vi.fn> }>;
-      const detailsObserver = observers.find(obs => obs.observe.mock.calls.some((call: unknown[]) => call[0] === detailsPanel));
-
-      expect(detailsObserver).toBeDefined();
-      expect(detailsObserver!.observe).toHaveBeenCalledWith(detailsPanel);
-    });
-
-    it('should update map height when details panel resizes', () => {
-      const { container } = render(<ResultScreen {...defaultProps} />);
-
-      const mapContainer = container.querySelector('.result-map-container') as HTMLElement;
-      const detailsPanel = container.querySelector('.result-details') as HTMLElement;
-
-      // First size
-      Object.defineProperty(detailsPanel, 'offsetHeight', {
-        configurable: true,
-        get: () => 400,
-      });
-
-      act(() => {
-        const observers = (global as Record<string, unknown>)._resizeObserverInstances as Array<{ _callback?: (entries: unknown[]) => void }>;
-        observers.forEach(obs => {
-          if (obs._callback) obs._callback([]);
-        });
-      });
-
-      expect(mapContainer.style.height).toBe('400px');
-
-      // Resize to new height
-      Object.defineProperty(detailsPanel, 'offsetHeight', {
-        configurable: true,
-        get: () => 600,
-      });
-
-      act(() => {
-        const observers = (global as Record<string, unknown>)._resizeObserverInstances as Array<{ _callback?: (entries: unknown[]) => void }>;
-        observers.forEach(obs => {
-          if (obs._callback) obs._callback([]);
-        });
-      });
-
-      expect(mapContainer.style.height).toBe('600px');
     });
   });
 

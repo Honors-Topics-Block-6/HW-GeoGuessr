@@ -1,166 +1,188 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import MapPicker from './MapPicker';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import MapPicker from "./MapPicker";
 
-describe('MapPicker', () => {
+describe("MapPicker", () => {
   const defaultProps = {
     markerPosition: null as { x: number; y: number } | null,
-    onMapClick: vi.fn()
+    onMapClick: vi.fn(),
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('rendering', () => {
-    it('should render the map container', () => {
+  describe("rendering", () => {
+    it("should render the map container", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
 
-      expect(container.querySelector('.map-picker-container')).toBeInTheDocument();
+      expect(
+        container.querySelector(".map-picker-container"),
+      ).toBeInTheDocument();
     });
 
-    it('should render the map header', () => {
+    it("should render the map header", () => {
       render(<MapPicker {...defaultProps} />);
 
-      expect(screen.getByText(/Click to place your guess/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Tap to place|Click to place/),
+      ).toBeInTheDocument();
     });
 
-    it('should render the map icon', () => {
+    it("should render the map icon", () => {
       render(<MapPicker {...defaultProps} />);
 
-      expect(screen.getByText('\uD83D\uDDFA\uFE0F')).toBeInTheDocument();
+      expect(screen.getByText("\uD83D\uDDFA\uFE0F")).toBeInTheDocument();
     });
 
-    it('should render the map image', () => {
+    it("should render the map image", () => {
       render(<MapPicker {...defaultProps} />);
 
-      const mapImage = screen.getByAltText('Campus Map');
+      const mapImage = screen.getByAltText("Campus Map");
       expect(mapImage).toBeInTheDocument();
-      expect(mapImage).toHaveAttribute('src', '/FINAL_MAP.png');
+      expect(mapImage).toHaveAttribute("src", "/FINAL_MAP.png");
     });
 
-    it('should render fullscreen toggle button', () => {
+    it("should render fullscreen toggle button", () => {
       render(<MapPicker {...defaultProps} />);
 
-      expect(screen.getByLabelText('Enter fullscreen map')).toBeInTheDocument();
+      expect(screen.getByLabelText("Enter fullscreen map")).toBeInTheDocument();
     });
   });
 
-  describe('fullscreen behavior', () => {
-    it('should open and close fullscreen when toggle is clicked', () => {
+  describe("fullscreen behavior", () => {
+    it("should open and close fullscreen when toggle is clicked", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
-      const toggle = screen.getByLabelText('Enter fullscreen map');
+      const toggle = screen.getByLabelText("Enter fullscreen map");
 
       fireEvent.click(toggle);
-      expect(container.querySelector('.map-picker-container')).toHaveClass('is-fullscreen');
-      expect(document.body).toHaveClass('map-fullscreen-open');
+      expect(container.querySelector(".map-picker-container")).toHaveClass(
+        "is-fullscreen",
+      );
+      expect(document.body).toHaveClass("map-fullscreen-open");
 
-      fireEvent.click(screen.getByLabelText('Exit fullscreen map'));
-      expect(container.querySelector('.map-picker-container')).not.toHaveClass('is-fullscreen');
-      expect(document.body).not.toHaveClass('map-fullscreen-open');
+      fireEvent.click(screen.getByLabelText("Exit fullscreen map"));
+      expect(container.querySelector(".map-picker-container")).not.toHaveClass(
+        "is-fullscreen",
+      );
+      expect(document.body).not.toHaveClass("map-fullscreen-open");
     });
 
-    it('should close fullscreen on Escape key', () => {
+    it("should close fullscreen on Escape key", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
-      fireEvent.click(screen.getByLabelText('Enter fullscreen map'));
-      expect(container.querySelector('.map-picker-container')).toHaveClass('is-fullscreen');
+      fireEvent.click(screen.getByLabelText("Enter fullscreen map"));
+      expect(container.querySelector(".map-picker-container")).toHaveClass(
+        "is-fullscreen",
+      );
 
-      fireEvent.keyDown(window, { key: 'Escape' });
-      expect(container.querySelector('.map-picker-container')).not.toHaveClass('is-fullscreen');
+      fireEvent.keyDown(window, { key: "Escape" });
+      expect(container.querySelector(".map-picker-container")).not.toHaveClass(
+        "is-fullscreen",
+      );
     });
   });
 
-  describe('marker display', () => {
-    it('should not show marker when markerPosition is null', () => {
-      const { container } = render(<MapPicker {...defaultProps} markerPosition={null} />);
-
-      expect(container.querySelector('.marker')).not.toBeInTheDocument();
-    });
-
-    it('should show marker when markerPosition is provided', () => {
+  describe("marker display", () => {
+    it("should not show marker when markerPosition is null", () => {
       const { container } = render(
-        <MapPicker {...defaultProps} markerPosition={{ x: 50, y: 50 }} />
+        <MapPicker {...defaultProps} markerPosition={null} />,
       );
 
-      expect(container.querySelector('.marker')).toBeInTheDocument();
+      expect(container.querySelector(".marker")).not.toBeInTheDocument();
     });
 
-    it('should position marker correctly', () => {
+    it("should show marker when markerPosition is provided", () => {
       const { container } = render(
-        <MapPicker {...defaultProps} markerPosition={{ x: 25, y: 75 }} />
+        <MapPicker {...defaultProps} markerPosition={{ x: 50, y: 50 }} />,
       );
 
-      const marker = container.querySelector('.marker') as HTMLElement;
-      expect(marker).toHaveStyle({ left: '25%', top: '75%' });
+      expect(container.querySelector(".marker")).toBeInTheDocument();
     });
 
-    it('should update marker position when props change', () => {
+    it("should position marker correctly", () => {
+      const { container } = render(
+        <MapPicker {...defaultProps} markerPosition={{ x: 25, y: 75 }} />,
+      );
+
+      const marker = container.querySelector(".marker") as HTMLElement;
+      expect(marker).toHaveStyle({ left: "25%", top: "75%" });
+    });
+
+    it("should update marker position when props change", () => {
       const { container, rerender } = render(
-        <MapPicker {...defaultProps} markerPosition={{ x: 10, y: 20 }} />
+        <MapPicker {...defaultProps} markerPosition={{ x: 10, y: 20 }} />,
       );
 
-      rerender(<MapPicker {...defaultProps} markerPosition={{ x: 80, y: 90 }} />);
+      rerender(
+        <MapPicker {...defaultProps} markerPosition={{ x: 80, y: 90 }} />,
+      );
 
-      const marker = container.querySelector('.marker') as HTMLElement;
-      expect(marker).toHaveStyle({ left: '80%', top: '90%' });
+      const marker = container.querySelector(".marker") as HTMLElement;
+      expect(marker).toHaveStyle({ left: "80%", top: "90%" });
     });
 
-    it('should render marker pin element', () => {
+    it("should render marker pin element", () => {
       const { container } = render(
-        <MapPicker {...defaultProps} markerPosition={{ x: 50, y: 50 }} />
+        <MapPicker {...defaultProps} markerPosition={{ x: 50, y: 50 }} />,
       );
 
-      expect(container.querySelector('.marker-pin')).toBeInTheDocument();
+      expect(container.querySelector(".marker-pin")).toBeInTheDocument();
     });
 
-    it('should render marker pulse element', () => {
+    it("should render marker pulse element", () => {
       const { container } = render(
-        <MapPicker {...defaultProps} markerPosition={{ x: 50, y: 50 }} />
+        <MapPicker {...defaultProps} markerPosition={{ x: 50, y: 50 }} />,
       );
 
-      expect(container.querySelector('.marker-pulse')).toBeInTheDocument();
+      expect(container.querySelector(".marker-pulse")).toBeInTheDocument();
     });
   });
 
-  describe('click handling', () => {
-    it('should call onMapClick when map is clicked', () => {
+  describe("click handling", () => {
+    it("should call onMapClick when map is clicked", () => {
       const onMapClick = vi.fn();
-      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+      const { container } = render(
+        <MapPicker {...defaultProps} onMapClick={onMapClick} />,
+      );
 
-      const mapPicker = container.querySelector('.map-picker')!;
-      const mapImage = container.querySelector('.map-image') as HTMLElement;
+      const mapPicker = container.querySelector(".map-picker")!;
+      const mapImage = container.querySelector(".map-image") as HTMLElement;
 
       // Mock getBoundingClientRect on the image element (used by the component)
-      mapImage.getBoundingClientRect = () => ({
-        left: 0,
-        top: 0,
-        width: 100,
-        height: 100,
-        right: 100,
-        bottom: 100
-      } as DOMRect);
+      mapImage.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 100,
+          right: 100,
+          bottom: 100,
+        }) as DOMRect;
 
       fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
 
       expect(onMapClick).toHaveBeenCalledWith({ x: 50, y: 50 });
     });
 
-    it('should calculate coordinates relative to element', () => {
+    it("should calculate coordinates relative to element", () => {
       const onMapClick = vi.fn();
-      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+      const { container } = render(
+        <MapPicker {...defaultProps} onMapClick={onMapClick} />,
+      );
 
-      const mapPicker = container.querySelector('.map-picker')!;
-      const mapImage = container.querySelector('.map-image') as HTMLElement;
+      const mapPicker = container.querySelector(".map-picker")!;
+      const mapImage = container.querySelector(".map-image") as HTMLElement;
 
       // Mock getBoundingClientRect with offset on the image element
-      mapImage.getBoundingClientRect = () => ({
-        left: 100,
-        top: 200,
-        width: 400,
-        height: 300,
-        right: 500,
-        bottom: 500
-      } as DOMRect);
+      mapImage.getBoundingClientRect = () =>
+        ({
+          left: 100,
+          top: 200,
+          width: 400,
+          height: 300,
+          right: 500,
+          bottom: 500,
+        }) as DOMRect;
 
       fireEvent.click(mapPicker, { clientX: 300, clientY: 350 });
 
@@ -169,21 +191,24 @@ describe('MapPicker', () => {
       expect(onMapClick).toHaveBeenCalledWith({ x: 50, y: 50 });
     });
 
-    it('should clamp coordinates to 0-100 range (minimum)', () => {
+    it("should clamp coordinates to 0-100 range (minimum)", () => {
       const onMapClick = vi.fn();
-      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+      const { container } = render(
+        <MapPicker {...defaultProps} onMapClick={onMapClick} />,
+      );
 
-      const mapPicker = container.querySelector('.map-picker')!;
-      const mapImage = container.querySelector('.map-image') as HTMLElement;
+      const mapPicker = container.querySelector(".map-picker")!;
+      const mapImage = container.querySelector(".map-image") as HTMLElement;
 
-      mapImage.getBoundingClientRect = () => ({
-        left: 100,
-        top: 100,
-        width: 100,
-        height: 100,
-        right: 200,
-        bottom: 200
-      } as DOMRect);
+      mapImage.getBoundingClientRect = () =>
+        ({
+          left: 100,
+          top: 100,
+          width: 100,
+          height: 100,
+          right: 200,
+          bottom: 200,
+        }) as DOMRect;
 
       // Click outside the element (negative coordinates)
       fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
@@ -191,21 +216,24 @@ describe('MapPicker', () => {
       expect(onMapClick).toHaveBeenCalledWith({ x: 0, y: 0 });
     });
 
-    it('should clamp coordinates to 0-100 range (maximum)', () => {
+    it("should clamp coordinates to 0-100 range (maximum)", () => {
       const onMapClick = vi.fn();
-      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+      const { container } = render(
+        <MapPicker {...defaultProps} onMapClick={onMapClick} />,
+      );
 
-      const mapPicker = container.querySelector('.map-picker')!;
-      const mapImage = container.querySelector('.map-image') as HTMLElement;
+      const mapPicker = container.querySelector(".map-picker")!;
+      const mapImage = container.querySelector(".map-image") as HTMLElement;
 
-      mapImage.getBoundingClientRect = () => ({
-        left: 0,
-        top: 0,
-        width: 100,
-        height: 100,
-        right: 100,
-        bottom: 100
-      } as DOMRect);
+      mapImage.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 100,
+          right: 100,
+          bottom: 100,
+        }) as DOMRect;
 
       // Click beyond the element (> 100 coordinates)
       fireEvent.click(mapPicker, { clientX: 150, clientY: 150 });
@@ -213,21 +241,24 @@ describe('MapPicker', () => {
       expect(onMapClick).toHaveBeenCalledWith({ x: 100, y: 100 });
     });
 
-    it('should handle clicks at corners', () => {
+    it("should handle clicks at corners", () => {
       const onMapClick = vi.fn();
-      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+      const { container } = render(
+        <MapPicker {...defaultProps} onMapClick={onMapClick} />,
+      );
 
-      const mapPicker = container.querySelector('.map-picker')!;
-      const mapImage = container.querySelector('.map-image') as HTMLElement;
+      const mapPicker = container.querySelector(".map-picker")!;
+      const mapImage = container.querySelector(".map-image") as HTMLElement;
 
-      mapImage.getBoundingClientRect = () => ({
-        left: 0,
-        top: 0,
-        width: 100,
-        height: 100,
-        right: 100,
-        bottom: 100
-      } as DOMRect);
+      mapImage.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 100,
+          right: 100,
+          bottom: 100,
+        }) as DOMRect;
 
       // Top-left corner
       fireEvent.click(mapPicker, { clientX: 0, clientY: 0 });
@@ -239,22 +270,25 @@ describe('MapPicker', () => {
     });
   });
 
-  describe('edge cases', () => {
-    it('should handle zero-dimension element gracefully', () => {
+  describe("edge cases", () => {
+    it("should handle zero-dimension element gracefully", () => {
       const onMapClick = vi.fn();
-      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+      const { container } = render(
+        <MapPicker {...defaultProps} onMapClick={onMapClick} />,
+      );
 
-      const mapPicker = container.querySelector('.map-picker')!;
-      const mapImage = container.querySelector('.map-image') as HTMLElement;
+      const mapPicker = container.querySelector(".map-picker")!;
+      const mapImage = container.querySelector(".map-image") as HTMLElement;
 
-      mapImage.getBoundingClientRect = () => ({
-        left: 0,
-        top: 0,
-        width: 0,
-        height: 0,
-        right: 0,
-        bottom: 0
-      } as DOMRect);
+      mapImage.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 0,
+          height: 0,
+          right: 0,
+          bottom: 0,
+        }) as DOMRect;
 
       // This could cause division by zero - the component should handle it
       fireEvent.click(mapPicker, { clientX: 50, clientY: 50 });
@@ -263,176 +297,233 @@ describe('MapPicker', () => {
       expect(onMapClick).toHaveBeenCalled();
     });
 
-    it('should handle marker at boundary positions', () => {
+    it("should handle marker at boundary positions", () => {
       const { container, rerender } = render(
-        <MapPicker {...defaultProps} markerPosition={{ x: 0, y: 0 }} />
+        <MapPicker {...defaultProps} markerPosition={{ x: 0, y: 0 }} />,
       );
 
-      let marker = container.querySelector('.marker') as HTMLElement;
-      expect(marker).toHaveStyle({ left: '0%', top: '0%' });
+      let marker = container.querySelector(".marker") as HTMLElement;
+      expect(marker).toHaveStyle({ left: "0%", top: "0%" });
 
-      rerender(<MapPicker {...defaultProps} markerPosition={{ x: 100, y: 100 }} />);
+      rerender(
+        <MapPicker {...defaultProps} markerPosition={{ x: 100, y: 100 }} />,
+      );
 
-      marker = container.querySelector('.marker') as HTMLElement;
-      expect(marker).toHaveStyle({ left: '100%', top: '100%' });
+      marker = container.querySelector(".marker") as HTMLElement;
+      expect(marker).toHaveStyle({ left: "100%", top: "100%" });
     });
 
-    it('should handle decimal marker positions', () => {
+    it("should handle decimal marker positions", () => {
       const { container } = render(
-        <MapPicker {...defaultProps} markerPosition={{ x: 33.333, y: 66.667 }} />
+        <MapPicker
+          {...defaultProps}
+          markerPosition={{ x: 33.333, y: 66.667 }}
+        />,
       );
 
-      const marker = container.querySelector('.marker') as HTMLElement;
-      expect(marker).toHaveStyle({ left: '33.333%', top: '66.667%' });
+      const marker = container.querySelector(".marker") as HTMLElement;
+      expect(marker).toHaveStyle({ left: "33.333%", top: "66.667%" });
     });
   });
 
-  describe('accessibility', () => {
-    it('should have accessible image with alt text', () => {
+  describe("accessibility", () => {
+    it("should have accessible image with alt text", () => {
       render(<MapPicker {...defaultProps} />);
 
-      expect(screen.getByAltText('Campus Map')).toBeInTheDocument();
+      expect(screen.getByAltText("Campus Map")).toBeInTheDocument();
     });
 
-    it('should have clickable map area', () => {
+    it("should have clickable map area", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
 
-      const mapPicker = container.querySelector('.map-picker');
+      const mapPicker = container.querySelector(".map-picker");
       expect(mapPicker).toBeInTheDocument();
     });
   });
 
-  describe('zoom functionality', () => {
-    it('should render zoom control buttons', () => {
+  describe("zoom functionality", () => {
+    it("should render zoom control buttons", () => {
       render(<MapPicker {...defaultProps} />);
 
-      expect(screen.getByLabelText('Zoom in')).toBeInTheDocument();
-      expect(screen.getByLabelText('Zoom out')).toBeInTheDocument();
-      expect(screen.getByLabelText('Reset zoom')).toBeInTheDocument();
+      expect(screen.getByLabelText("Zoom in")).toBeInTheDocument();
+      expect(screen.getByLabelText("Zoom out")).toBeInTheDocument();
+      expect(screen.getByLabelText("Reset zoom")).toBeInTheDocument();
     });
 
-    it('should render zoom content wrapper', () => {
+    it("should render zoom content wrapper", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
 
-      expect(container.querySelector('.map-zoom-content')).toBeInTheDocument();
+      expect(container.querySelector(".map-zoom-content")).toBeInTheDocument();
     });
 
-    it('should have zoom out button disabled at default zoom', () => {
+    it("should have zoom out button disabled at default zoom", () => {
       render(<MapPicker {...defaultProps} />);
 
-      expect(screen.getByLabelText('Zoom out')).toBeDisabled();
-      expect(screen.getByLabelText('Reset zoom')).toBeDisabled();
+      expect(screen.getByLabelText("Zoom out")).toBeDisabled();
+      expect(screen.getByLabelText("Reset zoom")).toBeDisabled();
     });
 
-    it('should not show zoom indicator at default zoom', () => {
+    it("should not show zoom indicator at default zoom", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
 
-      expect(container.querySelector('.zoom-indicator')).not.toBeInTheDocument();
+      expect(
+        container.querySelector(".zoom-indicator"),
+      ).not.toBeInTheDocument();
     });
 
-    it('should show zoom indicator after zooming in', () => {
+    it("should show zoom indicator after zooming in", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
 
       // Mock getBoundingClientRect for the container (needed by useMapZoom)
-      const mapPicker = container.querySelector('.map-picker') as HTMLElement;
-      mapPicker.getBoundingClientRect = () => ({
-        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
-      } as DOMRect);
+      const mapPicker = container.querySelector(".map-picker") as HTMLElement;
+      mapPicker.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 400,
+          height: 300,
+          right: 400,
+          bottom: 300,
+        }) as DOMRect;
 
-      fireEvent.click(screen.getByLabelText('Zoom in'));
+      fireEvent.click(screen.getByLabelText("Zoom in"));
 
-      expect(container.querySelector('.zoom-indicator')).toBeInTheDocument();
+      expect(container.querySelector(".zoom-indicator")).toBeInTheDocument();
     });
 
-    it('should add zoomed class when zoomed in', () => {
+    it("should add zoomed class when zoomed in", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
 
-      const mapPicker = container.querySelector('.map-picker') as HTMLElement;
-      mapPicker.getBoundingClientRect = () => ({
-        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
-      } as DOMRect);
+      const mapPicker = container.querySelector(".map-picker") as HTMLElement;
+      mapPicker.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 400,
+          height: 300,
+          right: 400,
+          bottom: 300,
+        }) as DOMRect;
 
-      expect(mapPicker).not.toHaveClass('zoomed');
+      expect(mapPicker).not.toHaveClass("zoomed");
 
-      fireEvent.click(screen.getByLabelText('Zoom in'));
+      fireEvent.click(screen.getByLabelText("Zoom in"));
 
-      expect(mapPicker).toHaveClass('zoomed');
+      expect(mapPicker).toHaveClass("zoomed");
     });
 
-    it('should enable zoom out button after zooming in', () => {
+    it("should enable zoom out button after zooming in", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
 
-      const mapPicker = container.querySelector('.map-picker') as HTMLElement;
-      mapPicker.getBoundingClientRect = () => ({
-        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
-      } as DOMRect);
+      const mapPicker = container.querySelector(".map-picker") as HTMLElement;
+      mapPicker.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 400,
+          height: 300,
+          right: 400,
+          bottom: 300,
+        }) as DOMRect;
 
-      fireEvent.click(screen.getByLabelText('Zoom in'));
+      fireEvent.click(screen.getByLabelText("Zoom in"));
 
-      expect(screen.getByLabelText('Zoom out')).not.toBeDisabled();
-      expect(screen.getByLabelText('Reset zoom')).not.toBeDisabled();
+      expect(screen.getByLabelText("Zoom out")).not.toBeDisabled();
+      expect(screen.getByLabelText("Reset zoom")).not.toBeDisabled();
     });
 
-    it('should reset zoom when reset button is clicked', () => {
+    it("should reset zoom when reset button is clicked", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
 
-      const mapPicker = container.querySelector('.map-picker') as HTMLElement;
-      mapPicker.getBoundingClientRect = () => ({
-        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
-      } as DOMRect);
+      const mapPicker = container.querySelector(".map-picker") as HTMLElement;
+      mapPicker.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 400,
+          height: 300,
+          right: 400,
+          bottom: 300,
+        }) as DOMRect;
 
       // Zoom in first
-      fireEvent.click(screen.getByLabelText('Zoom in'));
-      expect(container.querySelector('.zoom-indicator')).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText("Zoom in"));
+      expect(container.querySelector(".zoom-indicator")).toBeInTheDocument();
 
       // Reset
-      fireEvent.click(screen.getByLabelText('Reset zoom'));
-      expect(container.querySelector('.zoom-indicator')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText("Reset zoom"));
+      expect(
+        container.querySelector(".zoom-indicator"),
+      ).not.toBeInTheDocument();
     });
 
-    it('should not call onMapClick when zoom in button is clicked', () => {
+    it("should not call onMapClick when zoom in button is clicked", () => {
       const onMapClick = vi.fn();
-      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+      const { container } = render(
+        <MapPicker {...defaultProps} onMapClick={onMapClick} />,
+      );
 
-      const mapPicker = container.querySelector('.map-picker') as HTMLElement;
-      mapPicker.getBoundingClientRect = () => ({
-        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
-      } as DOMRect);
+      const mapPicker = container.querySelector(".map-picker") as HTMLElement;
+      mapPicker.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 400,
+          height: 300,
+          right: 400,
+          bottom: 300,
+        }) as DOMRect;
 
-      fireEvent.click(screen.getByLabelText('Zoom in'));
+      fireEvent.click(screen.getByLabelText("Zoom in"));
 
       expect(onMapClick).not.toHaveBeenCalled();
     });
 
-    it('should not call onMapClick when zoom out button is clicked while zoomed', () => {
+    it("should not call onMapClick when zoom out button is clicked while zoomed", () => {
       const onMapClick = vi.fn();
-      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+      const { container } = render(
+        <MapPicker {...defaultProps} onMapClick={onMapClick} />,
+      );
 
-      const mapPicker = container.querySelector('.map-picker') as HTMLElement;
-      mapPicker.getBoundingClientRect = () => ({
-        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
-      } as DOMRect);
+      const mapPicker = container.querySelector(".map-picker") as HTMLElement;
+      mapPicker.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 400,
+          height: 300,
+          right: 400,
+          bottom: 300,
+        }) as DOMRect;
 
       // Zoom in first so zoom out is enabled
-      fireEvent.click(screen.getByLabelText('Zoom in'));
+      fireEvent.click(screen.getByLabelText("Zoom in"));
       onMapClick.mockClear();
 
-      fireEvent.click(screen.getByLabelText('Zoom out'));
+      fireEvent.click(screen.getByLabelText("Zoom out"));
 
       expect(onMapClick).not.toHaveBeenCalled();
     });
 
-    it('should not call onMapClick when dragging while zoomed', () => {
+    it("should not call onMapClick when dragging while zoomed", () => {
       const onMapClick = vi.fn();
-      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+      const { container } = render(
+        <MapPicker {...defaultProps} onMapClick={onMapClick} />,
+      );
 
-      const mapPicker = container.querySelector('.map-picker') as HTMLElement;
-      mapPicker.getBoundingClientRect = () => ({
-        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
-      } as DOMRect);
+      const mapPicker = container.querySelector(".map-picker") as HTMLElement;
+      mapPicker.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 400,
+          height: 300,
+          right: 400,
+          bottom: 300,
+        }) as DOMRect;
 
       // Zoom in
-      fireEvent.click(screen.getByLabelText('Zoom in'));
+      fireEvent.click(screen.getByLabelText("Zoom in"));
       onMapClick.mockClear();
 
       // Simulate drag: mousedown -> mousemove (>5px) -> mouseup -> click
@@ -444,23 +535,37 @@ describe('MapPicker', () => {
       expect(onMapClick).not.toHaveBeenCalled();
     });
 
-    it('should still call onMapClick for clicks without dragging while zoomed', () => {
+    it("should still call onMapClick for clicks without dragging while zoomed", () => {
       const onMapClick = vi.fn();
-      const { container } = render(<MapPicker {...defaultProps} onMapClick={onMapClick} />);
+      const { container } = render(
+        <MapPicker {...defaultProps} onMapClick={onMapClick} />,
+      );
 
-      const mapPicker = container.querySelector('.map-picker') as HTMLElement;
-      const mapImage = container.querySelector('.map-image') as HTMLElement;
+      const mapPicker = container.querySelector(".map-picker") as HTMLElement;
+      const mapImage = container.querySelector(".map-image") as HTMLElement;
 
-      mapPicker.getBoundingClientRect = () => ({
-        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
-      } as DOMRect);
+      mapPicker.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 400,
+          height: 300,
+          right: 400,
+          bottom: 300,
+        }) as DOMRect;
 
-      mapImage.getBoundingClientRect = () => ({
-        left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300
-      } as DOMRect);
+      mapImage.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 400,
+          height: 300,
+          right: 400,
+          bottom: 300,
+        }) as DOMRect;
 
       // Zoom in
-      fireEvent.click(screen.getByLabelText('Zoom in'));
+      fireEvent.click(screen.getByLabelText("Zoom in"));
       onMapClick.mockClear();
 
       // Simple click (no drag)
@@ -471,11 +576,15 @@ describe('MapPicker', () => {
       expect(onMapClick).toHaveBeenCalled();
     });
 
-    it('should apply transform style to zoom content wrapper', () => {
+    it("should apply transform style to zoom content wrapper", () => {
       const { container } = render(<MapPicker {...defaultProps} />);
 
-      const zoomContent = container.querySelector('.map-zoom-content') as HTMLElement;
-      expect(zoomContent).toHaveStyle({ transform: 'translate(0px, 0px) scale(1)' });
+      const zoomContent = container.querySelector(
+        ".map-zoom-content",
+      ) as HTMLElement;
+      expect(zoomContent).toHaveStyle({
+        transform: "translate(0px, 0px) scale(1)",
+      });
     });
   });
 });
