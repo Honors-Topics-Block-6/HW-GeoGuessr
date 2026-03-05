@@ -18,7 +18,7 @@ function getSuggestionsFromError(err: unknown): string[] | null {
 }
 
 function LoginScreen(): React.ReactElement {
-  const { login, signup, loginWithGoogle, needsUsername, completeGoogleSignUp } = useAuth();
+  const { login, signup, loginWithGoogle, continueAsGuest, needsUsername, completeGoogleSignUp } = useAuth();
   console.log('[LoginScreen] render, needsUsername:', needsUsername);
 
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
@@ -85,6 +85,21 @@ function LoginScreen(): React.ReactElement {
 
     try {
       await loginWithGoogle();
+    } catch (err) {
+      setError(getErrorMessage(err as FirebaseError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleContinueAsGuest = async (): Promise<void> => {
+    setError('');
+    setUsernameSuggestions([]);
+    setGoogleUsernameSuggestions([]);
+    setIsSubmitting(true);
+
+    try {
+      await continueAsGuest();
     } catch (err) {
       setError(getErrorMessage(err as FirebaseError));
     } finally {
@@ -424,6 +439,15 @@ function LoginScreen(): React.ReactElement {
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
           {isSignUp ? 'Sign up with Google' : 'Sign in with Google'}
+        </button>
+
+        <button
+          type="button"
+          className="guest-button"
+          onClick={handleContinueAsGuest}
+          disabled={isSubmitting}
+        >
+          Continue as Guest
         </button>
 
         <p className="login-toggle">

@@ -21,6 +21,7 @@ export interface GameScreenProps {
   onFloorSelect: (floor: number) => void;
   onSubmitGuess: () => void;
   onBackToTitle: () => void;
+  onImageLoad?: () => void;
   currentRound?: number;
   totalRounds?: number;
   clickRejected?: boolean;
@@ -41,6 +42,7 @@ function GameScreen({
   onFloorSelect,
   onSubmitGuess,
   onBackToTitle,
+  onImageLoad,
   currentRound = 1,
   totalRounds = 5,
   clickRejected = false,

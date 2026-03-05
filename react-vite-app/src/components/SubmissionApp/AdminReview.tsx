@@ -2,7 +2,15 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
-import { getAllImages, deleteSubmission, deleteImage } from '../../services/imageService'
+import { getAllImages, getAllSampleImages, deleteSubmission, deleteImage } from '../../services/imageService'
+import {
+  backfillImagePool,
+  type BackfillImagePoolResult,
+  buildImagePoolEntryFromImageDoc,
+  buildImagePoolEntryFromSubmissionDoc,
+  removeImagePoolEntry,
+  upsertImagePoolEntry
+} from '../../services/imagePoolService'
 import MapPicker from '../MapPicker/MapPicker'
 import { compressImage } from '../../utils/compressImage'
 import { getPlayingArea, isPointInPlayingArea, type PlayingArea } from '../../services/regionService'
@@ -85,6 +93,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const [playingArea, setPlayingArea] = useState<PlayingArea | null>(null)
   const [clickRejected, setClickRejected] = useState<boolean>(false)
 
+  const BACKFILL_IMAGE_CURSOR_KEY = 'admin.imagePool.backfill.imageCursor.v1'
+  const BACKFILL_SUBMISSION_CURSOR_KEY = 'admin.imagePool.backfill.submissionCursor.v1'
+
   // Fetch submissions from Firestore (real-time)
   useEffect(() => {
     const q = query(collection(db, 'submissions'), orderBy('createdAt', 'desc'))
@@ -111,6 +122,54 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   }, [])
 
   // Fetch images from Firestore images collection
+  useEffect(() => {
+    let cancelled = false
+    async function runBackfillPasses(): Promise<void> {
+      let imageCursor = window.localStorage.getItem(BACKFILL_IMAGE_CURSOR_KEY)
+      let submissionCursor = window.localStorage.getItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+
+      // Run a few paced passes per mount to avoid backend throttling.
+      for (let pass = 0; pass < 4; pass += 1) {
+        if (cancelled) return
+        const result: BackfillImagePoolResult = await backfillImagePool({
+          imageCursor,
+          submissionCursor,
+          maxDocsPerSource: 20,
+          commitChunkSize: 10,
+          maxRetriesPerChunk: 5
+        })
+
+        imageCursor = result.nextImageCursor
+        submissionCursor = result.nextSubmissionCursor
+
+        if (imageCursor) {
+          window.localStorage.setItem(BACKFILL_IMAGE_CURSOR_KEY, imageCursor)
+        } else {
+          window.localStorage.removeItem(BACKFILL_IMAGE_CURSOR_KEY)
+        }
+        if (submissionCursor) {
+          window.localStorage.setItem(BACKFILL_SUBMISSION_CURSOR_KEY, submissionCursor)
+        } else {
+          window.localStorage.removeItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+        }
+
+        if (result.done) {
+          window.localStorage.removeItem(BACKFILL_IMAGE_CURSOR_KEY)
+          window.localStorage.removeItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+          break
+        }
+      }
+    }
+
+    void runBackfillPasses().catch((error) => {
+      console.error('Error backfilling imagePool:', error)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useEffect(() => {
     async function fetchImages(): Promise<void> {
       const images = await getAllImages()
@@ -169,7 +228,20 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'approved',
         reviewedAt: serverTimestamp()
       })
-      pushNotification('Approved', 'success')
+      const target = submissions.find((item) => item.id === submissionId)
+      if (target) {
+        const poolEntry = buildImagePoolEntryFromSubmissionDoc(submissionId, {
+          photoURL: target.photoURL,
+          difficulty: target.difficulty,
+          location: target.location,
+          floor: target.floor,
+          buildingName: target.buildingName,
+          description: target.description
+        })
+        if (poolEntry) {
+          await upsertImagePoolEntry(poolEntry)
+        }
+      }
     } catch (error) {
       console.error('Error approving submission:', error)
       pushNotification('Approve failed', 'error')
@@ -182,7 +254,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'denied',
         reviewedAt: serverTimestamp()
       })
-      pushNotification('Denied', 'success')
+      await removeImagePoolEntry('submission', submissionId)
     } catch (error) {
       console.error('Error denying submission:', error)
       pushNotification('Deny failed', 'error')
@@ -195,7 +267,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'pending',
         reviewedAt: null
       })
-      pushNotification('Reset to pending', 'success')
+      await removeImagePoolEntry('submission', submissionId)
     } catch (error) {
       console.error('Error resetting submission:', error)
       pushNotification('Reset failed', 'error')
@@ -209,7 +281,12 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       description: selectedSubmission.description || '',
       photoName: selectedSubmission.photoName || '',
       buildingName: selectedSubmission.buildingName || '',
-      location: selectedSubmission.location ? { ...selectedSubmission.location } : { x: 0, y: 0 },
+      location: selectedSubmission.location
+        ? {
+            x: roundCoordinate(selectedSubmission.location.x),
+            y: roundCoordinate(selectedSubmission.location.y)
+          }
+        : { x: 0, y: 0 },
       floor: selectedSubmission.floor,
       difficulty: selectedSubmission.difficulty || null,
       status: selectedSubmission.status,
@@ -324,6 +401,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           updateData.floor = editForm.floor;
         }
         await updateDoc(doc(db, 'submissions', selectedSubmission.id), updateData)
+        if ((editForm.status || '').toLowerCase() === 'approved') {
+          const poolEntry = buildImagePoolEntryFromSubmissionDoc(selectedSubmission.id, updateData as Record<string, unknown>)
+          if (poolEntry) {
+            await upsertImagePoolEntry(poolEntry)
+          }
+        } else {
+          await removeImagePoolEntry('submission', selectedSubmission.id)
+        }
         // Real-time listener will auto-update submissions state
       } else if (selectedSubmission?._source === 'image') {
         const updateData: Record<string, unknown> = {
@@ -336,6 +421,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           updateData.correctFloor = editForm.floor;
         }
         await updateDoc(doc(db, 'images', selectedSubmission.id), updateData)
+        const poolEntry = buildImagePoolEntryFromImageDoc(selectedSubmission.id, updateData)
+        if (poolEntry) {
+          await upsertImagePoolEntry(poolEntry)
+        }
         // Manually update firestoreImages state (no real-time listener)
         setFirestoreImages(prev => prev.map(img =>
           img.id === selectedSubmission.id
@@ -381,8 +470,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     try {
       if (deleteTarget._source === 'submission') {
         await deleteSubmission(deleteTarget.id)
+        await removeImagePoolEntry('submission', deleteTarget.id)
       } else if (deleteTarget._source === 'image') {
         await deleteImage(deleteTarget.id)
+        await removeImagePoolEntry('image', deleteTarget.id)
         setFirestoreImages(prev => prev.filter(img => img.id !== deleteTarget.id))
       }
 
@@ -455,7 +546,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     return date.toLocaleString()
   }
 
-  const isEditable = Boolean(selectedSubmission)
+  const formatCoordinate = (value: number | undefined): string => {
+    if (value === undefined) return '—'
+    return Number(value).toFixed(2)
+  }
+
+  const roundCoordinate = (value: number): number => Math.round(value * 100) / 100
+
+  const isEditable = selectedSubmission && selectedSubmission._source !== 'testing'
 
   if (loading) {
     return (
@@ -586,8 +684,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
               <div className="card-details">
                 <div className="detail-row">
-                  <strong>Building:</strong>
-                  <span>{submission.buildingName || '—'}</span>
+                  <strong>Location:</strong>
+                  <span>
+                    X: {formatCoordinate(submission.location?.x)}, Y: {formatCoordinate(submission.location?.y)}
+                  </span>
                 </div>
                 <div className="detail-row">
                   <strong>Floor:</strong>
@@ -692,14 +792,159 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           <div className="modal-shell modal-shell-wide" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             <div className="modal-side-actions-left">
               {isEditing ? (
-                <>
-                  <button className="save-button" onClick={handleSaveEdit} disabled={isSaving}>
-                    {isSaving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button className="cancel-edit-button" onClick={handleCancelEdit} disabled={isSaving}>
-                    Cancel
-                  </button>
-                </>
+                /* Edit mode form */
+                <div className="edit-form">
+                  <div className="modal-details-header">
+                    <h3>Edit Image</h3>
+                  </div>
+
+                  {saveError && <div className="edit-error">{saveError}</div>}
+
+                  {/* Description */}
+                  <div className="edit-field">
+                    <label htmlFor="edit-description">Description</label>
+                    <input
+                      id="edit-description"
+                      type="text"
+                      value={editForm.description || ''}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                    />
+                  </div>
+
+                  {/* Building Name (submissions only) */}
+                  {selectedSubmission._source === 'submission' && (
+                    <div className="edit-field">
+                      <label htmlFor="edit-buildingname">Building Name</label>
+                      <input
+                        id="edit-buildingname"
+                        type="text"
+                        value={editForm.buildingName || ''}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, buildingName: e.target.value }))}
+                      />
+                    </div>
+                  )}
+
+                  {/* Photo Name (submissions only) */}
+                  {selectedSubmission._source === 'submission' && (
+                    <div className="edit-field">
+                      <label htmlFor="edit-photoname">File Name</label>
+                      <input
+                        id="edit-photoname"
+                        type="text"
+                        value={editForm.photoName || ''}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, photoName: e.target.value }))}
+                      />
+                    </div>
+                  )}
+
+                  {/* Status (submissions only) */}
+                  {selectedSubmission._source === 'submission' && (
+                    <div className="edit-field">
+                      <label htmlFor="edit-status">Status</label>
+                      <select
+                        id="edit-status"
+                        value={editForm.status || ''}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="denied">Denied</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Location via MapPicker */}
+                  <div className="edit-field">
+                    <label>Location</label>
+                    <MapPicker
+                      markerPosition={editForm.location ?? null}
+                      onMapClick={(coords: Location) => setEditForm(prev => ({
+                        ...prev,
+                        location: {
+                          x: roundCoordinate(coords.x),
+                          y: roundCoordinate(coords.y)
+                        }
+                      }))}
+                    />
+                    <div className="coordinate-inputs">
+                      <label>
+                        X:
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={editForm.location?.x ?? ''}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
+                            ...prev,
+                            location: {
+                              ...(prev.location || { x: 0, y: 0 }),
+                              x: roundCoordinate(parseFloat(e.target.value) || 0)
+                            }
+                          }))}
+                        />
+                      </label>
+                      <label>
+                        Y:
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={editForm.location?.y ?? ''}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
+                            ...prev,
+                            location: {
+                              ...(prev.location || { x: 0, y: 0 }),
+                              y: roundCoordinate(parseFloat(e.target.value) || 0)
+                            }
+                          }))}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Floor via FloorSelector */}
+                  <div className="edit-field">
+                    <FloorSelector
+                      selectedFloor={editForm.floor ?? null}
+                      onFloorSelect={(f: number) => setEditForm(prev => ({ ...prev, floor: f }))}
+                    />
+                  </div>
+
+                  {/* Difficulty */}
+                  <div className="edit-field">
+                    <label htmlFor="edit-difficulty">Difficulty</label>
+                    <select
+                      id="edit-difficulty"
+                      value={editForm.difficulty || ''}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value || null }))}
+                    >
+                      <option value="">Not set</option>
+                      {DIFFICULTY_OPTIONS.map(d => (
+                        <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Save / Cancel buttons */}
+                  <div className="edit-actions">
+                    <button
+                      className="save-button"
+                      onClick={handleSaveEdit}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button
+                      className="cancel-edit-button"
+                      onClick={handleCancelEdit}
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <>
                   {isEditable && <button className="edit-button" onClick={handleStartEdit}>Edit</button>}
@@ -708,30 +953,45 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               )}
             </div>
 
-            <div className="modal-content modal-content-wide" >
-              <div className="modal-details modal-details-wide">
-                <div className="detail-three-layout">
-                  <div className="detail-column-data">
-                    <div className="detail-card detail-combined-card">
-                      <div className="detail-combined-row">
-                        <span className="detail-combined-key">Difficulty</span>
-                        {isEditing ? (
-                          <select
-                            className="detail-inline-select"
-                            value={editForm.difficulty || DIFFICULTY_OPTIONS[0]}
-                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value }))}
-                          >
-                            {DIFFICULTY_OPTIONS.map(d => (
-                              <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="detail-combined-value">
-                            <span className={`difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
-                              {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'Not set'}
-                            </span>
-                          </span>
-                        )}
+                  {/* Badges row */}
+                  <div className="detail-badges-row">
+                    <span className={`detail-badge ${getSourceBadgeClass(selectedSubmission._source)}`}>
+                      {getSourceLabel(selectedSubmission._source)}
+                    </span>
+                    <span className={`detail-badge ${getStatusBadgeClass(selectedSubmission.status)}`}>
+                      {selectedSubmission.status}
+                    </span>
+                    <span className={`detail-badge difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
+                      {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'No difficulty'}
+                    </span>
+                  </div>
+
+                  {/* Building Name card */}
+                  {selectedSubmission.buildingName && (
+                    <div className="detail-card">
+                      <div className="detail-card-label">Building Name</div>
+                      <div className="detail-card-value">{selectedSubmission.buildingName}</div>
+                    </div>
+                  )}
+
+                  {/* Description card */}
+                  {selectedSubmission.description && (
+                    <div className="detail-card">
+                      <div className="detail-card-label">Description</div>
+                      <div className="detail-card-value detail-description">{selectedSubmission.description}</div>
+                    </div>
+                  )}
+
+                  {/* Info grid */}
+                  <div className="detail-info-grid">
+                    <div className="detail-info-item">
+                      <span className="detail-info-icon">📍</span>
+                      <div className="detail-info-content">
+                        <span className="detail-info-label">Coordinates</span>
+                        <span className="detail-info-value">
+                          X: {formatCoordinate(selectedSubmission.location?.x)},
+                          Y: {formatCoordinate(selectedSubmission.location?.y)}
+                        </span>
                       </div>
                       <div className="detail-combined-row">
                         <span className="detail-combined-key">🏫 Building</span>
