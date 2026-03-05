@@ -2,12 +2,11 @@
 .lobby-screen {
   position: relative;
   width: 100%;
-  min-height: 100vh;
-  height: auto;
+  height: 100dvh;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .lobby-background {
@@ -46,17 +45,16 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 1rem 1.2rem;
+  padding: 0.8rem 1.1rem;
   max-width: 1240px;
   width: 100%;
-  padding-top: 1.5rem;
-  padding-bottom: 2.5rem;
-  min-height: 100vh;
-  height: auto;
+  padding-top: 1rem;
+  padding-bottom: 0.75rem;
+  height: 100%;
+  min-height: 0;
   box-sizing: border-box;
-  margin-top: 0.5rem;
-  max-height: none;
-  overflow: visible;
+  margin-top: 0;
+  overflow: hidden;
 }
 
 /* Back Button */
@@ -82,10 +80,10 @@
 
 /* Heading */
 .lobby-heading {
-  font-size: 1.6rem;
+  font-size: 1.45rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.25rem;
 }
 
 .lobby-difficulty-badge {
@@ -99,7 +97,7 @@
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--hw-red);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 /* Error Banner */
@@ -138,27 +136,27 @@
   background: var(--hw-surface);
   border: 1px solid var(--border-color);
   border-radius: 0;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 0.85rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   width: 100%;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.55rem;
 }
 
 .lobby-panel-host {
   align-items: stretch;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.55rem;
 }
 
 .lobby-bottom-sections {
   width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: 0.75rem;
+  gap: 0.55rem;
   flex: 0 0 auto;
-  min-height: auto;
+  min-height: 0;
 }
 
 .lobby-bottom-sections .lobby-panel {
@@ -183,13 +181,13 @@
 }
 
 .lobby-panel-heading {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .lobby-panel-desc {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   color: var(--text-secondary);
   margin-bottom: 0.1rem;
 }
@@ -200,14 +198,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .lobby-host-difficulty-options {
   width: 100%;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .lobby-host-difficulty-card {
@@ -215,7 +213,7 @@
   background: var(--hw-surface);
   color: var(--text-secondary);
   border-radius: 0;
-  padding: 0.55rem;
+  padding: 0.45rem;
   text-align: left;
   display: flex;
   flex-direction: column;
@@ -240,13 +238,13 @@
 }
 
 .lobby-host-difficulty-name {
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
 .lobby-host-difficulty-desc {
-  font-size: 0.72rem;
-  line-height: 1.2;
+  font-size: 0.68rem;
+  line-height: 1.15;
   color: var(--text-muted);
 }
 
@@ -263,12 +261,12 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0.7rem 0.5rem;
+  padding: 0.55rem 0.45rem;
   background: var(--hw-surface);
   border: 2px solid var(--border-color);
   border-radius: 0;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -295,7 +293,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .lobby-time-label {
@@ -314,12 +312,12 @@
 
 .lobby-time-btn {
   flex: 1;
-  padding: 0.5rem 0.25rem;
+  padding: 0.4rem 0.2rem;
   background: var(--hw-surface);
   border: 2px solid var(--border-color);
   border-radius: 0;
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -376,10 +374,10 @@
 /* Create Game Button */
 .lobby-create-btn {
   width: 100%;
-  padding: 0.6rem 1.2rem;
+  padding: 0.5rem 1rem;
   background: var(--hw-red);
   color: #ffffff;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   border: none;
   border-radius: 0;
@@ -484,24 +482,24 @@
 }
 
 .lobby-section-heading {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 0.2rem;
 }
 
 .lobby-section-desc {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.45rem;
 }
 
 .lobby-public-filters {
   width: 100%;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
 }
 
 .lobby-public-filter-item {
@@ -531,9 +529,9 @@
 
 /* Public Game List */
 .public-list {
-  --public-card-height: 2.7rem;
-  --public-card-gap: 0.4rem;
-  --public-list-header-height: 2.5rem;
+  --public-card-height: 2.45rem;
+  --public-card-gap: 0.3rem;
+  --public-list-header-height: 2.2rem;
   --public-visible-cards: 2;
   display: flex;
   flex-direction: column;
