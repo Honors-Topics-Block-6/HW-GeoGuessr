@@ -88,7 +88,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     hasMoved,
     isPanning,
     isTouchActive
-  } = useMapZoom(containerRef, zoomContentRef);
+  } = useMapZoom(containerRef);
   const { onDoubleClick: _ignoredOnDoubleClick, ...mapHandlers } = handlers;
 
   const placeMarkerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

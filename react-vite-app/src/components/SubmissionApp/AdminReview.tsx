@@ -3,6 +3,14 @@ import { createPortal } from 'react-dom'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { getAllImages, getAllSampleImages, deleteSubmission, deleteImage } from '../../services/imageService'
+import {
+  backfillImagePool,
+  type BackfillImagePoolResult,
+  buildImagePoolEntryFromImageDoc,
+  buildImagePoolEntryFromSubmissionDoc,
+  removeImagePoolEntry,
+  upsertImagePoolEntry
+} from '../../services/imagePoolService'
 import MapPicker from '../MapPicker/MapPicker'
 import FloorSelector from '../FloorSelector/FloorSelector'
 import PhotoUpload from './PhotoUpload'
@@ -73,6 +81,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<SubmissionItem | null>(null)
   const [isDeleting, setIsDeleting] = useState<boolean>(false)
 
+  const BACKFILL_IMAGE_CURSOR_KEY = 'admin.imagePool.backfill.imageCursor.v1'
+  const BACKFILL_SUBMISSION_CURSOR_KEY = 'admin.imagePool.backfill.submissionCursor.v1'
+
   // Fetch submissions from Firestore (real-time)
   useEffect(() => {
     const q = query(collection(db, 'submissions'), orderBy('createdAt', 'desc'))
@@ -99,6 +110,54 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   }, [])
 
   // Fetch images from Firestore images collection and sample/testing images
+  useEffect(() => {
+    let cancelled = false
+    async function runBackfillPasses(): Promise<void> {
+      let imageCursor = window.localStorage.getItem(BACKFILL_IMAGE_CURSOR_KEY)
+      let submissionCursor = window.localStorage.getItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+
+      // Run a few paced passes per mount to avoid backend throttling.
+      for (let pass = 0; pass < 4; pass += 1) {
+        if (cancelled) return
+        const result: BackfillImagePoolResult = await backfillImagePool({
+          imageCursor,
+          submissionCursor,
+          maxDocsPerSource: 20,
+          commitChunkSize: 10,
+          maxRetriesPerChunk: 5
+        })
+
+        imageCursor = result.nextImageCursor
+        submissionCursor = result.nextSubmissionCursor
+
+        if (imageCursor) {
+          window.localStorage.setItem(BACKFILL_IMAGE_CURSOR_KEY, imageCursor)
+        } else {
+          window.localStorage.removeItem(BACKFILL_IMAGE_CURSOR_KEY)
+        }
+        if (submissionCursor) {
+          window.localStorage.setItem(BACKFILL_SUBMISSION_CURSOR_KEY, submissionCursor)
+        } else {
+          window.localStorage.removeItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+        }
+
+        if (result.done) {
+          window.localStorage.removeItem(BACKFILL_IMAGE_CURSOR_KEY)
+          window.localStorage.removeItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+          break
+        }
+      }
+    }
+
+    void runBackfillPasses().catch((error) => {
+      console.error('Error backfilling imagePool:', error)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useEffect(() => {
     async function fetchImages(): Promise<void> {
       const images = await getAllImages()
@@ -148,6 +207,20 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'approved',
         reviewedAt: serverTimestamp()
       })
+      const target = submissions.find((item) => item.id === submissionId)
+      if (target) {
+        const poolEntry = buildImagePoolEntryFromSubmissionDoc(submissionId, {
+          photoURL: target.photoURL,
+          difficulty: target.difficulty,
+          location: target.location,
+          floor: target.floor,
+          buildingName: target.buildingName,
+          description: target.description
+        })
+        if (poolEntry) {
+          await upsertImagePoolEntry(poolEntry)
+        }
+      }
     } catch (error) {
       console.error('Error approving submission:', error)
     }
@@ -159,6 +232,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'denied',
         reviewedAt: serverTimestamp()
       })
+      await removeImagePoolEntry('submission', submissionId)
     } catch (error) {
       console.error('Error denying submission:', error)
     }
@@ -170,6 +244,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'pending',
         reviewedAt: null
       })
+      await removeImagePoolEntry('submission', submissionId)
     } catch (error) {
       console.error('Error resetting submission:', error)
     }
@@ -182,7 +257,12 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       description: selectedSubmission.description || '',
       photoName: selectedSubmission.photoName || '',
       buildingName: selectedSubmission.buildingName || '',
-      location: selectedSubmission.location ? { ...selectedSubmission.location } : { x: 0, y: 0 },
+      location: selectedSubmission.location
+        ? {
+            x: roundCoordinate(selectedSubmission.location.x),
+            y: roundCoordinate(selectedSubmission.location.y)
+          }
+        : { x: 0, y: 0 },
       floor: selectedSubmission.floor,
       difficulty: selectedSubmission.difficulty || null,
       status: selectedSubmission.status,
@@ -237,6 +317,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           updateData.floor = editForm.floor;
         }
         await updateDoc(doc(db, 'submissions', selectedSubmission.id), updateData)
+        if ((editForm.status || '').toLowerCase() === 'approved') {
+          const poolEntry = buildImagePoolEntryFromSubmissionDoc(selectedSubmission.id, updateData as Record<string, unknown>)
+          if (poolEntry) {
+            await upsertImagePoolEntry(poolEntry)
+          }
+        } else {
+          await removeImagePoolEntry('submission', selectedSubmission.id)
+        }
         // Real-time listener will auto-update submissions state
       } else if (selectedSubmission?._source === 'image') {
         const updateData: Record<string, unknown> = {
@@ -249,6 +337,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           updateData.correctFloor = editForm.floor;
         }
         await updateDoc(doc(db, 'images', selectedSubmission.id), updateData)
+        const poolEntry = buildImagePoolEntryFromImageDoc(selectedSubmission.id, updateData)
+        if (poolEntry) {
+          await upsertImagePoolEntry(poolEntry)
+        }
         // Manually update firestoreImages state (no real-time listener)
         setFirestoreImages(prev => prev.map(img =>
           img.id === selectedSubmission.id
@@ -292,8 +384,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     try {
       if (deleteTarget._source === 'submission') {
         await deleteSubmission(deleteTarget.id)
+        await removeImagePoolEntry('submission', deleteTarget.id)
       } else if (deleteTarget._source === 'image') {
         await deleteImage(deleteTarget.id)
+        await removeImagePoolEntry('image', deleteTarget.id)
         setFirestoreImages(prev => prev.filter(img => img.id !== deleteTarget.id))
       }
 
@@ -355,6 +449,13 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       : new Date(timestamp as string)
     return date.toLocaleString()
   }
+
+  const formatCoordinate = (value: number | undefined): string => {
+    if (value === undefined) return '—'
+    return Number(value).toFixed(2)
+  }
+
+  const roundCoordinate = (value: number): number => Math.round(value * 100) / 100
 
   const isEditable = selectedSubmission && selectedSubmission._source !== 'testing'
 
@@ -478,7 +579,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                 )}
                 <div className="detail-row">
                   <strong>Location:</strong>
-                  <span>X: {submission.location?.x}, Y: {submission.location?.y}</span>
+                  <span>
+                    X: {formatCoordinate(submission.location?.x)}, Y: {formatCoordinate(submission.location?.y)}
+                  </span>
                 </div>
                 <div className="detail-row">
                   <strong>Floor:</strong>
@@ -680,7 +783,13 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                     <label>Location</label>
                     <MapPicker
                       markerPosition={editForm.location ?? null}
-                      onMapClick={(coords: Location) => setEditForm(prev => ({ ...prev, location: coords }))}
+                      onMapClick={(coords: Location) => setEditForm(prev => ({
+                        ...prev,
+                        location: {
+                          x: roundCoordinate(coords.x),
+                          y: roundCoordinate(coords.y)
+                        }
+                      }))}
                     />
                     <div className="coordinate-inputs">
                       <label>
@@ -689,11 +798,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                           type="number"
                           min="0"
                           max="100"
-                          step="0.1"
+                          step="0.01"
                           value={editForm.location?.x ?? ''}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
                             ...prev,
-                            location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
+                            location: {
+                              ...(prev.location || { x: 0, y: 0 }),
+                              x: roundCoordinate(parseFloat(e.target.value) || 0)
+                            }
                           }))}
                         />
                       </label>
@@ -703,11 +815,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                           type="number"
                           min="0"
                           max="100"
-                          step="0.1"
+                          step="0.01"
                           value={editForm.location?.y ?? ''}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
                             ...prev,
-                            location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
+                            location: {
+                              ...(prev.location || { x: 0, y: 0 }),
+                              y: roundCoordinate(parseFloat(e.target.value) || 0)
+                            }
                           }))}
                         />
                       </label>
@@ -810,8 +925,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                       <div className="detail-info-content">
                         <span className="detail-info-label">Coordinates</span>
                         <span className="detail-info-value">
-                          X: {selectedSubmission.location?.x !== undefined ? Number(selectedSubmission.location.x).toFixed(1) : '\u2014'},
-                          Y: {selectedSubmission.location?.y !== undefined ? Number(selectedSubmission.location.y).toFixed(1) : '\u2014'}
+                          X: {formatCoordinate(selectedSubmission.location?.x)},
+                          Y: {formatCoordinate(selectedSubmission.location?.y)}
                         </span>
                       </div>
                     </div>
