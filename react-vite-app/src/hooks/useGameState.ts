@@ -19,6 +19,7 @@ export const ROUND_TIME_SECONDS = 20;
 const SINGLEPLAYER_SEEN_HISTORY_KEY = 'singleplayerSeenImageHistory.v1';
 const MAP_DATA_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_SEEN_HISTORY_ENTRIES = 300;
+const RANDOM_GUESS_MAX_ATTEMPTS = 200;
 
 export interface MapCoords {
   x: number;
@@ -598,6 +599,24 @@ export function useGameState(): UseGameStateReturn {
     setGuessFloor(floor);
   }, []);
 
+  const generateRandomGuessLocation = useCallback((fallbackLocation: MapCoords): MapCoords => {
+    for (let attempt = 0; attempt < RANDOM_GUESS_MAX_ATTEMPTS; attempt += 1) {
+      const candidate: MapCoords = {
+        x: Math.random() * 100,
+        y: Math.random() * 100
+      };
+      if (isPointInPlayingArea(candidate, playingArea)) {
+        return candidate;
+      }
+    }
+
+    if (isPointInPlayingArea(fallbackLocation, playingArea)) {
+      return fallbackLocation;
+    }
+
+    return { x: 50, y: 50 };
+  }, [playingArea]);
+
   /**
    * Submit the guess and calculate score
    */
@@ -695,7 +714,7 @@ export function useGameState(): UseGameStateReturn {
   /**
    * When the timer hits zero on the game screen, automatically submit.
    * If there is a valid guess, submit it as a timeout-based submission.
-   * If there is no guess at all, go to results with a zero-score "no guess" result.
+   * If there is no valid guess, auto-generate a random fallback guess.
    * Skipped when roundTimeSetting === 0 (no time limit).
    */
   useEffect(() => {
@@ -712,41 +731,71 @@ export function useGameState(): UseGameStateReturn {
       timedOutRef.current = true;
       submitGuessRef.current();
     } else {
-      // No guess placed (or incomplete) — go to results with zero score
+      // No guess placed (or incomplete) — submit a random fallback guess
       const actualLocation: MapCoords = currentImage.correctLocation || { x: 50, y: 50 };
       const actualFloor: number | null = currentImage.correctFloor ?? null;
+      const randomGuessLocation = guessLocation ?? generateRandomGuessLocation(actualLocation);
+      const randomAvailableFloors = getFloorsForPoint(randomGuessLocation, regions);
+      const randomGuessFloor = randomAvailableFloors && randomAvailableFloors.length > 0
+        ? randomAvailableFloors[Math.floor(Math.random() * randomAvailableFloors.length)] ?? null
+        : null;
 
-      // Endless mode: no guess = full 5000 damage
-      const hpLost = 5000;
-      if (isEndlessMode) {
+      const distance = calculateDistance(randomGuessLocation, actualLocation);
+      const locationScore = calculateLocationScore(distance);
+      const isInRegion = randomAvailableFloors !== null && randomAvailableFloors.length > 0;
+      let floorCorrect: boolean | null = null;
+      let exactSpotBonus = 0;
+      let totalScore = locationScore;
+
+      if (isInRegion && randomGuessFloor !== null && actualFloor !== null) {
+        const guessedRegion = getRegionForPoint(randomGuessLocation, regions);
+        const actualRegion = getRegionForPoint(actualLocation, regions);
+        const isCorrectBuilding = guessedRegion !== null && actualRegion !== null && guessedRegion.id === actualRegion.id;
+        floorCorrect = isCorrectBuilding && randomGuessFloor === actualFloor;
+        totalScore = floorCorrect
+          ? locationScore
+          : Math.round(locationScore * 0.8);
+
+        if (floorCorrect && distance <= EXACT_SPOT_MAX_DISTANCE) {
+          exactSpotBonus = EXACT_SPOT_BONUS_POINTS;
+          totalScore += exactSpotBonus;
+        }
+      }
+
+      const hpLost = isEndlessMode ? Math.max(0, Math.min(5000, 5000 - totalScore)) : undefined;
+      if (isEndlessMode && hpLost !== undefined) {
         setCurrentHp(prev => Math.max(0, prev - hpLost));
       }
+
+      setGuessLocation(randomGuessLocation);
+      setGuessFloor(randomGuessFloor);
+      setAvailableFloors(randomAvailableFloors);
 
       const result: RoundResult = {
         roundNumber: currentRound,
         imageUrl: currentImage.url,
         imageBuildingName: getImageBuildingName(currentImage),
         imageDescription: currentImage.description ?? null,
-        guessLocation: null,
+        guessLocation: randomGuessLocation,
         actualLocation,
-        guessFloor: null,
+        guessFloor: randomGuessFloor,
         actualFloor,
-        distance: null,
-        locationScore: 0,
-        floorCorrect: null,
-        exactSpotBonus: 0,
-        score: 0,
+        distance,
+        locationScore,
+        floorCorrect,
+        exactSpotBonus,
+        score: totalScore,
         timeTakenSeconds: roundTimeSetting,
         timedOut: true,
-        noGuess: true,
-        hpLost: isEndlessMode ? hpLost : undefined
+        noGuess: false,
+        hpLost
       };
 
       setCurrentResult(result);
       setRoundResults(prev => [...prev, result]);
       setScreen('result');
     }
-  }, [screen, timeRemaining, availableFloors, guessLocation, guessFloor, currentImage, currentRound, isEndlessMode]);
+  }, [screen, timeRemaining, availableFloors, guessLocation, guessFloor, currentImage, currentRound, isEndlessMode, roundTimeSetting, generateRandomGuessLocation, regions]);
 
   /**
    * Proceed to the next round
