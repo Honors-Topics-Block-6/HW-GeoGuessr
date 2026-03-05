@@ -2,7 +2,6 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* Allow flex child to shrink and receive proper height */
   background-color: var(--bg-dark);
   position: relative;
   overflow: hidden;
@@ -54,23 +53,11 @@
 /* Responsive */
 @media (max-width: 768px) {
   .image-container {
-    padding: 0;
+    padding: 0.5rem;
   }
 
   .image-hint {
     font-size: 0.8rem;
     padding: 0.5rem 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .image-container {
-    padding: 0;
-  }
-
-  .image-hint {
-    font-size: 0.75rem;
-    padding: 0.4rem 0.8rem;
-    bottom: 0.5rem;
   }
 }

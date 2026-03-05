@@ -89,8 +89,7 @@ import type { ProfileScreenProps } from '../components/ProfileScreen/ProfileScre
 import type { AdminTabKey, AdminTabsProps } from '../components/SubmissionApp/AdminTabs';
 import type { ChatWindowProps } from '../components/ChatWindow/ChatWindow';
 import type { LeaderboardScreenProps } from '../components/LeaderboardScreen/LeaderboardScreen';
-import type { MapPoint } from '../utils/imageFitUtils';
-import type { ResultScreenProps } from '../components/ResultScreen/ResultScreen';
+import type { MapPoint, ResultScreenProps } from '../components/ResultScreen/ResultScreen';
 import type { BugReportModalProps } from '../components/BugReportModal/BugReportModal';
 import type { MapCoordinates, PolygonPoint, MapPickerProps, MapPickerHandle } from '../components/MapPicker/MapPicker';
 import type { UserEditModalProps } from '../components/SubmissionApp/UserEditModal';
