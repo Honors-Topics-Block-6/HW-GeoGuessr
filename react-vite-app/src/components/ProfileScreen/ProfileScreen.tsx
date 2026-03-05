@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { useAuth, type BuildingStat, type DailyStatBucket } from '../../contexts/AuthContext';
+import { useAuth, type BuildingStat, type DailyStatBucket, type DailyStatBucketRound } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
 import { getFavoriteAndWorstBuildings } from '../../utils/buildingStats';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
@@ -30,6 +30,8 @@ interface AchievementDefinition {
   progress: number;
   unlocked: boolean;
 }
+
+type StatsRoundCount = 'all' | '5' | '10' | '20';
 
 function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScreenProps): React.ReactElement {
   const {
@@ -79,6 +81,7 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
   const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'achievements'>('profile');
   const [statsInterval, setStatsInterval] = useState<'day' | 'week' | 'month' | 'all'>('all');
   const [statsDifficulty, setStatsDifficulty] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [statsRoundCount, setStatsRoundCount] = useState<StatsRoundCount>('all');
   const cropImageRef = useRef<HTMLImageElement | null>(null);
   const cropDragRef = useRef<{ startX: number; startY: number; offsetX: number; offsetY: number } | null>(null);
 
@@ -361,8 +364,10 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
   const sumBuckets = (bucketsByDate: Record<string, DailyStatBucket>, keys: string[] | null) => {
     const totals = {
       gamesPlayed: 0,
+      roundsPlayed: 0,
       totalScore: 0,
       totalGuessTimeSeconds: 0,
+      fastestGuessTimeSeconds: null as number | null,
       fiveKCount: 0,
       twentyFiveKCount: 0,
       photosSubmittedCount: 0,
@@ -373,8 +378,14 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
       const dayStats = bucketsByDate[key];
       if (!dayStats) continue;
       totals.gamesPlayed += dayStats.gamesPlayed ?? 0;
+      totals.roundsPlayed += dayStats.roundsPlayed ?? (dayStats.gamesPlayed ?? 0) * 5;
       totals.totalScore += dayStats.totalScore ?? 0;
       totals.totalGuessTimeSeconds += dayStats.totalGuessTimeSeconds ?? 0;
+      if (typeof dayStats.fastestGuessTimeSeconds === 'number') {
+        totals.fastestGuessTimeSeconds = totals.fastestGuessTimeSeconds === null
+          ? dayStats.fastestGuessTimeSeconds
+          : Math.min(totals.fastestGuessTimeSeconds, dayStats.fastestGuessTimeSeconds);
+      }
       totals.fiveKCount += dayStats.fiveKCount ?? 0;
       totals.twentyFiveKCount += dayStats.twentyFiveKCount ?? 0;
       totals.photosSubmittedCount += dayStats.photosSubmittedCount ?? 0;
@@ -396,42 +407,118 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
     return totals;
   };
 
+  const sumRoundBuckets = (bucketsByDate: Record<string, DailyStatBucket>, keys: string[] | null, roundCount: '5' | '10' | '20') => {
+    const totals = {
+      gamesPlayed: 0,
+      roundsPlayed: 0,
+      totalScore: 0,
+      totalGuessTimeSeconds: 0,
+      fastestGuessTimeSeconds: null as number | null,
+      fiveKCount: 0,
+      twentyFiveKCount: 0,
+      photosSubmittedCount: 0,
+      buildingStats: {} as Record<string, BuildingStat>
+    };
+    const dates = keys ?? Object.keys(bucketsByDate);
+    for (const key of dates) {
+      const dayStats = bucketsByDate[key];
+      if (!dayStats) continue;
+
+      // Legacy fallback: pre-round-count data is treated as 5-round games.
+      let bucket: DailyStatBucketRound | null = null;
+      if (dayStats.byRoundCount?.[roundCount]) {
+        bucket = dayStats.byRoundCount[roundCount] ?? null;
+      } else if (roundCount === '5') {
+        bucket = {
+          gamesPlayed: dayStats.gamesPlayed ?? 0,
+          roundsPlayed: dayStats.roundsPlayed ?? (dayStats.gamesPlayed ?? 0) * 5,
+          totalScore: dayStats.totalScore ?? 0,
+          totalGuessTimeSeconds: dayStats.totalGuessTimeSeconds ?? 0,
+          fastestGuessTimeSeconds: dayStats.fastestGuessTimeSeconds,
+          fiveKCount: dayStats.fiveKCount ?? 0,
+          twentyFiveKCount: dayStats.twentyFiveKCount ?? 0,
+          buildingStats: dayStats.buildingStats ?? {}
+        };
+      }
+      if (!bucket) continue;
+
+      totals.gamesPlayed += bucket.gamesPlayed ?? 0;
+      totals.roundsPlayed += bucket.roundsPlayed ?? 0;
+      totals.totalScore += bucket.totalScore ?? 0;
+      totals.totalGuessTimeSeconds += bucket.totalGuessTimeSeconds ?? 0;
+      if (typeof bucket.fastestGuessTimeSeconds === 'number') {
+        totals.fastestGuessTimeSeconds = totals.fastestGuessTimeSeconds === null
+          ? bucket.fastestGuessTimeSeconds
+          : Math.min(totals.fastestGuessTimeSeconds, bucket.fastestGuessTimeSeconds);
+      }
+      totals.fiveKCount += bucket.fiveKCount ?? 0;
+      totals.twentyFiveKCount += bucket.twentyFiveKCount ?? 0;
+
+      for (const [entryKey, entry] of Object.entries(bucket.buildingStats ?? {})) {
+        const current = totals.buildingStats[entryKey];
+        if (!current) {
+          totals.buildingStats[entryKey] = { ...entry };
+        } else {
+          totals.buildingStats[entryKey] = {
+            building: current.building,
+            floor: current.floor,
+            totalScore: current.totalScore + entry.totalScore,
+            count: current.count + entry.count
+          };
+        }
+      }
+    }
+    return totals;
+  };
+
   const getFilteredStats = () => {
-    if (statsInterval === 'all') {
+    const days = statsInterval === 'day' ? 1 : statsInterval === 'week' ? 7 : 30;
+    const keys = statsInterval === 'all' ? null : getDateKeys(days);
+    const baseBuckets = statsDifficulty === 'all'
+      ? dailyStats
+      : Object.fromEntries(
+        Object.entries(dailyStatsByDifficulty).map(([dateKey, diffMap]) => [dateKey, diffMap[statsDifficulty]])
+      ) as Record<string, DailyStatBucket>;
+
+    if (statsRoundCount !== 'all') {
+      const roundTotals = sumRoundBuckets(baseBuckets, keys, statsRoundCount);
+      const photoSource = statsInterval === 'all'
+        ? photosSubmittedCountAllTime
+        : sumBuckets(dailyStats, keys).photosSubmittedCount;
+      return { ...roundTotals, photosSubmittedCount: photoSource };
+    }
+
+    if (statsInterval === 'all' && statsDifficulty === 'all') {
       const allTimeTotals = {
         gamesPlayed: gamesPlayedAllTime,
+        roundsPlayed: gamesPlayedAllTime * 5,
         totalScore: totalScoreAllTime,
         totalGuessTimeSeconds: totalGuessTimeSecondsAllTime,
+        fastestGuessTimeSeconds: typeof userDoc?.fastestGuessTimeSeconds === 'number' ? userDoc.fastestGuessTimeSeconds : null,
         fiveKCount: fiveKCountAllTime,
         twentyFiveKCount: twentyFiveKCountAllTime,
         photosSubmittedCount: photosSubmittedCountAllTime,
         buildingStats
       };
-      if (statsDifficulty === 'all') return allTimeTotals;
-      const difficultyTotals = sumBuckets(
-        Object.fromEntries(
-          Object.entries(dailyStatsByDifficulty).map(([dateKey, diffMap]) => [dateKey, diffMap[statsDifficulty]])
-        ) as Record<string, DailyStatBucket>,
-        null
-      );
-      return { ...allTimeTotals, ...difficultyTotals, photosSubmittedCount: allTimeTotals.photosSubmittedCount };
+      return allTimeTotals;
     }
-    const days = statsInterval === 'day' ? 1 : statsInterval === 'week' ? 7 : 30;
-    const keys = getDateKeys(days);
-    const timeTotals = sumBuckets(dailyStats, keys);
-    if (statsDifficulty === 'all') return timeTotals;
-    const difficultyTotals = sumBuckets(
-      Object.fromEntries(
-        keys.map((dateKey) => [dateKey, dailyStatsByDifficulty[dateKey]?.[statsDifficulty]])
-      ) as Record<string, DailyStatBucket>,
-      keys
-    );
-    return { ...timeTotals, ...difficultyTotals, photosSubmittedCount: timeTotals.photosSubmittedCount };
+
+    const totals = sumBuckets(baseBuckets, keys);
+    if (statsDifficulty !== 'all') {
+      const photoSource = statsInterval === 'all'
+        ? photosSubmittedCountAllTime
+        : sumBuckets(dailyStats, keys).photosSubmittedCount;
+      return { ...totals, photosSubmittedCount: photoSource };
+    }
+    return totals;
   };
 
   const filteredStats = getFilteredStats();
   const averageScore = filteredStats.gamesPlayed > 0 ? Math.round(filteredStats.totalScore / filteredStats.gamesPlayed) : 0;
-  const averageGuessTime = filteredStats.gamesPlayed > 0 ? filteredStats.totalGuessTimeSeconds / (filteredStats.gamesPlayed * 5) : 0;
+  const totalGuesses = filteredStats.roundsPlayed > 0
+    ? filteredStats.roundsPlayed
+    : filteredStats.gamesPlayed * (statsRoundCount === 'all' ? 5 : Number(statsRoundCount));
+  const averageGuessTime = totalGuesses > 0 ? filteredStats.totalGuessTimeSeconds / totalGuesses : 0;
   const friendsToFollowerRatio = followersCount > 0 ? (friends.length / followersCount) : null;
   const { favoriteBuilding, worstBuilding } = getFavoriteAndWorstBuildings(filteredStats.buildingStats);
 
@@ -630,6 +717,16 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
                   ))}
                 </div>
               </div>
+              <div className="profile-stats-interval">
+                <span className="profile-stats-interval-label">Rounds</span>
+                <div className="profile-stats-interval-buttons">
+                  {(['all', '5', '10', '20'] as const).map((roundCount) => (
+                    <button key={roundCount} type="button" className={`profile-stats-interval-button ${statsRoundCount === roundCount ? 'active' : ''}`} onClick={() => setStatsRoundCount(roundCount)}>
+                      {roundCount === 'all' ? 'All' : `${roundCount} Rounds`}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="profile-stat-row"><span className="profile-stat-label">Games Played</span><span className="profile-stat-value">{filteredStats.gamesPlayed.toLocaleString()}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Average Score</span><span className="profile-stat-value">{filteredStats.gamesPlayed > 0 ? averageScore.toLocaleString() : 'N/A'}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Number of 5ks</span><span className="profile-stat-value">{filteredStats.fiveKCount.toLocaleString()}</span></div>
@@ -637,6 +734,7 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
               <div className="profile-stat-row"><span className="profile-stat-label">Favorite Building</span><span className="profile-stat-value">{favoriteBuilding}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Worst Building</span><span className="profile-stat-value">{worstBuilding}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Average Guess Time</span><span className="profile-stat-value">{filteredStats.gamesPlayed > 0 ? `${averageGuessTime.toFixed(2)}s` : 'N/A'}</span></div>
+              <div className="profile-stat-row"><span className="profile-stat-label">Fastest Guess Time</span><span className="profile-stat-value">{typeof filteredStats.fastestGuessTimeSeconds === 'number' ? `${filteredStats.fastestGuessTimeSeconds.toFixed(2)}s` : 'N/A'}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Number of Photos Submitted</span><span className="profile-stat-value">{filteredStats.photosSubmittedCount.toLocaleString()}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Time Joined</span><span className="profile-stat-value">{formatTimestamp(userDoc?.createdAt)}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Last Online</span><span className="profile-stat-value">{formatTimestamp(userDoc?.lastOnline)}</span></div>

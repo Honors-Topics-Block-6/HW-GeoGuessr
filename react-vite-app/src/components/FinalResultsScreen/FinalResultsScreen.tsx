@@ -50,6 +50,24 @@ interface ConfettiPiece {
   color: string;
 }
 
+type RoundCountKey = '5' | '10' | '20';
+
+interface RoundBucketStats {
+  gamesPlayed: number;
+  roundsPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
+  buildingStats: Record<string, {
+    building: string;
+    floor: number | null;
+    totalScore: number;
+    count: number;
+  }>;
+}
+
 /**
  * Calculate performance rating based on total score (classic mode)
  */
@@ -127,6 +145,12 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
     ? getEndlessPerformanceRating(roundsSurvived)
     : getPerformanceRating(totalScore, maxPossible);
   const totalGuessTimeSeconds = rounds.reduce((sum: number, round: RoundData) => sum + (round.timeTakenSeconds ?? 0), 0);
+  const sessionFastestGuessTimeSeconds = rounds.reduce<number | null>((fastest, round) => {
+    if (round.noGuess) return fastest;
+    const time = round.timeTakenSeconds;
+    if (typeof time !== 'number' || !Number.isFinite(time) || time < 0) return fastest;
+    return fastest === null ? time : Math.min(fastest, time);
+  }, null);
   const averageGuessTimeSeconds = rounds.length > 0 ? totalGuessTimeSeconds / rounds.length : 0;
   const isPerfectRound = (round: RoundData): boolean =>
     round.locationScore === 5000 && round.floorCorrect !== false;
@@ -183,10 +207,24 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
         const difficultyKey = difficulty ?? 'all';
         const existingDailyStats = userDoc?.dailyStats ?? {};
         const existingDailyStatsByDifficulty = userDoc?.dailyStatsByDifficulty ?? {};
+        const roundCountBucket: RoundCountKey | null =
+          rounds.length === 5 || rounds.length === 10 || rounds.length === 20
+            ? String(rounds.length) as RoundCountKey
+            : null;
+        const existingFastestGuessTimeSeconds =
+          typeof userDoc?.fastestGuessTimeSeconds === 'number' ? userDoc.fastestGuessTimeSeconds : null;
+        const nextFastestGuessTimeSeconds =
+          sessionFastestGuessTimeSeconds === null
+            ? existingFastestGuessTimeSeconds
+            : existingFastestGuessTimeSeconds === null
+              ? sessionFastestGuessTimeSeconds
+              : Math.min(existingFastestGuessTimeSeconds, sessionFastestGuessTimeSeconds);
         const dayStats = existingDailyStats[todayKey] ?? {
           gamesPlayed: 0,
+          roundsPlayed: 0,
           totalScore: 0,
           totalGuessTimeSeconds: 0,
+          fastestGuessTimeSeconds: undefined,
           fiveKCount: 0,
           twentyFiveKCount: 0,
           photosSubmittedCount: 0,
@@ -194,15 +232,43 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
         };
         const dayStatsByDifficulty = existingDailyStatsByDifficulty[todayKey]?.[difficultyKey] ?? {
           gamesPlayed: 0,
+          roundsPlayed: 0,
           totalScore: 0,
           totalGuessTimeSeconds: 0,
+          fastestGuessTimeSeconds: undefined,
           fiveKCount: 0,
           twentyFiveKCount: 0,
           photosSubmittedCount: 0,
           buildingStats: {}
         };
+        const currentDayRoundBucket: RoundBucketStats | null = roundCountBucket
+          ? (dayStats.byRoundCount?.[roundCountBucket] as RoundBucketStats | undefined) ?? {
+            gamesPlayed: 0,
+            roundsPlayed: 0,
+            totalScore: 0,
+            totalGuessTimeSeconds: 0,
+            fastestGuessTimeSeconds: undefined,
+            fiveKCount: 0,
+            twentyFiveKCount: 0,
+            buildingStats: {}
+          }
+          : null;
+        const currentDayDiffRoundBucket: RoundBucketStats | null = roundCountBucket
+          ? (dayStatsByDifficulty.byRoundCount?.[roundCountBucket] as RoundBucketStats | undefined) ?? {
+            gamesPlayed: 0,
+            roundsPlayed: 0,
+            totalScore: 0,
+            totalGuessTimeSeconds: 0,
+            fastestGuessTimeSeconds: undefined,
+            fiveKCount: 0,
+            twentyFiveKCount: 0,
+            buildingStats: {}
+          }
+          : null;
         const updatedDayBuildingStats = { ...dayStats.buildingStats };
         const updatedDayBuildingStatsByDifficulty = { ...dayStatsByDifficulty.buildingStats };
+        const updatedDayRoundBuildingStats = { ...(currentDayRoundBucket?.buildingStats ?? {}) };
+        const updatedDayDiffRoundBuildingStats = { ...(currentDayDiffRoundBucket?.buildingStats ?? {}) };
 
         for (const round of rounds) {
           const buildingName =
@@ -249,11 +315,67 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
             totalScore: dayDiffCurrent.totalScore + round.score,
             count: dayDiffCurrent.count + 1
           };
+
+          if (currentDayRoundBucket) {
+            const roundBucketCurrent = updatedDayRoundBuildingStats[key] ?? {
+              building: buildingName,
+              floor,
+              totalScore: 0,
+              count: 0
+            };
+            updatedDayRoundBuildingStats[key] = {
+              building: roundBucketCurrent.building,
+              floor: roundBucketCurrent.floor ?? floor,
+              totalScore: roundBucketCurrent.totalScore + round.score,
+              count: roundBucketCurrent.count + 1
+            };
+          }
+
+          if (currentDayDiffRoundBucket) {
+            const roundDiffBucketCurrent = updatedDayDiffRoundBuildingStats[key] ?? {
+              building: buildingName,
+              floor,
+              totalScore: 0,
+              count: 0
+            };
+            updatedDayDiffRoundBuildingStats[key] = {
+              building: roundDiffBucketCurrent.building,
+              floor: roundDiffBucketCurrent.floor ?? floor,
+              totalScore: roundDiffBucketCurrent.totalScore + round.score,
+              count: roundDiffBucketCurrent.count + 1
+            };
+          }
         }
+
+        const nextDayFastestGuessTime =
+          sessionFastestGuessTimeSeconds === null
+            ? dayStats.fastestGuessTimeSeconds
+            : typeof dayStats.fastestGuessTimeSeconds === 'number'
+              ? Math.min(dayStats.fastestGuessTimeSeconds, sessionFastestGuessTimeSeconds)
+              : sessionFastestGuessTimeSeconds;
+        const nextDayDifficultyFastestGuessTime =
+          sessionFastestGuessTimeSeconds === null
+            ? dayStatsByDifficulty.fastestGuessTimeSeconds
+            : typeof dayStatsByDifficulty.fastestGuessTimeSeconds === 'number'
+              ? Math.min(dayStatsByDifficulty.fastestGuessTimeSeconds, sessionFastestGuessTimeSeconds)
+              : sessionFastestGuessTimeSeconds;
+        const nextDayRoundFastestGuessTime =
+          currentDayRoundBucket && sessionFastestGuessTimeSeconds !== null
+            ? (typeof currentDayRoundBucket.fastestGuessTimeSeconds === 'number'
+              ? Math.min(currentDayRoundBucket.fastestGuessTimeSeconds, sessionFastestGuessTimeSeconds)
+              : sessionFastestGuessTimeSeconds)
+            : currentDayRoundBucket?.fastestGuessTimeSeconds;
+        const nextDayDiffRoundFastestGuessTime =
+          currentDayDiffRoundBucket && sessionFastestGuessTimeSeconds !== null
+            ? (typeof currentDayDiffRoundBucket.fastestGuessTimeSeconds === 'number'
+              ? Math.min(currentDayDiffRoundBucket.fastestGuessTimeSeconds, sessionFastestGuessTimeSeconds)
+              : sessionFastestGuessTimeSeconds)
+            : currentDayDiffRoundBucket?.fastestGuessTimeSeconds;
 
         await updateUserDoc(user.uid, {
           totalScore: increment(totalScore),
           totalGuessTimeSeconds: increment(totalGuessTimeSeconds),
+          ...(nextFastestGuessTimeSeconds !== null ? { fastestGuessTimeSeconds: nextFastestGuessTimeSeconds } : {}),
           fiveKCount: increment(fiveKCount),
           twentyFiveKCount: increment(twentyFiveKCount),
           buildingStats: updatedBuildingStats,
@@ -261,12 +383,29 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
             ...existingDailyStats,
             [todayKey]: {
               gamesPlayed: dayStats.gamesPlayed + 1,
+              roundsPlayed: (dayStats.roundsPlayed ?? (dayStats.gamesPlayed ?? 0) * 5) + rounds.length,
               totalScore: dayStats.totalScore + totalScore,
               totalGuessTimeSeconds: dayStats.totalGuessTimeSeconds + totalGuessTimeSeconds,
+              ...(typeof nextDayFastestGuessTime === 'number' ? { fastestGuessTimeSeconds: nextDayFastestGuessTime } : {}),
               fiveKCount: dayStats.fiveKCount + fiveKCount,
               twentyFiveKCount: dayStats.twentyFiveKCount + twentyFiveKCount,
               photosSubmittedCount: dayStats.photosSubmittedCount,
-              buildingStats: updatedDayBuildingStats
+              buildingStats: updatedDayBuildingStats,
+              ...(roundCountBucket && currentDayRoundBucket ? {
+                byRoundCount: {
+                  ...(dayStats.byRoundCount ?? {}),
+                  [roundCountBucket]: {
+                    gamesPlayed: currentDayRoundBucket.gamesPlayed + 1,
+                    roundsPlayed: currentDayRoundBucket.roundsPlayed + rounds.length,
+                    totalScore: currentDayRoundBucket.totalScore + totalScore,
+                    totalGuessTimeSeconds: currentDayRoundBucket.totalGuessTimeSeconds + totalGuessTimeSeconds,
+                    ...(typeof nextDayRoundFastestGuessTime === 'number' ? { fastestGuessTimeSeconds: nextDayRoundFastestGuessTime } : {}),
+                    fiveKCount: currentDayRoundBucket.fiveKCount + fiveKCount,
+                    twentyFiveKCount: currentDayRoundBucket.twentyFiveKCount + twentyFiveKCount,
+                    buildingStats: updatedDayRoundBuildingStats
+                  }
+                }
+              } : {})
             }
           },
           dailyStatsByDifficulty: {
@@ -275,12 +414,29 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
               ...(existingDailyStatsByDifficulty[todayKey] ?? {}),
               [difficultyKey]: {
                 gamesPlayed: dayStatsByDifficulty.gamesPlayed + 1,
+                roundsPlayed: (dayStatsByDifficulty.roundsPlayed ?? (dayStatsByDifficulty.gamesPlayed ?? 0) * 5) + rounds.length,
                 totalScore: dayStatsByDifficulty.totalScore + totalScore,
                 totalGuessTimeSeconds: dayStatsByDifficulty.totalGuessTimeSeconds + totalGuessTimeSeconds,
+                ...(typeof nextDayDifficultyFastestGuessTime === 'number' ? { fastestGuessTimeSeconds: nextDayDifficultyFastestGuessTime } : {}),
                 fiveKCount: dayStatsByDifficulty.fiveKCount + fiveKCount,
                 twentyFiveKCount: dayStatsByDifficulty.twentyFiveKCount + twentyFiveKCount,
                 photosSubmittedCount: dayStatsByDifficulty.photosSubmittedCount,
-                buildingStats: updatedDayBuildingStatsByDifficulty
+                buildingStats: updatedDayBuildingStatsByDifficulty,
+                ...(roundCountBucket && currentDayDiffRoundBucket ? {
+                  byRoundCount: {
+                    ...(dayStatsByDifficulty.byRoundCount ?? {}),
+                    [roundCountBucket]: {
+                      gamesPlayed: currentDayDiffRoundBucket.gamesPlayed + 1,
+                      roundsPlayed: currentDayDiffRoundBucket.roundsPlayed + rounds.length,
+                      totalScore: currentDayDiffRoundBucket.totalScore + totalScore,
+                      totalGuessTimeSeconds: currentDayDiffRoundBucket.totalGuessTimeSeconds + totalGuessTimeSeconds,
+                      ...(typeof nextDayDiffRoundFastestGuessTime === 'number' ? { fastestGuessTimeSeconds: nextDayDiffRoundFastestGuessTime } : {}),
+                      fiveKCount: currentDayDiffRoundBucket.fiveKCount + fiveKCount,
+                      twentyFiveKCount: currentDayDiffRoundBucket.twentyFiveKCount + twentyFiveKCount,
+                      buildingStats: updatedDayDiffRoundBuildingStats
+                    }
+                  }
+                } : {})
               }
             }
           }
