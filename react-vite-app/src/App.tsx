@@ -548,7 +548,7 @@ function App(): React.ReactElement {
   };
 
   /**
-   * Handle selecting single-player from mode select -> go to difficulty select
+   * Handle selecting single-player from mode select.
    */
   const handleSelectSinglePlayer = (): void => {
     setMode('singleplayer');
@@ -556,7 +556,7 @@ function App(): React.ReactElement {
   };
 
   /**
-   * Handle selecting multiplayer from mode select -> go to multiplayer lobby
+   * Handle selecting multiplayer from mode select.
    */
   const handleSelectMultiplayer = (): void => {
     setMode('multiplayer');
@@ -565,11 +565,11 @@ function App(): React.ReactElement {
   };
 
   /**
-   * Handle starting the game from difficulty select (singleplayer only)
+   * Handle starting the game from difficulty select
    */
   const handleStartFromDifficulty = (
     selectedDifficulty: string,
-    selectedMode: string | null,
+    selectedMode: string,
     singleplayerVariant?: 'classic' | 'endless',
     roundTimeSeconds?: number,
     totalRounds?: number
