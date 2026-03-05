@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, orderBy, doc, updateDoc, serverTimestamp, getDocs, where, getCountFromServer, type QueryDocumentSnapshot, type DocumentData } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { getAllImages, getAllSampleImages, deleteSubmission, deleteImage } from '../../services/imageService'
 import {
@@ -68,6 +68,13 @@ interface ToastNotification {
   type: ToastType
 }
 
+interface StatusCounts {
+  all: number
+  pending: number
+  approved: number
+  denied: number
+}
+
 function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([])
   const [firestoreImages, setFirestoreImages] = useState<SubmissionItem[]>([])
@@ -75,9 +82,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const [filter, setFilter] = useState<string>('pending') // pending, approved, denied, all
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all')
   const [buildingFilter, setBuildingFilter] = useState<string>('all')
-  const [sourceFilter, setSourceFilter] = useState<string>('all') // all, submission, image
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null)
+  const [statusCounts, setStatusCounts] = useState<StatusCounts>({
+    all: 0,
+    pending: 0,
+    approved: 0,
+    denied: 0
+  })
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState<boolean>(false)
@@ -96,30 +108,61 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const BACKFILL_IMAGE_CURSOR_KEY = 'admin.imagePool.backfill.imageCursor.v1'
   const BACKFILL_SUBMISSION_CURSOR_KEY = 'admin.imagePool.backfill.submissionCursor.v1'
 
-  // Fetch submissions from Firestore (real-time)
-  useEffect(() => {
-    const q = query(collection(db, 'submissions'), orderBy('createdAt', 'desc'))
+  const mapSubmissionDoc = (docSnap: QueryDocumentSnapshot<DocumentData>): SubmissionItem => {
+    const data = docSnap.data() as SubmissionItem & { building?: string | null }
+    const normalizedBuilding = (data.building || data.buildingName || '').trim() || null
+    return {
+      ...data,
+      id: docSnap.id,
+      buildingName: normalizedBuilding,
+      _source: 'submission' as SubmissionSource
+    } as SubmissionItem
+  }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const subs: SubmissionItem[] = snapshot.docs.map(docSnap => {
-        const data = docSnap.data() as SubmissionItem & { building?: string | null };
-        const normalizedBuilding = (data.building || data.buildingName || '').trim() || null;
-        return {
-          ...data,
-          id: docSnap.id,
-          buildingName: normalizedBuilding,
-          _source: 'submission' as SubmissionSource
-        } as SubmissionItem;
+  const refreshStatusCounts = useCallback(async (): Promise<void> => {
+    try {
+      const baseRef = collection(db, 'submissions')
+      const [allSnap, pendingSnap, approvedSnap, deniedSnap] = await Promise.all([
+        getCountFromServer(query(baseRef)),
+        getCountFromServer(query(baseRef, where('status', '==', 'pending'))),
+        getCountFromServer(query(baseRef, where('status', '==', 'approved'))),
+        getCountFromServer(query(baseRef, where('status', '==', 'denied')))
+      ])
+      setStatusCounts({
+        all: allSnap.data().count,
+        pending: pendingSnap.data().count,
+        approved: approvedSnap.data().count,
+        denied: deniedSnap.data().count
       })
-      setSubmissions(subs)
-      setLoading(false)
-    }, (error) => {
-      console.error('Error fetching submissions:', error)
-      setLoading(false)
-    })
-
-    return () => unsubscribe()
+    } catch (error) {
+      console.error('Error fetching status counts:', error)
+    }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function fetchAllSubmissions(): Promise<void> {
+      try {
+        const q = query(collection(db, 'submissions'), orderBy('createdAt', 'desc'))
+        const snapshot = await getDocs(q)
+        if (cancelled) return
+        setSubmissions(snapshot.docs.map(mapSubmissionDoc))
+      } catch (error) {
+        console.error('Error fetching submissions:', error)
+        pushNotification('Failed to load submissions', 'error')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void fetchAllSubmissions()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshStatusCounts()
+  }, [refreshStatusCounts])
 
   // Fetch images from Firestore images collection
   useEffect(() => {
@@ -228,6 +271,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'approved',
         reviewedAt: serverTimestamp()
       })
+      void refreshStatusCounts()
+      setSubmissions(prev => prev.map(item => (
+        item.id === submissionId ? { ...item, status: 'approved', reviewedAt: new Date().toISOString() } : item
+      )))
       const target = submissions.find((item) => item.id === submissionId)
       if (target) {
         const poolEntry = buildImagePoolEntryFromSubmissionDoc(submissionId, {
@@ -254,6 +301,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'denied',
         reviewedAt: serverTimestamp()
       })
+      void refreshStatusCounts()
+      setSubmissions(prev => prev.map(item => (
+        item.id === submissionId ? { ...item, status: 'denied', reviewedAt: new Date().toISOString() } : item
+      )))
       await removeImagePoolEntry('submission', submissionId)
     } catch (error) {
       console.error('Error denying submission:', error)
@@ -267,6 +318,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'pending',
         reviewedAt: null
       })
+      void refreshStatusCounts()
+      setSubmissions(prev => prev.map(item => (
+        item.id === submissionId ? { ...item, status: 'pending', reviewedAt: null } : item
+      )))
       await removeImagePoolEntry('submission', submissionId)
     } catch (error) {
       console.error('Error resetting submission:', error)
@@ -401,6 +456,22 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           updateData.floor = editForm.floor;
         }
         await updateDoc(doc(db, 'submissions', selectedSubmission.id), updateData)
+        void refreshStatusCounts()
+        setSubmissions(prev => prev.map(item =>
+          item.id === selectedSubmission.id
+            ? {
+                ...item,
+                description: editForm.description,
+                photoName: editForm.photoName,
+                buildingName: normalizedBuilding,
+                location: editForm.location || item.location,
+                difficulty: editForm.difficulty || null,
+                status: editForm.status || item.status,
+                floor: editForm.floor ?? item.floor,
+                photoURL: photoURL
+              }
+            : item
+        ))
         if ((editForm.status || '').toLowerCase() === 'approved') {
           const poolEntry = buildImagePoolEntryFromSubmissionDoc(selectedSubmission.id, updateData as Record<string, unknown>)
           if (poolEntry) {
@@ -471,6 +542,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       if (deleteTarget._source === 'submission') {
         await deleteSubmission(deleteTarget.id)
         await removeImagePoolEntry('submission', deleteTarget.id)
+        setSubmissions(prev => prev.filter(item => item.id !== deleteTarget.id))
+        void refreshStatusCounts()
       } else if (deleteTarget._source === 'image') {
         await deleteImage(deleteTarget.id)
         await removeImagePoolEntry('image', deleteTarget.id)
@@ -492,13 +565,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     }
   }
 
-  const allItems: SubmissionItem[] = useMemo(() => {
-    let items: SubmissionItem[]
-    if (sourceFilter === 'submission') items = submissions
-    else if (sourceFilter === 'image') items = firestoreImages
-    else items = [...submissions, ...firestoreImages]
-    return items
-  }, [submissions, firestoreImages, sourceFilter])
+  const allItems: SubmissionItem[] = submissions
 
   const availableBuildings: string[] = useMemo(() => {
     const names = new Set<string>()
@@ -553,7 +620,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
   const roundCoordinate = (value: number): number => Math.round(value * 100) / 100
 
-  const isEditable = selectedSubmission && selectedSubmission._source !== 'testing'
+  const isEditable = Boolean(selectedSubmission)
 
   if (loading) {
     return (
@@ -578,16 +645,16 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           <span className="filter-label">Status:</span>
           <div className="filter-tabs">
             <button className={`filter-tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
-              All
+              All ({statusCounts.all})
             </button>
             <button className={`filter-tab ${filter === 'pending' ? 'active' : ''}`} onClick={() => setFilter('pending')}>
-              Pending ({allItems.filter(s => s.status === 'pending').length})
+              Pending ({statusCounts.pending})
             </button>
             <button className={`filter-tab ${filter === 'approved' ? 'active' : ''}`} onClick={() => setFilter('approved')}>
-              Approved ({allItems.filter(s => s.status === 'approved').length})
+              Approved ({statusCounts.approved})
             </button>
             <button className={`filter-tab ${filter === 'denied' ? 'active' : ''}`} onClick={() => setFilter('denied')}>
-              Denied ({allItems.filter(s => s.status === 'denied').length})
+              Denied ({statusCounts.denied})
             </button>
           </div>
         </div>
@@ -628,19 +695,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         </div>
 
         <div className="filter-group">
-          <span className="filter-label">Source:</span>
-          <div className="filter-tabs">
-            <button className={`filter-tab ${sourceFilter === 'all' ? 'active' : ''}`} onClick={() => setSourceFilter('all')}>
-              All
-            </button>
-            <button className={`filter-tab ${sourceFilter === 'submission' ? 'active' : ''}`} onClick={() => setSourceFilter('submission')}>
-              Submissions
-            </button>
-            <button className={`filter-tab ${sourceFilter === 'image' ? 'active' : ''}`} onClick={() => setSourceFilter('image')}>
-              Images
-            </button>
-          </div>
-
           <span className="filter-label filter-label-sort">Sort:</span>
           <button
             className="filter-sort-button"
@@ -650,9 +704,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           </button>
         </div>
 
-        <div className="filter-results-count">
-          {filteredSubmissions.length} result{filteredSubmissions.length !== 1 ? 's' : ''}
-        </div>
       </div>
 
       {filteredSubmissions.length === 0 ? (
@@ -660,8 +711,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           No {filter === 'all' ? '' : filter} submissions found.
         </div>
       ) : (
-        <div className="submissions-grid">
-          {filteredSubmissions.map(submission => (
+        <>
+          <div className="submissions-grid">
+            {filteredSubmissions.map(submission => (
             <div key={submission.id} className="submission-card">
               <div
                 className="card-image"
@@ -745,8 +797,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                 </div>
               )}
             </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
 
       {deleteTarget && createPortal(
@@ -792,159 +845,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           <div className="modal-shell modal-shell-wide" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             <div className="modal-side-actions-left">
               {isEditing ? (
-                /* Edit mode form */
-                <div className="edit-form">
-                  <div className="modal-details-header">
-                    <h3>Edit Image</h3>
-                  </div>
-
-                  {saveError && <div className="edit-error">{saveError}</div>}
-
-                  {/* Description */}
-                  <div className="edit-field">
-                    <label htmlFor="edit-description">Description</label>
-                    <input
-                      id="edit-description"
-                      type="text"
-                      value={editForm.description || ''}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
-
-                  {/* Building Name (submissions only) */}
-                  {selectedSubmission._source === 'submission' && (
-                    <div className="edit-field">
-                      <label htmlFor="edit-buildingname">Building Name</label>
-                      <input
-                        id="edit-buildingname"
-                        type="text"
-                        value={editForm.buildingName || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, buildingName: e.target.value }))}
-                      />
-                    </div>
-                  )}
-
-                  {/* Photo Name (submissions only) */}
-                  {selectedSubmission._source === 'submission' && (
-                    <div className="edit-field">
-                      <label htmlFor="edit-photoname">File Name</label>
-                      <input
-                        id="edit-photoname"
-                        type="text"
-                        value={editForm.photoName || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({ ...prev, photoName: e.target.value }))}
-                      />
-                    </div>
-                  )}
-
-                  {/* Status (submissions only) */}
-                  {selectedSubmission._source === 'submission' && (
-                    <div className="edit-field">
-                      <label htmlFor="edit-status">Status</label>
-                      <select
-                        id="edit-status"
-                        value={editForm.status || ''}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="denied">Denied</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Location via MapPicker */}
-                  <div className="edit-field">
-                    <label>Location</label>
-                    <MapPicker
-                      markerPosition={editForm.location ?? null}
-                      onMapClick={(coords: Location) => setEditForm(prev => ({
-                        ...prev,
-                        location: {
-                          x: roundCoordinate(coords.x),
-                          y: roundCoordinate(coords.y)
-                        }
-                      }))}
-                    />
-                    <div className="coordinate-inputs">
-                      <label>
-                        X:
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={editForm.location?.x ?? ''}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
-                            ...prev,
-                            location: {
-                              ...(prev.location || { x: 0, y: 0 }),
-                              x: roundCoordinate(parseFloat(e.target.value) || 0)
-                            }
-                          }))}
-                        />
-                      </label>
-                      <label>
-                        Y:
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={editForm.location?.y ?? ''}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
-                            ...prev,
-                            location: {
-                              ...(prev.location || { x: 0, y: 0 }),
-                              y: roundCoordinate(parseFloat(e.target.value) || 0)
-                            }
-                          }))}
-                        />
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Floor via FloorSelector */}
-                  <div className="edit-field">
-                    <FloorSelector
-                      selectedFloor={editForm.floor ?? null}
-                      onFloorSelect={(f: number) => setEditForm(prev => ({ ...prev, floor: f }))}
-                    />
-                  </div>
-
-                  {/* Difficulty */}
-                  <div className="edit-field">
-                    <label htmlFor="edit-difficulty">Difficulty</label>
-                    <select
-                      id="edit-difficulty"
-                      value={editForm.difficulty || ''}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value || null }))}
-                    >
-                      <option value="">Not set</option>
-                      {DIFFICULTY_OPTIONS.map(d => (
-                        <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Save / Cancel buttons */}
-                  <div className="edit-actions">
-                    <button
-                      className="save-button"
-                      onClick={handleSaveEdit}
-                      disabled={isSaving}
-                    >
-                      {isSaving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                    <button
-                      className="cancel-edit-button"
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
+                <>
+                  <button className="save-button" onClick={handleSaveEdit} disabled={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button className="cancel-edit-button" onClick={handleCancelEdit} disabled={isSaving}>
+                    Cancel
+                  </button>
+                </>
               ) : (
                 <>
                   {isEditable && <button className="edit-button" onClick={handleStartEdit}>Edit</button>}
@@ -953,45 +861,30 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               )}
             </div>
 
-                  {/* Badges row */}
-                  <div className="detail-badges-row">
-                    <span className={`detail-badge ${getSourceBadgeClass(selectedSubmission._source)}`}>
-                      {getSourceLabel(selectedSubmission._source)}
-                    </span>
-                    <span className={`detail-badge ${getStatusBadgeClass(selectedSubmission.status)}`}>
-                      {selectedSubmission.status}
-                    </span>
-                    <span className={`detail-badge difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
-                      {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'No difficulty'}
-                    </span>
-                  </div>
-
-                  {/* Building Name card */}
-                  {selectedSubmission.buildingName && (
-                    <div className="detail-card">
-                      <div className="detail-card-label">Building Name</div>
-                      <div className="detail-card-value">{selectedSubmission.buildingName}</div>
-                    </div>
-                  )}
-
-                  {/* Description card */}
-                  {selectedSubmission.description && (
-                    <div className="detail-card">
-                      <div className="detail-card-label">Description</div>
-                      <div className="detail-card-value detail-description">{selectedSubmission.description}</div>
-                    </div>
-                  )}
-
-                  {/* Info grid */}
-                  <div className="detail-info-grid">
-                    <div className="detail-info-item">
-                      <span className="detail-info-icon">📍</span>
-                      <div className="detail-info-content">
-                        <span className="detail-info-label">Coordinates</span>
-                        <span className="detail-info-value">
-                          X: {formatCoordinate(selectedSubmission.location?.x)},
-                          Y: {formatCoordinate(selectedSubmission.location?.y)}
-                        </span>
+            <div className="modal-content modal-content-wide">
+              <div className="modal-details modal-details-wide">
+                <div className="detail-three-layout">
+                  <div className="detail-column-data">
+                    <div className="detail-card detail-combined-card">
+                      <div className="detail-combined-row">
+                        <span className="detail-combined-key">Difficulty</span>
+                        {isEditing ? (
+                          <select
+                            className="detail-inline-select"
+                            value={editForm.difficulty || DIFFICULTY_OPTIONS[0]}
+                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditForm(prev => ({ ...prev, difficulty: e.target.value }))}
+                          >
+                            {DIFFICULTY_OPTIONS.map(d => (
+                              <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="detail-combined-value">
+                            <span className={`difficulty-badge difficulty-badge-${selectedSubmission.difficulty || 'none'}`}>
+                              {selectedSubmission.difficulty ? selectedSubmission.difficulty.charAt(0).toUpperCase() + selectedSubmission.difficulty.slice(1) : 'Not set'}
+                            </span>
+                          </span>
+                        )}
                       </div>
                       <div className="detail-combined-row">
                         <span className="detail-combined-key">🏫 Building</span>

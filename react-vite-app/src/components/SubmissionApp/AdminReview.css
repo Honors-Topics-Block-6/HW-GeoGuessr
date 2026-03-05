@@ -60,12 +60,13 @@
 }
 
 .filter-label {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text-muted, #6b7280);
-  min-width: 56px;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+  color: var(--text-muted, #6b7280);
+  min-width: 60px;
+  flex-shrink: 0;
 }
 
 .filter-tabs {
@@ -75,15 +76,19 @@
 }
 
 .filter-tab {
-  padding: 8px 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
   border: 1px solid var(--hw-gray-300, #e5e7eb);
   background: var(--hw-surface, #ffffff);
   border-radius: 0;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-muted, #6b7280);
   transition: all 0.2s ease;
+  user-select: none;
 }
 
 .filter-tab:hover {
@@ -100,15 +105,20 @@
 
 /* ===== Filter Select (dropdowns) ===== */
 .filter-select {
-  padding: 8px 14px;
+  padding: 8px 12px;
   border: 1px solid var(--hw-gray-300, #e5e7eb);
-  background: var(--hw-surface, #ffffff);
   border-radius: 0;
   font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary, #4b5563);
+  font-family: inherit;
+  color: var(--hw-black, #231f20);
+  background: var(--hw-surface, #ffffff);
   cursor: pointer;
   transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%236b7280' d='M5 7L1 3h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
   min-width: 160px;
 }
 
@@ -119,6 +129,29 @@
 .filter-select:focus {
   outline: none;
   border-color: var(--hw-red, #c8102e);
+  box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.1);
+}
+
+.filter-input {
+  min-width: 220px;
+  padding: 8px 12px;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--hw-black, #231f20);
+  background: var(--hw-surface, #ffffff);
+  transition: all 0.2s ease;
+}
+
+.filter-input::placeholder {
+  color: var(--text-muted, #6b7280);
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--hw-red, #c8102e);
+  box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.1);
 }
 
 /* ===== Sort Button ===== */
@@ -147,10 +180,48 @@
 
 /* ===== Results Count ===== */
 .filter-results-count {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-muted, #6b7280);
-  letter-spacing: 0.3px;
+  background: var(--hw-gray-100, #f3f4f6);
+  padding: 6px 14px;
+  border-radius: 0;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  width: fit-content;
+}
+
+.submissions-load-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.submissions-load-more {
+  padding: 8px 14px;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  background: var(--hw-surface, #ffffff);
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #4b5563);
+  transition: all 0.2s ease;
+}
+
+.submissions-load-more:hover:not(:disabled) {
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--hw-black, #231f20);
+  border-color: var(--hw-gray-400, #9ca3af);
+}
+
+.submissions-load-more:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.submissions-auto-load-sentinel {
+  width: 100%;
+  height: 2px;
 }
 
 /* ===== Empty State ===== */
@@ -372,15 +443,15 @@
 
 .preview-delete-button {
   width: 100%;
-  background: #6366f1;
-  color: #eef2ff;
-  border: 1px solid #6366f1;
+  background: #991b1b;
+  color: #ffffff;
+  border: 1px solid #991b1b;
 }
 
 .preview-delete-button:hover {
-  background: #5458ee;
-  border-color: #5458ee;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.28);
+  background: #7f1d1d;
+  border-color: #7f1d1d;
+  box-shadow: 0 4px 15px rgba(153, 27, 27, 0.28);
 }
 
 .preview-reset-button {
@@ -1044,14 +1115,14 @@
 }
 
 .card-actions .delete-photo-button.preview-delete-button {
-  background: #6366f1;
-  color: #eef2ff;
-  border-color: #6366f1;
+  background: #991b1b;
+  color: #ffffff;
+  border-color: #991b1b;
 }
 
 .card-actions .delete-photo-button.preview-delete-button:hover {
-  background: #5458ee;
-  border-color: #5458ee;
+  background: #7f1d1d;
+  border-color: #7f1d1d;
 }
 
 /* ===== Delete Confirmation Popup ===== */
@@ -1391,15 +1462,15 @@
 }
 
 .modal-side-delete-button {
-  background: #6366f1;
-  color: #eef2ff;
-  border: 1px solid #6366f1;
+  background: #991b1b;
+  color: #ffffff;
+  border: 1px solid #991b1b;
 }
 
 .modal-side-delete-button:hover {
-  background: #5458ee;
-  border-color: #5458ee;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.28);
+  background: #7f1d1d;
+  border-color: #7f1d1d;
+  box-shadow: 0 4px 15px rgba(153, 27, 27, 0.28);
 }
 
 .modal-bottom-actions {
