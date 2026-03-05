@@ -106,6 +106,7 @@ function formatRoundTime(timeTakenSeconds: number | undefined): string {
 }
 
 const CONFETTI_COLORS: string[] = ['#6cb52d', '#ffc107', '#ff4757', '#3498db', '#9b59b6'];
+const processedStatsWriteKeys = new Set<string>();
 
 /**
  * Generate confetti data once (outside render to avoid impure calls during render)
@@ -183,6 +184,7 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
   // Snapshot the totalXp at mount so it doesn't shift after the Firestore refresh.
   // useState initializer only runs once, so this captures the pre-award value.
   const [snapshotXp] = useState<number>(() => totalXp);
+  const [snapshotGamesPlayed] = useState<number>(() => userDoc?.gamesPlayed ?? 0);
 
   // Compute XP result from the snapshotted totalXp
   const xpResult: XpResult = useMemo(
@@ -193,10 +195,21 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
   // Generate confetti data once and memoize it
   const confettiPieces = useMemo(() => generateConfettiData(30), []);
 
+  // Build an idempotency key so StrictMode remounts don't double-write stats.
+  const statsWriteKey = useMemo(() => {
+    const uid = user?.uid ?? 'anonymous';
+    const roundSignature = rounds
+      .map((round) => `${round.roundNumber ?? 0}:${round.imageUrl}:${round.score}:${round.timeTakenSeconds ?? -1}`)
+      .join('|');
+    return `${uid}::${snapshotGamesPlayed}::${snapshotXp}::${difficulty ?? 'all'}::${rounds.length}::${totalScore}::${roundSignature}`;
+  }, [user?.uid, snapshotGamesPlayed, snapshotXp, difficulty, rounds, totalScore]);
+
   // Award XP on mount (once per game completion)
   useEffect(() => {
     if (xpAwarded.current || !user) return;
+    if (processedStatsWriteKeys.has(statsWriteKey)) return;
     xpAwarded.current = true;
+    processedStatsWriteKeys.add(statsWriteKey);
 
     // Persist to Firestore, then refresh local user doc
     awardXp(user.uid, totalScore)
@@ -443,7 +456,10 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
         });
         await refreshUserDoc();
       })
-      .catch((err: Error) => console.error('Failed to award XP:', err));
+      .catch((err: Error) => {
+        processedStatsWriteKeys.delete(statsWriteKey);
+        console.error('Failed to award XP:', err);
+      });
 
     // --- Daily Goals Progress --- (run in sequence so doc is created once, then all updates apply)
     (async () => {
@@ -460,13 +476,16 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
       if (difficulty) {
         await recordProgress(GOAL_TYPES.PLAY_DIFFICULTY, 1, { targetDifficulty: difficulty });
       }
-    })().catch((err: Error) => console.error('Failed to record daily goal progress:', err));
+    })().catch((err: Error) => {
+      processedStatsWriteKeys.delete(statsWriteKey);
+      console.error('Failed to record daily goal progress:', err);
+    });
 
     // Show level-up animation after a delay
     if (xpResult.levelsGained > 0) {
       setTimeout(() => setShowLevelUp(true), 2000);
     }
-  }, [user, userDoc, totalScore, refreshUserDoc, xpResult, rounds, difficulty, recordProgress, totalGuessTimeSeconds, fiveKCount, twentyFiveKCount]);
+  }, [user, userDoc, totalScore, refreshUserDoc, xpResult, rounds, difficulty, recordProgress, totalGuessTimeSeconds, fiveKCount, twentyFiveKCount, statsWriteKey]);
 
   // Spacebar to play again
   const handleKeyDown = useCallback((e: KeyboardEvent) => {

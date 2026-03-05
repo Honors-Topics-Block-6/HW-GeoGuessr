@@ -1,13 +1,11 @@
 .profile-screen {
   position: relative;
   width: 100%;
-  min-height: 100vh;
-  height: auto;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 1.25rem 0;
 }
 
@@ -60,7 +58,7 @@
   max-width: 720px;
   margin: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  max-height: calc(100% - 1rem);
+  max-height: 90vh;
   overflow-y: auto;
 }
 
