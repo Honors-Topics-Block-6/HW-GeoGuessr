@@ -45,7 +45,7 @@ const DIFFICULTIES: DifficultyOption[] = [
     id: 'hard',
     label: 'Hard',
     icon: '🔴',
-    description: 'Only true experts will know these',
+    description: 'For true experts only',
   },
 ];
 
