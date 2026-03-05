@@ -32,6 +32,7 @@ interface UserDoc {
   gamesPlayed?: number;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount?: number;
   twentyFiveKCount?: number;
   photosSubmittedCount?: number;
@@ -55,7 +56,7 @@ const LEADERBOARD_CATEGORIES: Array<{
   { id: 'averageScore', label: 'Average Score', shortLabel: 'Avg Score', unit: 'pts', emoji: '🏆', lowerIsBetter: false },
   { id: 'fiveKCount', label: 'Number of 5Ks', shortLabel: '5Ks', unit: '5Ks', emoji: '🎯', lowerIsBetter: false },
   { id: 'twentyFiveKCount', label: 'Number of 25Ks', shortLabel: '25Ks', unit: '25Ks', emoji: '👑', lowerIsBetter: false },
-  { id: 'averageGuessTime', label: 'Average Guess Time', shortLabel: 'Avg Time', unit: 'sec', emoji: '⏱️', lowerIsBetter: true },
+  { id: 'averageGuessTime', label: 'Fastest Guess Time', shortLabel: 'Fastest Time', unit: 'sec', emoji: '⚡', lowerIsBetter: true },
   { id: 'photosSubmittedCount', label: 'Photos Submitted', shortLabel: 'Photos', unit: 'photos', emoji: '📷', lowerIsBetter: false }
 ];
 
@@ -78,8 +79,7 @@ function getUserCategoryValue(category: LeaderboardCategory, userDoc: UserDoc | 
     case 'twentyFiveKCount':
       return userDoc?.twentyFiveKCount ?? 0;
     case 'averageGuessTime': {
-      const gamesPlayed = userDoc?.gamesPlayed ?? 0;
-      return gamesPlayed > 0 ? (userDoc?.totalGuessTimeSeconds ?? 0) / (gamesPlayed * 5) : 0;
+      return typeof userDoc?.fastestGuessTimeSeconds === 'number' ? userDoc.fastestGuessTimeSeconds : 0;
     }
     case 'photosSubmittedCount':
       return userDoc?.photosSubmittedCount ?? 0;

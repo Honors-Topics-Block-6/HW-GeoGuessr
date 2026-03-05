@@ -20,6 +20,7 @@ export interface LeaderboardEntry {
   gamesPlayed: number;
   totalScore: number;
   totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds: number;
   fiveKCount: number;
   twentyFiveKCount: number;
   photosSubmittedCount: number;
@@ -47,6 +48,7 @@ interface RawUserStats {
   gamesPlayed: number;
   totalScore: number;
   totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds: number;
   fiveKCount: number;
   twentyFiveKCount: number;
   photosSubmittedCount: number;
@@ -79,7 +81,7 @@ function computeCategoryValue(stats: RawUserStats, category: LeaderboardCategory
     case 'twentyFiveKCount':
       return stats.twentyFiveKCount;
     case 'averageGuessTime':
-      return stats.gamesPlayed > 0 ? stats.totalGuessTimeSeconds / (stats.gamesPlayed * 5) : 0;
+      return stats.fastestGuessTimeSeconds;
     case 'photosSubmittedCount':
       return stats.photosSubmittedCount;
     default:
@@ -89,7 +91,7 @@ function computeCategoryValue(stats: RawUserStats, category: LeaderboardCategory
 
 function shouldIncludeInCategory(stats: RawUserStats, category: LeaderboardCategory): boolean {
   if (category === 'averageGuessTime') {
-    return stats.gamesPlayed > 0 && stats.totalGuessTimeSeconds > 0;
+    return stats.fastestGuessTimeSeconds > 0;
   }
   return true;
 }
@@ -103,6 +105,7 @@ function mapRawStats(docId: string, data: Record<string, unknown>): RawUserStats
     gamesPlayed: (data.gamesPlayed as number) ?? 0,
     totalScore: (data.totalScore as number) ?? 0,
     totalGuessTimeSeconds: (data.totalGuessTimeSeconds as number) ?? 0,
+    fastestGuessTimeSeconds: (data.fastestGuessTimeSeconds as number) ?? 0,
     fiveKCount: (data.fiveKCount as number) ?? 0,
     twentyFiveKCount: (data.twentyFiveKCount as number) ?? 0,
     photosSubmittedCount: (data.photosSubmittedCount as number) ?? 0
@@ -121,6 +124,7 @@ function toLeaderboardEntry(stats: RawUserStats, category: LeaderboardCategory, 
     gamesPlayed: stats.gamesPlayed,
     totalScore: stats.totalScore,
     totalGuessTimeSeconds: stats.totalGuessTimeSeconds,
+    fastestGuessTimeSeconds: stats.fastestGuessTimeSeconds,
     fiveKCount: stats.fiveKCount,
     twentyFiveKCount: stats.twentyFiveKCount,
     photosSubmittedCount: stats.photosSubmittedCount,

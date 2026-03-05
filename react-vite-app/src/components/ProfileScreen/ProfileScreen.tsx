@@ -519,6 +519,13 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
     ? filteredStats.roundsPlayed
     : filteredStats.gamesPlayed * (statsRoundCount === 'all' ? 5 : Number(statsRoundCount));
   const averageGuessTime = totalGuesses > 0 ? filteredStats.totalGuessTimeSeconds / totalGuesses : 0;
+  const perfectGameLabel = statsRoundCount === '5'
+    ? 'Number of 25ks'
+    : statsRoundCount === '10'
+      ? 'Number of 50ks'
+      : statsRoundCount === '20'
+        ? 'Number of 100ks'
+        : 'Number of Perfect Games';
   const friendsToFollowerRatio = followersCount > 0 ? (friends.length / followersCount) : null;
   const { favoriteBuilding, worstBuilding } = getFavoriteAndWorstBuildings(filteredStats.buildingStats);
 
@@ -761,7 +768,7 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
               <div className="profile-stat-row"><span className="profile-stat-label">Games Played</span><span className="profile-stat-value">{filteredStats.gamesPlayed.toLocaleString()}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Average Score</span><span className="profile-stat-value">{filteredStats.gamesPlayed > 0 ? averageScore.toLocaleString() : 'N/A'}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Number of 5ks</span><span className="profile-stat-value">{filteredStats.fiveKCount.toLocaleString()}</span></div>
-              <div className="profile-stat-row"><span className="profile-stat-label">Number of 25ks</span><span className="profile-stat-value">{filteredStats.twentyFiveKCount.toLocaleString()}</span></div>
+              <div className="profile-stat-row"><span className="profile-stat-label">{perfectGameLabel}</span><span className="profile-stat-value">{filteredStats.twentyFiveKCount.toLocaleString()}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Favorite Building</span><span className="profile-stat-value">{favoriteBuilding}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Worst Building</span><span className="profile-stat-value">{worstBuilding}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Average Guess Time</span><span className="profile-stat-value">{filteredStats.gamesPlayed > 0 ? `${averageGuessTime.toFixed(2)}s` : 'N/A'}</span></div>
