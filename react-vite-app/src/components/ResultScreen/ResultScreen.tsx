@@ -497,7 +497,7 @@ function ResultScreen({
             </button>
             {onBackToTitle && (
               <button className="leave-game-button" onClick={() => setShowLeaveConfirm(true)}>
-                <span className="button-icon">←</span>
+                <span className="button-icon">⏻</span>
                 Leave Game
               </button>
             )}
