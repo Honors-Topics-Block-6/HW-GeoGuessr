@@ -7,12 +7,8 @@ import { ErrorBoundary } from './ErrorBoundary'
 import MigrationBanner from './components/MigrationBanner/MigrationBanner'
 
 const BASE_H = 900;
-const MOBILE_BREAKPOINT = 600;
 
 function ScaledAppWrapper({ children }: { children: React.ReactNode }) {
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT
-  );
   const getValues = () => {
     const scale = window.innerHeight / BASE_H;
     const canvasWidth = Math.round(window.innerWidth / scale);
@@ -22,27 +18,10 @@ function ScaledAppWrapper({ children }: { children: React.ReactNode }) {
   const [{ scale, canvasWidth }, setValues] = useState(getValues);
 
   useEffect(() => {
-    const onResize = () => {
-      const mobile = window.innerWidth < MOBILE_BREAKPOINT;
-      setIsMobile(mobile);
-      if (!mobile) setValues(getValues());
-    };
+    const onResize = () => setValues(getValues());
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-
-  if (isMobile) {
-    return (
-      <div style={{
-        width: '100vw',
-        height: '100vh',
-        overflow: 'auto',
-        background: 'var(--hw-page-bg)',
-      }}>
-        {children}
-      </div>
-    );
-  }
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--hw-page-bg)' }}>

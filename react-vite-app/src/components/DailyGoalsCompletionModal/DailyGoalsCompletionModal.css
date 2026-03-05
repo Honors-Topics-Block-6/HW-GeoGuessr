@@ -105,26 +105,3 @@
     opacity: 0.05;
   }
 }
-
-@media (max-width: 480px) {
-  .daily-goals-reward-modal {
-    width: calc(100vw - 24px);
-    max-width: none;
-    margin: 12px;
-    max-height: 90vh;
-    overflow-y: auto;
-  }
-
-  .daily-goals-reward-collect-btn {
-    min-height: var(--touch-target-min, 44px);
-  }
-
-  .daily-goals-reward-close {
-    min-width: var(--touch-target-min, 44px);
-    min-height: var(--touch-target-min, 44px);
-    padding: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-}

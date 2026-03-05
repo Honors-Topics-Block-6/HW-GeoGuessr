@@ -1,13 +1,40 @@
 .game-screen {
   display: flex;
-  flex-direction: column;
   width: 100%;
   height: 100%;
   background-color: var(--hw-page-bg);
 }
 
+.game-leave-button {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 12;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.game-leave-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.image-panel {
+  flex: 7;
+  display: flex;
+  background-color: var(--hw-gray-200);
+  border-right: 1px solid var(--hw-gray-300);
+}
+
 .guess-panel {
-  flex: 1;
+  flex: 3;
   display: flex;
   flex-direction: column;
   background-color: #fff;
@@ -15,23 +42,12 @@
   max-width: 400px;
 }
 
-/* Desktop: image on top above header */
-.image-panel {
-  flex: 7;
-  display: flex;
-  order: -1;
-  background-color: var(--hw-gray-200);
-  border-bottom: 1px solid var(--hw-gray-300);
-}
-
-
 .guess-panel-header {
   display: flex;
   align-items: center;
   gap: 1rem;
   padding: 1rem;
   border-bottom: 1px solid var(--hw-gray-300);
-  flex-shrink: 0;
 }
 
 /* Endless mode HP bar */
@@ -271,22 +287,17 @@
 
 @media (max-width: 1024px) {
   .game-screen { flex-direction: column; }
-  .guess-panel { flex: 1; min-width: 100%; max-width: 100%; }
-  /* Mobile: image below header (natural order), header stays above */
   .image-panel {
-    order: 0;
     flex: none;
-    height: 65vh;
-    min-height: 280px;
+    height: 50vh;
+    border-right: none;
     border-bottom: 1px solid var(--hw-gray-300);
   }
+  .guess-panel { flex: 1; min-width: 100%; max-width: 100%; }
 }
 
 @media (max-width: 768px) {
-  .image-panel {
-    height: 55vh;
-    min-height: 260px;
-  }
+  .image-panel { height: 40vh; }
   .guess-panel-header { padding: 0.75rem 1rem; }
   .guess-controls { padding: 1rem; gap: 1rem; }
   .guess-status {
@@ -294,43 +305,5 @@
     justify-content: center;
     gap: 1.5rem;
     padding: 0.75rem 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .image-panel {
-    height: 50vh;
-    min-height: 280px;
-    order: 0;
-  }
-
-  .guess-panel-header {
-    padding: 0.6rem 0.75rem;
-  }
-
-  .guess-controls {
-    padding: 0.75rem;
-    gap: 0.75rem;
-  }
-
-  .round-timer {
-    padding: 0.5rem 1rem 0.6rem;
-  }
-}
-
-@media (max-width: 360px) {
-  .image-panel {
-    height: 45vh;
-    min-height: 240px;
-    order: 0;
-  }
-
-  .guess-panel-header {
-    padding: 0.5rem 0.6rem;
-  }
-
-  .guess-controls {
-    padding: 0.6rem;
-    gap: 0.6rem;
   }
 }
