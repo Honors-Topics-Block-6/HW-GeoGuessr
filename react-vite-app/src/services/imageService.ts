@@ -1,5 +1,17 @@
-import { collection, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  getDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAt,
+  deleteDoc,
+  doc
+} from 'firebase/firestore';
 import { db } from '../firebase';
+import type { ImagePoolEntry } from './imagePoolService';
 
 // ────── Types ──────
 
@@ -73,6 +85,130 @@ const SAMPLE_IMAGES: readonly SampleImage[] = [
   }
 ];
 
+const RANDOM_SELECTION_ATTEMPTS = 8;
+
+function toPoolCandidate(id: string, data: ImagePoolEntry): { id: string; sourceType: 'image' | 'submission'; sourceId: string; difficulty: string | null } | null {
+  if (!data?.active) return null;
+  if (!data.sourceId || !data.sourceType) return null;
+  if (data.sourceType !== 'image' && data.sourceType !== 'submission') return null;
+  return {
+    id,
+    sourceType: data.sourceType,
+    sourceId: data.sourceId,
+    difficulty: data.difficulty ?? null
+  };
+}
+
+function randomKey(): number {
+  return Math.random();
+}
+
+async function pickPoolCandidate(difficulty: string | null): Promise<{ id: string; sourceType: 'image' | 'submission'; sourceId: string; difficulty: string | null } | null> {
+  const pivot = randomKey();
+  const withDifficulty = Boolean(difficulty && difficulty !== 'all');
+
+  let snap;
+  try {
+    const q1 = query(
+      collection(db, 'imagePool'),
+      orderBy('randomKey'),
+      startAt(pivot),
+      limit(1)
+    );
+    snap = await getDocs(q1);
+  } catch (err) {
+    throw err;
+  }
+  if (snap.empty) {
+    try {
+      const q2 = query(
+        collection(db, 'imagePool'),
+        orderBy('randomKey'),
+        limit(1)
+      );
+      snap = await getDocs(q2);
+    } catch (err) {
+      throw err;
+    }
+  }
+  if (snap.empty) return null;
+  const docSnap = snap.docs[0];
+  return toPoolCandidate(docSnap.id, docSnap.data() as ImagePoolEntry);
+}
+
+async function hydrateCandidate(candidate: { id: string; sourceType: 'image' | 'submission'; sourceId: string }): Promise<GameImage | null> {
+  const sourceCollection = candidate.sourceType === 'image' ? 'images' : 'submissions';
+  const sourceSnap = await getDoc(doc(db, sourceCollection, candidate.sourceId));
+  if (!sourceSnap.exists()) return null;
+
+  const data = sourceSnap.data() as Record<string, unknown>;
+  if (candidate.sourceType === 'image') {
+    if (typeof data.url !== 'string' || !data.url) return null;
+    const loc = data.correctLocation as { x?: unknown; y?: unknown } | undefined;
+    if (!loc || typeof loc.x !== 'number' || typeof loc.y !== 'number') return null;
+    return {
+      id: candidate.id,
+      url: data.url,
+      correctLocation: { x: loc.x, y: loc.y },
+      correctFloor: typeof data.correctFloor === 'number' ? data.correctFloor : null,
+      difficulty: typeof data.difficulty === 'string' ? data.difficulty : null,
+      buildingName: typeof data.buildingName === 'string' ? data.buildingName : (typeof data.building === 'string' ? data.building : null),
+      description: typeof data.description === 'string' ? data.description : null
+    };
+  }
+
+  if ((data.status as string | undefined) !== 'approved') return null;
+  if (typeof data.photoURL !== 'string' || !data.photoURL) return null;
+  const loc = data.location as { x?: unknown; y?: unknown } | undefined;
+  if (!loc || typeof loc.x !== 'number' || typeof loc.y !== 'number') return null;
+  return {
+    id: candidate.id,
+    url: data.photoURL,
+    correctLocation: { x: loc.x, y: loc.y },
+    correctFloor: typeof data.floor === 'number' ? data.floor : null,
+    difficulty: typeof data.difficulty === 'string' ? data.difficulty : null,
+    buildingName: typeof data.buildingName === 'string' ? data.buildingName : (typeof data.building === 'string' ? data.building : null),
+    description: typeof data.description === 'string' ? data.description : null
+  };
+}
+
+async function selectRandomHydratedImage(
+  difficulty: string | null,
+  excludedIds: Set<string>,
+  excludedUrls: Set<string>,
+  allowExclusions: boolean
+): Promise<GameImage | null> {
+  const attemptedCandidateIds = new Set<string>();
+  const requiresDifficulty = Boolean(difficulty && difficulty !== 'all');
+
+  for (let attempt = 0; attempt < RANDOM_SELECTION_ATTEMPTS; attempt += 1) {
+    const candidate = await pickPoolCandidate(difficulty);
+    if (!candidate) return null;
+    if (attemptedCandidateIds.has(candidate.id)) {
+      continue;
+    }
+    attemptedCandidateIds.add(candidate.id);
+    if (requiresDifficulty && candidate.difficulty !== difficulty) {
+      continue;
+    }
+    if (allowExclusions && excludedIds.has(candidate.id)) {
+      continue;
+    }
+
+    const hydrated = await hydrateCandidate(candidate);
+    if (!hydrated) {
+      continue;
+    }
+    if (allowExclusions && excludedUrls.has(hydrated.url)) {
+      continue;
+    }
+
+    return hydrated;
+  }
+
+  return null;
+}
+
 // ────── Functions ──────
 
 /**
@@ -84,23 +220,18 @@ export async function getRandomImage(
   difficulty: string | null = null,
   options: RandomImageOptions = {}
 ): Promise<GameImage | null> {
+  const startMs = Date.now();
   try {
-    const approvedImages = await getAllApprovedImages(difficulty);
     const excludedIds = new Set(options.excludeImageIds || []);
     const excludedUrls = new Set(options.excludeImageUrls || []);
-    const availableImages = approvedImages.filter((image) => {
-      if (excludedIds.has(image.id)) return false;
-      if (excludedUrls.has(image.url)) return false;
-      return true;
-    });
-
-    if (availableImages.length === 0) {
-      console.warn('No approved images found in any source');
-      return null;
+    const withExclusion = await selectRandomHydratedImage(difficulty, excludedIds, excludedUrls, true);
+    if (withExclusion) {
+      console.info(`[getRandomImage] selected in ${Date.now() - startMs}ms (with exclusions)`);
+      return withExclusion;
     }
-
-    const randomIndex = Math.floor(Math.random() * availableImages.length);
-    return availableImages[randomIndex];
+    const fallback = await selectRandomHydratedImage(difficulty, excludedIds, excludedUrls, false);
+    console.info(`[getRandomImage] selected in ${Date.now() - startMs}ms (fallback=${fallback ? 'hit' : 'miss'})`);
+    return fallback;
   } catch (error) {
     console.error('Error fetching random image:', error);
     return null;
@@ -113,53 +244,62 @@ export async function getRandomImage(
  */
 export async function getAllApprovedImages(difficulty: string | null = null): Promise<GameImage[]> {
   try {
-    // Fetch from both sources in parallel
-    const [imagesSnapshot, submissionsSnapshot] = await Promise.all([
-      getDocs(collection(db, 'images')),
-      getDocs(query(collection(db, 'submissions'), where('status', '==', 'approved')))
+    const imagesRef = collection(db, 'images');
+    const submissionsRef = collection(db, 'submissions');
+    const [imagesSnapshot, approvedSubmissionsSnapshot] = await Promise.all([
+      getDocs(imagesRef),
+      getDocs(query(submissionsRef, where('status', '==', 'approved')))
     ]);
 
-    // Map images collection docs to the standard format
-    const images: GameImage[] = imagesSnapshot.docs.map(docSnap => ({
-      id: docSnap.id,
-      ...docSnap.data()
-    })) as GameImage[];
-
-    // Map approved submissions to the same format the game expects
-    const approvedSubmissions: GameImage[] = submissionsSnapshot.docs.map(docSnap => {
+    const images = imagesSnapshot.docs.map((docSnap) => {
       const data = docSnap.data() as Record<string, unknown>;
-      const buildingName = (
-        ((data.buildingName as string) || (data.building as string) || '').trim()
-      ) || null;
+      const loc = data.correctLocation as { x?: unknown; y?: unknown } | undefined;
+      if (typeof data.url !== 'string' || !data.url || !loc || typeof loc.x !== 'number' || typeof loc.y !== 'number') {
+        return null;
+      }
       return {
         id: docSnap.id,
-        url: data.photoURL as string,
-        correctLocation: data.location as { x: number; y: number },
-        correctFloor: data.floor as number | null,
-        difficulty: (data.difficulty as string) || null,
-        buildingName,
-        description: buildingName
-      };
-    });
+        url: data.url,
+        correctLocation: { x: loc.x, y: loc.y },
+        correctFloor: typeof data.correctFloor === 'number' ? data.correctFloor : null,
+        difficulty: typeof data.difficulty === 'string' ? data.difficulty : null,
+        buildingName: typeof data.buildingName === 'string' ? data.buildingName : null,
+        description: typeof data.description === 'string' ? data.description : null
+      } as GameImage;
+    }).filter((img): img is GameImage => img !== null);
 
-    let allImages: GameImage[] = [...images, ...approvedSubmissions];
-
-    // Filter by difficulty if specified ('all' or null means no filter)
-    if (difficulty && difficulty !== 'all') {
-      const filtered = allImages.filter(img => img.difficulty === difficulty);
-      // Fall back to all images if none match the difficulty
-      if (filtered.length > 0) {
-        allImages = filtered;
-      } else {
-        console.warn(`No images found for difficulty "${difficulty}", using all images`);
+    const submissions = approvedSubmissionsSnapshot.docs.map((docSnap) => {
+      const data = docSnap.data() as Record<string, unknown>;
+      const loc = data.location as { x?: unknown; y?: unknown } | undefined;
+      if (typeof data.photoURL !== 'string' || !data.photoURL || !loc || typeof loc.x !== 'number' || typeof loc.y !== 'number') {
+        return null;
       }
-    }
+      return {
+        id: docSnap.id,
+        url: data.photoURL,
+        correctLocation: { x: loc.x, y: loc.y },
+        correctFloor: typeof data.floor === 'number' ? data.floor : null,
+        difficulty: typeof data.difficulty === 'string' ? data.difficulty : null,
+        buildingName: typeof data.buildingName === 'string' ? data.buildingName : null,
+        description: typeof data.description === 'string' ? data.description : null
+      } as GameImage;
+    }).filter((img): img is GameImage => img !== null);
 
-    return allImages;
+    const all = [...images, ...submissions];
+    if (!difficulty || difficulty === 'all') return all;
+    const filtered = all.filter((img) => img.difficulty === difficulty);
+    return filtered.length > 0 ? filtered : all;
   } catch (error) {
     console.error('Error fetching approved images:', error);
     return [];
   }
+}
+
+/**
+ * Warm the approved image metadata cache.
+ */
+export async function primeApprovedImagesCache(): Promise<void> {
+  // Index-only path no longer preloads large metadata.
 }
 
 /**
