@@ -257,7 +257,12 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       description: selectedSubmission.description || '',
       photoName: selectedSubmission.photoName || '',
       buildingName: selectedSubmission.buildingName || '',
-      location: selectedSubmission.location ? { ...selectedSubmission.location } : { x: 0, y: 0 },
+      location: selectedSubmission.location
+        ? {
+            x: roundCoordinate(selectedSubmission.location.x),
+            y: roundCoordinate(selectedSubmission.location.y)
+          }
+        : { x: 0, y: 0 },
       floor: selectedSubmission.floor,
       difficulty: selectedSubmission.difficulty || null,
       status: selectedSubmission.status,
@@ -445,6 +450,13 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     return date.toLocaleString()
   }
 
+  const formatCoordinate = (value: number | undefined): string => {
+    if (value === undefined) return '—'
+    return Number(value).toFixed(2)
+  }
+
+  const roundCoordinate = (value: number): number => Math.round(value * 100) / 100
+
   const isEditable = selectedSubmission && selectedSubmission._source !== 'testing'
 
   if (loading) {
@@ -567,7 +579,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                 )}
                 <div className="detail-row">
                   <strong>Location:</strong>
-                  <span>X: {submission.location?.x}, Y: {submission.location?.y}</span>
+                  <span>
+                    X: {formatCoordinate(submission.location?.x)}, Y: {formatCoordinate(submission.location?.y)}
+                  </span>
                 </div>
                 <div className="detail-row">
                   <strong>Floor:</strong>
@@ -769,7 +783,13 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                     <label>Location</label>
                     <MapPicker
                       markerPosition={editForm.location ?? null}
-                      onMapClick={(coords: Location) => setEditForm(prev => ({ ...prev, location: coords }))}
+                      onMapClick={(coords: Location) => setEditForm(prev => ({
+                        ...prev,
+                        location: {
+                          x: roundCoordinate(coords.x),
+                          y: roundCoordinate(coords.y)
+                        }
+                      }))}
                     />
                     <div className="coordinate-inputs">
                       <label>
@@ -778,11 +798,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                           type="number"
                           min="0"
                           max="100"
-                          step="0.1"
+                          step="0.01"
                           value={editForm.location?.x ?? ''}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
                             ...prev,
-                            location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
+                            location: {
+                              ...(prev.location || { x: 0, y: 0 }),
+                              x: roundCoordinate(parseFloat(e.target.value) || 0)
+                            }
                           }))}
                         />
                       </label>
@@ -792,11 +815,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                           type="number"
                           min="0"
                           max="100"
-                          step="0.1"
+                          step="0.01"
                           value={editForm.location?.y ?? ''}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
                             ...prev,
-                            location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
+                            location: {
+                              ...(prev.location || { x: 0, y: 0 }),
+                              y: roundCoordinate(parseFloat(e.target.value) || 0)
+                            }
                           }))}
                         />
                       </label>
@@ -899,8 +925,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                       <div className="detail-info-content">
                         <span className="detail-info-label">Coordinates</span>
                         <span className="detail-info-value">
-                          X: {selectedSubmission.location?.x !== undefined ? Number(selectedSubmission.location.x).toFixed(1) : '\u2014'},
-                          Y: {selectedSubmission.location?.y !== undefined ? Number(selectedSubmission.location.y).toFixed(1) : '\u2014'}
+                          X: {formatCoordinate(selectedSubmission.location?.x)},
+                          Y: {formatCoordinate(selectedSubmission.location?.y)}
                         </span>
                       </div>
                     </div>
