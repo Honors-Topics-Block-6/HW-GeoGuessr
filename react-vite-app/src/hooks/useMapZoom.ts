@@ -526,13 +526,13 @@ function useMapZoom(
 
     const currentScale = scaleRef.current;
     const currentTranslate = translateRef.current;
-    const newScale = Math.min(MAX_SCALE, currentScale * ZOOM_STEP);
+    const newScale = Math.min(maxScale, currentScale * ZOOM_STEP);
 
     const result = zoomToPoint(cx, cy, newScale, currentScale, currentTranslate);
     if (result) {
       animateTo(result.scale, result.translate);
     }
-  }, [containerRef, zoomToPoint, animateTo]);
+  }, [containerRef, zoomToPoint, animateTo, maxScale]);
 
   /**
    * Zoom in by ZOOM_STEP factor toward a specific point (container-relative coords).
