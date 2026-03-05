@@ -203,29 +203,30 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
                   {preset.value === 0 ? '∞' : `${preset.label}`}
                 </button>
               ))}
-              <button
-                className={`lobby-time-btn ${timeSelection === 'custom' ? 'selected' : ''}`}
-                onClick={() => setTimeSelection('custom')}
-              >
-                ✏️
-              </button>
+              {timeSelection === 'custom' ? (
+                <div className="lobby-time-input-wrapper selected">
+                  <input
+                    className="lobby-time-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={customTime}
+                    onChange={(e) => handleCustomTimeChange(e.target.value)}
+                    onBlur={handleCustomTimeBlur}
+                    placeholder="Custom"
+                    autoFocus
+                  />
+                  <span className="lobby-time-unit">s</span>
+                </div>
+              ) : (
+                <button
+                  className="lobby-time-btn"
+                  onClick={() => setTimeSelection('custom')}
+                  aria-label="Custom time"
+                >
+                  Custom
+                </button>
+              )}
             </div>
-            {timeSelection === 'custom' && (
-              <div className="lobby-time-custom">
-                <input
-                  className="lobby-time-custom-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={customTime}
-                  onChange={(e) => handleCustomTimeChange(e.target.value)}
-                  onBlur={handleCustomTimeBlur}
-                  placeholder="e.g. 60"
-                />
-                <span className="lobby-time-custom-hint">
-                  {CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX}s
-                </span>
-              </div>
-            )}
           </div>
 
           <button
