@@ -1,14 +1,12 @@
 .profile-screen {
   position: relative;
   width: 100%;
-  min-height: 100vh;
-  height: auto;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  overflow: visible;
-  overflow-y: visible;
-  padding: 0.5rem 0 1rem;
+  overflow: hidden;
+  padding: 1.25rem 0;
 }
 
 .profile-layout {
@@ -60,6 +58,8 @@
   max-width: 720px;
   margin: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .profile-achievements-section {
@@ -248,12 +248,6 @@
   justify-content: center;
   gap: 0.75rem;
   margin-bottom: 1.1rem;
-}
-
-.profile-tabs,
-.profile-stats,
-.profile-achievements-section {
-  display: none;
 }
 
 .profile-tab {

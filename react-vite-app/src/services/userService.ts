@@ -49,6 +49,7 @@ export interface UserDoc {
   lastGameAt?: unknown;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount?: number;
   twentyFiveKCount?: number;
   photosSubmittedCount?: number;
@@ -75,6 +76,7 @@ export interface UserProfileUpdates {
   lastGameAt?: Date | string | null;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount?: number;
   twentyFiveKCount?: number;
   photosSubmittedCount?: number;
@@ -106,11 +108,25 @@ export interface BuildingStat {
 
 export interface DailyStatBucket {
   gamesPlayed: number;
+  roundsPlayed?: number;
   totalScore: number;
   totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount: number;
   twentyFiveKCount: number;
   photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
+  byRoundCount?: Partial<Record<'5' | '10' | '20', DailyStatBucketRound>>;
+}
+
+export interface DailyStatBucketRound {
+  gamesPlayed: number;
+  roundsPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
   buildingStats: Record<string, BuildingStat>;
 }
 
