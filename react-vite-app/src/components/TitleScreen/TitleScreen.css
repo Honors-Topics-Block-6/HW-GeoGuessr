@@ -163,22 +163,7 @@
 .title-top-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.title-action-icon {
-  display: none;
-}
-
-.title-leaderboard-button,
-.submit-photo-button,
-.title-bug-report-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 52px;
-  min-width: 52px;
+  gap: 10px;
 }
 
 .title-leaderboard-button {
@@ -254,7 +239,6 @@
   align-items: center;
   text-align: center;
   padding: 2rem;
-  margin-top: 4rem;
   max-width: 600px;
   background: #fff;
   border: 1px solid var(--hw-gray-300);
@@ -527,26 +511,22 @@
     overflow-y: auto;
   }
 
-  .title-content {
-    margin-top: 5rem;
-  }
-
   .game-title { font-size: 2.6rem; }
   .tagline { font-size: 1.1rem; }
   .logo-icon { font-size: 4.5rem; }
   .logo-crest { width: 160px; }
   .start-button { font-size: 1.1rem; padding: 0.9rem 2.5rem; }
 
-  /* Single row: user left, actions right */
   .title-top-bar {
-    flex-direction: row;
+    flex-direction: column;
+    gap: 10px;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
+    padding: 12px 16px;
   }
 
-  .title-user-info-button {
-    min-height: var(--touch-target-min, 44px);
+  .title-top-actions {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .title-invitations {
@@ -565,64 +545,19 @@
     font-size: 1.05rem;
   }
 
-  /* Content card: use viewport width with safe margins */
-  .title-content {
-    width: min(600px, calc(100% - 1.5rem));
-    padding: 1.25rem;
-    margin-top: 6rem;
-  }
+  .title-top-actions { gap: 6px; }
 
-  /* Stack on mobile: user row, then actions row – gives buttons space for labels */
-  .title-top-bar {
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    overflow-x: visible;
-  }
-
-  .title-top-actions {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-
-  /* Desktop-style buttons with labels; compact sizing to fit */
   .title-leaderboard-button,
   .submit-photo-button,
   .title-bug-report-button {
-    font-size: 11px;
-    padding: 6px 10px;
-    min-height: 40px;
-    min-width: auto;
+    font-size: 12px;
+    padding: 6px 12px;
   }
 
   .title-user-info-button {
-    padding: 6px 10px;
+    padding: 5px 10px;
     font-size: 12px;
   }
 
-  .title-username {
-    max-width: 70px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .title-user-dropdown {
-    min-width: 150px;
-  }
-}
-
-@media (max-width: 360px) {
-  .title-top-bar {
-    padding: 6px 10px;
-  }
-
-  .title-username {
-    max-width: 55px;
-  }
+  .title-user-dropdown { min-width: 150px; }
 }

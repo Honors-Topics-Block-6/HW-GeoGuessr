@@ -69,7 +69,7 @@ interface AchievementToastData {
 }
 
 function App(): React.ReactElement {
-  const { user, userDoc, loading, needsUsername, isAdmin, emailVerified, refreshUserDoc } = useAuth();
+  const { user, userDoc, loading, isGuest, needsUsername, isAdmin, emailVerified, refreshUserDoc } = useAuth();
   const [showSubmissionApp, setShowSubmissionApp] = useState<boolean>(false);
   const [showProfile, setShowProfile] = useState<boolean>(false);
   const [showFriends, setShowFriends] = useState<boolean>(false);
@@ -87,9 +87,10 @@ function App(): React.ReactElement {
 
   // Ensure the daily streak resets to 0 if a day was missed (once per app load).
   useEffect(() => {
+    if (isGuest) return;
     if (!user?.uid) return;
     syncDailyStreakRollover(user.uid);
-  }, [user?.uid]);
+  }, [isGuest, user?.uid]);
 
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState<boolean>(false);
@@ -145,13 +146,13 @@ function App(): React.ReactElement {
   );
 
   // Track user's online presence and current activity
-  usePresence(user as Parameters<typeof usePresence>[0], inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard, showFriends, showChat);
+  usePresence(isGuest ? null : user as Parameters<typeof usePresence>[0], inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard, showFriends, showChat);
 
   // Listen for admin messages sent to this user
-  const { messages, dismissMessage } = useAdminMessages(user?.uid);
+  const { messages, dismissMessage } = useAdminMessages(isGuest ? null : user?.uid);
 
   // Friends list for chat notification subscriptions
-  const { friends } = useFriends(user?.uid, userDoc?.username ?? '');
+  const { friends } = useFriends(isGuest ? null : user?.uid, isGuest ? '' : userDoc?.username ?? '');
   const friendUids = friends.map((f) => f.friendUid);
   const { notifications: chatNotifications, dismissNotification: dismissChatNotification } =
     useChatNotifications(user?.uid ?? null, friendUids, chatFriend?.uid ?? null);
@@ -216,6 +217,7 @@ function App(): React.ReactElement {
       <ChatNotificationBanner notifications={chatNotifications} onDismiss={dismissChatNotification} />
     ) : null;
   useEffect(() => {
+    if (isGuest) return;
     if (!user || !userDoc) return;
     const level = getLevelInfo(userDoc.totalXp ?? 0).level;
     const progressAchievementIds = getProgressUnlockedAchievementIds({
@@ -241,9 +243,10 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [emailVerified, refreshUserDoc, user, userDoc]);
+  }, [emailVerified, isGuest, refreshUserDoc, user, userDoc]);
 
   useEffect(() => {
+    if (isGuest) return;
     if (!user || screen !== 'finalResults') return;
     const difficultyAchievementId = getDifficultyAchievementId(difficulty);
     if (!difficultyAchievementId) return;
@@ -260,9 +263,10 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [difficulty, refreshUserDoc, screen, user]);
+  }, [difficulty, isGuest, refreshUserDoc, screen, user]);
 
   useEffect(() => {
+    if (isGuest) return;
     if (!user || !currentResult) return;
     if (currentResult.score < 5000) return;
 
@@ -278,7 +282,7 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [currentResult, refreshUserDoc, user]);
+  }, [currentResult, isGuest, refreshUserDoc, user]);
 
   useEffect(() => {
     const onAchievementUpdated = (event: Event): void => {
@@ -370,12 +374,14 @@ function App(): React.ReactElement {
    * Handle transition from WaitingRoom to the duel game
    */
   const handleDuelGameStart = useCallback((): void => {
-    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    if (!isGuest) {
+      void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    }
     if (user?.uid) recordDailyPlay(user.uid);
     setInDuel(true);
     setDuelLobbyDocId(lobbyDocId);
     setScreen('duelGame');
-  }, [lobbyDocId, setScreen, user?.uid]);
+  }, [isGuest, lobbyDocId, setScreen, user?.uid]);
 
   /**
    * Exit the duel and go back to multiplayer lobby
@@ -564,7 +570,7 @@ function App(): React.ReactElement {
   };
 
   /**
-   * Handle selecting single-player from mode select -> go to difficulty select
+   * Handle selecting single-player from mode select.
    */
   const handleSelectSinglePlayer = (): void => {
     setMode('singleplayer');
@@ -572,7 +578,7 @@ function App(): React.ReactElement {
   };
 
   /**
-   * Handle selecting multiplayer from mode select -> go to multiplayer lobby
+   * Handle selecting multiplayer from mode select.
    */
   const handleSelectMultiplayer = (): void => {
     setMode('multiplayer');
@@ -581,16 +587,18 @@ function App(): React.ReactElement {
   };
 
   /**
-   * Handle starting the game from difficulty select (singleplayer only)
+   * Handle starting the game from difficulty select
    */
   const handleStartFromDifficulty = (
     selectedDifficulty: string,
-    selectedMode: string | null,
+    selectedMode: string,
     singleplayerVariant?: 'classic' | 'endless',
     roundTimeSeconds?: number,
     totalRounds?: number
   ): void => {
-    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    if (!isGuest) {
+      void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    }
     const effectiveMode = selectedMode ?? mode ?? 'singleplayer';
     if (effectiveMode === 'singleplayer' && user?.uid) {
       recordDailyPlay(user.uid);

@@ -21,6 +21,7 @@ export interface GameScreenProps {
   onFloorSelect: (floor: number) => void;
   onSubmitGuess: () => void;
   onBackToTitle: () => void;
+  onImageLoad?: () => void;
   currentRound?: number;
   totalRounds?: number;
   clickRejected?: boolean;
@@ -41,6 +42,7 @@ function GameScreen({
   onFloorSelect,
   onSubmitGuess,
   onBackToTitle,
+  onImageLoad,
   currentRound = 1,
   totalRounds = 5,
   clickRejected = false,
@@ -89,6 +91,15 @@ function GameScreen({
 
   return (
     <div className="game-screen">
+      <button className="game-leave-button" onClick={() => setShowLeaveConfirm(true)}>
+        Leave Game
+      </button>
+      {/* Left panel - Image */}
+      <div className="image-panel">
+        <ImageViewer imageUrl={imageUrl} />
+      </div>
+
+      {/* Right panel - Guess controls */}
       <div className="guess-panel">
         <div className="guess-panel-header">
           <button className="back-button" onClick={() => setShowLeaveConfirm(true)}>
@@ -99,11 +110,6 @@ function GameScreen({
           <div className="round-badge">
             {isEndlessMode ? `Round ${currentRound}` : `${currentRound} / ${totalRounds}`}
           </div>
-        </div>
-
-        {/* Image – appears below header on mobile, above header on desktop */}
-        <div className="image-panel">
-          <ImageViewer imageUrl={imageUrl} />
         </div>
 
         {isEndlessMode && (

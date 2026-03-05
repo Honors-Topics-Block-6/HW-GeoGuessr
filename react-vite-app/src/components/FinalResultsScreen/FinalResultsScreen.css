@@ -647,13 +647,6 @@
     gap: 0.75rem;
   }
 
-  .final-actions {
-    flex-direction: column;
-  }
-
-  .play-again-button,
-  .home-button {
-    width: 100%;
-    min-height: var(--touch-target-min, 44px);
-  }
+  .final-actions { flex-direction: column; }
+  .play-again-button, .home-button { width: 100%; }
 }

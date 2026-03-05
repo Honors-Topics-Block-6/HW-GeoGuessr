@@ -39,7 +39,6 @@ describe('TitleScreen', () => {
     onOpenLeaderboard: vi.fn(),
     onOpenBugReport: vi.fn(),
     onOpenDailyGoals: vi.fn(),
-    onOpenAchievements: vi.fn(),
     isLoading: false
   };
 

@@ -108,24 +108,3 @@
 .leave-confirm-leave:hover {
   background: var(--hw-red-hover, #a50d26);
 }
-
-@media (max-width: 480px) {
-  .leave-confirm-overlay {
-    padding: 12px;
-    align-items: flex-end;
-  }
-
-  .leave-confirm-modal {
-    max-width: calc(100vw - 24px);
-    margin: 0 auto 12px;
-  }
-
-  .leave-confirm-body {
-    padding: 20px;
-  }
-
-  .leave-confirm-cancel,
-  .leave-confirm-leave {
-    min-height: var(--touch-target-min, 44px);
-  }
-}

@@ -13,7 +13,8 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "test:watch": "vitest --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "backfill:image-pool": "node scripts/backfill-image-pool.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
