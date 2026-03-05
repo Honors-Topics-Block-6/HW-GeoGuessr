@@ -60,6 +60,8 @@
   max-width: 720px;
   margin: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  max-height: calc(100% - 1rem);
+  overflow-y: auto;
 }
 
 .profile-achievements-section {
