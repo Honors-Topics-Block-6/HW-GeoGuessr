@@ -45,9 +45,10 @@ export interface MultiplayerLobbyProps {
   userUsername: string;
   onJoinedLobby: (docId: string) => void;
   onBack: () => void;
+  onOpenMyGames: () => void;
 }
 
-function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
+function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack, onOpenMyGames }: MultiplayerLobbyProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(difficulty);
   const [visibility, setVisibility] = useState<GameVisibility>('public');
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
@@ -85,7 +86,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     error,
     hostGame,
     joinByCode,
-    joinPublicGame,
     clearError
   } = useLobby(userUid, userUsername, selectedDifficulty);
 
@@ -105,27 +105,24 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     }
   };
 
-  const handleJoinPublic = async (docId: string): Promise<void> => {
-    const success = await joinPublicGame(docId);
-    if (success) {
-      onJoinedLobby(docId);
+  const handleJoinPublic = async (gameId: string): Promise<void> => {
+    const result = await joinByCode(gameId);
+    if (result) {
+      onJoinedLobby(result.docId);
     }
   };
 
   const filteredPublicLobbies = useMemo(() => {
     return publicLobbies.filter((lobby) => {
-      const lobbyDifficulty = (lobby.difficulty || 'all') as Difficulty;
-      const lobbyRoundTime = typeof lobby.roundTimeSeconds === 'number' ? lobby.roundTimeSeconds : 20;
-
-      const difficultyMatch =
-        publicDifficultyFilter === 'any' || lobbyDifficulty === publicDifficultyFilter;
-
-      const roundTimeMatch =
-        publicRoundTimeFilter === 'any' || lobbyRoundTime === Number(publicRoundTimeFilter);
-
-      return difficultyMatch && roundTimeMatch;
+      if (publicDifficultyFilter !== 'any' && lobby.difficulty !== publicDifficultyFilter) {
+        return false;
+      }
+      if (publicRoundTimeFilter !== 'any' && String(lobby.roundTimeSeconds ?? '') !== publicRoundTimeFilter) {
+        return false;
+      }
+      return true;
     });
-  }, [publicDifficultyFilter, publicLobbies, publicRoundTimeFilter]);
+  }, [publicLobbies, publicDifficultyFilter, publicRoundTimeFilter]);
 
   return (
     <div className="lobby-screen">
@@ -253,6 +250,9 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
               onJoin={handleJoinByCode}
               isJoining={isJoining}
             />
+            <button className="lobby-my-games-btn" onClick={onOpenMyGames}>
+              My Games
+            </button>
           </div>
 
           {/* Browse Public Games */}
