@@ -17,9 +17,21 @@ export interface UseLobbyInvitesReturn {
 }
 
 function getSentAtMillis(sentAt: ChatMessage['sentAt']): number {
-  if (!sentAt || typeof sentAt !== 'object') return 0;
-  const maybe = sentAt as { toMillis?: () => number };
-  return typeof maybe.toMillis === 'function' ? maybe.toMillis() : 0;
+  if (!sentAt) return 0;
+  if (typeof sentAt === 'number') return sentAt;
+  if (typeof sentAt === 'string') {
+    const parsed = Date.parse(sentAt);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  if (typeof sentAt === 'object') {
+    const maybe = sentAt as { toMillis?: () => number; toDate?: () => Date };
+    if (typeof maybe.toMillis === 'function') return maybe.toMillis();
+    if (typeof maybe.toDate === 'function') {
+      const date = maybe.toDate();
+      return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+    }
+  }
+  return 0;
 }
 
 /**

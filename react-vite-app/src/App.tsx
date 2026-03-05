@@ -5,7 +5,7 @@ import { useDuelGame } from './hooks/useDuelGame';
 import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
 import { useFriends } from './hooks/useFriends';
-import { useChatNotifications } from './hooks/useChatNotifications';
+import { useChatNotifications, type ChatNotificationItem } from './hooks/useChatNotifications';
 import { useLobbyInvites, type LobbyInvite } from './hooks/useLobbyInvites';
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
@@ -207,6 +207,14 @@ function App(): React.ReactElement {
     return success;
   }, [dismissLobbyInvite, handleJoinFromInvite]);
 
+  const handleJoinChatNotification = useCallback(async (item: ChatNotificationItem): Promise<boolean> => {
+    if (item.type !== 'lobby_invite') return false;
+    return handleJoinFromInvite({
+      lobbyDocId: item.lobbyDocId,
+      difficulty: item.difficulty
+    });
+  }, [handleJoinFromInvite]);
+
   // Prepare the message banner (uses createPortal, renders at viewport top)
   const messageBanner: ReactNode = user && messages.length > 0 ? (
     <MessageBanner messages={messages as unknown as React.ComponentProps<typeof MessageBanner>['messages']} onDismiss={dismissMessage} />
@@ -214,7 +222,11 @@ function App(): React.ReactElement {
 
   const chatNotificationBanner: ReactNode =
     user && chatNotifications.length > 0 ? (
-      <ChatNotificationBanner notifications={chatNotifications} onDismiss={dismissChatNotification} />
+      <ChatNotificationBanner
+        notifications={chatNotifications}
+        onDismiss={dismissChatNotification}
+        onJoinInvite={handleJoinChatNotification}
+      />
     ) : null;
   useEffect(() => {
     if (isGuest) return;
