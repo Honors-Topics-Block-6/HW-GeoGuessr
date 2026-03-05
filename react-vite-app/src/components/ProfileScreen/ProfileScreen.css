@@ -250,12 +250,6 @@
   margin-bottom: 1.1rem;
 }
 
-.profile-tabs,
-.profile-stats,
-.profile-achievements-section {
-  display: none;
-}
-
 .profile-tab {
   background: var(--hw-surface, #ffffff);
   border: 1px solid var(--hw-gray-300, #d1d5db);
