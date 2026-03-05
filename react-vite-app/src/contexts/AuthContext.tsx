@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInAnonymously,
   GoogleAuthProvider,
   signOut,
   sendEmailVerification,
@@ -102,6 +103,7 @@ export interface AuthContextType {
   user: FirebaseUser | null;
   userDoc: UserDoc | null;
   loading: boolean;
+  isGuest: boolean;
   needsUsername: boolean;
   isAdmin: boolean;
   permissions: AdminPermissions;
@@ -113,6 +115,7 @@ export interface AuthContextType {
   signup: (email: string, password: string, username: string) => Promise<FirebaseUser>;
   login: (email: string, password: string) => Promise<FirebaseUser>;
   loginWithGoogle: () => Promise<FirebaseUser>;
+  continueAsGuest: () => Promise<FirebaseUser>;
   completeGoogleSignUp: (username: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
@@ -143,6 +146,19 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   const [loading, setLoading] = useState<boolean>(true);    // Initial auth check loading
   const [needsUsername, setNeedsUsername] = useState<boolean>(false); // Google sign-in needs username
   const [emailVerified, setEmailVerified] = useState<boolean>(false); // Email verification status
+  const isGuest: boolean = !!user?.isAnonymous;
+
+  const createGuestUserDoc = useCallback((firebaseUser: FirebaseUser): UserDoc => ({
+    uid: firebaseUser.uid,
+    email: firebaseUser.email ?? '',
+    username: 'Guest',
+    isAdmin: false,
+    emailVerified: true,
+    totalXp: 0,
+    gamesPlayed: 0,
+    createdAt: new Date(),
+    permissions: getNoPermissions()
+  }), []);
 
   // Listen for auth state changes
   useEffect(() => {
@@ -152,6 +168,13 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
         const authVerified = firebaseUser?.emailVerified ?? false;
 
         if (firebaseUser) {
+          if (firebaseUser.isAnonymous) {
+            setEmailVerified(true);
+            setUserDoc(createGuestUserDoc(firebaseUser));
+            setNeedsUsername(false);
+            return;
+          }
+
           // Fetch the user's Firestore document
           const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
           if (doc) {
@@ -201,7 +224,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     });
 
     return unsubscribe;
-  }, []);
+  }, [createGuestUserDoc]);
 
   // Poll for email verification status (focus + interval)
   // Checks both Firebase Auth (user clicked email link) and Firestore (admin toggled it)
@@ -341,6 +364,17 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   }, []);
 
   /**
+   * Continue without creating an account.
+   */
+  const continueAsGuest = useCallback(async (): Promise<FirebaseUser> => {
+    if (auth.currentUser?.isAnonymous) {
+      return auth.currentUser;
+    }
+    const credential = await signInAnonymously(auth);
+    return credential.user;
+  }, []);
+
+  /**
    * Complete sign-up by setting a username (called after sign-in for users without Firestore doc)
    */
   const completeGoogleSignUp = useCallback(async (username: string): Promise<void> => {
@@ -449,6 +483,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     user,
     userDoc,
     loading,
+    isGuest,
     needsUsername,
     isAdmin,
     permissions,
@@ -460,6 +495,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     signup,
     login,
     loginWithGoogle,
+    continueAsGuest,
     completeGoogleSignUp,
     logout,
     updateUsername,
