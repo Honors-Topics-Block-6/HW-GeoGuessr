@@ -370,8 +370,12 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     if (auth.currentUser?.isAnonymous) {
       return auth.currentUser;
     }
-    const credential = await signInAnonymously(auth);
-    return credential.user;
+    try {
+      const credential = await signInAnonymously(auth);
+      return credential.user;
+    } catch (err) {
+      throw err;
+    }
   }, []);
 
   /**
