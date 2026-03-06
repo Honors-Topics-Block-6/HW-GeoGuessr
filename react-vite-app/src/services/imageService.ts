@@ -1,5 +1,7 @@
 import {
   collection,
+  documentId,
+  getCountFromServer,
   getDocs,
   getDoc,
   query,
@@ -7,8 +9,10 @@ import {
   orderBy,
   limit,
   startAt,
+  startAfter,
   deleteDoc,
-  doc
+  doc,
+  type QueryConstraint
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { ImagePoolEntry } from './imagePoolService';
@@ -37,6 +41,74 @@ export interface SampleImage {
 export interface RandomImageOptions {
   excludeImageIds?: string[];
   excludeImageUrls?: string[];
+}
+
+export interface AdminSourceCounts {
+  images: number;
+  submissions: number;
+  pending: number;
+  approved: number;
+  denied: number;
+}
+
+export interface AdminSubmissionPageItem {
+  id: string;
+  photoURL: string | null;
+  location: { x: number; y: number } | null;
+  floor: number | null;
+  difficulty: string | null;
+  photoName: string | null;
+  buildingName: string | null;
+  description: string | null;
+  status: string;
+  createdAt: unknown;
+  reviewedAt: unknown;
+}
+
+export interface AdminImagePageItem {
+  id: string;
+  url: string | null;
+  correctLocation: { x: number; y: number } | null;
+  correctFloor: number | null;
+  difficulty: string | null;
+  description: string | null;
+}
+
+export interface AdminPageResult<T> {
+  items: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+const ADMIN_SOURCE_COUNTS_TTL_MS = 60_000;
+let adminSourceCountsCache: { value: AdminSourceCounts; expiresAtMs: number } | null = null;
+let adminSourceCountsInFlight: Promise<AdminSourceCounts> | null = null;
+const ADMIN_SOURCE_COUNTS_BACKOFF_KEY = 'admin.sourceCounts.backoffUntilMs';
+const ADMIN_SOURCE_COUNTS_ERROR_BACKOFF_MS = 5 * 60_000;
+const ADMIN_COUNTS_DEBUG_RUN_ID = `admin-counts-${Date.now()}`;
+
+function readCountsBackoffUntilMs(): number {
+  if (typeof window === 'undefined') return 0;
+  const raw = window.localStorage.getItem(ADMIN_SOURCE_COUNTS_BACKOFF_KEY);
+  const parsed = raw ? Number(raw) : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function writeCountsBackoffUntilMs(value: number): void {
+  if (typeof window === 'undefined') return;
+  if (value <= 0) {
+    window.localStorage.removeItem(ADMIN_SOURCE_COUNTS_BACKOFF_KEY);
+    return;
+  }
+  window.localStorage.setItem(ADMIN_SOURCE_COUNTS_BACKOFF_KEY, String(value));
+}
+
+function isQuotaError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const maybe = error as { code?: unknown; message?: unknown };
+  const code = typeof maybe.code === 'string' ? maybe.code.toLowerCase() : '';
+  const message = typeof maybe.message === 'string' ? maybe.message.toLowerCase() : '';
+  return code.includes('resource-exhausted') || message.includes('quota exceeded');
 }
 
 // ────── Constants ──────
@@ -293,6 +365,186 @@ export async function getAllApprovedImages(difficulty: string | null = null): Pr
     console.error('Error fetching approved images:', error);
     return [];
   }
+}
+
+function parseLocation(value: unknown): { x: number; y: number } | null {
+  if (!value || typeof value !== 'object') return null;
+  const maybe = value as { x?: unknown; y?: unknown };
+  if (typeof maybe.x !== 'number' || typeof maybe.y !== 'number') return null;
+  return { x: maybe.x, y: maybe.y };
+}
+
+/**
+ * Fetch lightweight source/status counts for admin tabs.
+ */
+export async function getAdminSourceCounts(): Promise<AdminSourceCounts> {
+  const now = Date.now();
+  const fallbackCounts: AdminSourceCounts = adminSourceCountsCache?.value ?? {
+    images: 0,
+    submissions: 0,
+    pending: 0,
+    approved: 0,
+    denied: 0
+  };
+
+  const backoffUntilMs = readCountsBackoffUntilMs();
+  // #region agent log
+  fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:entry',message:'count fetch entry',data:{now,backoffUntilMs,hasCache:Boolean(adminSourceCountsCache),hasInFlight:Boolean(adminSourceCountsInFlight)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  if (backoffUntilMs > now) {
+    // #region agent log
+    fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:backoff',message:'returning backoff fallback',data:{backoffUntilMs,now},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return fallbackCounts;
+  }
+
+  if (adminSourceCountsCache && adminSourceCountsCache.expiresAtMs > now) {
+    // #region agent log
+    fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:cacheHit',message:'returning cached counts',data:{expiresAtMs:adminSourceCountsCache.expiresAtMs,now},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return adminSourceCountsCache.value;
+  }
+  if (adminSourceCountsInFlight) {
+    // #region agent log
+    fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H3',location:'imageService.ts:getAdminSourceCounts:inFlight',message:'reusing in-flight counts promise',data:{now},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return adminSourceCountsInFlight;
+  }
+
+  const imagesRef = collection(db, 'images');
+  const submissionsRef = collection(db, 'submissions');
+  // #region agent log
+  fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H1',location:'imageService.ts:getAdminSourceCounts:queryStart',message:'starting aggregation query batch',data:{now},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  adminSourceCountsInFlight = Promise.all([
+    getCountFromServer(imagesRef),
+    getCountFromServer(submissionsRef),
+    getCountFromServer(query(submissionsRef, where('status', '==', 'pending'))),
+    getCountFromServer(query(submissionsRef, where('status', '==', 'approved'))),
+    getCountFromServer(query(submissionsRef, where('status', '==', 'denied')))
+  ]).then(([imagesCount, submissionsCount, pendingCount, approvedCount, deniedCount]) => {
+    const value: AdminSourceCounts = {
+      images: imagesCount.data().count,
+      submissions: submissionsCount.data().count,
+      pending: pendingCount.data().count,
+      approved: approvedCount.data().count,
+      denied: deniedCount.data().count
+    };
+    adminSourceCountsCache = {
+      value,
+      expiresAtMs: Date.now() + ADMIN_SOURCE_COUNTS_TTL_MS
+    };
+    writeCountsBackoffUntilMs(0);
+    // #region agent log
+    fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:success',message:'aggregation query batch succeeded',data:value,timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return value;
+  }).catch((error) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:error',message:'aggregation query batch failed',data:{error:error instanceof Error ? error.message : String(error),quota:isQuotaError(error)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    if (isQuotaError(error)) {
+      writeCountsBackoffUntilMs(Date.now() + ADMIN_SOURCE_COUNTS_ERROR_BACKOFF_MS);
+      return fallbackCounts;
+    }
+    if (adminSourceCountsCache) {
+      return adminSourceCountsCache.value;
+    }
+    return fallbackCounts;
+  }).finally(() => {
+    adminSourceCountsInFlight = null;
+  });
+
+  return adminSourceCountsInFlight;
+}
+
+/**
+ * Fetch submissions in pages for admin review.
+ */
+export async function getAdminSubmissionsPage(options: {
+  status?: 'pending' | 'approved' | 'denied' | 'all';
+  pageSize?: number;
+  cursor?: string | null;
+} = {}): Promise<AdminPageResult<AdminSubmissionPageItem>> {
+  const pageSize = options.pageSize ?? 12;
+  const status = options.status ?? 'all';
+  const cursor = options.cursor ?? null;
+  const submissionsRef = collection(db, 'submissions');
+
+  const constraints: QueryConstraint[] = [];
+  if (status !== 'all') {
+    constraints.push(where('status', '==', status));
+  }
+  constraints.push(orderBy(documentId()));
+  if (cursor) {
+    constraints.push(startAfter(cursor));
+  }
+  constraints.push(limit(pageSize + 1));
+
+  const snapshot = await getDocs(query(submissionsRef, ...constraints));
+  const hasMore = snapshot.docs.length > pageSize;
+  const pageDocs = hasMore ? snapshot.docs.slice(0, pageSize) : snapshot.docs;
+  const nextCursor = hasMore ? pageDocs[pageDocs.length - 1]?.id ?? null : null;
+
+  const items = pageDocs.map((docSnap) => {
+    const data = docSnap.data() as Record<string, unknown>;
+    const buildingName = typeof data.buildingName === 'string'
+      ? data.buildingName
+      : (typeof data.building === 'string' ? data.building : null);
+
+    return {
+      id: docSnap.id,
+      photoURL: typeof data.photoURL === 'string' ? data.photoURL : null,
+      location: parseLocation(data.location),
+      floor: typeof data.floor === 'number' ? data.floor : null,
+      difficulty: typeof data.difficulty === 'string' ? data.difficulty : null,
+      photoName: typeof data.photoName === 'string' ? data.photoName : null,
+      buildingName,
+      description: typeof data.description === 'string' ? data.description : null,
+      status: typeof data.status === 'string' ? data.status : 'pending',
+      createdAt: data.createdAt ?? null,
+      reviewedAt: data.reviewedAt ?? null
+    } as AdminSubmissionPageItem;
+  });
+
+  return { items, hasMore, nextCursor };
+}
+
+/**
+ * Fetch game images in pages for admin review.
+ */
+export async function getAdminImagesPage(options: {
+  pageSize?: number;
+  cursor?: string | null;
+} = {}): Promise<AdminPageResult<AdminImagePageItem>> {
+  const pageSize = options.pageSize ?? 12;
+  const cursor = options.cursor ?? null;
+  const imagesRef = collection(db, 'images');
+
+  const constraints: QueryConstraint[] = [orderBy(documentId())];
+  if (cursor) {
+    constraints.push(startAfter(cursor));
+  }
+  constraints.push(limit(pageSize + 1));
+
+  const snapshot = await getDocs(query(imagesRef, ...constraints));
+  const hasMore = snapshot.docs.length > pageSize;
+  const pageDocs = hasMore ? snapshot.docs.slice(0, pageSize) : snapshot.docs;
+  const nextCursor = hasMore ? pageDocs[pageDocs.length - 1]?.id ?? null : null;
+
+  const items = pageDocs.map((docSnap) => {
+    const data = docSnap.data() as Record<string, unknown>;
+    return {
+      id: docSnap.id,
+      url: typeof data.url === 'string' ? data.url : null,
+      correctLocation: parseLocation(data.correctLocation),
+      correctFloor: typeof data.correctFloor === 'number' ? data.correctFloor : null,
+      difficulty: typeof data.difficulty === 'string' ? data.difficulty : null,
+      description: typeof data.description === 'string' ? data.description : null
+    } as AdminImagePageItem;
+  });
+
+  return { items, hasMore, nextCursor };
 }
 
 /**
