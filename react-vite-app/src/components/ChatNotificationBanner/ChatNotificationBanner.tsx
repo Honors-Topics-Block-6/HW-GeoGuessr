@@ -1,13 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ChatNotificationItem } from '../../hooks/useChatNotifications';
 import './ChatNotificationBanner.css';
 
-const AUTO_DISMISS_MS = 5_000; // 5 seconds – brief
+const AUTO_DISMISS_MS = 12_000;
+const INVITE_DISMISS_MS = 25_000;
 
 interface ChatNotificationBannerProps {
   notifications: ChatNotificationItem[];
   onDismiss: (id: string) => void;
+  onJoinInvite?: (item: ChatNotificationItem) => Promise<boolean>;
 }
 
 interface FirestoreTimestamp {
@@ -42,19 +44,22 @@ function formatTime(sentAt: ChatNotificationItem['sentAt']): string {
  */
 function ChatNotificationBanner({
   notifications,
-  onDismiss
+  onDismiss,
+  onJoinInvite
 }: ChatNotificationBannerProps): React.ReactElement | null {
   const timersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [joiningId, setJoiningId] = useState<string | null>(null);
 
   useEffect(() => {
     const currentTimers = timersRef.current;
 
     notifications.forEach((item) => {
       if (!currentTimers[item.id]) {
+        const timeoutMs = item.type === 'lobby_invite' ? INVITE_DISMISS_MS : AUTO_DISMISS_MS;
         currentTimers[item.id] = setTimeout(() => {
           onDismiss(item.id);
           delete currentTimers[item.id];
-        }, AUTO_DISMISS_MS);
+        }, timeoutMs);
       }
     });
 
@@ -73,16 +78,47 @@ function ChatNotificationBanner({
 
   if (!notifications || notifications.length === 0) return null;
 
+  const handleJoin = async (item: ChatNotificationItem): Promise<void> => {
+    if (!onJoinInvite || joiningId) return;
+    setJoiningId(item.id);
+    try {
+      const joined = await onJoinInvite(item);
+      if (joined) {
+        onDismiss(item.id);
+      }
+    } finally {
+      setJoiningId(null);
+    }
+  };
+
   return createPortal(
     <div className="chat-notification-container">
-      {notifications.map((item) => (
-        <div key={item.id} className="chat-notification">
+      {notifications.map((item) => {
+        const isInvite = item.type === 'lobby_invite' && item.lobbyDocId && item.difficulty;
+        return (
+          <div key={item.id} className="chat-notification">
           <div className="chat-notification-content">
             <div className="chat-notification-header">
               <span className="chat-notification-sender">{item.senderUsername}</span>
               <span className="chat-notification-time">{formatTime(item.sentAt)}</span>
             </div>
-            <p className="chat-notification-text">{item.text}</p>
+            {isInvite ? (
+              <div className="chat-notification-body">
+                <p className="chat-notification-text">{item.text}</p>
+                <div className="chat-notification-actions">
+                  <button
+                    type="button"
+                    className="chat-notification-join"
+                    onClick={() => handleJoin(item)}
+                    disabled={!!joiningId}
+                  >
+                    {joiningId === item.id ? 'Joining...' : 'Join Game'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="chat-notification-text">{item.text}</p>
+            )}
           </div>
           <button
             type="button"
@@ -93,7 +129,8 @@ function ChatNotificationBanner({
             ×
           </button>
         </div>
-      ))}
+        );
+      })}
     </div>,
     document.body
   );

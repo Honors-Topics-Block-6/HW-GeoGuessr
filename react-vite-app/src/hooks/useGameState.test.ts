@@ -161,6 +161,16 @@ describe('useGameState', () => {
       expect(result.current.currentRound).toBe(1);
     });
 
+    it('should store selected total rounds in state', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium', 'singleplayer', 20, 10);
+      });
+
+      expect(result.current.totalRounds).toBe(10);
+    });
+
     it('should clear previous round results', async () => {
       const { result } = renderHook(() => useGameState());
 
@@ -391,7 +401,8 @@ describe('useGameState', () => {
         result.current.submitGuess();
       });
 
-      expect(result.current.currentResult!.score).toBe(5000);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(500);
+      expect(result.current.currentResult!.score).toBe(5500);
       expect(result.current.currentResult!.floorCorrect).toBe(true);
     });
 
@@ -415,7 +426,32 @@ describe('useGameState', () => {
       });
 
       expect(result.current.currentResult!.floorCorrect).toBe(false);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
       expect(result.current.currentResult!.score).toBe(4000); // 5000 * 0.8
+    });
+
+    it('should not award exact spot bonus when guess is not very close', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 53, y: 50 }); // distance 3 (> exact-spot threshold)
+      });
+
+      act(() => {
+        result.current.selectFloor(2); // Correct floor
+      });
+
+      act(() => {
+        result.current.submitGuess();
+      });
+
+      expect(result.current.currentResult!.floorCorrect).toBe(true);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
+      expect(result.current.currentResult!.score).toBe(5000);
     });
 
     it('should apply floor penalty when floor matches but building is wrong', async () => {
@@ -453,7 +489,6 @@ describe('useGameState', () => {
       expect(result.current.currentResult!.floorCorrect).toBe(false);
       expect(result.current.currentResult!.score).toBeLessThan(result.current.currentResult!.locationScore);
     });
-
     it('should store result in roundResults', async () => {
       const { result } = renderHook(() => useGameState());
 
@@ -689,6 +724,30 @@ describe('useGameState', () => {
         });
       }
 
+      expect(result.current.screen).toBe('finalResults');
+    });
+
+    it('should end the game after the selected total rounds', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium', 'singleplayer', 20, 10);
+      });
+
+      // Play through 10 rounds
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          result.current.placeMarker({ x: 50, y: 50 });
+          result.current.selectFloor(2);
+          result.current.submitGuess();
+        });
+
+        await act(async () => {
+          await result.current.nextRound();
+        });
+      }
+
+      expect(result.current.totalRounds).toBe(10);
       expect(result.current.screen).toBe('finalResults');
     });
 

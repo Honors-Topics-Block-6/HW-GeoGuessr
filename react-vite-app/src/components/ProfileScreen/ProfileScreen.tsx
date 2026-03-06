@@ -1,9 +1,8 @@
 import { useMemo, useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { useAuth, type BuildingStat, type DailyStatBucket } from '../../contexts/AuthContext';
+import { useAuth, type BuildingStat, type DailyStatBucket, type DailyStatBucketRound } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
 import { getFavoriteAndWorstBuildings } from '../../utils/buildingStats';
-import { formatLastActive } from '../../utils/formatLastActive';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
 import { DAILY_STREAK_UPDATED_EVENT, getDisplayDailyStreak, syncDailyStreakRollover } from '../../services/streakService';
 import { isHeicFile, normalizeImageFile } from '../../utils/compressImage';
@@ -17,6 +16,7 @@ const PROFILE_CROP_MAX_ZOOM = 2.5;
 export interface ProfileScreenProps {
   onBack: () => void;
   onOpenFriends: () => void;
+  onOpenAchievements?: () => void;
 }
 
 interface AchievementDefinition {
@@ -31,7 +31,9 @@ interface AchievementDefinition {
   unlocked: boolean;
 }
 
-function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.ReactElement {
+type StatsRoundCount = 'all' | '5' | '10' | '20';
+
+function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScreenProps): React.ReactElement {
   const {
     user,
     userDoc,
@@ -49,17 +51,13 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
 
   useEffect(() => {
     if (!uid) return;
-
-    // Ensure stale streaks get reset to 0 before display.
     syncDailyStreakRollover(uid);
     setDailyStreak(getDisplayDailyStreak(uid));
-
     const onStreakUpdated = (event: Event): void => {
       const customEvent = event as CustomEvent<{ uid?: string }>;
       if (customEvent.detail?.uid && customEvent.detail.uid !== uid) return;
       setDailyStreak(getDisplayDailyStreak(uid));
     };
-
     window.addEventListener(DAILY_STREAK_UPDATED_EVENT, onStreakUpdated);
     return () => window.removeEventListener(DAILY_STREAK_UPDATED_EVENT, onStreakUpdated);
   }, [uid]);
@@ -80,17 +78,16 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   const [cropOffset, setCropOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [cropImageSize, setCropImageSize] = useState<{ width: number; height: number } | null>(null);
   const [isDraggingCrop, setIsDraggingCrop] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'stats'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'achievements'>('profile');
   const [statsInterval, setStatsInterval] = useState<'day' | 'week' | 'month' | 'all'>('all');
   const [statsDifficulty, setStatsDifficulty] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [statsRoundCount, setStatsRoundCount] = useState<StatsRoundCount>('all');
   const cropImageRef = useRef<HTMLImageElement | null>(null);
   const cropDragRef = useRef<{ startX: number; startY: number; offsetX: number; offsetY: number } | null>(null);
 
   useEffect(() => {
     return () => {
-      if (cropPreviewUrl) {
-        URL.revokeObjectURL(cropPreviewUrl);
-      }
+      if (cropPreviewUrl) URL.revokeObjectURL(cropPreviewUrl);
     };
   }, [cropPreviewUrl]);
 
@@ -126,31 +123,23 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     let file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-
     setError('');
     setSuccess('');
-
     if (!file.type.startsWith('image/') && !isHeicFile(file)) {
       setError('Please select an image file.');
       return;
     }
-
     if (file.size > 10 * 1024 * 1024) {
       setError('Image must be smaller than 10MB.');
       return;
     }
-
     try {
       file = await normalizeImageFile(file);
     } catch {
       setError('Could not process this image. Please convert it to JPG or PNG first.');
       return;
     }
-
-    if (cropPreviewUrl) {
-      URL.revokeObjectURL(cropPreviewUrl);
-    }
-
+    if (cropPreviewUrl) URL.revokeObjectURL(cropPreviewUrl);
     setPhotoToCrop(file);
     setCropPreviewUrl(URL.createObjectURL(file));
     setCropZoom(1);
@@ -178,21 +167,14 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     if (!cropPreviewUrl) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     setIsDraggingCrop(true);
-    cropDragRef.current = {
-      startX: event.clientX,
-      startY: event.clientY,
-      offsetX: cropOffset.x,
-      offsetY: cropOffset.y
-    };
+    cropDragRef.current = { startX: event.clientX, startY: event.clientY, offsetX: cropOffset.x, offsetY: cropOffset.y };
   };
 
   const handleCropPointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
     if (!isDraggingCrop || !cropDragRef.current) return;
-    const deltaX = event.clientX - cropDragRef.current.startX;
-    const deltaY = event.clientY - cropDragRef.current.startY;
     const nextOffset = {
-      x: cropDragRef.current.offsetX + deltaX,
-      y: cropDragRef.current.offsetY + deltaY
+      x: cropDragRef.current.offsetX + (event.clientX - cropDragRef.current.startX),
+      y: cropDragRef.current.offsetY + (event.clientY - cropDragRef.current.startY)
     };
     setCropOffset(clampCropOffset(nextOffset));
   };
@@ -204,9 +186,7 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     cropDragRef.current = null;
   };
 
-  const handleCancelCrop = (): void => {
-    resetCropState();
-  };
+  const handleCancelCrop = (): void => { resetCropState(); };
 
   const handleConfirmCrop = async (): Promise<void> => {
     if (!photoToCrop || !cropImageRef.current || !cropImageSize) return;
@@ -219,34 +199,17 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
       canvas.height = PROFILE_CROP_OUTPUT_SIZE;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Unable to prepare image crop.');
-
       const scale = cropBaseScale * cropZoom;
       const displayWidth = cropImageSize.width * scale;
       const displayHeight = cropImageSize.height * scale;
       const cropLeft = (displayWidth / 2 - PROFILE_CROP_SIZE / 2 - cropOffset.x) / scale;
       const cropTop = (displayHeight / 2 - PROFILE_CROP_SIZE / 2 - cropOffset.y) / scale;
       const cropSize = PROFILE_CROP_SIZE / scale;
-
-      ctx.drawImage(
-        cropImageRef.current,
-        cropLeft,
-        cropTop,
-        cropSize,
-        cropSize,
-        0,
-        0,
-        PROFILE_CROP_OUTPUT_SIZE,
-        PROFILE_CROP_OUTPUT_SIZE
-      );
-
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, 'image/jpeg', 0.9)
-      );
+      ctx.drawImage(cropImageRef.current, cropLeft, cropTop, cropSize, cropSize, 0, 0, PROFILE_CROP_OUTPUT_SIZE, PROFILE_CROP_OUTPUT_SIZE);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
       if (!blob) throw new Error('Failed to crop image.');
-
       const safeName = photoToCrop.name.replace(/\.[^/.]+$/, '');
       const croppedFile = new File([blob], `${safeName}-profile.jpg`, { type: 'image/jpeg' });
-
       await updateProfileImage(croppedFile);
       setSuccess('Profile picture updated!');
       setTimeout(() => setSuccess(''), 3000);
@@ -261,21 +224,10 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
   const handleSave = async (): Promise<void> => {
     setError('');
     setSuccess('');
-
     const trimmed = newUsername.trim();
-    if (!trimmed) {
-      setError('Username cannot be empty.');
-      return;
-    }
-    if (trimmed.length < 3) {
-      setError('Username must be at least 3 characters.');
-      return;
-    }
-    if (trimmed === userDoc?.username) {
-      setIsEditing(false);
-      return;
-    }
-
+    if (!trimmed) { setError('Username cannot be empty.'); return; }
+    if (trimmed.length < 3) { setError('Username must be at least 3 characters.'); return; }
+    if (trimmed === userDoc?.username) { setIsEditing(false); return; }
     setIsSaving(true);
     try {
       await updateUsername(trimmed);
@@ -317,18 +269,18 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     setError('');
   };
 
-  const progressPercent: number = Math.round(levelInfo.progress * 100);
-  const gamesPlayedAllTime: number = userDoc?.gamesPlayed ?? 0;
-  const totalScoreAllTime: number = userDoc?.totalScore ?? 0;
-  const totalGuessTimeSecondsAllTime: number = userDoc?.totalGuessTimeSeconds ?? 0;
-  const fiveKCountAllTime: number = userDoc?.fiveKCount ?? 0;
-  const twentyFiveKCountAllTime: number = userDoc?.twentyFiveKCount ?? 0;
-  const photosSubmittedCountAllTime: number = userDoc?.photosSubmittedCount ?? 0;
-  const followersCount: number = userDoc?.followersCount ?? 0;
+  const progressPercent = Math.round(levelInfo.progress * 100);
+  const gamesPlayedAllTime = userDoc?.gamesPlayed ?? 0;
+  const totalScoreAllTime = userDoc?.totalScore ?? 0;
+  const totalGuessTimeSecondsAllTime = userDoc?.totalGuessTimeSeconds ?? 0;
+  const fiveKCountAllTime = userDoc?.fiveKCount ?? 0;
+  const twentyFiveKCountAllTime = userDoc?.twentyFiveKCount ?? 0;
+  const photosSubmittedCountAllTime = userDoc?.photosSubmittedCount ?? 0;
+  const followersCount = userDoc?.followersCount ?? 0;
   const buildingStats: Record<string, BuildingStat> = userDoc?.buildingStats ?? {};
   const dailyStats: Record<string, DailyStatBucket> = userDoc?.dailyStats ?? {};
   const dailyStatsByDifficulty: Record<string, Record<string, DailyStatBucket>> = userDoc?.dailyStatsByDifficulty ?? {};
-  const gamesPlayed: number = userDoc?.gamesPlayed ?? 0;
+  const gamesPlayed = userDoc?.gamesPlayed ?? 0;
   const { friends } = useFriends(user?.uid ?? null, userDoc?.username ?? '');
 
   const formatTimestamp = (value: unknown): string => {
@@ -370,10 +322,8 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     startOfWeek.setDate(startDate.getDate() - startDate.getDay());
     const endOfWeek = new Date(endDate);
     endOfWeek.setDate(endDate.getDate() + (6 - endDate.getDay()));
-
     const weeks: Array<Array<{ date: Date; key: string; gamesPlayed: number } | null>> = [];
     const current = new Date(startOfWeek);
-
     while (current <= endOfWeek) {
       const week: Array<{ date: Date; key: string; gamesPlayed: number } | null> = [];
       for (let i = 0; i < 7; i += 1) {
@@ -389,7 +339,6 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
       }
       weeks.push(week);
     }
-
     return { weeks, startDate, endDate };
   };
 
@@ -409,16 +358,16 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
 
   const monthLabels = heatmapWeeks.map((week) => {
     const monthStart = week?.find((day) => day && day.date.getDate() === 1);
-    return monthStart
-      ? monthStart.date.toLocaleString('en-US', { month: 'short' })
-      : '';
+    return monthStart ? monthStart.date.toLocaleString('en-US', { month: 'short' }) : '';
   });
 
   const sumBuckets = (bucketsByDate: Record<string, DailyStatBucket>, keys: string[] | null) => {
     const totals = {
       gamesPlayed: 0,
+      roundsPlayed: 0,
       totalScore: 0,
       totalGuessTimeSeconds: 0,
+      fastestGuessTimeSeconds: null as number | null,
       fiveKCount: 0,
       twentyFiveKCount: 0,
       photosSubmittedCount: 0,
@@ -429,12 +378,17 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
       const dayStats = bucketsByDate[key];
       if (!dayStats) continue;
       totals.gamesPlayed += dayStats.gamesPlayed ?? 0;
+      totals.roundsPlayed += dayStats.roundsPlayed ?? (dayStats.gamesPlayed ?? 0) * 5;
       totals.totalScore += dayStats.totalScore ?? 0;
       totals.totalGuessTimeSeconds += dayStats.totalGuessTimeSeconds ?? 0;
+      if (typeof dayStats.fastestGuessTimeSeconds === 'number') {
+        totals.fastestGuessTimeSeconds = totals.fastestGuessTimeSeconds === null
+          ? dayStats.fastestGuessTimeSeconds
+          : Math.min(totals.fastestGuessTimeSeconds, dayStats.fastestGuessTimeSeconds);
+      }
       totals.fiveKCount += dayStats.fiveKCount ?? 0;
       totals.twentyFiveKCount += dayStats.twentyFiveKCount ?? 0;
       totals.photosSubmittedCount += dayStats.photosSubmittedCount ?? 0;
-
       const dayBuildings = dayStats.buildingStats ?? {};
       for (const [entryKey, entry] of Object.entries(dayBuildings)) {
         const current = totals.buildingStats[entryKey];
@@ -453,60 +407,126 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     return totals;
   };
 
+  const sumRoundBuckets = (bucketsByDate: Record<string, DailyStatBucket>, keys: string[] | null, roundCount: '5' | '10' | '20') => {
+    const totals = {
+      gamesPlayed: 0,
+      roundsPlayed: 0,
+      totalScore: 0,
+      totalGuessTimeSeconds: 0,
+      fastestGuessTimeSeconds: null as number | null,
+      fiveKCount: 0,
+      twentyFiveKCount: 0,
+      photosSubmittedCount: 0,
+      buildingStats: {} as Record<string, BuildingStat>
+    };
+    const dates = keys ?? Object.keys(bucketsByDate);
+    for (const key of dates) {
+      const dayStats = bucketsByDate[key];
+      if (!dayStats) continue;
+
+      // Legacy fallback: pre-round-count data is treated as 5-round games.
+      let bucket: DailyStatBucketRound | null = null;
+      if (dayStats.byRoundCount?.[roundCount]) {
+        bucket = dayStats.byRoundCount[roundCount] ?? null;
+      } else if (roundCount === '5') {
+        bucket = {
+          gamesPlayed: dayStats.gamesPlayed ?? 0,
+          roundsPlayed: dayStats.roundsPlayed ?? (dayStats.gamesPlayed ?? 0) * 5,
+          totalScore: dayStats.totalScore ?? 0,
+          totalGuessTimeSeconds: dayStats.totalGuessTimeSeconds ?? 0,
+          fastestGuessTimeSeconds: dayStats.fastestGuessTimeSeconds,
+          fiveKCount: dayStats.fiveKCount ?? 0,
+          twentyFiveKCount: dayStats.twentyFiveKCount ?? 0,
+          buildingStats: dayStats.buildingStats ?? {}
+        };
+      }
+      if (!bucket) continue;
+
+      totals.gamesPlayed += bucket.gamesPlayed ?? 0;
+      totals.roundsPlayed += bucket.roundsPlayed ?? 0;
+      totals.totalScore += bucket.totalScore ?? 0;
+      totals.totalGuessTimeSeconds += bucket.totalGuessTimeSeconds ?? 0;
+      if (typeof bucket.fastestGuessTimeSeconds === 'number') {
+        totals.fastestGuessTimeSeconds = totals.fastestGuessTimeSeconds === null
+          ? bucket.fastestGuessTimeSeconds
+          : Math.min(totals.fastestGuessTimeSeconds, bucket.fastestGuessTimeSeconds);
+      }
+      totals.fiveKCount += bucket.fiveKCount ?? 0;
+      totals.twentyFiveKCount += bucket.twentyFiveKCount ?? 0;
+
+      for (const [entryKey, entry] of Object.entries(bucket.buildingStats ?? {})) {
+        const current = totals.buildingStats[entryKey];
+        if (!current) {
+          totals.buildingStats[entryKey] = { ...entry };
+        } else {
+          totals.buildingStats[entryKey] = {
+            building: current.building,
+            floor: current.floor,
+            totalScore: current.totalScore + entry.totalScore,
+            count: current.count + entry.count
+          };
+        }
+      }
+    }
+    return totals;
+  };
+
   const getFilteredStats = () => {
-    if (statsInterval === 'all') {
+    const days = statsInterval === 'day' ? 1 : statsInterval === 'week' ? 7 : 30;
+    const keys = statsInterval === 'all' ? null : getDateKeys(days);
+    const baseBuckets = statsDifficulty === 'all'
+      ? dailyStats
+      : Object.fromEntries(
+        Object.entries(dailyStatsByDifficulty).map(([dateKey, diffMap]) => [dateKey, diffMap[statsDifficulty]])
+      ) as Record<string, DailyStatBucket>;
+
+    if (statsRoundCount !== 'all') {
+      const roundTotals = sumRoundBuckets(baseBuckets, keys, statsRoundCount);
+      const photoSource = statsInterval === 'all'
+        ? photosSubmittedCountAllTime
+        : sumBuckets(dailyStats, keys).photosSubmittedCount;
+      return { ...roundTotals, photosSubmittedCount: photoSource };
+    }
+
+    if (statsInterval === 'all' && statsDifficulty === 'all') {
       const allTimeTotals = {
         gamesPlayed: gamesPlayedAllTime,
+        roundsPlayed: gamesPlayedAllTime * 5,
         totalScore: totalScoreAllTime,
         totalGuessTimeSeconds: totalGuessTimeSecondsAllTime,
+        fastestGuessTimeSeconds: typeof userDoc?.fastestGuessTimeSeconds === 'number' ? userDoc.fastestGuessTimeSeconds : null,
         fiveKCount: fiveKCountAllTime,
         twentyFiveKCount: twentyFiveKCountAllTime,
         photosSubmittedCount: photosSubmittedCountAllTime,
         buildingStats
       };
-      if (statsDifficulty === 'all') {
-        return allTimeTotals;
-      }
-      const difficultyTotals = sumBuckets(
-        Object.fromEntries(
-          Object.entries(dailyStatsByDifficulty).map(([dateKey, diffMap]) => [
-            dateKey,
-            diffMap[statsDifficulty]
-          ])
-        ) as Record<string, DailyStatBucket>,
-        null
-      );
-      return {
-        ...allTimeTotals,
-        ...difficultyTotals,
-        photosSubmittedCount: allTimeTotals.photosSubmittedCount
-      };
+      return allTimeTotals;
     }
 
-    const days = statsInterval === 'day' ? 1 : statsInterval === 'week' ? 7 : 30;
-    const keys = getDateKeys(days);
-    const timeTotals = sumBuckets(dailyStats, keys);
-    if (statsDifficulty === 'all') {
-      return timeTotals;
+    const totals = sumBuckets(baseBuckets, keys);
+    if (statsDifficulty !== 'all') {
+      const photoSource = statsInterval === 'all'
+        ? photosSubmittedCountAllTime
+        : sumBuckets(dailyStats, keys).photosSubmittedCount;
+      return { ...totals, photosSubmittedCount: photoSource };
     }
-    const difficultyTotals = sumBuckets(
-      Object.fromEntries(
-        keys.map((dateKey) => [dateKey, dailyStatsByDifficulty[dateKey]?.[statsDifficulty]])
-      ) as Record<string, DailyStatBucket>,
-      keys
-    );
-    return {
-      ...timeTotals,
-      ...difficultyTotals,
-      photosSubmittedCount: timeTotals.photosSubmittedCount
-    };
+    return totals;
   };
 
   const filteredStats = getFilteredStats();
   const averageScore = filteredStats.gamesPlayed > 0 ? Math.round(filteredStats.totalScore / filteredStats.gamesPlayed) : 0;
-  const averageGuessTime = filteredStats.gamesPlayed > 0 ? filteredStats.totalGuessTimeSeconds / (filteredStats.gamesPlayed * 5) : 0;
+  const totalGuesses = filteredStats.roundsPlayed > 0
+    ? filteredStats.roundsPlayed
+    : filteredStats.gamesPlayed * (statsRoundCount === 'all' ? 5 : Number(statsRoundCount));
+  const averageGuessTime = totalGuesses > 0 ? filteredStats.totalGuessTimeSeconds / totalGuesses : 0;
+  const perfectGameLabel = statsRoundCount === '5'
+    ? 'Number of 25ks'
+    : statsRoundCount === '10'
+      ? 'Number of 50ks'
+      : statsRoundCount === '20'
+        ? 'Number of 100ks'
+        : 'Number of Perfect Games';
   const friendsToFollowerRatio = followersCount > 0 ? (friends.length / followersCount) : null;
-
   const { favoriteBuilding, worstBuilding } = getFavoriteAndWorstBuildings(filteredStats.buildingStats);
 
   const achievementDefinitions: AchievementDefinition[] = useMemo(() => {
@@ -514,42 +534,20 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
     return allMeta.map((meta) => {
       let target = 1;
       let progress = 0;
-
-      if (meta.id === 'first-game') {
-        target = 1;
-        progress = gamesPlayed;
-      } else if (meta.id === 'weekend-warrior') {
-        target = 25;
-        progress = gamesPlayed;
-      } else if (meta.id === 'xp-collector') {
-        target = 5000;
-        progress = totalXp;
-      } else if (meta.id === 'rising-star') {
-        target = 10;
-        progress = levelInfo.level;
-      } else if (meta.id === 'verified-account') {
-        target = 1;
-        progress = emailVerified ? 1 : 0;
-      } else if (
-        meta.id === 'easy-finish' ||
-        meta.id === 'medium-finish' ||
-        meta.id === 'hard-finish' ||
-        meta.id === 'bullseye'
-      ) {
+      if (meta.id === 'first-game') { target = 1; progress = gamesPlayed; }
+      else if (meta.id === 'weekend-warrior') { target = 25; progress = gamesPlayed; }
+      else if (meta.id === 'xp-collector') { target = 5000; progress = totalXp; }
+      else if (meta.id === 'rising-star') { target = 10; progress = levelInfo.level; }
+      else if (meta.id === 'verified-account') { target = 1; progress = emailVerified ? 1 : 0; }
+      else if (['easy-finish', 'medium-finish', 'hard-finish', 'bullseye'].includes(meta.id)) {
         target = 1;
         progress = isAchievementUnlocked(meta.id) ? 1 : 0;
       }
-
       const clampedProgress = Math.min(progress, target);
-      return {
-        ...meta,
-        target,
-        progress: clampedProgress,
-        unlocked: clampedProgress >= target
-      };
+      return { ...meta, target, progress: clampedProgress, unlocked: clampedProgress >= target };
     });
   }, [emailVerified, gamesPlayed, levelInfo.level, totalXp]);
-  const completedAchievements: number = achievementDefinitions.filter((achievement) => achievement.progress >= achievement.target).length;
+  const completedAchievements = achievementDefinitions.filter((a) => a.progress >= a.target).length;
 
   return (
     <div className="profile-screen">
@@ -558,482 +556,263 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
       </div>
       <div className="profile-layout">
         <div className="profile-card">
-          <button className="profile-back-button" onClick={onBack}>
-            ← Back
-          </button>
-
-        <div className="profile-avatar">
-          {userDoc?.photoURL ? (
-            <img
-              className="profile-avatar-image"
-              src={userDoc.photoURL}
-              alt={`${userDoc.username}'s profile`}
-            />
-          ) : (
-            <span className="profile-avatar-icon">👤</span>
-          )}
-          <label className={`profile-photo-upload ${isUploadingPhoto ? 'disabled' : ''}`}>
-            {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
-            <input
-              type="file"
-              accept="image/*,.heic,.heif"
-              onChange={handlePhotoUpload}
-              disabled={isUploadingPhoto}
-            />
-          </label>
-        </div>
-
+          <button className="profile-back-button" onClick={onBack}>← Back</button>
+          <div className="profile-avatar">
+            {userDoc?.photoURL ? (
+              <img className="profile-avatar-image" src={userDoc.photoURL} alt={`${userDoc.username}'s profile`} />
+            ) : (
+              <span className="profile-avatar-icon">👤</span>
+            )}
+            <label className={`profile-photo-upload ${isUploadingPhoto ? 'disabled' : ''}`}>
+              {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+              <input type="file" accept="image/*,.heic,.heif" onChange={handlePhotoUpload} disabled={isUploadingPhoto} />
+            </label>
+          </div>
           <h1 className="profile-title">Your Profile</h1>
-
           {error && <div className="profile-error">{error}</div>}
           {success && <div className="profile-success">{success}</div>}
-
-        <div className="profile-tabs">
-          <button
-            className={`profile-tab ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => setActiveTab('profile')}
-            type="button"
-          >
-            Profile
-          </button>
-          <button
-            className={`profile-tab ${activeTab === 'stats' ? 'active' : ''}`}
-            onClick={() => setActiveTab('stats')}
-            type="button"
-          >
-            Statistics
-          </button>
-        </div>
-
-        {/* ── Level & XP Section ── */}
-        <div className="profile-level-section">
-          <div className="profile-level-header">
-            <span className="profile-level-badge">Lvl {levelInfo.level}</span>
-            <span className="profile-level-title">{levelTitle}</span>
+          <div className="profile-tabs">
+            <button className={`profile-tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')} type="button">Profile</button>
+            <button className={`profile-tab ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')} type="button">Statistics</button>
           </div>
-          {/* ── Level & XP Section ── */}
-          <div className="profile-level-section">
-            <div className="profile-level-header">
-              <span className="profile-level-badge">Lvl {levelInfo.level}</span>
-              <span className="profile-level-title">{levelTitle}</span>
-            </div>
-
-            <div className="profile-xp-bar-container">
-              <div className="profile-xp-bar">
-                <div
-                  className="profile-xp-bar-fill"
-                  style={{ width: `${progressPercent}%` }}
-                />
+          {activeTab === 'profile' && (
+            <>
+              {/* ── Level & XP Section ── */}
+              <div className="profile-level-section">
+                <div className="profile-level-header">
+                  <span className="profile-level-badge">Lvl {levelInfo.level}</span>
+                  <span className="profile-level-title">{levelTitle}</span>
+                </div>
+                <div className="profile-xp-bar-container">
+                  <div className="profile-xp-bar">
+                    <div className="profile-xp-bar-fill" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                  <div className="profile-xp-bar-labels">
+                    <span className="profile-xp-current">{levelInfo.xpIntoLevel.toLocaleString()} XP</span>
+                    <span className="profile-xp-needed">{levelInfo.currentLevelXp.toLocaleString()} XP</span>
+                  </div>
+                </div>
+                <div className="profile-xp-stats">
+                  <div className="profile-xp-stat">
+                    <span className="profile-xp-stat-value">{totalXp.toLocaleString()}</span>
+                    <span className="profile-xp-stat-label">Total XP</span>
+                  </div>
+                  <div className="profile-xp-stat">
+                    <span className="profile-xp-stat-value">{gamesPlayed}</span>
+                    <span className="profile-xp-stat-label">Games Played</span>
+                  </div>
+                  <div className="profile-xp-stat">
+                    <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
+                    <span className="profile-xp-stat-label">XP to Next Level</span>
+                  </div>
+                </div>
               </div>
-              <div className="profile-xp-bar-labels">
-                <span className="profile-xp-current">
-                  {levelInfo.xpIntoLevel.toLocaleString()} XP
-                </span>
-                <span className="profile-xp-needed">
-                  {levelInfo.currentLevelXp.toLocaleString()} XP
-                </span>
-              </div>
-            </div>
-
-            <div className="profile-xp-stats">
-              <div className="profile-xp-stat">
-                <span className="profile-xp-stat-value">{totalXp.toLocaleString()}</span>
-                <span className="profile-xp-stat-label">Total XP</span>
-              </div>
-              <div className="profile-xp-stat">
-                <span className="profile-xp-stat-value">{gamesPlayed}</span>
-                <span className="profile-xp-stat-label">Games Played</span>
-              </div>
-              <div className="profile-xp-stat">
-                <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
-                <span className="profile-xp-stat-label">XP to Next Level</span>
-              </div>
-            </div>
-            <div className="profile-xp-stat">
-              <span className="profile-xp-stat-value">{gamesPlayedAllTime}</span>
-              <span className="profile-xp-stat-label">Games Played</span>
-            </div>
-            <div className="profile-xp-stat">
-              <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
-              <span className="profile-xp-stat-label">XP to Next Level</span>
-            </div>
-          </div>
-
-        {activeTab === 'profile' ? (
-          <div className="profile-fields">
-            <div className="profile-field">
-              <span className="profile-label">Last Active</span>
-              <span className="profile-value">{formatLastActive(userDoc?.lastActive ?? userDoc?.lastOnline)}</span>
-            </div>
-
-            <div className="profile-field">
-              <span className="profile-label">Username</span>
-              {isEditing ? (
-                <>
+            </>
+          )}
+          {activeTab === 'profile' ? (
+            <div className="profile-fields">
+              <div className="profile-field">
+                <span className="profile-label">Username</span>
+                {isEditing ? (
                   <div className="profile-edit-row">
-                    <input
-                      type="text"
-                      value={newUsername}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setNewUsername(e.target.value)}
-                      className="profile-input"
-                      autoFocus
-                      disabled={isSaving}
-                    />
-                    <button
-                      className="profile-save-button"
-                      onClick={handleSave}
-                      disabled={isSaving}
-                    >
-                      {isSaving ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
-                      className="profile-cancel-button"
-                      onClick={handleCancel}
-                      disabled={isSaving}
-                    >
-                      Cancel
-                    </button>
+                    <input type="text" value={newUsername} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewUsername(e.target.value)} className="profile-input" autoFocus disabled={isSaving} />
+                    <button className="profile-save-button" onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save'}</button>
+                    <button className="profile-cancel-button" onClick={handleCancel} disabled={isSaving}>Cancel</button>
                   </div>
-                  <div className="profile-username-note">
-                    Changing your username is allowed once every 30 days.
+                ) : (
+                  <div className="profile-value-row">
+                    <span className="profile-value">{userDoc?.username}</span>
+                    <button className="profile-edit-button" onClick={() => setIsEditing(true)}>Edit</button>
                   </div>
-                </>
-              ) : (
+                )}
+              </div>
+              <div className="profile-field">
+                <span className="profile-label">Email</span>
                 <div className="profile-value-row">
-                  <span className="profile-value">{userDoc?.username}</span>
-                  <button
-                    className="profile-edit-button"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    Edit
-                  </button>
+                  <span className="profile-value">{user?.email}</span>
+                  <span className={`profile-verification-badge ${emailVerified ? 'verified' : 'unverified'}`}>{emailVerified ? 'Verified' : 'Unverified'}</span>
+                </div>
+              </div>
+              <div className="profile-field">
+                <span className="profile-label">Friends</span>
+                <div className="profile-value-row">
+                  <span className="profile-value">View and manage your friends</span>
+                  <button className="profile-friends-button" onClick={onOpenFriends}>Friends</button>
+                </div>
+              </div>
+              {onOpenAchievements && (
+                <div className="profile-field">
+                  <span className="profile-label">Achievements</span>
+                  <div className="profile-value-row">
+                    <span className="profile-value">Track your milestones and XP rewards</span>
+                    <button className="profile-friends-button" onClick={onOpenAchievements}>View Achievements</button>
+                  </div>
                 </div>
               )}
-            </div>
-
-            <div className="profile-field">
-              <span className="profile-label">Email</span>
-              <div className="profile-value-row">
-                <span className="profile-value">{user?.email}</span>
-                <span className={`profile-verification-badge ${emailVerified ? 'verified' : 'unverified'}`}>
-                  {emailVerified ? 'Verified' : 'Unverified'}
-                </span>
+              <div className="profile-field">
+                <span className="profile-label">Time Joined</span>
+                <span className="profile-value">{formatTimestamp(userDoc?.createdAt)}</span>
               </div>
-            </div>
-
-            <div className="profile-field">
-              <span className="profile-label">Friends</span>
-              <div className="profile-value-row">
-                <span className="profile-value">View and manage your friends</span>
-                <button
-                  className="profile-friends-button"
-                  onClick={onOpenFriends}
-                >
-                  Friends
-                </button>
+              <div className="profile-field">
+                <span className="profile-label">Last Online</span>
+                <span className="profile-value">{formatTimestamp(userDoc?.lastOnline)}</span>
               </div>
-            </div>
-
-            <div className="profile-field">
-              <span className="profile-label">Member Since</span>
-              <span className="profile-value">{formatTimestamp(userDoc?.createdAt)}</span>
-            </div>
-          </div>
-        ) : (
-          <div className="profile-stats">
-            <div className="profile-activity">
-              <div className="profile-activity-header">
-                <div className="profile-activity-header-text">
-                  <span className="profile-activity-title">Games Played Activity</span>
-                  <span className="profile-activity-subtitle">Last 365 days</span>
-                </div>
-                <span className="profile-activity-total">
-                  {totalGamesYear.toLocaleString()} games in the last year
-                </span>
+              <div className="profile-field">
+                <span className="profile-label">Friends to Follower Ratio</span>
+                <span className="profile-value">{friendsToFollowerRatio !== null ? friendsToFollowerRatio.toFixed(2) : 'N/A'}</span>
               </div>
-              <div className="profile-activity-months">
-                {monthLabels.map((label, index) => (
-                  <span key={`${label}-${index}`} className="profile-activity-month">
-                    {label}
-                  </span>
-                ))}
+              <div className="profile-field">
+                <span className="profile-label">Number of Photos Submitted</span>
+                <span className="profile-value">{photosSubmittedCountAllTime.toLocaleString()}</span>
               </div>
-              <div className="profile-activity-body">
-                <div className="profile-activity-weekdays">
-                  <span className="profile-activity-weekday" style={{ gridRow: 2 }}>Mon</span>
-                  <span className="profile-activity-weekday" style={{ gridRow: 4 }}>Wed</span>
-                  <span className="profile-activity-weekday" style={{ gridRow: 6 }}>Fri</span>
-                </div>
-                <div className="profile-activity-grid">
-                  {heatmapWeeks.map((week, weekIndex) => (
-                    <div key={`week-${weekIndex}`} className="profile-activity-week">
-                      {week.map((day, dayIndex) => {
-                        if (!day) {
-                          return (
-                            <div
-                              key={`empty-${weekIndex}-${dayIndex}`}
-                              className="profile-activity-cell level-0 is-empty"
-                              aria-hidden="true"
-                            />
-                          );
-                        }
-                        const tooltip = `${day.gamesPlayed} ${day.gamesPlayed === 1 ? 'game' : 'games'} on ${day.date.toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}`;
-                        return (
-                          <div
-                            key={day.key}
-                            className={`profile-activity-cell ${getHeatmapLevel(day.gamesPlayed)}`}
-                            title={tooltip}
-                            aria-label={tooltip}
-                          />
-                        );
-                      })}
+              <div className="profile-field">
+                <span className="profile-label">Favorite Emote</span>
+                {isEditingEmote ? (
+                  <div className="profile-edit-row">
+                    <input type="text" value={newFavoriteEmote} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewFavoriteEmote(e.target.value)} className="profile-input profile-emote-input" disabled={isSavingEmote} placeholder="Pick an emoji" />
+                    <div className="profile-emote-quick-row">
+                      {QUICK_PROFILE_EMOTES.map((emote) => (
+                        <button key={emote} className="profile-emote-quick-button" onClick={() => setNewFavoriteEmote(emote)} type="button" disabled={isSavingEmote} aria-label={`Set favorite emote to ${emote}`}>{emote}</button>
+                      ))}
                     </div>
+                    <button className="profile-save-button" onClick={handleSaveFavoriteEmote} disabled={isSavingEmote}>{isSavingEmote ? 'Saving...' : 'Save'}</button>
+                    <button className="profile-cancel-button" onClick={handleCancelFavoriteEmote} disabled={isSavingEmote}>Cancel</button>
+                  </div>
+                ) : (
+                  <div className="profile-value-row">
+                    <span className="profile-value profile-favorite-emote">{userDoc?.favoriteEmote || '😎'}</span>
+                    <button className="profile-edit-button" onClick={() => setIsEditingEmote(true)}>Edit</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : activeTab === 'stats' ? (
+            <div className="profile-stats">
+              <div className="profile-activity">
+                <div className="profile-activity-header">
+                  <div className="profile-activity-header-text">
+                    <span className="profile-activity-title">Games Played Activity</span>
+                    <span className="profile-activity-subtitle">Last 365 days</span>
+                  </div>
+                  <span className="profile-activity-total">{totalGamesYear.toLocaleString()} games in the last year</span>
+                </div>
+                <div className="profile-activity-months">
+                  {monthLabels.map((label, index) => (
+                    <span key={`${label}-${index}`} className="profile-activity-month">{label}</span>
+                  ))}
+                </div>
+                <div className="profile-activity-body">
+                  <div className="profile-activity-weekdays">
+                    <span className="profile-activity-weekday" style={{ gridRow: 2 }}>Mon</span>
+                    <span className="profile-activity-weekday" style={{ gridRow: 4 }}>Wed</span>
+                    <span className="profile-activity-weekday" style={{ gridRow: 6 }}>Fri</span>
+                  </div>
+                  <div className="profile-activity-grid">
+                    {heatmapWeeks.map((week, weekIndex) => (
+                      <div key={`week-${weekIndex}`} className="profile-activity-week">
+                        {week.map((day, dayIndex) => {
+                          if (!day) {
+                            return <div key={`empty-${weekIndex}-${dayIndex}`} className="profile-activity-cell level-0 is-empty" aria-hidden="true" />;
+                          }
+                          const tooltip = `${day.gamesPlayed} ${day.gamesPlayed === 1 ? 'game' : 'games'} on ${day.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+                          return (
+                            <div key={day.key} className={`profile-activity-cell ${getHeatmapLevel(day.gamesPlayed)}`} title={tooltip} aria-label={tooltip} />
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="profile-activity-legend">
+                  <span className="profile-activity-legend-label">Less</span>
+                  <div className="profile-activity-legend-cells">
+                    <span className="profile-activity-cell level-0" />
+                    <span className="profile-activity-cell level-1" />
+                    <span className="profile-activity-cell level-2" />
+                    <span className="profile-activity-cell level-3" />
+                    <span className="profile-activity-cell level-4" />
+                  </div>
+                  <span className="profile-activity-legend-label">More</span>
+                </div>
+              </div>
+              <div className="profile-stats-interval">
+                <span className="profile-stats-interval-label">Sorting</span>
+                <div className="profile-stats-interval-buttons">
+                  {(['day', 'week', 'month', 'all'] as const).map((interval) => (
+                    <button key={interval} type="button" className={`profile-stats-interval-button ${statsInterval === interval ? 'active' : ''}`} onClick={() => setStatsInterval(interval)}>
+                      {interval === 'all' ? 'All Time' : interval.charAt(0).toUpperCase() + interval.slice(1)}
+                    </button>
                   ))}
                 </div>
               </div>
-              <div className="profile-activity-legend">
-                <span className="profile-activity-legend-label">Less</span>
-                <div className="profile-activity-legend-cells">
-                  <span className="profile-activity-cell level-0" />
-                  <span className="profile-activity-cell level-1" />
-                  <span className="profile-activity-cell level-2" />
-                  <span className="profile-activity-cell level-3" />
-                  <span className="profile-activity-cell level-4" />
+              <div className="profile-stats-interval">
+                <span className="profile-stats-interval-label">Difficulty</span>
+                <div className="profile-stats-interval-buttons">
+                  {(['all', 'easy', 'medium', 'hard'] as const).map((diff) => (
+                    <button key={diff} type="button" className={`profile-stats-interval-button ${statsDifficulty === diff ? 'active' : ''}`} onClick={() => setStatsDifficulty(diff)}>
+                      {diff === 'all' ? 'All' : diff.charAt(0).toUpperCase() + diff.slice(1)}
+                    </button>
+                  ))}
                 </div>
-                <span className="profile-activity-legend-label">More</span>
               </div>
-            </div>
-            <div className="profile-stats-interval">
-              <span className="profile-stats-interval-label">Sorting</span>
-              <div className="profile-stats-interval-buttons">
-                <button
-                  type="button"
-                  className={`profile-stats-interval-button ${statsInterval === 'day' ? 'active' : ''}`}
-                  onClick={() => setStatsInterval('day')}
-                >
-                  Day
-                </button>
-                <button
-                  type="button"
-                  className={`profile-stats-interval-button ${statsInterval === 'week' ? 'active' : ''}`}
-                  onClick={() => setStatsInterval('week')}
-                >
-                  Week
-                </button>
-                <button
-                  type="button"
-                  className={`profile-stats-interval-button ${statsInterval === 'month' ? 'active' : ''}`}
-                  onClick={() => setStatsInterval('month')}
-                >
-                  Month
-                </button>
-                <button
-                  type="button"
-                  className={`profile-stats-interval-button ${statsInterval === 'all' ? 'active' : ''}`}
-                  onClick={() => setStatsInterval('all')}
-                >
-                  All Time
-                </button>
+              <div className="profile-stats-interval">
+                <span className="profile-stats-interval-label">Rounds</span>
+                <div className="profile-stats-interval-buttons">
+                  {(['all', '5', '10', '20'] as const).map((roundCount) => (
+                    <button key={roundCount} type="button" className={`profile-stats-interval-button ${statsRoundCount === roundCount ? 'active' : ''}`} onClick={() => setStatsRoundCount(roundCount)}>
+                      {roundCount === 'all' ? 'All' : `${roundCount} Rounds`}
+                    </button>
+                  ))}
+                </div>
               </div>
+              <div className="profile-stat-row"><span className="profile-stat-label">Games Played</span><span className="profile-stat-value">{filteredStats.gamesPlayed.toLocaleString()}</span></div>
+              <div className="profile-stat-row"><span className="profile-stat-label">Average Score</span><span className="profile-stat-value">{filteredStats.gamesPlayed > 0 ? averageScore.toLocaleString() : 'N/A'}</span></div>
+              <div className="profile-stat-row"><span className="profile-stat-label">Number of 5ks</span><span className="profile-stat-value">{filteredStats.fiveKCount.toLocaleString()}</span></div>
+              <div className="profile-stat-row"><span className="profile-stat-label">{perfectGameLabel}</span><span className="profile-stat-value">{filteredStats.twentyFiveKCount.toLocaleString()}</span></div>
+              <div className="profile-stat-row"><span className="profile-stat-label">Favorite Building</span><span className="profile-stat-value">{favoriteBuilding}</span></div>
+              <div className="profile-stat-row"><span className="profile-stat-label">Worst Building</span><span className="profile-stat-value">{worstBuilding}</span></div>
+              <div className="profile-stat-row"><span className="profile-stat-label">Average Guess Time</span><span className="profile-stat-value">{filteredStats.gamesPlayed > 0 ? `${averageGuessTime.toFixed(2)}s` : 'N/A'}</span></div>
+              <div className="profile-stat-row"><span className="profile-stat-label">Fastest Guess Time</span><span className="profile-stat-value">{typeof filteredStats.fastestGuessTimeSeconds === 'number' ? `${filteredStats.fastestGuessTimeSeconds.toFixed(2)}s` : 'N/A'}</span></div>
             </div>
-            <div className="profile-stats-interval">
-              <span className="profile-stats-interval-label">Difficulty</span>
-              <div className="profile-stats-interval-buttons">
-                <button
-                  type="button"
-                  className={`profile-stats-interval-button ${statsDifficulty === 'all' ? 'active' : ''}`}
-                  onClick={() => setStatsDifficulty('all')}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  className={`profile-stats-interval-button ${statsDifficulty === 'easy' ? 'active' : ''}`}
-                  onClick={() => setStatsDifficulty('easy')}
-                >
-                  Easy
-                </button>
-                <button
-                  type="button"
-                  className={`profile-stats-interval-button ${statsDifficulty === 'medium' ? 'active' : ''}`}
-                  onClick={() => setStatsDifficulty('medium')}
-                >
-                  Medium
-                </button>
-                <button
-                  type="button"
-                  className={`profile-stats-interval-button ${statsDifficulty === 'hard' ? 'active' : ''}`}
-                  onClick={() => setStatsDifficulty('hard')}
-                >
-                  Hard
-                </button>
+          ) : (
+            <section className="profile-achievements-section">
+              <div className="profile-achievements-header">
+                <span className="profile-label">Achievements</span>
+                <span className="profile-achievements-summary">{completedAchievements}/{achievementDefinitions.length} unlocked</span>
               </div>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Games Played</span>
-              <span className="profile-stat-value">{filteredStats.gamesPlayed.toLocaleString()}</span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Average Score</span>
-              <span className="profile-stat-value">
-                {filteredStats.gamesPlayed > 0 ? averageScore.toLocaleString() : 'N/A'}
-              </span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Number of 5ks</span>
-              <span className="profile-stat-value">{filteredStats.fiveKCount.toLocaleString()}</span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Number of 25ks</span>
-              <span className="profile-stat-value">{filteredStats.twentyFiveKCount.toLocaleString()}</span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Favorite Building</span>
-              <span className="profile-stat-value">{favoriteBuilding}</span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Worst Building</span>
-              <span className="profile-stat-value">{worstBuilding}</span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Average Guess Time</span>
-              <span className="profile-stat-value">
-                {filteredStats.gamesPlayed > 0 ? `${averageGuessTime.toFixed(2)}s` : 'N/A'}
-              </span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Number of Photos Submitted</span>
-              <span className="profile-stat-value">{filteredStats.photosSubmittedCount.toLocaleString()}</span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Time Joined</span>
-              <span className="profile-stat-value">{formatTimestamp(userDoc?.createdAt)}</span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Last Online</span>
-              <span className="profile-stat-value">{formatTimestamp(userDoc?.lastOnline)}</span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Friends to Follower Ratio</span>
-              <span className="profile-stat-value">
-                {friendsToFollowerRatio !== null ? friendsToFollowerRatio.toFixed(2) : 'N/A'}
-              </span>
-            </div>
-            <div className="profile-stat-row">
-              <span className="profile-stat-label">Favorite Emote</span>
-              <span className="profile-stat-value">{userDoc?.favoriteEmote || '😎'}</span>
-            </div>
-            <div className="profile-field">
-              <span className="profile-label">Favorite Emote (Public)</span>
-              {isEditingEmote ? (
-                <div className="profile-edit-row">
-                  <input
-                    type="text"
-                    value={newFavoriteEmote}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewFavoriteEmote(e.target.value)}
-                    className="profile-input profile-emote-input"
-                    disabled={isSavingEmote}
-                    placeholder="Pick an emoji"
-                  />
-                  <div className="profile-emote-quick-row">
-                    {QUICK_PROFILE_EMOTES.map((emote) => (
-                      <button
-                        key={emote}
-                        className="profile-emote-quick-button"
-                        onClick={() => setNewFavoriteEmote(emote)}
-                        type="button"
-                        disabled={isSavingEmote}
-                        aria-label={`Set favorite emote to ${emote}`}
-                      >
-                        {emote}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    className="profile-save-button"
-                    onClick={handleSaveFavoriteEmote}
-                    disabled={isSavingEmote}
-                  >
-                    {isSavingEmote ? 'Saving...' : 'Save'}
-                  </button>
-                  <button
-                    className="profile-cancel-button"
-                    onClick={handleCancelFavoriteEmote}
-                    disabled={isSavingEmote}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <div className="profile-value-row">
-                  <span className="profile-value profile-favorite-emote">{userDoc?.favoriteEmote || '😎'}</span>
-                  <button
-                    className="profile-edit-button"
-                    onClick={() => setIsEditingEmote(true)}
-                  >
-                    Edit
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-        <section className="profile-achievements-section">
-          <div className="profile-achievements-header">
-            <span className="profile-label">Achievements</span>
-            <span className="profile-achievements-summary">
-              {completedAchievements}/{achievementDefinitions.length} unlocked
-            </span>
-          </div>
-          <div className="profile-achievements-panel">
-            {achievementDefinitions.map((achievement) => {
-              const isUnlocked = achievement.unlocked;
-              const progressPercent = Math.round((achievement.progress / achievement.target) * 100);
-
-              return (
-                <div
-                  key={achievement.id}
-                  className={`profile-achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`}
-                >
-                  <div className="profile-achievement-card-header">
-                    <div className={`profile-achievement-circle ${isUnlocked ? 'unlocked' : 'locked'}`}>
-                      <span className="profile-achievement-icon">{achievement.icon}</span>
+              <div className="profile-achievements-panel">
+                {achievementDefinitions.map((achievement) => {
+                  const isUnlocked = achievement.unlocked;
+                  const progressPct = Math.round((achievement.progress / achievement.target) * 100);
+                  return (
+                    <div key={achievement.id} className={`profile-achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`}>
+                      <div className="profile-achievement-card-header">
+                        <div className={`profile-achievement-circle ${isUnlocked ? 'unlocked' : 'locked'}`}>
+                          <span className="profile-achievement-icon">{achievement.icon}</span>
+                        </div>
+                        <div className="profile-achievement-main">
+                          <span className="profile-achievement-title">{achievement.title}</span>
+                          <span className="profile-achievement-reward">+{achievement.xpReward.toLocaleString()} XP</span>
+                        </div>
+                        <span className={`profile-achievement-status ${isUnlocked ? 'unlocked' : 'locked'}`}>{isUnlocked ? 'Unlocked' : 'Locked'}</span>
+                      </div>
+                      <div className="profile-achievement-progress-row">
+                        <div className="profile-achievement-progress-track">
+                          <div className="profile-achievement-progress-fill" style={{ width: `${progressPct}%` }} />
+                        </div>
+                        <span className="profile-achievement-progress">{achievement.progress.toLocaleString()} / {achievement.target.toLocaleString()}</span>
+                      </div>
+                      <div className="profile-achievement-hover-card" role="tooltip">
+                        <p><strong>{achievement.highlight}</strong> {achievement.details}</p>
+                        <p className="profile-achievement-hover-reward">XP Bonus: +{achievement.xpReward.toLocaleString()} XP</p>
+                      </div>
                     </div>
-                    <div className="profile-achievement-main">
-                      <span className="profile-achievement-title">{achievement.title}</span>
-                      <span className="profile-achievement-reward">+{achievement.xpReward.toLocaleString()} XP</span>
-                    </div>
-                    <span className={`profile-achievement-status ${isUnlocked ? 'unlocked' : 'locked'}`}>
-                      {isUnlocked ? 'Unlocked' : 'Locked'}
-                    </span>
-                  </div>
-                  <div className="profile-achievement-progress-row">
-                    <div className="profile-achievement-progress-track">
-                      <div className="profile-achievement-progress-fill" style={{ width: `${progressPercent}%` }} />
-                    </div>
-                    <span className="profile-achievement-progress">
-                      {achievement.progress.toLocaleString()} / {achievement.target.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="profile-achievement-hover-card" role="tooltip">
-                    <p>
-                      <strong>{achievement.highlight}</strong> {achievement.details}
-                    </p>
-                    <p className="profile-achievement-hover-reward">
-                      XP Bonus: +{achievement.xpReward.toLocaleString()} XP
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
       {cropPreviewUrl &&
         createPortal(
@@ -1043,66 +822,23 @@ function ProfileScreen({ onBack, onOpenFriends }: ProfileScreenProps): React.Rea
                 <h2>Crop your photo</h2>
                 <p>Drag to recenter, then confirm your crop.</p>
               </div>
-              <div
-                className={`profile-crop-frame ${isDraggingCrop ? 'dragging' : ''}`}
-                onPointerDown={handleCropPointerDown}
-                onPointerMove={handleCropPointerMove}
-                onPointerUp={handleCropPointerUp}
-                onPointerLeave={handleCropPointerUp}
-                aria-label="Profile photo crop area"
-              >
-                <div
-                  className="profile-crop-image-wrapper"
-                  style={{
-                    transform: `translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px)`
-                  }}
-                >
-                  <img
-                    ref={cropImageRef}
-                    src={cropPreviewUrl}
-                    alt="Crop preview"
-                    className="profile-crop-image"
-                    onLoad={handleCropImageLoad}
-                    style={{ transform: `scale(${cropBaseScale * cropZoom})` }}
-                    draggable={false}
-                  />
+              <div className={`profile-crop-frame ${isDraggingCrop ? 'dragging' : ''}`} onPointerDown={handleCropPointerDown} onPointerMove={handleCropPointerMove} onPointerUp={handleCropPointerUp} onPointerLeave={handleCropPointerUp} aria-label="Profile photo crop area">
+                <div className="profile-crop-image-wrapper" style={{ transform: `translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px)` }}>
+                  <img ref={cropImageRef} src={cropPreviewUrl} alt="Crop preview" className="profile-crop-image" onLoad={handleCropImageLoad} style={{ transform: `scale(${cropBaseScale * cropZoom})` }} draggable={false} />
                 </div>
               </div>
               <label className="profile-crop-zoom">
                 <span>Zoom</span>
-                <input
-                  type="range"
-                  min="1"
-                  max={PROFILE_CROP_MAX_ZOOM}
-                  step="0.01"
-                  value={cropZoom}
-                  onChange={handleCropZoomChange}
-                  disabled={isUploadingPhoto}
-                />
+                <input type="range" min="1" max={PROFILE_CROP_MAX_ZOOM} step="0.01" value={cropZoom} onChange={handleCropZoomChange} disabled={isUploadingPhoto} />
               </label>
               <div className="profile-crop-actions">
-                <button
-                  className="profile-cancel-button"
-                  type="button"
-                  onClick={handleCancelCrop}
-                  disabled={isUploadingPhoto}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="profile-save-button"
-                  type="button"
-                  onClick={handleConfirmCrop}
-                  disabled={isUploadingPhoto || !cropImageSize}
-                >
-                  {isUploadingPhoto ? 'Saving...' : 'Confirm'}
-                </button>
+                <button className="profile-cancel-button" type="button" onClick={handleCancelCrop} disabled={isUploadingPhoto}>Cancel</button>
+                <button className="profile-save-button" type="button" onClick={handleConfirmCrop} disabled={isUploadingPhoto || !cropImageSize}>{isUploadingPhoto ? 'Saving...' : 'Confirm'}</button>
               </div>
             </div>
           </div>,
           document.body
         )}
-    </div>
     </div>
   );
 }

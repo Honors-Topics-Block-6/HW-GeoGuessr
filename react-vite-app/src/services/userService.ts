@@ -49,6 +49,7 @@ export interface UserDoc {
   lastGameAt?: unknown;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount?: number;
   twentyFiveKCount?: number;
   photosSubmittedCount?: number;
@@ -75,6 +76,7 @@ export interface UserProfileUpdates {
   lastGameAt?: Date | string | null;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount?: number;
   twentyFiveKCount?: number;
   photosSubmittedCount?: number;
@@ -106,11 +108,25 @@ export interface BuildingStat {
 
 export interface DailyStatBucket {
   gamesPlayed: number;
+  roundsPlayed?: number;
   totalScore: number;
   totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount: number;
   twentyFiveKCount: number;
   photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
+  byRoundCount?: Partial<Record<'5' | '10' | '20', DailyStatBucketRound>>;
+}
+
+export interface DailyStatBucketRound {
+  gamesPlayed: number;
+  roundsPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
   buildingStats: Record<string, BuildingStat>;
 }
 
@@ -388,6 +404,21 @@ export async function createUserDoc(uid: string, email: string, username: string
   if (isAdmin) {
     userData.permissions = getAllPermissions();
   }
+
+  // Use a transaction to atomically create user doc and reserve username
+  await runTransaction(db, async (transaction) => {
+    // Check if username is already taken
+    const usernameSnap = await transaction.get(usernameRef);
+    if (usernameSnap.exists()) {
+      throw new Error('Username is already taken.');
+    }
+
+    // Create the user document
+    transaction.set(userRef, userData);
+
+    // Reserve the username
+    transaction.set(usernameRef, { uid, username: trimmedUsername });
+  });
 }
 
 /**

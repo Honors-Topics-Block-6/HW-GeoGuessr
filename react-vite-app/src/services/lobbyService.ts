@@ -13,8 +13,11 @@ import {
   arrayUnion,
   arrayRemove,
   serverTimestamp,
+  setDoc,
   Timestamp,
-  type FieldValue
+  type FieldValue,
+  type QuerySnapshot,
+  type DocumentData
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -45,6 +48,21 @@ export interface LobbyDoc {
   roundTimeSeconds: number;
   createdAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
+}
+
+export interface UserLobbyHistoryDoc {
+  docId: string;
+  lobbyDocId: string;
+  hostUid: string;
+  hostUsername?: string;
+  gameId: string;
+  visibility: LobbyVisibility;
+  difficulty: string;
+  roundTimeSeconds: number;
+  createdAt: Timestamp | FieldValue | null;
+  updatedAt: Timestamp | FieldValue | null;
+  isDeleted: boolean;
+  deletedAt?: Timestamp | FieldValue | null;
 }
 
 export interface CreateLobbyResult {
@@ -98,7 +116,7 @@ export async function createLobby(
   hostUsername: string,
   difficulty: string,
   visibility: LobbyVisibility,
-  roundTimeSeconds: number = 20
+  roundTimeSeconds: number = 30
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
@@ -128,7 +146,27 @@ export async function createLobby(
   };
 
   const docRef = await addDoc(collection(db, 'lobbies'), lobbyData);
-  return { docId: docRef.id, gameId };
+  const lobbyDocId = docRef.id;
+
+  try {
+    const historyRef = doc(db, 'userLobbyHistory', lobbyDocId);
+    await setDoc(historyRef, {
+      lobbyDocId,
+      hostUid,
+      hostUsername,
+      gameId,
+      visibility,
+      difficulty,
+      roundTimeSeconds,
+      createdAt: now,
+      updatedAt: now,
+      isDeleted: false
+    });
+  } catch (err) {
+    console.error('Failed to record lobby history:', err);
+  }
+
+  return { docId: lobbyDocId, gameId };
 }
 
 /**
@@ -239,12 +277,12 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
   // Clean up ready status
   const newReadyStatus: Record<string, boolean> = { ...(lobby.readyStatus || {}) };
   delete newReadyStatus[playerUid];
-  
+
   // Reset all remaining players to not ready when someone leaves
   remainingPlayers.forEach(p => {
     newReadyStatus[p.uid] = false;
   });
-  
+
   updates.readyStatus = newReadyStatus;
 
   // Transfer host if the leaving player was the host
@@ -287,15 +325,8 @@ export function subscribeLobby(
 export function subscribePublicLobbies(
   callback: (lobbies: LobbyDoc[]) => void
 ): () => void {
-  const q = query(
-    collection(db, 'lobbies'),
-    where('visibility', '==', 'public'),
-    where('status', '==', 'waiting'),
-    orderBy('createdAt', 'desc')
-  );
-
-  return onSnapshot(q, (snapshot) => {
-    const lobbies = snapshot.docs
+  const buildLobbies = (snapshot: QuerySnapshot<DocumentData>): LobbyDoc[] => {
+    return snapshot.docs
       .map(docSnap => ({
         docId: docSnap.id,
         ...docSnap.data()
@@ -309,14 +340,89 @@ export function subscribePublicLobbies(
         }
         return !expired;
       });
-    callback(lobbies);
+  };
+
+  const orderedQuery = query(
+    collection(db, 'lobbies'),
+    where('visibility', '==', 'public'),
+    where('status', '==', 'waiting'),
+    orderBy('createdAt', 'desc')
+  );
+
+  const fallbackQuery = query(
+    collection(db, 'lobbies'),
+    where('visibility', '==', 'public'),
+    where('status', '==', 'waiting')
+  );
+
+  let unsubscribe = () => { };
+
+  const startFallback = (): void => {
+    unsubscribe = onSnapshot(fallbackQuery, (snapshot) => {
+      const lobbies = buildLobbies(snapshot);
+      lobbies.sort((a, b) => {
+        const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        const bTime = (b.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+      callback(lobbies);
+    }, (error) => {
+      console.error('Error subscribing to public lobbies (fallback):', error);
+    });
+  };
+
+  unsubscribe = onSnapshot(orderedQuery, (snapshot) => {
+    callback(buildLobbies(snapshot));
   }, (error) => {
     console.error('Error subscribing to public lobbies:', error);
-    // Fallback: query without orderBy (in case index is missing)
+    unsubscribe();
+    startFallback();
+  });
+
+  return () => {
+    unsubscribe();
+  };
+}
+
+/**
+ * Subscribe to all lobbies hosted by a specific user.
+ */
+export function subscribeUserLobbies(
+  hostUid: string,
+  callback: (lobbies: LobbyDoc[]) => void
+): () => void {
+  if (!hostUid) {
+    callback([]);
+    return () => { };
+  }
+
+  const q = query(
+    collection(db, 'lobbies'),
+    where('hostUid', '==', hostUid),
+    orderBy('createdAt', 'desc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const lobbies = snapshot.docs
+      .map(docSnap => ({
+        docId: docSnap.id,
+        ...docSnap.data()
+      }) as LobbyDoc)
+      .filter((lobby) => {
+        const expired = isLobbyExpired(lobby);
+        if (expired) {
+          deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
+            console.error('Failed to delete expired lobby:', err);
+          });
+        }
+        return !expired;
+      });
+    callback(lobbies);
+  }, (error) => {
+    console.error('Error subscribing to user lobbies:', error);
     const fallbackQ = query(
       collection(db, 'lobbies'),
-      where('visibility', '==', 'public'),
-      where('status', '==', 'waiting')
+      where('hostUid', '==', hostUid)
     );
     return onSnapshot(fallbackQ, (snapshot) => {
       const lobbies = snapshot.docs
@@ -328,12 +434,11 @@ export function subscribePublicLobbies(
           const expired = isLobbyExpired(lobby);
           if (expired) {
             deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
-              console.error('Failed to delete expired public lobby:', err);
+              console.error('Failed to delete expired lobby:', err);
             });
           }
           return !expired;
         });
-      // Sort client-side as fallback
       lobbies.sort((a, b) => {
         const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
         const bTime = (b.createdAt as Timestamp | null)?.toMillis?.() || 0;
@@ -341,6 +446,120 @@ export function subscribePublicLobbies(
       });
       callback(lobbies);
     });
+  });
+}
+
+/**
+ * Subscribe to the lobby history for a specific user (created games).
+ */
+export function subscribeUserLobbyHistory(
+  hostUid: string,
+  callback: (lobbies: UserLobbyHistoryDoc[]) => void
+): () => void {
+  if (!hostUid) {
+    callback([]);
+    return () => { };
+  }
+
+  const q = query(
+    collection(db, 'userLobbyHistory'),
+    where('hostUid', '==', hostUid),
+    where('isDeleted', '==', false),
+    orderBy('createdAt', 'desc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const lobbies = snapshot.docs.map(docSnap => ({
+      docId: docSnap.id,
+      ...docSnap.data()
+    })) as UserLobbyHistoryDoc[];
+    callback(lobbies);
+  }, (error) => {
+    console.error('Error subscribing to lobby history:', error);
+    const fallbackQ = query(
+      collection(db, 'userLobbyHistory'),
+      where('hostUid', '==', hostUid),
+      where('isDeleted', '==', false)
+    );
+    return onSnapshot(fallbackQ, (snapshot) => {
+      const lobbies = snapshot.docs.map(docSnap => ({
+        docId: docSnap.id,
+        ...docSnap.data()
+      })) as UserLobbyHistoryDoc[];
+      lobbies.sort((a, b) => {
+        const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        const bTime = (b.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+      callback(lobbies);
+    });
+  });
+}
+
+/**
+ * Subscribe to all public lobby history entries (created games).
+ */
+export function subscribePublicLobbyHistory(
+  callback: (lobbies: UserLobbyHistoryDoc[]) => void
+): () => void {
+  const orderedQuery = query(
+    collection(db, 'userLobbyHistory'),
+    where('visibility', '==', 'public'),
+    where('isDeleted', '==', false),
+    orderBy('createdAt', 'desc')
+  );
+
+  const fallbackQuery = query(
+    collection(db, 'userLobbyHistory'),
+    where('visibility', '==', 'public'),
+    where('isDeleted', '==', false)
+  );
+
+  let unsubscribe = () => { };
+
+  const startFallback = (): void => {
+    unsubscribe = onSnapshot(fallbackQuery, (snapshot) => {
+      const lobbies = snapshot.docs.map(docSnap => ({
+        docId: docSnap.id,
+        ...docSnap.data()
+      })) as UserLobbyHistoryDoc[];
+      lobbies.sort((a, b) => {
+        const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        const bTime = (b.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+      callback(lobbies);
+    }, (error) => {
+      console.error('Error subscribing to public lobby history (fallback):', error);
+    });
+  };
+
+  unsubscribe = onSnapshot(orderedQuery, (snapshot) => {
+    const lobbies = snapshot.docs.map(docSnap => ({
+      docId: docSnap.id,
+      ...docSnap.data()
+    })) as UserLobbyHistoryDoc[];
+    callback(lobbies);
+  }, (error) => {
+    console.error('Error subscribing to public lobby history:', error);
+    unsubscribe();
+    startFallback();
+  });
+
+  return () => {
+    unsubscribe();
+  };
+}
+
+/**
+ * Mark a lobby history record as deleted for a user.
+ */
+export async function markUserLobbyDeleted(lobbyDocId: string): Promise<void> {
+  const historyRef = doc(db, 'userLobbyHistory', lobbyDocId);
+  await updateDoc(historyRef, {
+    isDeleted: true,
+    deletedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
   });
 }
 

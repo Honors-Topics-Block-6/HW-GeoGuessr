@@ -1,24 +1,25 @@
 .mode-select-screen {
   position: relative;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .mode-select-background {
   position: fixed;
   inset: 0;
-  background: linear-gradient(160deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: var(--hw-page-bg);
   z-index: 0;
 }
 
 .mode-select-overlay {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.12), transparent 50%);
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.4), transparent 50%);
 }
 
 .mode-select-content {
@@ -26,31 +27,37 @@
   z-index: 1;
   width: 100%;
   max-width: 860px;
-  background: rgba(15, 23, 42, 0.78);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 20px;
+  background: #fff;
+  border: 1px solid var(--hw-gray-300);
   padding: 2rem;
-  backdrop-filter: blur(6px);
-  color: #f8fafc;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  color: var(--hw-black);
 }
 
 .mode-select-back-button {
-  border: 0;
-  border-radius: 10px;
+  border: 1px solid var(--hw-gray-300);
   padding: 0.55rem 0.9rem;
-  background: rgba(148, 163, 184, 0.18);
-  color: #e2e8f0;
+  background: #fff;
+  color: var(--hw-gray-700);
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-select-back-button:hover {
+  background: var(--hw-gray-100);
+  color: var(--hw-black);
 }
 
 .mode-select-heading {
   margin: 1rem 0 0.25rem;
   font-size: 2rem;
+  font-weight: 900;
+  color: var(--hw-black);
 }
 
 .mode-select-subheading {
   margin: 0 0 1.4rem;
-  color: #cbd5e1;
+  color: var(--hw-gray-600);
 }
 
 .mode-select-options {
@@ -60,9 +67,8 @@
 }
 
 .mode-select-card {
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 14px;
-  background: rgba(30, 41, 59, 0.72);
+  border: 1px solid var(--hw-gray-300);
+  background: #fff;
   color: inherit;
   cursor: pointer;
   padding: 1.2rem;
@@ -70,13 +76,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .mode-select-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(56, 189, 248, 0.7);
-  background: rgba(30, 41, 59, 0.9);
+  transform: translateY(-3px);
+  border-color: var(--hw-red);
+  box-shadow: 0 6px 16px rgba(200, 16, 46, 0.1);
 }
 
 .mode-select-card-icon {
@@ -86,11 +92,20 @@
 .mode-select-card-label {
   font-size: 1.1rem;
   font-weight: 700;
+  color: var(--hw-black);
 }
 
 .mode-select-card-desc {
-  color: #cbd5e1;
+  color: var(--hw-gray-600);
   font-size: 0.92rem;
+}
+
+@media (max-width: 768px) {
+  .mode-select-screen {
+    min-height: 100vh;
+    height: auto;
+    overflow-y: auto;
+  }
 }
 
 @media (max-width: 700px) {

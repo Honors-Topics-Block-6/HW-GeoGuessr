@@ -14,7 +14,7 @@ export type { PublicLobby };
 export interface PublicGameListProps {
   lobbies: PublicLobby[];
   selectedDifficulty: DifficultyKey;
-  onJoin: (docId: string) => void;
+  onJoin: (gameId: string) => void;
   isJoining: boolean;
 }
 
@@ -31,9 +31,7 @@ function PublicGameList({ lobbies, selectedDifficulty, onJoin, isJoining }: Publ
   if (lobbies.length === 0) {
     return (
       <div className="public-list-empty">
-        <span className="public-list-empty-icon">📭</span>
-        <p>No public games available right now.</p>
-        <p className="public-list-empty-hint">Try hosting your own game!</p>
+        <p>Empty right now.</p>
       </div>
     );
   }
@@ -80,13 +78,14 @@ function PublicGameList({ lobbies, selectedDifficulty, onJoin, isJoining }: Publ
                       <span className="public-game-host-icon">👤</span>
                       {lobby.hostUsername}
                     </span>
-                    <span className="public-game-players">
-                      {lobby.players?.length || 1}/{lobby.maxPlayers || 8} players
+                    <span className="public-game-code">
+                      <span className="public-game-code-label">Code</span>
+                      <span className="public-game-code-value">{lobby.gameId}</span>
                     </span>
                   </div>
                   <button
                     className="public-game-join-btn"
-                    onClick={() => onJoin(lobby.docId)}
+                    onClick={() => onJoin(lobby.gameId)}
                     disabled={!isMatchingDifficulty || isJoining}
                     title={
                       !isMatchingDifficulty
