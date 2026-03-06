@@ -122,7 +122,7 @@ export interface DuelData {
 export const STARTING_HEALTH = 6000;
 
 /** Round time in seconds */
-export const DUEL_ROUND_TIME_SECONDS = 20;
+export const DUEL_ROUND_TIME_SECONDS = 30;
 
 /** Minimum score multiplier at round end (0.5 = 50% of accuracy score at 20s) */
 export const DUEL_TIME_MIN_MULTIPLIER = 0.5;
