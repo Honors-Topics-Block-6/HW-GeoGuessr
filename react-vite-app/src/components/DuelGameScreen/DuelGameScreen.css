@@ -159,21 +159,43 @@
 }
 
 .duel-game-main .image-panel {
-  flex: 7;
+  flex: 6.1;
   display: flex;
   background-color: var(--bg-dark);
   border-right: 1px solid var(--border-color);
 }
 
 .duel-game-main .guess-panel {
-  flex: 3;
+  flex: 3.9;
   display: flex;
   flex-direction: column;
   background-color: var(--hw-surface);
-  min-width: 320px;
-  max-width: 400px;
+  min-width: 360px;
+  max-width: 500px;
   position: relative;
   min-height: 0;
+}
+
+.duel-game-main .guess-controls {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.duel-game-main .guess-controls .map-picker-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.duel-game-main .guess-controls .map-picker {
+  flex: 1;
+  min-height: 290px;
 }
 
 /* ── Waiting Overlay ── */
