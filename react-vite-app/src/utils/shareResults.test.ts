@@ -33,7 +33,7 @@ describe('shareResults', () => {
         ],
       });
 
-      expect(text).toContain('🌍 My GeoGuessr Score: 4,350');
+      expect(text).toContain('🏫 My GeoGuessr Score: 4,350');
       expect(text).toContain('📍 Round 1: 🚩 4.2k points');
       expect(text).toContain('📍 Round 2: 🚩 150 points');
     });
