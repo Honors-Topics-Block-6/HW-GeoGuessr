@@ -78,7 +78,7 @@ export interface UseMyGamesReturn {
  * Hook for the MultiplayerLobby screen.
  * Manages: public lobby list, hosting flow, join-by-code flow.
  */
-const GUEST_PUBLIC_ERROR = 'Sign in to create public games';
+const GUEST_HOST_ERROR = 'Guests can only join games. Sign in to host.';
 
 export function useLobby(
   userUid: string,
@@ -101,11 +101,11 @@ export function useLobby(
 
   /**
    * Host a new game.
-   * Public games are only allowed for non-guest (logged-in) accounts.
+   * Hosting is only allowed for non-guest (logged-in) accounts.
    */
   const hostGame = useCallback(async (visibility: 'public' | 'private', roundTimeSeconds?: number): Promise<HostGameResult | null> => {
-    if (visibility === 'public' && isGuest) {
-      setError(GUEST_PUBLIC_ERROR);
+    if (isGuest) {
+      setError(GUEST_HOST_ERROR);
       return null;
     }
     setIsCreating(true);
@@ -187,6 +187,8 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const hasLeft = useRef<boolean>(false);
+  const hadLobbySnapshot = useRef<boolean>(false);
+  const wasHostInLastSnapshot = useRef<boolean>(false);
   const docIdRef = useRef<string>(lobbyDocId);
   const uidRef = useRef<string>(userUid);
 
@@ -201,14 +203,27 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     if (!lobbyDocId) return;
 
     hasLeft.current = false;
+    hadLobbySnapshot.current = false;
+    wasHostInLastSnapshot.current = false;
 
-    const unsubscribe = subscribeLobby(lobbyDocId, (lobbyData) => {
+    const unsubscribe = subscribeLobby(lobbyDocId, (lobbyData, reason) => {
       setLobby(lobbyData as LobbyData | null);
       setIsLoading(false);
 
       if (!lobbyData) {
-        setError('This lobby no longer exists.');
+        // Differentiate user-initiated leave vs inactivity vs host/lobby closure.
+        if (hasLeft.current) {
+          setError('This lobby no longer exists.');
+        } else if (reason === 'inactive') {
+          setError('Lobby closed due to inactivity.');
+        } else if (hadLobbySnapshot.current && !wasHostInLastSnapshot.current) {
+          setError('Host left the lobby. The game was closed.');
+        } else {
+          setError('This lobby no longer exists.');
+        }
       } else {
+        hadLobbySnapshot.current = true;
+        wasHostInLastSnapshot.current = lobbyData.hostUid === userUid;
         setError(null);
       }
     });
