@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './DifficultySelect.css';
 
 type DifficultyId = 'all' | 'easy' | 'medium' | 'hard';
@@ -45,7 +45,7 @@ const DIFFICULTIES: DifficultyOption[] = [
     id: 'hard',
     label: 'Hard',
     icon: '🔴',
-    description: 'Only true experts will know these',
+    description: 'For true experts only',
   },
 ];
 
@@ -87,6 +87,7 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(30);
   const [customTime, setCustomTime] = useState<string>('60');
   const [customTimeError, setCustomTimeError] = useState<string | null>(null);
+  const customTimeInputRef = useRef<HTMLInputElement | null>(null);
 
   const parsedCustom = parseInt(customTime, 10);
   const customIsValid =
@@ -116,25 +117,15 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
       // Normalize the input to the clamped value so the user sees what will be used
       setCustomTime(String(resolvedTime));
       setCustomTimeError(null);
-   if (selectedDifficulty) {
-      onStart(
-        selectedDifficulty,
-        selectedMode,
-        selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
-        selectedMode === 'singleplayer' ? resolvedTime : undefined,
-        selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' ? selectedRounds : undefined
-      );
     }
 
     onStart(
       selectedDifficulty,
       selectedMode,
       selectedMode === 'singleplayer' ? selectedSingleplayerVariant : undefined,
-      selectedMode === 'singleplayer' ? resolvedTime : undefined
+      selectedMode === 'singleplayer' ? resolvedTime : undefined,
+      selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' ? selectedRounds : undefined
     );
-    }
-
-    onStart(selectedDifficulty, selectedMode, resolvedTime);
   };
 
   const disabledReason: string | null = (() => {
@@ -163,6 +154,12 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
       setCustomTimeError(null);
     }
   };
+
+  useEffect(() => {
+    if (timeSelection === 'custom') {
+      customTimeInputRef.current?.focus();
+    }
+  }, [timeSelection]);
 
   return (
     <div className="difficulty-screen">
@@ -208,14 +205,43 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
               <span className="time-card-label">{preset.label}</span>
             </button>
           ))}
-          <button
-            className={`time-card ${timeSelection === 'custom' ? 'selected' : ''}`}
+          <div
+            className={`time-card time-card-custom ${timeSelection === 'custom' ? 'selected' : ''}`}
+            role="button"
+            tabIndex={0}
             onClick={() => setTimeSelection('custom')}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setTimeSelection('custom');
+              }
+            }}
           >
             <span className="time-card-icon">✏️</span>
-            <span className="time-card-label">Custom</span>
-          </button>
+            {timeSelection === 'custom' ? (
+              <div className="time-custom-inline">
+                <input
+                  id="custom-time-input"
+                  ref={customTimeInputRef}
+                  className="time-custom-input"
+                  type="text"
+                  inputMode="numeric"
+                  value={customTime}
+                  onChange={(e) => handleCustomTimeChange(e.target.value)}
+                  onBlur={handleCustomTimeBlur}
+                  min={CUSTOM_TIME_MIN}
+                  max={CUSTOM_TIME_MAX}
+                  placeholder="60"
+                  aria-label="Custom time in seconds"
+                />
+                <span className="time-custom-unit">s</span>
+              </div>
+            ) : (
+              <span className="time-card-label">Custom</span>
+            )}
+          </div>
         </div>
+        {customTimeError && <div className="time-custom-error">{customTimeError}</div>}
 
         {selectedMode === 'singleplayer' && (
           <>
@@ -239,47 +265,7 @@ function DifficultySelect({ onStart, onBack, isLoading }: DifficultySelectProps)
               </button>
             </div>
 
-            {timeSelection === 'custom' && (
-              <div className="time-custom-input-wrapper">
-                <label className="time-custom-label" htmlFor="custom-time-input">
-                  Seconds ({CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX})
-                </label>
-                <input
-                  id="custom-time-input"
-                  className="time-custom-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={customTime}
-                  onChange={(e) => handleCustomTimeChange(e.target.value)}
-                  onBlur={handleCustomTimeBlur}
-                  min={CUSTOM_TIME_MIN}
-                  max={CUSTOM_TIME_MAX}
-                  placeholder="e.g. 60"
-                />
-                {customTimeError && <div className="time-custom-error">{customTimeError}</div>}
-              </div>
-            )}
           </>
-        )}
-
-        {timeSelection === 'custom' && (
-          <div className="time-custom-input-wrapper">
-            <label className="time-custom-label" htmlFor="custom-time-input">
-              Seconds ({CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX})
-            </label>
-            <input
-              id="custom-time-input"
-              className="time-custom-input"
-              type="text"
-              inputMode="numeric"
-              value={customTime}
-              onChange={(e) => handleCustomTimeChange(e.target.value)}
-              onBlur={handleCustomTimeBlur}
-              min={CUSTOM_TIME_MIN}
-              max={CUSTOM_TIME_MAX}
-              placeholder="e.g. 60"
-            />
-          </div>
         )}
 
         {selectedMode === 'singleplayer' && selectedSingleplayerVariant === 'classic' && (

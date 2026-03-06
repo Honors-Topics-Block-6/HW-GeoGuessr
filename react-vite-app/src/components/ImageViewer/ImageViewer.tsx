@@ -3,9 +3,10 @@ import './ImageViewer.css';
 export interface ImageViewerProps {
   imageUrl: string;
   alt?: string;
+  onImageLoad?: () => void;
 }
 
-function ImageViewer({ imageUrl, alt = "Mystery location" }: ImageViewerProps): React.ReactElement {
+function ImageViewer({ imageUrl, alt = "Mystery location", onImageLoad }: ImageViewerProps): React.ReactElement {
   return (
     <div className="image-viewer">
       <div className="image-container">
@@ -13,6 +14,9 @@ function ImageViewer({ imageUrl, alt = "Mystery location" }: ImageViewerProps): 
           src={imageUrl}
           alt={alt}
           className="mystery-image"
+          loading="eager"
+          decoding="async"
+          onLoad={onImageLoad}
         />
       </div>
       <div className="image-hint">

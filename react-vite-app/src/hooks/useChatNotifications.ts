@@ -3,9 +3,13 @@ import { getChatId, subscribeChatMessages, type ChatMessage } from '../services/
 
 export interface ChatNotificationItem {
   id: string;
+  senderUid: string;
   senderUsername: string;
   text: string;
   sentAt: ChatMessage['sentAt'];
+  type?: ChatMessage['type'];
+  lobbyDocId?: ChatMessage['lobbyDocId'];
+  difficulty?: ChatMessage['difficulty'];
 }
 
 export interface UseChatNotificationsReturn {
@@ -62,15 +66,26 @@ export function useChatNotifications(
           const isNew = !seenBeforeThisSnapshot.has(msg.id);
 
           if (isFromThem && isNew && !isCurrentlyViewing) {
-            setNotifications((prev) => [
-              ...prev,
-              {
-                id: msg.id,
-                senderUsername: msg.senderUsername || 'Someone',
-                text: msg.text,
-                sentAt: msg.sentAt
-              }
-            ]);
+            const isInvite =
+              msg.type === 'lobby_invite' ||
+              (typeof msg.lobbyDocId === 'string' && typeof msg.difficulty === 'string');
+            const nextItem: ChatNotificationItem = {
+              id: msg.id,
+              senderUid: msg.senderUid,
+              senderUsername: msg.senderUsername || 'Someone',
+              text: msg.text,
+              sentAt: msg.sentAt,
+              type: isInvite ? 'lobby_invite' : msg.type,
+              lobbyDocId: msg.lobbyDocId,
+              difficulty: msg.difficulty
+            };
+            setNotifications((prev) => {
+              if (!isInvite) return [...prev, nextItem];
+              const filtered = prev.filter(
+                (item) => !(item.type === 'lobby_invite' && item.senderUid === msg.senderUid)
+              );
+              return [...filtered, nextItem];
+            });
           }
         });
       });

@@ -1,8 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
-import { getAllImages, getAllSampleImages, deleteSubmission, deleteImage } from '../../services/imageService'
+import {
+  getAllSampleImages,
+  deleteSubmission,
+  deleteImage,
+  getAdminSubmissionsPage,
+  getAdminImagesPage
+} from '../../services/imageService'
+import {
+  backfillImagePool,
+  type BackfillImagePoolResult,
+  buildImagePoolEntryFromImageDoc,
+  buildImagePoolEntryFromSubmissionDoc,
+  removeImagePoolEntry,
+  upsertImagePoolEntry
+} from '../../services/imagePoolService'
 import MapPicker from '../MapPicker/MapPicker'
 import FloorSelector from '../FloorSelector/FloorSelector'
 import PhotoUpload from './PhotoUpload'
@@ -39,6 +53,17 @@ export interface SubmissionItem {
   reviewedAt?: FirestoreTimestamp | string | null
 }
 
+interface BufferedPage {
+  queryKey: string
+  submissions: SubmissionItem[]
+  images: SubmissionItem[]
+  includeTesting: boolean
+  nextSubmissionCursor: string | null
+  nextImageCursor: string | null
+  hasMoreSubmissions: boolean
+  hasMoreImages: boolean
+}
+
 export interface EditFormState {
   description: string
   photoName: string
@@ -54,13 +79,30 @@ export interface AdminReviewProps {
 }
 
 function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
+  const PAGE_SIZE = 12
+  const PRELOAD_TARGET_ITEMS = 36
+  const PREFETCH_MAX_PAGES = 3
+
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([])
   const [firestoreImages, setFirestoreImages] = useState<SubmissionItem[]>([])
   const [sampleImages, setSampleImages] = useState<SubmissionItem[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const [loadingMore, setLoadingMore] = useState<boolean>(false)
   const [filter, setFilter] = useState<string>('all') // pending, approved, denied, all
   const [sourceFilter, setSourceFilter] = useState<string>('all') // all, submissions, images, testing
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null)
+  const [submissionCursor, setSubmissionCursor] = useState<string | null>(null)
+  const [imageCursor, setImageCursor] = useState<string | null>(null)
+  const [hasMoreSubmissions, setHasMoreSubmissions] = useState<boolean>(true)
+  const [hasMoreImages, setHasMoreImages] = useState<boolean>(true)
+  const [loadedImageKeys, setLoadedImageKeys] = useState<Record<string, true>>({})
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const canTriggerAutoLoadRef = useRef<boolean>(true)
+  const sentinelInViewRef = useRef<boolean>(false)
+  const requestSequenceRef = useRef<number>(0)
+  const activeQueryKeyRef = useRef<string>('')
+  const [prefetchQueue, setPrefetchQueue] = useState<BufferedPage[]>([])
+  const [isPrefetching, setIsPrefetching] = useState<boolean>(false)
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState<boolean>(false)
@@ -73,74 +115,403 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<SubmissionItem | null>(null)
   const [isDeleting, setIsDeleting] = useState<boolean>(false)
 
-  // Fetch submissions from Firestore (real-time)
-  useEffect(() => {
-    const q = query(collection(db, 'submissions'), orderBy('createdAt', 'desc'))
+  const loadedSourceCounts = useMemo(() => ({
+    submission: submissions.length,
+    image: firestoreImages.length,
+    testing: sampleImages.length,
+    all: submissions.length + firestoreImages.length + sampleImages.length
+  }), [firestoreImages.length, sampleImages.length, submissions.length])
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const subs: SubmissionItem[] = snapshot.docs.map(docSnap => {
-        const data = docSnap.data() as SubmissionItem & { building?: string | null };
-        const normalizedBuilding = (data.building || data.buildingName || '').trim() || null;
-        return {
-          ...data,
-          id: docSnap.id,
-          buildingName: normalizedBuilding,
-          _source: 'submission' as SubmissionSource
-        } as SubmissionItem;
-      })
-      setSubmissions(subs)
-      setLoading(false)
-    }, (error) => {
-      console.error('Error fetching submissions:', error)
-      setLoading(false)
+  const BACKFILL_IMAGE_CURSOR_KEY = 'admin.imagePool.backfill.imageCursor.v1'
+  const BACKFILL_SUBMISSION_CURSOR_KEY = 'admin.imagePool.backfill.submissionCursor.v1'
+
+  const currentQueryKey = `${sourceFilter}:${filter}`
+
+  const fetchRawPage = useCallback(async (options: {
+    reset: boolean
+    queryKey: string
+    sourceFilterValue: string
+    filterValue: string
+    submissionCursorValue: string | null
+    imageCursorValue: string | null
+    hasMoreSubmissionsValue: boolean
+    hasMoreImagesValue: boolean
+  }): Promise<BufferedPage | null> => {
+    const {
+      reset,
+      queryKey,
+      sourceFilterValue,
+      filterValue,
+      submissionCursorValue,
+      imageCursorValue,
+      hasMoreSubmissionsValue,
+      hasMoreImagesValue
+    } = options
+    const requestId = requestSequenceRef.current
+
+    const includesSubmissions = sourceFilterValue !== 'image' && sourceFilterValue !== 'testing'
+    const includesImages = sourceFilterValue !== 'submission' && sourceFilterValue !== 'testing' && (filterValue === 'all' || filterValue === 'approved')
+    const includesTesting = sourceFilterValue === 'all' || sourceFilterValue === 'testing'
+
+    if (sourceFilterValue === 'testing') {
+      if (queryKey !== activeQueryKeyRef.current || requestId !== requestSequenceRef.current) return null
+      return {
+        queryKey,
+        submissions: [],
+        images: [],
+        includeTesting: true,
+        nextSubmissionCursor: null,
+        nextImageCursor: null,
+        hasMoreSubmissions: false,
+        hasMoreImages: false
+      }
+    }
+
+    const currentSubmissionCursor = reset ? null : submissionCursorValue
+    const currentImageCursor = reset ? null : imageCursorValue
+    const allowSubmissionFetch = includesSubmissions && (reset || hasMoreSubmissionsValue)
+    const allowImageFetch = includesImages && (reset || hasMoreImagesValue)
+
+    const submissionPageSize = allowSubmissionFetch && allowImageFetch
+      ? Math.max(1, Math.floor(PAGE_SIZE / 2))
+      : (allowSubmissionFetch ? PAGE_SIZE : 0)
+    const imagePageSize = allowSubmissionFetch && allowImageFetch
+      ? PAGE_SIZE - submissionPageSize
+      : (allowImageFetch ? PAGE_SIZE : 0)
+
+    const [submissionPage, imagePage] = await Promise.all([
+      submissionPageSize > 0
+        ? getAdminSubmissionsPage({
+            status: (filterValue === 'pending' || filterValue === 'approved' || filterValue === 'denied') ? filterValue : 'all',
+            pageSize: submissionPageSize,
+            cursor: currentSubmissionCursor
+          })
+        : Promise.resolve(null),
+      imagePageSize > 0
+        ? getAdminImagesPage({
+            pageSize: imagePageSize,
+            cursor: currentImageCursor
+          })
+        : Promise.resolve(null)
+    ])
+
+    if (queryKey !== activeQueryKeyRef.current || requestId !== requestSequenceRef.current) return null
+
+    const nextSubmissions = (submissionPage?.items ?? []).map((item) => {
+      const normalizedBuilding = (item.buildingName || '').trim() || null
+      return {
+        id: item.id,
+        photoURL: item.photoURL || undefined,
+        location: item.location || undefined,
+        floor: item.floor ?? null,
+        difficulty: item.difficulty ?? null,
+        photoName: item.photoName || undefined,
+        buildingName: normalizedBuilding,
+        status: item.status,
+        _source: 'submission' as SubmissionSource,
+        description: item.description || undefined,
+        createdAt: (item.createdAt as FirestoreTimestamp | string | null | undefined) ?? null,
+        reviewedAt: (item.reviewedAt as FirestoreTimestamp | string | null | undefined) ?? null
+      } as SubmissionItem
     })
 
-    return () => unsubscribe()
+    const nextImages = (imagePage?.items ?? []).map((item) => ({
+      id: item.id,
+      photoURL: item.url || undefined,
+      location: item.correctLocation || undefined,
+      floor: item.correctFloor ?? null,
+      difficulty: item.difficulty ?? null,
+      photoName: item.description || item.id,
+      status: 'approved',
+      _source: 'image' as SubmissionSource,
+      description: item.description || undefined
+    } as SubmissionItem))
+
+    return {
+      queryKey,
+      submissions: nextSubmissions,
+      images: nextImages,
+      includeTesting: includesTesting,
+      nextSubmissionCursor: submissionPage?.nextCursor ?? (reset ? null : submissionCursorValue),
+      nextImageCursor: imagePage?.nextCursor ?? (reset ? null : imageCursorValue),
+      hasMoreSubmissions: submissionPage?.hasMore ?? false,
+      hasMoreImages: imagePage?.hasMore ?? false
+    }
+  }, [PAGE_SIZE])
+
+  const applyPage = useCallback((page: BufferedPage, reset: boolean): void => {
+    setSubmissions(prev => {
+      if (reset) return page.submissions
+      const prevKeys = new Set(prev.map(item => `${item._source}-${item.id}`))
+      const overlapping: string[] = []
+      const uniqueIncoming: SubmissionItem[] = []
+      page.submissions.forEach((item) => {
+        const key = `${item._source}-${item.id}`
+        if (prevKeys.has(key)) {
+          overlapping.push(key)
+          return
+        }
+        uniqueIncoming.push(item)
+      })
+      if (uniqueIncoming.length === 0) return prev
+      return [...prev, ...uniqueIncoming]
+    })
+    setFirestoreImages(prev => {
+      if (reset) return page.images
+      const prevKeys = new Set(prev.map(item => `${item._source}-${item.id}`))
+      const uniqueIncoming = page.images.filter((item) => !prevKeys.has(`${item._source}-${item.id}`))
+      return uniqueIncoming.length === 0 ? prev : [...prev, ...uniqueIncoming]
+    })
+    setSampleImages(page.includeTesting ? getAllSampleImages().map(img => ({
+      id: img.id,
+      photoURL: img.url,
+      location: img.correctLocation,
+      floor: img.correctFloor,
+      photoName: img.description || img.id,
+      status: 'testing',
+      _source: 'testing' as SubmissionSource,
+      description: img.description
+    })) : [])
+    setSubmissionCursor(page.nextSubmissionCursor)
+    setImageCursor(page.nextImageCursor)
+    setHasMoreSubmissions(page.hasMoreSubmissions)
+    setHasMoreImages(page.hasMoreImages)
   }, [])
+
+  const fetchPage = useCallback(async (options: {
+    reset: boolean
+    queryKey: string
+    sourceFilterValue: string
+    filterValue: string
+    submissionCursorValue: string | null
+    imageCursorValue: string | null
+    hasMoreSubmissionsValue: boolean
+    hasMoreImagesValue: boolean
+  }): Promise<void> => {
+    const page = await fetchRawPage(options)
+    if (!page) return
+    applyPage(page, options.reset)
+    setLoading(false)
+    setLoadingMore(false)
+  }, [
+    applyPage,
+    fetchRawPage
+  ])
 
   // Fetch images from Firestore images collection and sample/testing images
   useEffect(() => {
-    async function fetchImages(): Promise<void> {
-      const images = await getAllImages()
-      setFirestoreImages((images as Array<{
-        id: string
-        url?: string
-        correctLocation?: Location
-        correctFloor?: number
-        difficulty?: string
-        description?: string
-      }>).map(img => ({
-        id: img.id,
-        photoURL: img.url,
-        location: img.correctLocation,
-        floor: img.correctFloor,
-        difficulty: img.difficulty || null,
-        photoName: img.description || img.id,
-        status: 'approved',
-        _source: 'image' as SubmissionSource,
-        description: img.description
-      })))
+    activeQueryKeyRef.current = currentQueryKey
+    canTriggerAutoLoadRef.current = true
+    requestSequenceRef.current += 1
+    const requestId = requestSequenceRef.current
+    setLoading(true)
+    setLoadingMore(false)
+    setLoadedImageKeys({})
+    setSubmissions([])
+    setFirestoreImages([])
+    setSubmissionCursor(null)
+    setImageCursor(null)
+    setPrefetchQueue([])
+    setIsPrefetching(false)
+    setHasMoreSubmissions(sourceFilter !== 'image' && sourceFilter !== 'testing')
+    setHasMoreImages(sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved'))
 
-      const samples = getAllSampleImages()
-      setSampleImages((samples as Array<{
-        id: string
-        url?: string
-        correctLocation?: Location
-        correctFloor?: number
-        description?: string
-      }>).map(img => ({
-        id: img.id,
-        photoURL: img.url,
-        location: img.correctLocation,
-        floor: img.correctFloor,
-        photoName: img.description || img.id,
-        status: 'testing',
-        _source: 'testing' as SubmissionSource,
-        description: img.description
-      })))
+    void fetchPage({
+      reset: true,
+      queryKey: currentQueryKey,
+      sourceFilterValue: sourceFilter,
+      filterValue: filter,
+      submissionCursorValue: null,
+      imageCursorValue: null,
+      hasMoreSubmissionsValue: sourceFilter !== 'image' && sourceFilter !== 'testing',
+      hasMoreImagesValue: sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved')
+    }).catch((error) => {
+      if (requestId !== requestSequenceRef.current) return
+      console.error('Error fetching admin review page:', error)
+      setLoading(false)
+      setLoadingMore(false)
+    })
+  }, [currentQueryKey, fetchPage, filter, sourceFilter])
+
+  useEffect(() => {
+    let cancelled = false
+    async function runBackfillPasses(): Promise<void> {
+      let imageCursor = window.localStorage.getItem(BACKFILL_IMAGE_CURSOR_KEY)
+      let submissionCursor = window.localStorage.getItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+
+      // Run a few paced passes per mount to avoid backend throttling.
+      for (let pass = 0; pass < 4; pass += 1) {
+        if (cancelled) return
+        const result: BackfillImagePoolResult = await backfillImagePool({
+          imageCursor,
+          submissionCursor,
+          maxDocsPerSource: 20,
+          commitChunkSize: 10,
+          maxRetriesPerChunk: 5
+        })
+
+        imageCursor = result.nextImageCursor
+        submissionCursor = result.nextSubmissionCursor
+
+        if (imageCursor) {
+          window.localStorage.setItem(BACKFILL_IMAGE_CURSOR_KEY, imageCursor)
+        } else {
+          window.localStorage.removeItem(BACKFILL_IMAGE_CURSOR_KEY)
+        }
+        if (submissionCursor) {
+          window.localStorage.setItem(BACKFILL_SUBMISSION_CURSOR_KEY, submissionCursor)
+        } else {
+          window.localStorage.removeItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+        }
+
+        if (result.done) {
+          window.localStorage.removeItem(BACKFILL_IMAGE_CURSOR_KEY)
+          window.localStorage.removeItem(BACKFILL_SUBMISSION_CURSOR_KEY)
+          break
+        }
+      }
     }
-    fetchImages()
+
+    const backfillDelayHandle = window.setTimeout(() => {
+      void runBackfillPasses().catch((error) => {
+        console.error('Error backfilling imagePool:', error)
+      })
+    }, 1500)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(backfillDelayHandle)
+    }
   }, [])
+
+  const loadNextPage = useCallback(async (): Promise<void> => {
+    if (loading || loadingMore) return
+    if (isPrefetching && prefetchQueue.length === 0) {
+      return
+    }
+    const hasMoreFromState =
+      (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
+      (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages)
+    if (!hasMoreFromState && prefetchQueue.length === 0) return
+    setLoadingMore(true)
+    try {
+      if (prefetchQueue.length > 0) {
+        const [nextBufferedPage, ...remainingPages] = prefetchQueue
+        if (nextBufferedPage.queryKey === currentQueryKey) {
+          applyPage(nextBufferedPage, false)
+        }
+        setPrefetchQueue(remainingPages)
+        setLoadingMore(false)
+        return
+      }
+      await fetchPage({
+        reset: false,
+        queryKey: currentQueryKey,
+        sourceFilterValue: sourceFilter,
+        filterValue: filter,
+        submissionCursorValue: submissionCursor,
+        imageCursorValue: imageCursor,
+        hasMoreSubmissionsValue: hasMoreSubmissions,
+        hasMoreImagesValue: hasMoreImages
+      })
+    } catch (error) {
+      console.error('Error loading more review items:', error)
+      setLoadingMore(false)
+    }
+  }, [applyPage, currentQueryKey, fetchPage, filter, hasMoreImages, hasMoreSubmissions, imageCursor, isPrefetching, loading, loadingMore, prefetchQueue, sourceFilter, submissionCursor])
+
+  useEffect(() => {
+    const node = loadMoreRef.current
+    if (!node) return
+    const hasMore =
+      (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
+      (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages) ||
+      prefetchQueue.length > 0
+    if (!hasMore) return
+
+    const observer = new IntersectionObserver((entries) => {
+      const [entry] = entries
+      sentinelInViewRef.current = Boolean(entry?.isIntersecting)
+      if (entry?.isIntersecting) {
+        if (!canTriggerAutoLoadRef.current) return
+        canTriggerAutoLoadRef.current = false
+        void loadNextPage()
+        return
+      }
+      canTriggerAutoLoadRef.current = true
+    }, { rootMargin: '350px 0px' })
+    observer.observe(node)
+    return () => {
+      sentinelInViewRef.current = false
+      observer.disconnect()
+    }
+  }, [filter, hasMoreImages, hasMoreSubmissions, loadNextPage, prefetchQueue.length, sourceFilter])
+
+  useEffect(() => {
+    const hasMoreToLoad =
+      (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
+      (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages) ||
+      prefetchQueue.length > 0
+    if (!hasMoreToLoad) return
+    if (loading || loadingMore || isPrefetching) return
+    if (loadedSourceCounts.all < PRELOAD_TARGET_ITEMS) {
+      canTriggerAutoLoadRef.current = true
+      void loadNextPage()
+      return
+    }
+    if (!sentinelInViewRef.current) return
+    canTriggerAutoLoadRef.current = true
+    void loadNextPage()
+  }, [PRELOAD_TARGET_ITEMS, filter, hasMoreImages, hasMoreSubmissions, isPrefetching, loadedSourceCounts.all, loading, loadingMore, loadNextPage, prefetchQueue.length, sourceFilter])
+
+  useEffect(() => {
+    const hasMore =
+      (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
+      (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages)
+    if (!hasMore || loading || loadingMore || isPrefetching || prefetchQueue.length >= PREFETCH_MAX_PAGES) return
+
+    const queueTail = prefetchQueue[prefetchQueue.length - 1]
+    const baseSubmissionCursor = queueTail ? queueTail.nextSubmissionCursor : submissionCursor
+    const baseImageCursor = queueTail ? queueTail.nextImageCursor : imageCursor
+    const baseHasMoreSubmissions = queueTail ? queueTail.hasMoreSubmissions : hasMoreSubmissions
+    const baseHasMoreImages = queueTail ? queueTail.hasMoreImages : hasMoreImages
+
+    setIsPrefetching(true)
+    void fetchRawPage({
+      reset: false,
+      queryKey: currentQueryKey,
+      sourceFilterValue: sourceFilter,
+      filterValue: filter,
+      submissionCursorValue: baseSubmissionCursor,
+      imageCursorValue: baseImageCursor,
+      hasMoreSubmissionsValue: baseHasMoreSubmissions,
+      hasMoreImagesValue: baseHasMoreImages
+    }).then((page) => {
+      if (!page || page.queryKey !== currentQueryKey) return
+      setPrefetchQueue((prev) => {
+        if (prev.length >= PREFETCH_MAX_PAGES) return prev
+        return [...prev, page]
+      })
+    }).catch((error) => {
+      console.error('Error prefetching admin review page:', error)
+    }).finally(() => {
+      setIsPrefetching(false)
+    })
+  }, [
+    PREFETCH_MAX_PAGES,
+    currentQueryKey,
+    fetchRawPage,
+    filter,
+    hasMoreImages,
+    hasMoreSubmissions,
+    imageCursor,
+    isPrefetching,
+    loading,
+    loadingMore,
+    prefetchQueue,
+    sourceFilter,
+    submissionCursor
+  ])
 
   const handleApprove = async (submissionId: string): Promise<void> => {
     try {
@@ -148,6 +519,28 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'approved',
         reviewedAt: serverTimestamp()
       })
+      const target = submissions.find((item) => item.id === submissionId)
+      if (target) {
+        const poolEntry = buildImagePoolEntryFromSubmissionDoc(submissionId, {
+          photoURL: target.photoURL,
+          difficulty: target.difficulty,
+          location: target.location,
+          floor: target.floor,
+          buildingName: target.buildingName,
+          description: target.description
+        })
+        if (poolEntry) {
+          await upsertImagePoolEntry(poolEntry)
+        }
+      }
+      setSubmissions(prev => prev.map((item) =>
+        item.id === submissionId
+          ? { ...item, status: 'approved', reviewedAt: new Date().toISOString() }
+          : item
+      ))
+      if (selectedSubmission?.id === submissionId) {
+        setSelectedSubmission(prev => prev ? { ...prev, status: 'approved', reviewedAt: new Date().toISOString() } : prev)
+      }
     } catch (error) {
       console.error('Error approving submission:', error)
     }
@@ -159,6 +552,15 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'denied',
         reviewedAt: serverTimestamp()
       })
+      await removeImagePoolEntry('submission', submissionId)
+      setSubmissions(prev => prev.map((item) =>
+        item.id === submissionId
+          ? { ...item, status: 'denied', reviewedAt: new Date().toISOString() }
+          : item
+      ))
+      if (selectedSubmission?.id === submissionId) {
+        setSelectedSubmission(prev => prev ? { ...prev, status: 'denied', reviewedAt: new Date().toISOString() } : prev)
+      }
     } catch (error) {
       console.error('Error denying submission:', error)
     }
@@ -170,6 +572,15 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
         status: 'pending',
         reviewedAt: null
       })
+      await removeImagePoolEntry('submission', submissionId)
+      setSubmissions(prev => prev.map((item) =>
+        item.id === submissionId
+          ? { ...item, status: 'pending', reviewedAt: null }
+          : item
+      ))
+      if (selectedSubmission?.id === submissionId) {
+        setSelectedSubmission(prev => prev ? { ...prev, status: 'pending', reviewedAt: null } : prev)
+      }
     } catch (error) {
       console.error('Error resetting submission:', error)
     }
@@ -182,7 +593,12 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       description: selectedSubmission.description || '',
       photoName: selectedSubmission.photoName || '',
       buildingName: selectedSubmission.buildingName || '',
-      location: selectedSubmission.location ? { ...selectedSubmission.location } : { x: 0, y: 0 },
+      location: selectedSubmission.location
+        ? {
+            x: roundCoordinate(selectedSubmission.location.x),
+            y: roundCoordinate(selectedSubmission.location.y)
+          }
+        : { x: 0, y: 0 },
       floor: selectedSubmission.floor,
       difficulty: selectedSubmission.difficulty || null,
       status: selectedSubmission.status,
@@ -237,7 +653,29 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           updateData.floor = editForm.floor;
         }
         await updateDoc(doc(db, 'submissions', selectedSubmission.id), updateData)
-        // Real-time listener will auto-update submissions state
+        if ((editForm.status || '').toLowerCase() === 'approved') {
+          const poolEntry = buildImagePoolEntryFromSubmissionDoc(selectedSubmission.id, updateData as Record<string, unknown>)
+          if (poolEntry) {
+            await upsertImagePoolEntry(poolEntry)
+          }
+        } else {
+          await removeImagePoolEntry('submission', selectedSubmission.id)
+        }
+        setSubmissions(prev => prev.map(item =>
+          item.id === selectedSubmission.id
+            ? {
+                ...item,
+                description: (editForm.description as string) || '',
+                photoName: (editForm.photoName as string) || '',
+                buildingName: normalizedBuilding,
+                location: editForm.location!,
+                floor: editForm.floor,
+                difficulty: editForm.difficulty || null,
+                status: (editForm.status as string) || item.status,
+                photoURL
+              }
+            : item
+        ))
       } else if (selectedSubmission?._source === 'image') {
         const updateData: Record<string, unknown> = {
           description: editForm.description,
@@ -249,6 +687,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           updateData.correctFloor = editForm.floor;
         }
         await updateDoc(doc(db, 'images', selectedSubmission.id), updateData)
+        const poolEntry = buildImagePoolEntryFromImageDoc(selectedSubmission.id, updateData)
+        if (poolEntry) {
+          await upsertImagePoolEntry(poolEntry)
+        }
         // Manually update firestoreImages state (no real-time listener)
         setFirestoreImages(prev => prev.map(img =>
           img.id === selectedSubmission.id
@@ -292,8 +734,11 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     try {
       if (deleteTarget._source === 'submission') {
         await deleteSubmission(deleteTarget.id)
+        await removeImagePoolEntry('submission', deleteTarget.id)
+        setSubmissions(prev => prev.filter(item => item.id !== deleteTarget.id))
       } else if (deleteTarget._source === 'image') {
         await deleteImage(deleteTarget.id)
+        await removeImagePoolEntry('image', deleteTarget.id)
         setFirestoreImages(prev => prev.filter(img => img.id !== deleteTarget.id))
       }
 
@@ -310,16 +755,23 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     }
   }
 
-  // Combine all image sources
-  const allItems: SubmissionItem[] = [...submissions, ...firestoreImages, ...sampleImages]
+  // Combine all loaded sources; counts are fetched separately.
+  const allItems: SubmissionItem[] = useMemo(() => [...submissions, ...firestoreImages, ...sampleImages], [submissions, firestoreImages, sampleImages])
 
-  const filteredSubmissions = allItems.filter(item => {
+  const loadedStatusCounts = useMemo(() => ({
+    pending: submissions.filter((item) => item.status === 'pending').length,
+    approved: submissions.filter((item) => item.status === 'approved').length + firestoreImages.length,
+    denied: submissions.filter((item) => item.status === 'denied').length,
+    testing: sampleImages.length
+  }), [firestoreImages.length, sampleImages.length, submissions])
+
+  const filteredSubmissions = useMemo(() => allItems.filter(item => {
     // Apply source filter
     if (sourceFilter !== 'all' && item._source !== sourceFilter) return false
     // Apply status filter (only relevant for submissions)
     if (filter === 'all') return true
     return item.status === filter
-  })
+  }), [allItems, filter, sourceFilter])
 
   const getStatusBadgeClass = (status: string): string => {
     switch (status) {
@@ -356,12 +808,23 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     return date.toLocaleString()
   }
 
+  const formatCoordinate = (value: number | undefined): string => {
+    if (value === undefined) return '—'
+    return Number(value).toFixed(2)
+  }
+
+  const roundCoordinate = (value: number): number => Math.round(value * 100) / 100
+
   const isEditable = selectedSubmission && selectedSubmission._source !== 'testing'
+  const hasMoreItems =
+    (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
+    (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages) ||
+    prefetchQueue.length > 0
 
   if (loading) {
     return (
       <div className="admin-review">
-        <div className="loading">Loading submissions...</div>
+        <div className="loading">Loading review queue...</div>
       </div>
     )
   }
@@ -385,25 +848,25 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               className={`filter-tab ${sourceFilter === 'all' ? 'active' : ''}`}
               onClick={() => setSourceFilter('all')}
             >
-              All ({allItems.length})
+              All ({loadedSourceCounts.all})
             </button>
             <button
               className={`filter-tab ${sourceFilter === 'submission' ? 'active' : ''}`}
               onClick={() => setSourceFilter('submission')}
             >
-              Submissions ({submissions.length})
+              Submissions ({loadedSourceCounts.submission})
             </button>
             <button
               className={`filter-tab ${sourceFilter === 'image' ? 'active' : ''}`}
               onClick={() => setSourceFilter('image')}
             >
-              Game Images ({firestoreImages.length})
+              Game Images ({loadedSourceCounts.image})
             </button>
             <button
               className={`filter-tab ${sourceFilter === 'testing' ? 'active' : ''}`}
               onClick={() => setSourceFilter('testing')}
             >
-              Testing Data ({sampleImages.length})
+              Testing Data ({loadedSourceCounts.testing})
             </button>
           </div>
         </div>
@@ -415,31 +878,31 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
               onClick={() => setFilter('all')}
             >
-              All
+              All ({loadedSourceCounts.all})
             </button>
             <button
               className={`filter-tab ${filter === 'pending' ? 'active' : ''}`}
               onClick={() => setFilter('pending')}
             >
-              Pending ({allItems.filter(s => s.status === 'pending').length})
+              Pending ({loadedStatusCounts.pending})
             </button>
             <button
               className={`filter-tab ${filter === 'approved' ? 'active' : ''}`}
               onClick={() => setFilter('approved')}
             >
-              Approved ({allItems.filter(s => s.status === 'approved').length})
+              Approved ({loadedStatusCounts.approved})
             </button>
             <button
               className={`filter-tab ${filter === 'denied' ? 'active' : ''}`}
               onClick={() => setFilter('denied')}
             >
-              Denied ({allItems.filter(s => s.status === 'denied').length})
+              Denied ({loadedStatusCounts.denied})
             </button>
             <button
               className={`filter-tab ${filter === 'testing' ? 'active' : ''}`}
               onClick={() => setFilter('testing')}
             >
-              Testing ({allItems.filter(s => s.status === 'testing').length})
+              Testing ({loadedStatusCounts.testing})
             </button>
           </div>
         </div>
@@ -452,9 +915,22 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       ) : (
         <div className="submissions-grid">
           {filteredSubmissions.map(submission => (
-            <div key={submission.id} className="submission-card">
+            <div key={`${submission._source}-${submission.id}`} className="submission-card">
               <div className="card-image">
-                <img src={submission.photoURL} alt="Submitted photo" />
+                {!loadedImageKeys[`${submission._source}-${submission.id}`] && (
+                  <div className="card-image-placeholder">Loading image...</div>
+                )}
+                <img
+                  src={submission.photoURL || ''}
+                  alt="Submitted photo"
+                  loading="lazy"
+                  decoding="async"
+                  onLoad={() => {
+                    const key = `${submission._source}-${submission.id}`
+                    setLoadedImageKeys(prev => (prev[key] ? prev : { ...prev, [key]: true }))
+                  }}
+                  className={loadedImageKeys[`${submission._source}-${submission.id}`] ? 'is-loaded' : 'is-loading'}
+                />
                 <span className={`status-badge ${getStatusBadgeClass(submission.status)}`}>
                   {submission.status}
                 </span>
@@ -478,7 +954,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                 )}
                 <div className="detail-row">
                   <strong>Location:</strong>
-                  <span>X: {submission.location?.x}, Y: {submission.location?.y}</span>
+                  <span>
+                    X: {formatCoordinate(submission.location?.x)}, Y: {formatCoordinate(submission.location?.y)}
+                  </span>
                 </div>
                 <div className="detail-row">
                   <strong>Floor:</strong>
@@ -551,6 +1029,17 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               </button>
             </div>
           ))}
+        </div>
+      )}
+      {hasMoreItems && <div ref={loadMoreRef} className="load-more-sentinel" />}
+      {(loadingMore || isPrefetching) && (
+        <div className="loading-more-indicator active" aria-live="polite">
+          <span className="loading-more-spinner" />
+          <span>
+            {loadingMore
+              ? 'Loading more images...'
+              : 'Preparing more images...'}
+          </span>
         </div>
       )}
 
@@ -680,7 +1169,13 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                     <label>Location</label>
                     <MapPicker
                       markerPosition={editForm.location ?? null}
-                      onMapClick={(coords: Location) => setEditForm(prev => ({ ...prev, location: coords }))}
+                      onMapClick={(coords: Location) => setEditForm(prev => ({
+                        ...prev,
+                        location: {
+                          x: roundCoordinate(coords.x),
+                          y: roundCoordinate(coords.y)
+                        }
+                      }))}
                     />
                     <div className="coordinate-inputs">
                       <label>
@@ -689,11 +1184,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                           type="number"
                           min="0"
                           max="100"
-                          step="0.1"
+                          step="0.01"
                           value={editForm.location?.x ?? ''}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
                             ...prev,
-                            location: { ...(prev.location || { x: 0, y: 0 }), x: parseFloat(e.target.value) || 0 }
+                            location: {
+                              ...(prev.location || { x: 0, y: 0 }),
+                              x: roundCoordinate(parseFloat(e.target.value) || 0)
+                            }
                           }))}
                         />
                       </label>
@@ -703,11 +1201,14 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                           type="number"
                           min="0"
                           max="100"
-                          step="0.1"
+                          step="0.01"
                           value={editForm.location?.y ?? ''}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm(prev => ({
                             ...prev,
-                            location: { ...(prev.location || { x: 0, y: 0 }), y: parseFloat(e.target.value) || 0 }
+                            location: {
+                              ...(prev.location || { x: 0, y: 0 }),
+                              y: roundCoordinate(parseFloat(e.target.value) || 0)
+                            }
                           }))}
                         />
                       </label>
@@ -810,8 +1311,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                       <div className="detail-info-content">
                         <span className="detail-info-label">Coordinates</span>
                         <span className="detail-info-value">
-                          X: {selectedSubmission.location?.x !== undefined ? Number(selectedSubmission.location.x).toFixed(1) : '\u2014'},
-                          Y: {selectedSubmission.location?.y !== undefined ? Number(selectedSubmission.location.y).toFixed(1) : '\u2014'}
+                          X: {formatCoordinate(selectedSubmission.location?.x)},
+                          Y: {formatCoordinate(selectedSubmission.location?.y)}
                         </span>
                       </div>
                     </div>

@@ -27,6 +27,7 @@ export interface ChatMessage {
   read: boolean;
   type?: 'lobby_invite';
   lobbyDocId?: string;
+  gameId?: string;
   difficulty?: string;
 }
 
@@ -76,7 +77,7 @@ export function subscribeChatMessages(
   chatId: string,
   callback: (messages: ChatMessage[]) => void
 ): () => void {
-  if (!chatId) return () => {};
+  if (!chatId) return () => { };
 
   const messagesRef = collection(db, 'chats', chatId, 'messages');
   const q = query(messagesRef, orderBy('sentAt', 'asc'));
@@ -143,7 +144,7 @@ export function subscribeUnreadCount(
 ): () => void {
   if (!chatId) {
     callback(0);
-    return () => {};
+    return () => { };
   }
 
   const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -171,6 +172,7 @@ export async function sendLobbyInvite(
   senderUid: string,
   senderUsername: string,
   lobbyDocId: string,
+  gameId: string,
   difficulty: string
 ): Promise<void> {
   const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -180,6 +182,7 @@ export async function sendLobbyInvite(
     senderUsername,
     text: `${senderUsername} invited you to a duel!`,
     lobbyDocId,
+    gameId,
     difficulty,
     sentAt: serverTimestamp(),
     read: false

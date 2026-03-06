@@ -45,7 +45,8 @@ function EmailVerificationBanner(_props: EmailVerificationBannerProps): React.Re
 
   // Don't show banner if: no user, already verified, Google user, or dismissed
   const isGoogleUser = user?.providerData?.some((p) => p.providerId === 'google.com');
-  if (!user || emailVerified || isGoogleUser || dismissed) {
+  const isAnonymousUser = !!user?.isAnonymous;
+  if (!user || emailVerified || isGoogleUser || isAnonymousUser || dismissed) {
     return null;
   }
 
