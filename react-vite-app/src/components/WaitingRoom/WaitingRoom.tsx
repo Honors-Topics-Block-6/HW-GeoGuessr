@@ -186,7 +186,7 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
   const playerCount: number = lobby.players?.length || 0;
   const maxPlayers: number = lobby.maxPlayers || 2;
   const isFull: boolean = playerCount >= maxPlayers;
-  
+
   const readyStatus = lobby.readyStatus || {};
   const isCurrentUserReady = readyStatus[userUid] || false;
   const allPlayersReady = lobby.players?.every(p => readyStatus[p.uid]) || false;
@@ -373,7 +373,7 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
               </div>
               <button
                 className="waiting-invite-btn"
-                onClick={() => setShowInviteModal(true)}
+                onClick={() => lobby?.gameId && setShowInviteModal(true)}
               >
                 👥 Invite Friends
               </button>
@@ -419,20 +419,20 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
               disabled={!canStart}
               onClick={handleStartGame}
               title={
-                !isFull 
-                  ? 'Waiting for opponent to join...' 
-                  : !allPlayersReady 
-                  ? 'Waiting for all players to ready up...' 
-                  : 'Start the duel!'
+                !isFull
+                  ? 'Waiting for opponent to join...'
+                  : !allPlayersReady
+                    ? 'Waiting for all players to ready up...'
+                    : 'Start the duel!'
               }
             >
-              {isStarting 
-                ? 'Starting...' 
-                : !isFull 
-                ? 'Waiting for Opponent...' 
-                : !allPlayersReady 
-                ? 'Waiting for Ready...' 
-                : 'Start Duel ⚔️'
+              {isStarting
+                ? 'Starting...'
+                : !isFull
+                  ? 'Waiting for Opponent...'
+                  : !allPlayersReady
+                    ? 'Waiting for Ready...'
+                    : 'Start Duel ⚔️'
               }
             </button>
           )}
@@ -447,6 +447,7 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
         <InviteFriendsModal
           onClose={() => setShowInviteModal(false)}
           lobbyDocId={lobbyDocId}
+          gameId={lobby.gameId}
           difficulty={lobby.difficulty}
         />
       )}
