@@ -114,7 +114,7 @@ export interface DuelData {
 export const STARTING_HEALTH = 6000;
 
 /** Round time in seconds */
-export const DUEL_ROUND_TIME_SECONDS = 20;
+export const DUEL_ROUND_TIME_SECONDS = 30;
 
 // ────── Functions ──────
 

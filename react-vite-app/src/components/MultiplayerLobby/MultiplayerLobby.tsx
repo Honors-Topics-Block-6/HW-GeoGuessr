@@ -21,7 +21,7 @@ const DIFFICULTY_LABELS: Record<Difficulty, DifficultyInfo> = {
 
 export type GameVisibility = 'public' | 'private';
 type PublicDifficultyFilter = 'any' | Difficulty;
-type PublicRoundTimeFilter = 'any' | '10' | '20' | '30' | '0';
+type PublicRoundTimeFilter = 'any' | '15' | '30' | '60' | '0';
 
 /** Preset time options shown as buttons. 0 = no limit. */
 interface TimePreset {
@@ -30,9 +30,9 @@ interface TimePreset {
 }
 
 const TIME_PRESETS: TimePreset[] = [
-  { value: 10, label: '10s' },
-  { value: 20, label: '20s' },
+  { value: 15, label: '15s' },
   { value: 30, label: '30s' },
+  { value: 60, label: '60s' },
   { value: 0, label: 'No Limit' },
 ];
 
@@ -45,12 +45,13 @@ export interface MultiplayerLobbyProps {
   userUsername: string;
   onJoinedLobby: (docId: string) => void;
   onBack: () => void;
+  onOpenMyGames: () => void;
 }
 
-function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
+function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack, onOpenMyGames }: MultiplayerLobbyProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(difficulty);
   const [visibility, setVisibility] = useState<GameVisibility>('public');
-  const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
+  const [timeSelection, setTimeSelection] = useState<number | 'custom'>(30);
   const [customTime, setCustomTime] = useState<string>('60');
   const [publicDifficultyFilter, setPublicDifficultyFilter] = useState<PublicDifficultyFilter>('any');
   const [publicRoundTimeFilter, setPublicRoundTimeFilter] = useState<PublicRoundTimeFilter>('any');
@@ -85,7 +86,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     error,
     hostGame,
     joinByCode,
-    joinPublicGame,
     clearError
   } = useLobby(userUid, userUsername, selectedDifficulty);
 
@@ -105,27 +105,24 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     }
   };
 
-  const handleJoinPublic = async (docId: string): Promise<void> => {
-    const success = await joinPublicGame(docId);
-    if (success) {
-      onJoinedLobby(docId);
+  const handleJoinPublic = async (gameId: string): Promise<void> => {
+    const result = await joinByCode(gameId);
+    if (result) {
+      onJoinedLobby(result.docId);
     }
   };
 
   const filteredPublicLobbies = useMemo(() => {
     return publicLobbies.filter((lobby) => {
-      const lobbyDifficulty = (lobby.difficulty || 'all') as Difficulty;
-      const lobbyRoundTime = typeof lobby.roundTimeSeconds === 'number' ? lobby.roundTimeSeconds : 20;
-
-      const difficultyMatch =
-        publicDifficultyFilter === 'any' || lobbyDifficulty === publicDifficultyFilter;
-
-      const roundTimeMatch =
-        publicRoundTimeFilter === 'any' || lobbyRoundTime === Number(publicRoundTimeFilter);
-
-      return difficultyMatch && roundTimeMatch;
+      if (publicDifficultyFilter !== 'any' && lobby.difficulty !== publicDifficultyFilter) {
+        return false;
+      }
+      if (publicRoundTimeFilter !== 'any' && String(lobby.roundTimeSeconds ?? '') !== publicRoundTimeFilter) {
+        return false;
+      }
+      return true;
     });
-  }, [publicDifficultyFilter, publicLobbies, publicRoundTimeFilter]);
+  }, [publicLobbies, publicDifficultyFilter, publicRoundTimeFilter]);
 
   return (
     <div className="lobby-screen">
@@ -203,29 +200,30 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
                   {preset.value === 0 ? '∞' : `${preset.label}`}
                 </button>
               ))}
-              <button
-                className={`lobby-time-btn ${timeSelection === 'custom' ? 'selected' : ''}`}
-                onClick={() => setTimeSelection('custom')}
-              >
-                ✏️
-              </button>
+              {timeSelection === 'custom' ? (
+                <div className="lobby-time-input-wrapper selected">
+                  <input
+                    className="lobby-time-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={customTime}
+                    onChange={(e) => handleCustomTimeChange(e.target.value)}
+                    onBlur={handleCustomTimeBlur}
+                    placeholder="Custom"
+                    autoFocus
+                  />
+                  <span className="lobby-time-unit">s</span>
+                </div>
+              ) : (
+                <button
+                  className="lobby-time-btn"
+                  onClick={() => setTimeSelection('custom')}
+                  aria-label="Custom time"
+                >
+                  Custom
+                </button>
+              )}
             </div>
-            {timeSelection === 'custom' && (
-              <div className="lobby-time-custom">
-                <input
-                  className="lobby-time-custom-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={customTime}
-                  onChange={(e) => handleCustomTimeChange(e.target.value)}
-                  onBlur={handleCustomTimeBlur}
-                  placeholder="e.g. 60"
-                />
-                <span className="lobby-time-custom-hint">
-                  {CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX}s
-                </span>
-              </div>
-            )}
           </div>
 
           <button
@@ -253,6 +251,9 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
               onJoin={handleJoinByCode}
               isJoining={isJoining}
             />
+            <button className="lobby-my-games-btn" onClick={onOpenMyGames}>
+              My Games
+            </button>
           </div>
 
           {/* Browse Public Games */}

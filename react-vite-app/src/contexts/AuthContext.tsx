@@ -17,6 +17,7 @@ import {
   updateUserDoc,
   updateUserProfile,
   isUsernameTaken,
+  getUserByUsername,
   checkUsernameAvailability,
   isHardcodedAdmin,
   getAllPermissions,
@@ -58,6 +59,7 @@ export interface UserDoc {
   lastGameAt?: unknown;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount?: number;
   twentyFiveKCount?: number;
   photosSubmittedCount?: number;
@@ -77,11 +79,25 @@ export interface BuildingStat {
 
 export interface DailyStatBucket {
   gamesPlayed: number;
+  roundsPlayed?: number;
   totalScore: number;
   totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount: number;
   twentyFiveKCount: number;
   photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
+  byRoundCount?: Partial<Record<'5' | '10' | '20', DailyStatBucketRound>>;
+}
+
+export interface DailyStatBucketRound {
+  gamesPlayed: number;
+  roundsPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
   buildingStats: Record<string, BuildingStat>;
 }
 
@@ -343,6 +359,30 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   }, []);
 
   /**
+   * Log in with email OR username. If input lacks '@', treat as username and resolve to email.
+   */
+  const loginWithIdentifier = useCallback(async (identifier: string, password: string): Promise<FirebaseUser> => {
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      throw new Error('Please enter your email or username.');
+    }
+
+    let emailToUse = trimmed;
+    if (!trimmed.includes('@')) {
+      const userLookup = await getUserByUsername(trimmed);
+      if (!userLookup || !userLookup.email) {
+        throw new Error('No account found with that username.');
+      }
+      emailToUse = userLookup.email;
+    }
+
+    const credential = await signInWithEmailAndPassword(auth, emailToUse, password);
+    const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
+    setUserDoc(doc);
+    return credential.user;
+  }, []);
+
+  /**
    * Sign in with Google
    */
   const loginWithGoogle = useCallback(async (): Promise<FirebaseUser> => {
@@ -497,7 +537,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     levelTitle,
     emailVerified,
     signup,
-    login,
+    login: loginWithIdentifier,
     loginWithGoogle,
     continueAsGuest,
     completeGoogleSignUp,

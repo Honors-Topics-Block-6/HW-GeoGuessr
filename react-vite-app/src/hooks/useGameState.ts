@@ -15,7 +15,7 @@ const EXACT_SPOT_BONUS_POINTS = 500;
 const EXACT_SPOT_MAX_DISTANCE = 1; // map units (~2 ft)
 const MAX_SCORE_PER_ROUND = 5500; // 5000 location + 500 exact-spot bonus
 /** Default round time (used when no custom setting is provided). */
-export const ROUND_TIME_SECONDS = 20;
+export const ROUND_TIME_SECONDS = 30;
 const SINGLEPLAYER_SEEN_HISTORY_KEY = 'singleplayerSeenImageHistory.v1';
 const MAP_DATA_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_SEEN_HISTORY_ENTRIES = 300;
@@ -62,7 +62,7 @@ export interface RoundResult {
   hpLost?: number;
 }
 
-export type ScreenState = 'title' | 'modeSelect' | 'game' | 'result' | 'finalResults' | 'multiplayerLobby' | 'waitingRoom' | 'difficultySelect' | 'duelGame';
+export type ScreenState = 'title' | 'modeSelect' | 'game' | 'result' | 'finalResults' | 'multiplayerLobby' | 'waitingRoom' | 'difficultySelect' | 'duelGame' | 'myGames';
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'all' | null;
 export type GameMode = 'singleplayer' | 'multiplayer' | null;
 

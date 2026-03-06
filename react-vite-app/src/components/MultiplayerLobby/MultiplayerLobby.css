@@ -169,6 +169,25 @@
   overflow: hidden;
 }
 
+.lobby-my-games-btn {
+  width: 100%;
+  padding: 0.55rem 1rem;
+  background: var(--hw-gray-100, #e5e7eb);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lobby-my-games-btn:hover {
+  background: var(--hw-gray-200, #d1d5db);
+  border-color: var(--hw-gray-400, #9ca3af);
+  color: var(--text-primary);
+}
+
 .lobby-panel-public {
   align-items: stretch;
 }
@@ -335,32 +354,62 @@
   color: var(--text-primary);
 }
 
-.lobby-time-custom {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.lobby-time-custom-input {
+.lobby-time-input {
   flex: 1;
-  padding: 0.5rem 0.6rem;
+  padding: 0.4rem 0.2rem;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--text-primary);
   background: var(--hw-surface);
   border: 2px solid var(--border-color);
   border-radius: 0;
   outline: none;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
-.lobby-time-custom-input:focus {
+.lobby-time-input-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.2rem;
+  background: var(--hw-surface);
+  border: 2px solid var(--border-color);
+  border-radius: 0;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.lobby-time-input-wrapper.selected {
+  background: rgba(200, 16, 46, 0.04);
   border-color: var(--hw-red);
 }
 
-.lobby-time-custom-input::placeholder {
+.lobby-time-input-wrapper .lobby-time-input {
+  padding-right: 0.7rem;
+  background: transparent;
+  border: none;
+}
+
+.lobby-time-input-wrapper .lobby-time-input:focus {
+  border-color: transparent;
+}
+
+.lobby-time-unit {
+  position: absolute;
+  right: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.lobby-time-input:focus {
+  border-color: var(--hw-red);
+}
+
+.lobby-time-input::placeholder {
   color: var(--text-muted);
   font-weight: 400;
 }
@@ -666,6 +715,30 @@
 .public-game-players {
   font-size: 0.8rem;
   color: var(--text-secondary);
+}
+
+.public-game-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.public-game-code-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+.public-game-code-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  font-family: var(--hw-font-sans), 'Courier New', monospace;
 }
 
 .public-game-join-btn {
