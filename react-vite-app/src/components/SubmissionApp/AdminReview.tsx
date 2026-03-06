@@ -80,6 +80,7 @@ export interface AdminReviewProps {
 
 function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const PAGE_SIZE = 12
+  const PRELOAD_TARGET_ITEMS = 36
   const PREFETCH_MAX_PAGES = 3
 
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([])
@@ -113,6 +114,13 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<SubmissionItem | null>(null)
   const [isDeleting, setIsDeleting] = useState<boolean>(false)
+
+  const loadedSourceCounts = useMemo(() => ({
+    submission: submissions.length,
+    image: firestoreImages.length,
+    testing: sampleImages.length,
+    all: submissions.length + firestoreImages.length + sampleImages.length
+  }), [firestoreImages.length, sampleImages.length, submissions.length])
 
   const BACKFILL_IMAGE_CURSOR_KEY = 'admin.imagePool.backfill.imageCursor.v1'
   const BACKFILL_SUBMISSION_CURSOR_KEY = 'admin.imagePool.backfill.submissionCursor.v1'
@@ -446,10 +454,15 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       prefetchQueue.length > 0
     if (!hasMoreToLoad) return
     if (loading || loadingMore || isPrefetching) return
+    if (loadedSourceCounts.all < PRELOAD_TARGET_ITEMS) {
+      canTriggerAutoLoadRef.current = true
+      void loadNextPage()
+      return
+    }
     if (!sentinelInViewRef.current) return
     canTriggerAutoLoadRef.current = true
     void loadNextPage()
-  }, [filter, hasMoreImages, hasMoreSubmissions, isPrefetching, loading, loadingMore, loadNextPage, prefetchQueue.length, sourceFilter, submissions.length, firestoreImages.length])
+  }, [PRELOAD_TARGET_ITEMS, filter, hasMoreImages, hasMoreSubmissions, isPrefetching, loadedSourceCounts.all, loading, loadingMore, loadNextPage, prefetchQueue.length, sourceFilter])
 
   useEffect(() => {
     const hasMore =
@@ -744,13 +757,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
   // Combine all loaded sources; counts are fetched separately.
   const allItems: SubmissionItem[] = useMemo(() => [...submissions, ...firestoreImages, ...sampleImages], [submissions, firestoreImages, sampleImages])
-
-  const loadedSourceCounts = useMemo(() => ({
-    submission: submissions.length,
-    image: firestoreImages.length,
-    testing: sampleImages.length,
-    all: submissions.length + firestoreImages.length + sampleImages.length
-  }), [firestoreImages.length, sampleImages.length, submissions.length])
 
   const loadedStatusCounts = useMemo(() => ({
     pending: submissions.filter((item) => item.status === 'pending').length,
