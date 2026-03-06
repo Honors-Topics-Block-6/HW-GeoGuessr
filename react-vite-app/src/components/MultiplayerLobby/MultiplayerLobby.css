@@ -302,6 +302,19 @@
   color: var(--text-primary);
 }
 
+.lobby-vis-btn-disabled,
+.lobby-vis-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.lobby-vis-guest-hint {
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
 .lobby-vis-icon {
   font-size: 1rem;
 }

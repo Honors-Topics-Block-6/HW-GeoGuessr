@@ -248,8 +248,7 @@ export async function joinLobby(
 
 /**
  * Leave a lobby. Removes the player from the players array.
- * If the lobby becomes empty, delete it.
- * If the leaving player was the host, transfer host to the next player.
+ * If the lobby becomes empty or the host leaves, delete it.
  */
 export async function leaveLobby(docId: string, playerUid: string): Promise<void> {
   const lobbyRef = doc(db, 'lobbies', docId);
@@ -260,6 +259,12 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
   const lobby = lobbySnap.data() as Omit<LobbyDoc, 'docId'>;
   const player = lobby.players.find(p => p.uid === playerUid);
   if (!player) return;
+
+   // If the host leaves, close the game entirely by deleting the lobby.
+   if (lobby.hostUid === playerUid) {
+     await deleteDoc(lobbyRef);
+     return;
+   }
 
   const remainingPlayers = lobby.players.filter(p => p.uid !== playerUid);
 
@@ -284,12 +289,6 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
   });
 
   updates.readyStatus = newReadyStatus;
-
-  // Transfer host if the leaving player was the host
-  if (lobby.hostUid === playerUid) {
-    updates.hostUid = remainingPlayers[0].uid;
-    updates.hostUsername = remainingPlayers[0].username;
-  }
 
   await updateDoc(lobbyRef, updates);
 }
@@ -594,7 +593,7 @@ export async function sendHeartbeat(docId: string, playerUid: string): Promise<v
 
 /**
  * Remove players whose heartbeat has gone stale from a lobby.
- * If the lobby becomes empty after removal, it is deleted.
+ * If the lobby becomes empty after removal or the host goes stale, it is deleted.
  * Returns whether the lobby was deleted.
  */
 export async function removeStalePlayersFromLobby(
@@ -638,7 +637,8 @@ export async function removeStalePlayersFromLobby(
 
     const remaining = fresh.players.filter(p => p.uid !== stalePlayer.uid);
 
-    if (remaining.length === 0) {
+    // If no one is left or the host has gone stale, delete the lobby (close the game).
+    if (remaining.length === 0 || fresh.hostUid === stalePlayer.uid) {
       await deleteDoc(lobbyRef);
       return true;
     }
@@ -659,12 +659,6 @@ export async function removeStalePlayersFromLobby(
     const newReadyStatus: Record<string, boolean> = { ...(fresh.readyStatus || {}) };
     delete newReadyStatus[stalePlayer.uid];
     updates.readyStatus = newReadyStatus;
-
-    // Transfer host if needed
-    if (fresh.hostUid === stalePlayer.uid) {
-      updates.hostUid = remaining[0].uid;
-      updates.hostUsername = remaining[0].username;
-    }
 
     await updateDoc(lobbyRef, updates);
   }

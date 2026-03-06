@@ -38,7 +38,7 @@ export interface FriendsPanelProps {
 }
 
 function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactElement {
-  const { user, userDoc } = useAuth();
+  const { user, userDoc, isGuest } = useAuth();
   const {
     friends,
     incomingRequests,
@@ -50,7 +50,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
     removeFriend,
     loading,
     error: friendsError
-  } = useFriends(user?.uid, userDoc?.username ?? '');
+  } = useFriends(isGuest ? null : user?.uid, isGuest ? '' : userDoc?.username ?? '');
 
   const [addUid, setAddUid] = useState<string>('');
   const [addUsername, setAddUsername] = useState<string>('');
@@ -405,115 +405,124 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
         {/* Add Friend Tab */}
         {tab === 'add' && (
           <div className="friends-add-section">
-            <div className="add-friend-info">
-              <p>Add a friend by entering their User ID, username, or email address.</p>
-              <div className="your-uid-box">
-                <span className="your-uid-label">Your User ID:</span>
-                <code className="your-uid-value">{user?.uid}</code>
-                <button
-                  className="copy-uid-button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(user?.uid || '');
-                    setCopiedUid(true);
-                    setTimeout(() => setCopiedUid(false), 2000);
-                  }}
-                >
-                  {copiedUid ? '✓' : 'Copy'}
-                </button>
+            {isGuest ? (
+              <div className="add-friend-info">
+                <p>Guest accounts cannot send friend requests.</p>
+                <p className="friends-empty-hint">Sign up or log in to add friends and invite them to games.</p>
               </div>
-            </div>
-
-            {addError && <div className="add-friend-error">{addError}</div>}
-            {addSuccess && <div className="add-friend-success">{addSuccess}</div>}
-
-            <div className="add-friend-mode">
-              <button
-                type="button"
-                className={`add-friend-mode-button ${addMode === 'uid' ? 'active' : ''}`}
-                onClick={() => {
-                  setAddMode('uid');
-                  setAddError(null);
-                  setAddSuccess(null);
-                }}
-              >
-                By User ID
-              </button>
-              <button
-                type="button"
-                className={`add-friend-mode-button ${addMode === 'username' ? 'active' : ''}`}
-                onClick={() => {
-                  setAddMode('username');
-                  setAddError(null);
-                  setAddSuccess(null);
-                }}
-              >
-                By Username
-              </button>
-            </div>
-
-            {addMode === 'uid' ? (
-              <form onSubmit={handleAddFriend} className="add-friend-form">
-                <input
-                  type="text"
-                  className="add-friend-input"
-                  placeholder="Enter friend's User ID..."
-                  value={addUid}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    setAddUid(e.target.value);
-                    setAddError(null);
-                  }}
-                  disabled={addLoading}
-                />
-                <button
-                  type="submit"
-                  className="add-friend-submit"
-                  disabled={addLoading || !addUid.trim()}
-                >
-                  {addLoading ? 'Sending...' : 'Send Request'}
-                </button>
-              </form>
             ) : (
               <>
-                <form onSubmit={handleSearchByUsername} className="add-friend-form">
-                  <input
-                    type="text"
-                    className="add-friend-input"
-                    placeholder="Search username (exact match)..."
-                    value={addUsername}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                      setAddUsername(e.target.value);
-                      setAddError(null);
-                    }}
-                    disabled={searchLoading}
-                  />
-                  <button
-                    type="submit"
-                    className="add-friend-submit"
-                    disabled={searchLoading || !addUsername.trim()}
-                  >
-                    {searchLoading ? 'Searching...' : 'Search'}
-                  </button>
-                </form>
-
-                {searchResults.length > 0 && (
-                  <div className="add-friend-results">
-                    {searchResults.map((u) => (
-                      <div key={u.uid} className="add-friend-result-item">
-                        <div className="add-friend-result-info">
-                          <span className="add-friend-result-username">{u.username}</span>
-                          <span className="add-friend-result-uid">{u.uid}</span>
-                        </div>
-                        <button
-                          type="button"
-                          className="add-friend-result-send"
-                          onClick={() => handleSendFromSearch(u.uid)}
-                          disabled={actionLoading === u.uid}
-                        >
-                          {actionLoading === u.uid ? '...' : 'Send Request'}
-                        </button>
-                      </div>
-                    ))}
+                <div className="add-friend-info">
+                  <p>Add a friend by entering their User ID, username, or email address.</p>
+                  <div className="your-uid-box">
+                    <span className="your-uid-label">Your User ID:</span>
+                    <code className="your-uid-value">{user?.uid}</code>
+                    <button
+                      className="copy-uid-button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(user?.uid || '');
+                        setCopiedUid(true);
+                        setTimeout(() => setCopiedUid(false), 2000);
+                      }}
+                    >
+                      {copiedUid ? '✓' : 'Copy'}
+                    </button>
                   </div>
+                </div>
+
+                {addError && <div className="add-friend-error">{addError}</div>}
+                {addSuccess && <div className="add-friend-success">{addSuccess}</div>}
+
+                <div className="add-friend-mode">
+                  <button
+                    type="button"
+                    className={`add-friend-mode-button ${addMode === 'uid' ? 'active' : ''}`}
+                    onClick={() => {
+                      setAddMode('uid');
+                      setAddError(null);
+                      setAddSuccess(null);
+                    }}
+                  >
+                    By User ID
+                  </button>
+                  <button
+                    type="button"
+                    className={`add-friend-mode-button ${addMode === 'username' ? 'active' : ''}`}
+                    onClick={() => {
+                      setAddMode('username');
+                      setAddError(null);
+                      setAddSuccess(null);
+                    }}
+                  >
+                    By Username
+                  </button>
+                </div>
+
+                {addMode === 'uid' ? (
+                  <form onSubmit={handleAddFriend} className="add-friend-form">
+                    <input
+                      type="text"
+                      className="add-friend-input"
+                      placeholder="Enter friend's User ID..."
+                      value={addUid}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        setAddUid(e.target.value);
+                        setAddError(null);
+                      }}
+                      disabled={addLoading}
+                    />
+                    <button
+                      type="submit"
+                      className="add-friend-submit"
+                      disabled={addLoading || !addUid.trim()}
+                    >
+                      {addLoading ? 'Sending...' : 'Send Request'}
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <form onSubmit={handleSearchByUsername} className="add-friend-form">
+                      <input
+                        type="text"
+                        className="add-friend-input"
+                        placeholder="Search username (exact match)..."
+                        value={addUsername}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                          setAddUsername(e.target.value);
+                          setAddError(null);
+                        }}
+                        disabled={searchLoading}
+                      />
+                      <button
+                        type="submit"
+                        className="add-friend-submit"
+                        disabled={searchLoading || !addUsername.trim()}
+                      >
+                        {searchLoading ? 'Searching...' : 'Search'}
+                      </button>
+                    </form>
+
+                    {searchResults.length > 0 && (
+                      <div className="add-friend-results">
+                        {searchResults.map((u) => (
+                          <div key={u.uid} className="add-friend-result-item">
+                            <div className="add-friend-result-info">
+                              <span className="add-friend-result-username">{u.username}</span>
+                              <span className="add-friend-result-uid">{u.uid}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="add-friend-result-send"
+                              onClick={() => handleSendFromSearch(u.uid)}
+                              disabled={actionLoading === u.uid}
+                            >
+                              {actionLoading === u.uid ? '...' : 'Send Request'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}
