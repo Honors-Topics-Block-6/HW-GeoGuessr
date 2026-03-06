@@ -46,10 +46,9 @@ export interface MultiplayerLobbyProps {
   isGuest: boolean;
   onJoinedLobby: (docId: string) => void;
   onBack: () => void;
-  onOpenMyGames: () => void;
 }
 
-function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoinedLobby, onBack, onOpenMyGames }: MultiplayerLobbyProps): React.ReactElement {
+function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(difficulty);
   const [visibility, setVisibility] = useState<GameVisibility>('public');
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(30);
@@ -158,7 +157,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
         {/* Host a Game */}
         <div className="lobby-panel lobby-panel-host">
           <h2 className="lobby-panel-heading">Host a Game</h2>
-          <p className="lobby-panel-desc">Create a new game and invite friends</p>
 
           <div className="lobby-host-difficulty">
             <p className="lobby-time-label">Difficulty</p>
@@ -253,25 +251,18 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
         </div>
 
         <div className="lobby-bottom-sections">
-          {/* Join by Code */}
+          {/* Join by Code (top-left) */}
           <div className="lobby-panel lobby-panel-join">
             <h2 className="lobby-panel-heading">Join a Game</h2>
-            <p className="lobby-panel-desc">Enter a game code to join</p>
             <GameCodeInput
               onJoin={handleJoinByCode}
               isJoining={isJoining}
             />
-            <button className="lobby-my-games-btn" onClick={onOpenMyGames}>
-              My Games
-            </button>
           </div>
 
-          {/* Browse Public Games */}
-          <div className="lobby-public-section">
+          {/* Public filters (top-right) */}
+          <div className="lobby-panel lobby-public-filters-panel">
             <h2 className="lobby-section-heading">Public Games</h2>
-            <p className="lobby-section-desc">
-              Join an open game — only {diffInfo.label} difficulty games can be joined
-            </p>
             <div className="lobby-public-filters">
               <label className="lobby-public-filter-item">
                 <span>Difficulty</span>
@@ -302,6 +293,10 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
                 </select>
               </label>
             </div>
+          </div>
+
+          {/* Public games list (full width, two-wide inside) */}
+          <div className="lobby-panel lobby-public-list-panel">
             <PublicGameList
               lobbies={filteredPublicLobbies}
               selectedDifficulty={difficulty}
