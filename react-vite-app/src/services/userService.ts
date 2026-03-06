@@ -487,6 +487,44 @@ export async function isUsernameTaken(username: string, excludeUid: string | nul
 }
 
 /**
+ * Lookup a user document by username (case-insensitive; prefers usernameLower if present).
+ * Returns null if not found.
+ */
+export async function getUserByUsername(username: string): Promise<{ uid: string; email: string } | null> {
+  const usersRef = collection(db, 'users');
+  const trimmed = username.trim();
+  const lower = trimmed.toLowerCase();
+
+  // Try case-insensitive index
+  const qLower = query(usersRef, where('usernameLower', '==', lower));
+  const snapLower = await getDocs(qLower);
+  if (!snapLower.empty) {
+    const docSnap = snapLower.docs[0];
+    const data = docSnap.data() as { email?: string };
+    return { uid: docSnap.id, email: data.email };
+  }
+
+  // Fallback: exact match on username
+  const qExact = query(usersRef, where('username', '==', trimmed));
+  const snapExact = await getDocs(qExact);
+  if (!snapExact.empty) {
+    const docSnap = snapExact.docs[0];
+    const data = docSnap.data() as { email?: string };
+    return { uid: docSnap.id, email: data.email };
+  }
+
+  // Final fallback: scan and compare case-insensitively
+  const allSnap = await getDocs(usersRef);
+  const match = allSnap.docs.find(docSnap => {
+    const data = docSnap.data() as { username?: string; email?: string };
+    return (data.username || '').toLowerCase() === lower;
+  });
+  if (!match) return null;
+  const data = match.data() as { email?: string };
+  return { uid: match.id, email: data.email };
+}
+
+/**
  * Check if a user is the hardcoded admin (always admin regardless of DB)
  */
 export function isHardcodedAdmin(uid: string): boolean {
