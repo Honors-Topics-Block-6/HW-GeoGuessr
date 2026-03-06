@@ -180,6 +180,7 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
   const [error, setError] = useState<string | null>(null);
   const hasLeft = useRef<boolean>(false);
   const hadLobbySnapshot = useRef<boolean>(false);
+  const wasHostInLastSnapshot = useRef<boolean>(false);
   const docIdRef = useRef<string>(lobbyDocId);
   const uidRef = useRef<string>(userUid);
 
@@ -195,22 +196,26 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
 
     hasLeft.current = false;
     hadLobbySnapshot.current = false;
+    wasHostInLastSnapshot.current = false;
 
-    const unsubscribe = subscribeLobby(lobbyDocId, (lobbyData) => {
+    const unsubscribe = subscribeLobby(lobbyDocId, (lobbyData, reason) => {
       setLobby(lobbyData as LobbyData | null);
       setIsLoading(false);
 
       if (!lobbyData) {
-        // Differentiate user-initiated leave from host/lobby closure for clearer UX.
-        setError(
-          hasLeft.current
-            ? 'This lobby no longer exists.'
-            : hadLobbySnapshot.current
-              ? 'Host left the lobby. The game was closed.'
-              : 'This lobby no longer exists.'
-        );
+        // Differentiate user-initiated leave vs inactivity vs host/lobby closure.
+        if (hasLeft.current) {
+          setError('This lobby no longer exists.');
+        } else if (reason === 'inactive') {
+          setError('Lobby closed due to inactivity.');
+        } else if (hadLobbySnapshot.current && !wasHostInLastSnapshot.current) {
+          setError('Host left the lobby. The game was closed.');
+        } else {
+          setError('This lobby no longer exists.');
+        }
       } else {
         hadLobbySnapshot.current = true;
+        wasHostInLastSnapshot.current = lobbyData.hostUid === userUid;
         setError(null);
       }
     });

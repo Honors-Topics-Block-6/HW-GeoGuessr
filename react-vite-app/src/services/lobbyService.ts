@@ -46,6 +46,8 @@ export interface LobbyDoc {
   maxPlayers: number;
   /** Round time in seconds. 0 = no time limit. */
   roundTimeSeconds: number;
+  /** Last meaningful player action timestamp (join/ready/start/guess/etc.). */
+  lastActionAt?: Timestamp | FieldValue | null;
   createdAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
 }
@@ -74,7 +76,7 @@ export interface CreateLobbyResult {
 
 /** How long (ms) before a player's heartbeat is considered stale. */
 export const STALE_TIMEOUT = 30_000;
-/** Lobby inactivity timeout (10 minutes without any heartbeat updates). */
+/** Lobby inactivity timeout (10 minutes without player actions). */
 export const LOBBY_INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000;
 /** Lobby lifetime before auto-expiry (1 hour). */
 export const LOBBY_EXPIRY_MS = 60 * 60 * 1000;
@@ -98,20 +100,11 @@ function isLobbyExpired(lobby: Pick<LobbyDoc, 'createdAt'>): boolean {
 }
 
 function isLobbyInactive(
-  lobby: Pick<LobbyDoc, 'heartbeats' | 'updatedAt' | 'createdAt'>,
+  lobby: Pick<LobbyDoc, 'lastActionAt' | 'updatedAt' | 'createdAt'>,
   timeoutMs: number = LOBBY_INACTIVITY_TIMEOUT_MS
 ): boolean {
-  const heartbeatEntries = Object.values(lobby.heartbeats || {});
-  const mostRecentHeartbeatMs = heartbeatEntries
-    .map((value) => getTimestampMillis(value))
-    .reduce<number | null>((max, current) => {
-      if (current === null) return max;
-      if (max === null) return current;
-      return Math.max(max, current);
-    }, null);
-
   const fallbackMs =
-    mostRecentHeartbeatMs ??
+    getTimestampMillis(lobby.lastActionAt) ??
     getTimestampMillis(lobby.updatedAt) ??
     getTimestampMillis(lobby.createdAt);
 
@@ -177,6 +170,7 @@ export async function createLobby(
     },
     maxPlayers: 2,
     roundTimeSeconds,
+    lastActionAt: now,
     createdAt: now,
     updatedAt: now
   };
@@ -254,7 +248,7 @@ export async function joinLobby(
     throw new Error('This lobby has expired.');
   }
 
-  if (isLobbyInactive(lobby as Pick<LobbyDoc, 'heartbeats' | 'updatedAt' | 'createdAt'>)) {
+  if (isLobbyInactive(lobby as Pick<LobbyDoc, 'lastActionAt' | 'updatedAt' | 'createdAt'>)) {
     await deleteDoc(lobbyRef);
     await markLobbyHistoryDeletedSafe(docId);
     throw new Error('This lobby has closed due to inactivity.');
@@ -286,6 +280,7 @@ export async function joinLobby(
     }),
     [`heartbeats.${playerUid}`]: Timestamp.now(),
     [`readyStatus.${playerUid}`]: false,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -293,7 +288,7 @@ export async function joinLobby(
 /**
  * Leave a lobby. Removes the player from the players array.
  * If the lobby becomes empty, delete it.
- * If the leaving player was the host, transfer host to the next player.
+ * If the host leaves, close the lobby for everyone.
  */
 export async function leaveLobby(docId: string, playerUid: string): Promise<void> {
   const lobbyRef = doc(db, 'lobbies', docId);
@@ -323,6 +318,7 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
 
   const updates: Record<string, unknown> = {
     players: arrayRemove(player),
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
 
@@ -345,7 +341,7 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
  */
 export function subscribeLobby(
   docId: string,
-  callback: (lobby: LobbyDoc | null) => void
+  callback: (lobby: LobbyDoc | null, reason?: 'inactive' | 'missing') => void
 ): () => void {
   const lobbyRef = doc(db, 'lobbies', docId);
   return onSnapshot(lobbyRef, (snapshot) => {
@@ -356,12 +352,12 @@ export function subscribeLobby(
           console.error('Failed to delete inactive/expired lobby:', err);
         });
         markLobbyHistoryDeletedSafe(docId).catch(() => { });
-        callback(null);
+        callback(null, 'inactive');
         return;
       }
       callback(lobby);
     } else {
-      callback(null);
+      callback(null, 'missing');
     }
   });
 }
@@ -623,6 +619,7 @@ export async function updateLobbyStatus(docId: string, status: LobbyStatus): Pro
   const lobbyRef = doc(db, 'lobbies', docId);
   await updateDoc(lobbyRef, {
     status,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -663,6 +660,7 @@ export async function removeStalePlayersFromLobby(
   const lobby = lobbySnap.data() as Omit<LobbyDoc, 'docId'>;
   if (isLobbyExpired(lobby as Pick<LobbyDoc, 'createdAt'>)) {
     await deleteDoc(lobbyRef);
+    await markLobbyHistoryDeletedSafe(docId);
     return true;
   }
   const heartbeats = lobby.heartbeats || {};
@@ -738,6 +736,7 @@ export async function updateLobbyRoundTime(
   const lobbyRef = doc(db, 'lobbies', docId);
   await updateDoc(lobbyRef, {
     roundTimeSeconds,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -753,6 +752,7 @@ export async function updateLobbyDifficulty(
   const lobbyRef = doc(db, 'lobbies', docId);
   await updateDoc(lobbyRef, {
     difficulty,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -768,6 +768,7 @@ export async function setPlayerReady(
   const lobbyRef = doc(db, 'lobbies', docId);
   await updateDoc(lobbyRef, {
     [`readyStatus.${playerUid}`]: ready,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
