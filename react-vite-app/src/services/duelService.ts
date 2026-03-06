@@ -171,6 +171,7 @@ export async function startDuel(
     winner: null,
     loser: null,
     finishedAt: null,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -225,6 +226,7 @@ export async function submitDuelGuess(
         noGuess: guessData.noGuess || false,
         submittedAt: Timestamp.now()
       },
+      lastActionAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }),
     // Meaningful activity: user submitted a score/guess (throttled, server time).
@@ -251,6 +253,7 @@ export async function sendDuelEmote(
       sentAt: Timestamp.now(),
       round
     },
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -415,6 +418,7 @@ export async function advanceToNextRound(docId: string, difficulty: string): Pro
     guesses: {},
     emotes: {},
     phase: 'guessing',
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -462,6 +466,7 @@ export async function handleOpponentDisconnect(
     winner: winnerUid,
     loser: loserUid,
     finishedAt: serverTimestamp(),
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
   if (forfeitBy != null) {
