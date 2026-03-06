@@ -305,11 +305,19 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
   const player = lobby.players.find(p => p.uid === playerUid);
   if (!player) return;
 
+  // Product behavior: if host leaves, the game closes for everyone.
+  if (lobby.hostUid === playerUid) {
+    await deleteDoc(lobbyRef);
+    await markLobbyHistoryDeletedSafe(docId);
+    return;
+  }
+
   const remainingPlayers = lobby.players.filter(p => p.uid !== playerUid);
 
   if (remainingPlayers.length === 0) {
     // No one left — delete the lobby
     await deleteDoc(lobbyRef);
+    await markLobbyHistoryDeletedSafe(docId);
     return;
   }
 
@@ -328,12 +336,6 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
   });
 
   updates.readyStatus = newReadyStatus;
-
-  // Transfer host if the leaving player was the host
-  if (lobby.hostUid === playerUid) {
-    updates.hostUid = remainingPlayers[0].uid;
-    updates.hostUsername = remainingPlayers[0].username;
-  }
 
   await updateDoc(lobbyRef, updates);
 }
@@ -689,8 +691,16 @@ export async function removeStalePlayersFromLobby(
 
     const remaining = fresh.players.filter(p => p.uid !== stalePlayer.uid);
 
+    // Product behavior: if host goes stale/disconnects, close the lobby.
+    if (fresh.hostUid === stalePlayer.uid) {
+      await deleteDoc(lobbyRef);
+      await markLobbyHistoryDeletedSafe(docId);
+      return true;
+    }
+
     if (remaining.length === 0) {
       await deleteDoc(lobbyRef);
+      await markLobbyHistoryDeletedSafe(docId);
       return true;
     }
 
@@ -710,12 +720,6 @@ export async function removeStalePlayersFromLobby(
     const newReadyStatus: Record<string, boolean> = { ...(fresh.readyStatus || {}) };
     delete newReadyStatus[stalePlayer.uid];
     updates.readyStatus = newReadyStatus;
-
-    // Transfer host if needed
-    if (fresh.hostUid === stalePlayer.uid) {
-      updates.hostUid = remaining[0].uid;
-      updates.hostUsername = remaining[0].username;
-    }
 
     await updateDoc(lobbyRef, updates);
   }
