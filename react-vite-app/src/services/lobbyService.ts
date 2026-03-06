@@ -116,7 +116,7 @@ export async function createLobby(
   hostUsername: string,
   difficulty: string,
   visibility: LobbyVisibility,
-  roundTimeSeconds: number = 20
+  roundTimeSeconds: number = 30
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
