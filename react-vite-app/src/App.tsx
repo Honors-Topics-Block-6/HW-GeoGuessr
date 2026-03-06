@@ -821,12 +821,14 @@ function App(): React.ReactElement {
           }
           userUid={user.uid}
           userUsername={userDoc?.username as string}
+          isGuest={isGuest}
           onJoinedLobby={(docId: string) => {
             setLobbyDocId(docId);
             setScreen("waitingRoom");
           }}
           onBack={() => setScreen("modeSelect")}
           onOpenMyGames={() => setScreen("myGames")}
+          onBack={() => setScreen('modeSelect')}
         />
       )}
 
