@@ -719,7 +719,6 @@ function App(): React.ReactElement {
             setScreen('waitingRoom');
           }}
           onBack={() => setScreen('modeSelect')}
-          onOpenMyGames={() => setScreen('myGames')}
         />
       )}
 

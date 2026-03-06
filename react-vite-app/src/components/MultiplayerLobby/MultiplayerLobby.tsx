@@ -46,10 +46,9 @@ export interface MultiplayerLobbyProps {
   isGuest: boolean;
   onJoinedLobby: (docId: string) => void;
   onBack: () => void;
-  onOpenMyGames: () => void;
 }
 
-function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoinedLobby, onBack, onOpenMyGames }: MultiplayerLobbyProps): React.ReactElement {
+function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(difficulty);
   const [visibility, setVisibility] = useState<GameVisibility>('public');
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(30);
@@ -259,9 +258,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
               onJoin={handleJoinByCode}
               isJoining={isJoining}
             />
-            <button className="lobby-my-games-btn" onClick={onOpenMyGames}>
-              My Games
-            </button>
           </div>
 
           {/* Public filters (top-right) */}
