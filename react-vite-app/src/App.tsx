@@ -19,6 +19,7 @@ import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
 import MultiplayerLobby from './components/MultiplayerLobby/MultiplayerLobby';
+import MyGames from './components/MyGames/MyGames';
 import WaitingRoom from './components/WaitingRoom/WaitingRoom';
 import DuelGameScreen from './components/DuelGameScreen/DuelGameScreen';
 import DuelResultScreen from './components/DuelResultScreen/DuelResultScreen';
@@ -686,6 +687,14 @@ function App(): React.ReactElement {
             setScreen('waitingRoom');
           }}
           onBack={() => setScreen('modeSelect')}
+          onOpenMyGames={() => setScreen('myGames')}
+        />
+      )}
+
+      {screen === 'myGames' && !inDuel && (
+        <MyGames
+          userUid={user.uid}
+          onBack={() => setScreen('multiplayerLobby')}
         />
       )}
 
