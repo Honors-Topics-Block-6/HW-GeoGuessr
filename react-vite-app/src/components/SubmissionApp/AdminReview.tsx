@@ -668,10 +668,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
   const roundCoordinate = (value: number): number => Math.round(value * 100) / 100
 
-  const isEditable = selectedSubmission && selectedSubmission._source !== 'testing'
-
-  const roundCoordinate = (value: number): number => Math.round(value * 100) / 100
-
   const isEditable = Boolean(selectedSubmission)
 
   if (loading) {
@@ -829,6 +825,12 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                   </div>
                   <div className="card-actions card-actions-delete-row">
                     <button
+                      className="edit-button preview-edit-button"
+                      onClick={() => setSelectedSubmission(submission)}
+                    >
+                      Edit
+                    </button>
+                    <button
                       className="delete-photo-button preview-delete-button"
                       onClick={() => handleDeleteClick(submission)}
                     >
@@ -839,14 +841,30 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               )}
 
               {submission.status !== 'pending' && (
-                <div className="card-actions card-actions-reset-row">
-                  <button
-                    className="reset-button preview-reset-button"
-                    onClick={() => handleResetToPending(submission.id)}
-                  >
-                    Reset to Pending
-                  </button>
-                </div>
+                <>
+                  <div className="card-actions card-actions-reset-row">
+                    <button
+                      className="reset-button preview-reset-button"
+                      onClick={() => handleResetToPending(submission.id)}
+                    >
+                      Reset to Pending
+                    </button>
+                  </div>
+                  <div className="card-actions card-actions-delete-row">
+                    <button
+                      className="edit-button preview-edit-button"
+                      onClick={() => setSelectedSubmission(submission)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="delete-photo-button preview-delete-button"
+                      onClick={() => handleDeleteClick(submission)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </>
               )}
             </div>
             ))}
@@ -895,7 +913,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
             ×
           </button>
           <div className="modal-shell modal-shell-wide" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-            <div className="modal-side-actions-left">
+            <div className="modal-inner-actions">
               {isEditing ? (
                 <>
                   <button className="save-button" onClick={handleSaveEdit} disabled={isSaving}>
@@ -908,7 +926,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               ) : (
                 <>
                   {isEditable && <button className="edit-button" onClick={handleStartEdit}>Edit</button>}
-                  {isEditable && <button className="delete-photo-button modal-side-delete-button" onClick={() => handleDeleteClick(selectedSubmission)}>Delete</button>}
+                  {isEditable && <button className="delete-photo-button modal-inner-delete-button" onClick={() => handleDeleteClick(selectedSubmission)}>Delete</button>}
                 </>
               )}
             </div>

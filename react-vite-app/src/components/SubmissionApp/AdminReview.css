@@ -467,7 +467,8 @@
 
 .approve-button,
 .deny-button,
-.reset-button {
+.reset-button,
+.card-actions .edit-button.preview-edit-button {
   flex: 1;
   padding: 10px;
   border: none;
@@ -477,6 +478,17 @@
   font-weight: 700;
   transition: all 0.2s ease;
   letter-spacing: 0.3px;
+}
+
+.card-actions .edit-button.preview-edit-button {
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--text-secondary, #4b5563);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+}
+
+.card-actions .edit-button.preview-edit-button:hover {
+  background: var(--hw-gray-200, #e5e7eb);
+  color: var(--hw-black, #231f20);
 }
 
 .approve-button {
@@ -1439,35 +1451,33 @@
   display: none;
 }
 
-.modal-side-actions-left {
-  position: fixed;
-  top: 14px;
-  left: 18px;
-  width: 96px;
+.modal-inner-actions {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
-  z-index: 1310;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hw-gray-200, #e5e7eb);
+  background: var(--hw-gray-50, #f9fafb);
+  flex-shrink: 0;
 }
 
-.modal-side-actions-left .edit-button,
-.modal-side-actions-left .save-button,
-.modal-side-actions-left .cancel-edit-button,
-.modal-side-actions-left .delete-photo-button {
-  width: 100%;
-  flex: none;
-  padding: 8px 20px;
-  font-size: 13px;
+.modal-inner-actions .edit-button,
+.modal-inner-actions .save-button,
+.modal-inner-actions .cancel-edit-button,
+.modal-inner-actions .delete-photo-button {
+  padding: 10px 20px;
+  font-size: 14px;
   font-weight: 700;
 }
 
-.modal-side-delete-button {
+.modal-inner-delete-button {
   background: #991b1b;
   color: #ffffff;
   border: 1px solid #991b1b;
 }
 
-.modal-side-delete-button:hover {
+.modal-inner-delete-button:hover {
   background: #7f1d1d;
   border-color: #7f1d1d;
   box-shadow: 0 4px 15px rgba(153, 27, 27, 0.28);
@@ -1568,11 +1578,8 @@
     grid-template-columns: 1fr;
   }
 
-  .modal-side-actions-left {
-    position: static;
-    width: auto;
-    flex-direction: row;
-    margin-bottom: 10px;
+  .modal-inner-actions {
+    padding: 10px 12px;
   }
 
   .modal-bottom-actions {
