@@ -221,8 +221,9 @@ export async function findLobbyByGameId(gameId: string): Promise<LobbyDoc | null
 
   const docSnap = snapshot.docs[0];
   const lobby = { docId: docSnap.id, ...docSnap.data() } as LobbyDoc;
-  if (isLobbyExpired(lobby)) {
+  if (isLobbyExpired(lobby) || isLobbyInactive(lobby)) {
     await deleteDoc(doc(db, 'lobbies', docSnap.id));
+    await markLobbyHistoryDeletedSafe(docSnap.id);
     return null;
   }
   return lobby;
@@ -249,7 +250,14 @@ export async function joinLobby(
 
   if (isLobbyExpired(lobby as Pick<LobbyDoc, 'createdAt'>)) {
     await deleteDoc(lobbyRef);
+    await markLobbyHistoryDeletedSafe(docId);
     throw new Error('This lobby has expired.');
+  }
+
+  if (isLobbyInactive(lobby as Pick<LobbyDoc, 'heartbeats' | 'updatedAt' | 'createdAt'>)) {
+    await deleteDoc(lobbyRef);
+    await markLobbyHistoryDeletedSafe(docId);
+    throw new Error('This lobby has closed due to inactivity.');
   }
 
   if (lobby.status !== 'waiting') {
@@ -341,10 +349,11 @@ export function subscribeLobby(
   return onSnapshot(lobbyRef, (snapshot) => {
     if (snapshot.exists()) {
       const lobby = { docId: snapshot.id, ...snapshot.data() } as LobbyDoc;
-      if (isLobbyExpired(lobby)) {
+      if (isLobbyExpired(lobby) || isLobbyInactive(lobby)) {
         deleteDoc(lobbyRef).catch((err: unknown) => {
-          console.error('Failed to delete expired lobby:', err);
+          console.error('Failed to delete inactive/expired lobby:', err);
         });
+        markLobbyHistoryDeletedSafe(docId).catch(() => { });
         callback(null);
         return;
       }
@@ -369,12 +378,14 @@ export function subscribePublicLobbies(
       }) as LobbyDoc)
       .filter((lobby) => {
         const expired = isLobbyExpired(lobby);
-        if (expired) {
+        const inactive = isLobbyInactive(lobby);
+        if (expired || inactive) {
           deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
-            console.error('Failed to delete expired public lobby:', err);
+            console.error('Failed to delete inactive/expired public lobby:', err);
           });
+          markLobbyHistoryDeletedSafe(lobby.docId).catch(() => { });
         }
-        return !expired;
+        return !expired && !inactive;
       });
   };
 
@@ -446,12 +457,14 @@ export function subscribeUserLobbies(
       }) as LobbyDoc)
       .filter((lobby) => {
         const expired = isLobbyExpired(lobby);
-        if (expired) {
+        const inactive = isLobbyInactive(lobby);
+        if (expired || inactive) {
           deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
-            console.error('Failed to delete expired lobby:', err);
+            console.error('Failed to delete inactive/expired lobby:', err);
           });
+          markLobbyHistoryDeletedSafe(lobby.docId).catch(() => { });
         }
-        return !expired;
+        return !expired && !inactive;
       });
     callback(lobbies);
   }, (error) => {
@@ -468,12 +481,14 @@ export function subscribeUserLobbies(
         }) as LobbyDoc)
         .filter((lobby) => {
           const expired = isLobbyExpired(lobby);
-          if (expired) {
+          const inactive = isLobbyInactive(lobby);
+          if (expired || inactive) {
             deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
-              console.error('Failed to delete expired lobby:', err);
+              console.error('Failed to delete inactive/expired lobby:', err);
             });
+            markLobbyHistoryDeletedSafe(lobby.docId).catch(() => { });
           }
-          return !expired;
+          return !expired && !inactive;
         });
       lobbies.sort((a, b) => {
         const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
