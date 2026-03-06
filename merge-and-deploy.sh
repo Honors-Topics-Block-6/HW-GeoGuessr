@@ -31,14 +31,15 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   warn "You have uncommitted changes:"
   git status --short
   echo ""
-  # If running non-interactively, abort instead of prompting
+  # If running non-interactively, continue anyway
   if [ ! -t 0 ]; then
-    die "Uncommitted changes detected in non-interactive mode. Aborted."
-  fi
-  read -p "Continue anyway? (y/N) " -n 1 -r
-  echo ""
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    die "Aborted."
+    info "Non-interactive mode — continuing with uncommitted changes."
+  else
+    read -p "Continue anyway? (y/N) " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      die "Aborted."
+    fi
   fi
 fi
 

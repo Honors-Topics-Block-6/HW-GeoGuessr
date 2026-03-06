@@ -1029,6 +1029,17 @@
 }
 
 /* Responsive */
+@media (max-width: 768px) {
+  .profile-layout {
+    overflow-y: auto;
+    max-height: calc(100vh - 2.5rem);
+  }
+
+  .profile-card {
+    max-height: none;
+  }
+}
+
 @media (max-width: 480px) {
   .profile-layout {
     width: calc(100% - 1rem);

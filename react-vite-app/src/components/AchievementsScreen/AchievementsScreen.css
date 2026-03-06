@@ -309,6 +309,8 @@
 @media (max-width: 768px) {
   .achievements-card {
     padding: 2rem 1.25rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
   }
 
   .achievements-header {

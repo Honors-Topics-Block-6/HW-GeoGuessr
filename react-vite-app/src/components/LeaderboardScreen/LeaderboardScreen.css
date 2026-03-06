@@ -515,6 +515,9 @@
   .leaderboard-card {
     padding: 2rem 1.25rem;
     margin: 0.5rem;
+    height: auto;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
   }
 
   .leaderboard-hype-card {

@@ -450,9 +450,8 @@
 }
 
 @media (max-width: 768px) {
-  .login-screen {
-    min-height: 100vh;
-    height: auto;
+  .login-card {
+    max-height: calc(100vh - 2rem);
     overflow-y: auto;
   }
 }

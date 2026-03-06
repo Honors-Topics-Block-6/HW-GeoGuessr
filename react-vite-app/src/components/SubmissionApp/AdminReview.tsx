@@ -7,7 +7,9 @@ import {
   deleteSubmission,
   deleteImage,
   getAdminSubmissionsPage,
-  getAdminImagesPage
+  getAdminImagesPage,
+  getAdminSourceCounts,
+  type AdminSourceCounts
 } from '../../services/imageService'
 import {
   backfillImagePool,
@@ -128,6 +130,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   // Playing area validation (from PR)
   const [playingArea, setPlayingArea] = useState<PlayingArea | null>(null)
   const [clickRejected, setClickRejected] = useState<boolean>(false)
+
+  // Total counts from database
+  const [totalCounts, setTotalCounts] = useState<AdminSourceCounts | null>(null)
 
   const loadedSourceCounts = useMemo(() => ({
     submission: submissions.length,
@@ -536,6 +541,15 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     fetchPlayingArea()
   }, [])
 
+  // Fetch total counts from database
+  useEffect(() => {
+    async function fetchTotalCounts(): Promise<void> {
+      const counts = await getAdminSourceCounts()
+      setTotalCounts(counts)
+    }
+    fetchTotalCounts()
+  }, [])
+
   useEffect(() => {
     if (selectedSubmission || deleteTarget) {
       document.body.style.overflow = 'hidden'
@@ -878,6 +892,51 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     testing: sampleImages.length
   }), [firestoreImages.length, sampleImages.length, submissions])
 
+  // Format count display as "loaded/total" when totals are available
+  const formatSourceCount = (source: 'all' | 'submission' | 'image' | 'testing'): string => {
+    const loaded = loadedSourceCounts[source]
+    if (!totalCounts) return `${loaded}`
+
+    if (source === 'testing') {
+      // Testing data is in-memory only, so loaded = total
+      return `${loaded}`
+    }
+
+    let total: number
+    if (source === 'all') {
+      total = totalCounts.submissions + totalCounts.images + sampleImages.length
+    } else if (source === 'submission') {
+      total = totalCounts.submissions
+    } else {
+      total = totalCounts.images
+    }
+
+    return `${loaded}/${total}`
+  }
+
+  const formatStatusCount = (status: 'all' | 'pending' | 'approved' | 'denied' | 'testing'): string => {
+    if (status === 'all') {
+      return formatSourceCount('all')
+    }
+
+    if (status === 'testing') {
+      return `${loadedStatusCounts.testing}`
+    }
+
+    const loaded = loadedStatusCounts[status]
+    if (!totalCounts) return `${loaded}`
+
+    let total: number
+    if (status === 'approved') {
+      // Approved includes both approved submissions and game images
+      total = totalCounts.approved + totalCounts.images
+    } else {
+      total = totalCounts[status]
+    }
+
+    return `${loaded}/${total}`
+  }
+
   const filteredSubmissions = useMemo(() => allItems.filter(item => {
     // Apply source filter
     if (sourceFilter !== 'all' && item._source !== sourceFilter) return false
@@ -959,25 +1018,25 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               className={`filter-tab ${sourceFilter === 'all' ? 'active' : ''}`}
               onClick={() => setSourceFilter('all')}
             >
-              All ({loadedSourceCounts.all})
+              All ({formatSourceCount('all')})
             </button>
             <button
               className={`filter-tab ${sourceFilter === 'submission' ? 'active' : ''}`}
               onClick={() => setSourceFilter('submission')}
             >
-              Submissions ({loadedSourceCounts.submission})
+              Submissions ({formatSourceCount('submission')})
             </button>
             <button
               className={`filter-tab ${sourceFilter === 'image' ? 'active' : ''}`}
               onClick={() => setSourceFilter('image')}
             >
-              Game Images ({loadedSourceCounts.image})
+              Game Images ({formatSourceCount('image')})
             </button>
             <button
               className={`filter-tab ${sourceFilter === 'testing' ? 'active' : ''}`}
               onClick={() => setSourceFilter('testing')}
             >
-              Testing Data ({loadedSourceCounts.testing})
+              Testing Data ({formatSourceCount('testing')})
             </button>
           </div>
         </div>
@@ -989,31 +1048,31 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
               onClick={() => setFilter('all')}
             >
-              All ({loadedSourceCounts.all})
+              All ({formatStatusCount('all')})
             </button>
             <button
               className={`filter-tab ${filter === 'pending' ? 'active' : ''}`}
               onClick={() => setFilter('pending')}
             >
-              Pending ({loadedStatusCounts.pending})
+              Pending ({formatStatusCount('pending')})
             </button>
             <button
               className={`filter-tab ${filter === 'approved' ? 'active' : ''}`}
               onClick={() => setFilter('approved')}
             >
-              Approved ({loadedStatusCounts.approved})
+              Approved ({formatStatusCount('approved')})
             </button>
             <button
               className={`filter-tab ${filter === 'denied' ? 'active' : ''}`}
               onClick={() => setFilter('denied')}
             >
-              Denied ({loadedStatusCounts.denied})
+              Denied ({formatStatusCount('denied')})
             </button>
             <button
               className={`filter-tab ${filter === 'testing' ? 'active' : ''}`}
               onClick={() => setFilter('testing')}
             >
-              Testing ({loadedStatusCounts.testing})
+              Testing ({formatStatusCount('testing')})
             </button>
           </div>
         </div>

@@ -102,10 +102,16 @@ function DuelGameScreen({
   const myHealthPct = Math.max(0, (myHealth / STARTING_HEALTH) * 100);
   const opponentHealthPct = Math.max(0, (opponentHealth / STARTING_HEALTH) * 100);
 
+  // Mobile: show floor selector when location is placed and we're in a region with floors
+  const showMobileFloorOverlay = guessLocation !== null && isInRegion;
+  // Mobile: show guess button when ready to submit
+  const showMobileGuessOverlay = canSubmit;
+
   return (
     <div className="duel-game-screen">
+      {/* ===== DESKTOP LAYOUT ===== */}
       {/* Health Bars at Top */}
-      <div className="duel-health-bar-container">
+      <div className="duel-health-bar-container desktop-only">
         <div className="duel-health-player duel-health-left">
           <span className="duel-health-name">
             {myUsername} (You)
@@ -149,7 +155,7 @@ function DuelGameScreen({
       </div>
 
       {/* Main Game Layout */}
-      <div className="duel-game-main">
+      <div className="duel-game-main desktop-only">
         {/* Left panel - Image */}
         <div className="image-panel">
           <ImageViewer imageUrl={imageUrl} />
@@ -291,6 +297,117 @@ function DuelGameScreen({
             <div className="duel-opponent-guessed">
               {opponentUsername} has made their guess!
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* ===== MOBILE LAYOUT ===== */}
+      <div className="duel-mobile-layout mobile-only">
+        {/* Mobile Timer */}
+        {typeof timeRemaining === 'number' && (
+          <div className="mobile-timer">
+            <div className="mobile-timer-bar">
+              <div
+                className={`mobile-timer-fill${
+                  timeRemaining <= 5 ? ' critical' : timeRemaining <= 10 ? ' warning' : ''
+                }`}
+                style={{
+                  width: `${Math.max(0, Math.min(1, timeRemaining / timeLimitSeconds)) * 100}%`
+                }}
+              />
+            </div>
+            <span className={`mobile-timer-value${
+              timeRemaining <= 5 ? ' critical' : timeRemaining <= 10 ? ' warning' : ''
+            }`}>
+              {timeRemaining.toFixed(1)}s
+            </span>
+          </div>
+        )}
+
+        {/* Mobile Health Bars */}
+        <div className="duel-mobile-health">
+          <div className="duel-mobile-health-player">
+            <span className="duel-mobile-health-name">{myUsername}</span>
+            <div className="duel-mobile-health-bar">
+              <div
+                className={`duel-mobile-health-fill green ${myHealthPct <= 25 ? 'critical' : ''}`}
+                style={{ width: `${myHealthPct}%` }}
+              />
+            </div>
+            <span className="duel-mobile-health-value">{myHealth.toLocaleString()}</span>
+          </div>
+          <div className="duel-mobile-round">R{currentRound}</div>
+          <div className="duel-mobile-health-player">
+            <span className="duel-mobile-health-name">{opponentUsername}</span>
+            <div className="duel-mobile-health-bar">
+              <div
+                className={`duel-mobile-health-fill red ${opponentHealthPct <= 25 ? 'critical' : ''}`}
+                style={{ width: `${opponentHealthPct}%` }}
+              />
+            </div>
+            <span className="duel-mobile-health-value">{opponentHealth.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {/* Mobile Image */}
+        <div className="duel-mobile-image-container">
+          <ImageViewer imageUrl={imageUrl} />
+          <button className="mobile-leave-button" onClick={() => setShowLeaveConfirm(true)}>
+            Leave Duel
+          </button>
+        </div>
+
+        {/* Mobile Map */}
+        <div className="duel-mobile-map-container">
+          {hasSubmitted ? (
+            <div className="duel-mobile-waiting">
+              <div className="duel-mobile-waiting-icon">
+                {opponentHasSubmitted ? '✓' : '⏳'}
+              </div>
+              <p className="duel-mobile-waiting-text">
+                {opponentHasSubmitted ? 'Processing...' : 'Waiting for opponent...'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <MapPicker
+                markerPosition={guessLocation}
+                onMapClick={onMapClick}
+                clickRejected={clickRejected}
+                playingArea={playingArea}
+              />
+
+              {/* Mobile Floor Selector Overlay */}
+              {showMobileFloorOverlay && (
+                <div className="mobile-floor-overlay">
+                  <div className="mobile-floor-content">
+                    <span className="mobile-floor-label">Select Floor</span>
+                    <div className="mobile-floor-buttons">
+                      {availableFloors!.map((floor: number) => (
+                        <button
+                          key={floor}
+                          type="button"
+                          className={`mobile-floor-btn ${guessFloor === floor ? 'selected' : ''}`}
+                          onClick={() => onFloorSelect(floor)}
+                        >
+                          {floor}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mobile Guess Button Overlay */}
+              {showMobileGuessOverlay && (
+                <div className="mobile-guess-overlay">
+                  <button className="mobile-guess-btn" onClick={onSubmitGuess}>
+                    <span>🎯</span>
+                    <span>Guess</span>
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
