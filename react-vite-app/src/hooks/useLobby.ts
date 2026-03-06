@@ -5,13 +5,17 @@ import {
   joinLobby,
   leaveLobby,
   subscribeLobby,
-  subscribePublicLobbies,
+  subscribePublicLobbyHistory,
+  subscribeUserLobbyHistory,
   sendHeartbeat,
   removeStalePlayersFromLobby,
   setPlayerReady,
   updateLobbyRoundTime,
   updateLobbyDifficulty,
-  type LobbyDoc
+  deleteLobby,
+  markUserLobbyDeleted,
+  type LobbyDoc,
+  type UserLobbyHistoryDoc
 } from '../services/lobbyService';
 
 export interface LobbyPlayer {
@@ -20,11 +24,15 @@ export interface LobbyPlayer {
   joinedAt?: string;
 }
 
-export type PublicLobby = LobbyDoc & {
+export type PublicLobby = UserLobbyHistoryDoc & {
   [key: string]: unknown;
 };
 
 export type LobbyData = LobbyDoc & {
+  [key: string]: unknown;
+};
+
+export type UserLobbyHistory = UserLobbyHistoryDoc & {
   [key: string]: unknown;
 };
 
@@ -58,6 +66,14 @@ export interface UseWaitingRoomReturn {
   updateDifficulty: (difficulty: string) => Promise<void>;
 }
 
+export interface UseMyGamesReturn {
+  myLobbies: UserLobbyHistory[];
+  isLoading: boolean;
+  error: string | null;
+  closingGameIds: Set<string>;
+  closeGame: (docId: string) => Promise<void>;
+}
+
 /**
  * Hook for the MultiplayerLobby screen.
  * Manages: public lobby list, hosting flow, join-by-code flow.
@@ -73,9 +89,9 @@ export function useLobby(
   const [isJoining, setIsJoining] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Subscribe to public lobbies in real-time
+  // Subscribe to public lobby history in real-time
   useEffect(() => {
-    const unsubscribe = subscribePublicLobbies((lobbies) => {
+    const unsubscribe = subscribePublicLobbyHistory((lobbies) => {
       setPublicLobbies(lobbies as PublicLobby[]);
     });
     return unsubscribe;
@@ -202,7 +218,7 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
         // Use sendBeacon-style fire-and-forget; leaveLobby is async but
         // we can't await in beforeunload. The call will still reach Firestore
         // in most cases. Stale lobbies are acceptable at this stage.
-        leaveLobby(docIdRef.current, uidRef.current).catch(() => {});
+        leaveLobby(docIdRef.current, uidRef.current).catch(() => { });
       }
     };
 
@@ -217,11 +233,11 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     if (!lobbyDocId || !userUid) return;
 
     // Send an initial heartbeat immediately
-    sendHeartbeat(lobbyDocId, userUid).catch(() => {});
+    sendHeartbeat(lobbyDocId, userUid).catch(() => { });
 
     const heartbeatInterval = setInterval(() => {
       if (!hasLeft.current) {
-        sendHeartbeat(docIdRef.current, uidRef.current).catch(() => {});
+        sendHeartbeat(docIdRef.current, uidRef.current).catch(() => { });
       }
     }, 10_000); // every 10 seconds
 
@@ -234,7 +250,7 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
 
     const staleCheckInterval = setInterval(() => {
       if (!hasLeft.current) {
-        removeStalePlayersFromLobby(docIdRef.current, uidRef.current).catch(() => {});
+        removeStalePlayersFromLobby(docIdRef.current, uidRef.current).catch(() => { });
       }
     }, 15_000); // every 15 seconds
 
@@ -300,5 +316,75 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     toggleReady,
     updateRoundTime,
     updateDifficulty
+  };
+}
+
+/**
+ * Hook for the My Games screen.
+ * Subscribes to lobbies hosted by the current user.
+ */
+export function useMyGames(userUid: string): UseMyGamesReturn {
+  const [myLobbies, setMyLobbies] = useState<UserLobbyHistory[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [closingGameIds, setClosingGameIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!userUid) {
+      setMyLobbies([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const unsubscribe = subscribeUserLobbyHistory(userUid, (lobbies) => {
+      setMyLobbies(lobbies as UserLobbyHistory[]);
+      setIsLoading(false);
+      setError(null);
+    });
+
+    return unsubscribe;
+  }, [userUid]);
+
+  const closeGame = useCallback(async (docId: string): Promise<void> => {
+    if (!docId) return;
+    setClosingGameIds((prev) => {
+      const next = new Set(prev);
+      next.add(docId);
+      return next;
+    });
+    try {
+      let historyUpdated = false;
+      try {
+        await markUserLobbyDeleted(docId);
+        historyUpdated = true;
+      } catch (err) {
+        console.error('Failed to update lobby history:', err);
+      }
+      try {
+        await deleteLobby(docId);
+      } catch (err) {
+        console.error('Failed to delete lobby:', err);
+        if (!historyUpdated) {
+          throw err;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to close lobby:', err);
+      setError('Failed to remove game. Please try again.');
+    } finally {
+      setClosingGameIds((prev) => {
+        const next = new Set(prev);
+        next.delete(docId);
+        return next;
+      });
+    }
+  }, []);
+
+  return {
+    myLobbies,
+    isLoading,
+    error,
+    closingGameIds,
+    closeGame
   };
 }

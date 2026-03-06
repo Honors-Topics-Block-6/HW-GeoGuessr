@@ -1,8 +1,12 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
-import { computeContainFit, toContainerPct, type ImageFit, type MapPoint } from '../../utils/imageFitUtils';
 import './ResultScreen.css';
+
+export interface MapPoint {
+  x: number;
+  y: number;
+}
 
 export interface ResultScreenProps {
   guessLocation: MapPoint | null;
@@ -52,6 +56,61 @@ function formatDistance(distance: number | null): string {
   return `${feet} ft away`;
 }
 
+/**
+ * Compute the actual rendered bounds of an image using object-fit: contain.
+ * Returns the offset and scale as percentages of the container so that
+ * image-space percentages (0-100) can be mapped to container-space percentages.
+ *
+ * containerPct = offsetPct + imagePct * (renderedSize / containerSize) * 100
+ */
+interface ImageFit {
+  offsetXPct: number;   // horizontal offset of image within container (%)
+  offsetYPct: number;   // vertical offset of image within container (%)
+  scaleX: number;       // rendered image width / container width
+  scaleY: number;       // rendered image height / container height
+}
+
+function computeContainFit(img: HTMLImageElement): ImageFit {
+  const { naturalWidth, naturalHeight, clientWidth, clientHeight } = img;
+  if (!naturalWidth || !naturalHeight || !clientWidth || !clientHeight) {
+    return { offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 };
+  }
+
+  const containerAR = clientWidth / clientHeight;
+  const imageAR = naturalWidth / naturalHeight;
+
+  let renderedW: number;
+  let renderedH: number;
+
+  if (imageAR > containerAR) {
+    // Image is wider than container — fits width, letterbox top/bottom
+    renderedW = clientWidth;
+    renderedH = clientWidth / imageAR;
+  } else {
+    // Image is taller than container — fits height, letterbox left/right
+    renderedH = clientHeight;
+    renderedW = clientHeight * imageAR;
+  }
+
+  const offsetX = (clientWidth - renderedW) / 2;
+  const offsetY = (clientHeight - renderedH) / 2;
+
+  return {
+    offsetXPct: (offsetX / clientWidth) * 100,
+    offsetYPct: (offsetY / clientHeight) * 100,
+    scaleX: renderedW / clientWidth,
+    scaleY: renderedH / clientHeight,
+  };
+}
+
+/** Map a point from image-percentage space to container-percentage space. */
+function toContainerPct(point: MapPoint, fit: ImageFit): MapPoint {
+  return {
+    x: fit.offsetXPct + (point.x / 100) * fit.scaleX * 100,
+    y: fit.offsetYPct + (point.y / 100) * fit.scaleY * 100,
+  };
+}
+
 function ResultScreen({
   guessLocation,
   guessFloor,
@@ -78,12 +137,36 @@ function ResultScreen({
   hpLost
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const detailsRef = useRef<HTMLDivElement>(null);
   const mapOuterRef = useRef<HTMLDivElement>(null);
   const mapImageRef = useRef<HTMLImageElement>(null);
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [displayedScore, setDisplayedScore] = useState<number>(0);
   const [imageFit, setImageFit] = useState<ImageFit>({ offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 });
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // Sync map container height to match the details panel height
+  useEffect(() => {
+    const detailsEl = detailsRef.current;
+    const mapEl = mapOuterRef.current;
+    if (!detailsEl || !mapEl) return;
+
+    const syncHeight = (): void => {
+      const detailsHeight = detailsEl.offsetHeight;
+      if (detailsHeight > 0) {
+        mapEl.style.height = `${detailsHeight}px`;
+      }
+    };
+
+    // Initial sync
+    syncHeight();
+
+    // Re-sync whenever the details panel resizes (e.g. window resize, content change)
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(detailsEl);
+
+    return () => observer.disconnect();
+  }, []);
 
   // Recompute image fit whenever the container or image dimensions change
   const updateImageFit = useCallback((): void => {
@@ -347,7 +430,7 @@ function ResultScreen({
         </div>
 
         {/* Side panel with details */}
-        <div className="result-details">
+        <div className="result-details" ref={detailsRef}>
           <div className="result-image-preview">
             <img src={imageUrl} alt="Location" />
           </div>
@@ -423,7 +506,7 @@ function ResultScreen({
             </button>
             {onBackToTitle && (
               <button className="leave-game-button" onClick={() => setShowLeaveConfirm(true)}>
-                <span className="button-icon">←</span>
+                <span className="button-icon">⏻</span>
                 Leave Game
               </button>
             )}

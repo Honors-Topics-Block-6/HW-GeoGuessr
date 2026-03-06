@@ -5,7 +5,8 @@ import { useDuelGame } from './hooks/useDuelGame';
 import { usePresence } from './hooks/usePresence';
 import { useAdminMessages } from './hooks/useAdminMessages';
 import { useFriends } from './hooks/useFriends';
-import { useChatNotifications } from './hooks/useChatNotifications';
+import { useChatNotifications, type ChatNotificationItem } from './hooks/useChatNotifications';
+import { useLobbyInvites, type LobbyInvite } from './hooks/useLobbyInvites';
 import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
 import { useDailyGoals } from './hooks/useDailyGoals';
 import { joinLobby } from './services/lobbyService';
@@ -19,6 +20,7 @@ import GameScreen from './components/GameScreen/GameScreen';
 import ResultScreen from './components/ResultScreen/ResultScreen';
 import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
 import MultiplayerLobby from './components/MultiplayerLobby/MultiplayerLobby';
+import MyGames from './components/MyGames/MyGames';
 import WaitingRoom from './components/WaitingRoom/WaitingRoom';
 import DuelGameScreen from './components/DuelGameScreen/DuelGameScreen';
 import DuelResultScreen from './components/DuelResultScreen/DuelResultScreen';
@@ -68,7 +70,7 @@ interface AchievementToastData {
 }
 
 function App(): React.ReactElement {
-  const { user, userDoc, loading, needsUsername, isAdmin, emailVerified, refreshUserDoc } = useAuth();
+  const { user, userDoc, loading, isGuest, needsUsername, isAdmin, emailVerified, refreshUserDoc } = useAuth();
   const [showSubmissionApp, setShowSubmissionApp] = useState<boolean>(false);
   const [showProfile, setShowProfile] = useState<boolean>(false);
   const [showFriends, setShowFriends] = useState<boolean>(false);
@@ -86,9 +88,10 @@ function App(): React.ReactElement {
 
   // Ensure the daily streak resets to 0 if a day was missed (once per app load).
   useEffect(() => {
+    if (isGuest) return;
     if (!user?.uid) return;
     syncDailyStreakRollover(user.uid);
-  }, [user?.uid]);
+  }, [isGuest, user?.uid]);
 
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState<boolean>(false);
@@ -145,26 +148,28 @@ function App(): React.ReactElement {
   );
 
   // Track user's online presence and current activity
-  usePresence(user as Parameters<typeof usePresence>[0], inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard, showFriends, showChat);
+  usePresence(isGuest ? null : user as Parameters<typeof usePresence>[0], inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard, showFriends, showChat);
 
   // Listen for admin messages sent to this user
-  const { messages, dismissMessage } = useAdminMessages(user?.uid);
+  const { messages, dismissMessage } = useAdminMessages(isGuest ? null : user?.uid);
 
   // Friends list for chat notification subscriptions
-  const { friends } = useFriends(user?.uid, userDoc?.username ?? '');
+  const { friends } = useFriends(isGuest ? null : user?.uid, isGuest ? '' : userDoc?.username ?? '');
   const friendUids = friends.map((f) => f.friendUid);
   const { notifications: chatNotifications, dismissNotification: dismissChatNotification } =
     useChatNotifications(user?.uid ?? null, friendUids, chatFriend?.uid ?? null);
+  const { invites: lobbyInvites, dismissInvite: dismissLobbyInvite } =
+    useLobbyInvites(user?.uid ?? null, friendUids);
 
   /**
    * Handle joining a lobby from a chat invite message.
    * Joins the lobby and navigates to the WaitingRoom.
    */
-  const handleJoinFromInvite = useCallback(async (inviteMsg: InviteMessage): Promise<void> => {
+  const handleJoinFromInvite = useCallback(async (inviteMsg: InviteMessage): Promise<boolean> => {
     try {
       const lobbyId = inviteMsg.lobbyDocId;
       const diff = inviteMsg.difficulty;
-      if (!lobbyId || !diff) return;
+      if (!lobbyId || !diff) return false;
 
       await joinLobby(
         lobbyId,
@@ -184,12 +189,33 @@ function App(): React.ReactElement {
       setDifficulty(diff as Difficulty);
       setLobbyDocId(lobbyId);
       setScreen('waitingRoom');
+      return true;
     } catch (err: unknown) {
       console.error('Failed to join lobby from invite:', err);
       const message = err instanceof Error ? err.message : 'Failed to join lobby.';
       alert(message);
+      return false;
     }
   }, [user, userDoc, setDifficulty, setLobbyDocId, setScreen]);
+
+  const handleJoinLobbyInvite = useCallback(async (invite: LobbyInvite): Promise<boolean> => {
+    const success = await handleJoinFromInvite({
+      lobbyDocId: invite.lobbyDocId,
+      difficulty: invite.difficulty
+    });
+    if (success) {
+      dismissLobbyInvite(invite.id);
+    }
+    return success;
+  }, [dismissLobbyInvite, handleJoinFromInvite]);
+
+  const handleJoinChatNotification = useCallback(async (item: ChatNotificationItem): Promise<boolean> => {
+    if (item.type !== 'lobby_invite') return false;
+    return handleJoinFromInvite({
+      lobbyDocId: item.lobbyDocId,
+      difficulty: item.difficulty
+    });
+  }, [handleJoinFromInvite]);
 
   // Prepare the message banner (uses createPortal, renders at viewport top)
   const messageBanner: ReactNode = user && messages.length > 0 ? (
@@ -198,9 +224,14 @@ function App(): React.ReactElement {
 
   const chatNotificationBanner: ReactNode =
     user && chatNotifications.length > 0 ? (
-      <ChatNotificationBanner notifications={chatNotifications} onDismiss={dismissChatNotification} />
+      <ChatNotificationBanner
+        notifications={chatNotifications}
+        onDismiss={dismissChatNotification}
+        onJoinInvite={handleJoinChatNotification}
+      />
     ) : null;
   useEffect(() => {
+    if (isGuest) return;
     if (!user || !userDoc) return;
     const level = getLevelInfo(userDoc.totalXp ?? 0).level;
     const progressAchievementIds = getProgressUnlockedAchievementIds({
@@ -226,9 +257,10 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [emailVerified, refreshUserDoc, user, userDoc]);
+  }, [emailVerified, isGuest, refreshUserDoc, user, userDoc]);
 
   useEffect(() => {
+    if (isGuest) return;
     if (!user || screen !== 'finalResults') return;
     const difficultyAchievementId = getDifficultyAchievementId(difficulty);
     if (!difficultyAchievementId) return;
@@ -245,9 +277,10 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [difficulty, refreshUserDoc, screen, user]);
+  }, [difficulty, isGuest, refreshUserDoc, screen, user]);
 
   useEffect(() => {
+    if (isGuest) return;
     if (!user || !currentResult) return;
     if (currentResult.score < 5000) return;
 
@@ -263,7 +296,7 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [currentResult, refreshUserDoc, user]);
+  }, [currentResult, isGuest, refreshUserDoc, user]);
 
   useEffect(() => {
     const onAchievementUpdated = (event: Event): void => {
@@ -355,12 +388,14 @@ function App(): React.ReactElement {
    * Handle transition from WaitingRoom to the duel game
    */
   const handleDuelGameStart = useCallback((): void => {
-    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    if (!isGuest) {
+      void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    }
     if (user?.uid) recordDailyPlay(user.uid);
     setInDuel(true);
     setDuelLobbyDocId(lobbyDocId);
     setScreen('duelGame');
-  }, [lobbyDocId, setScreen, user?.uid]);
+  }, [isGuest, lobbyDocId, setScreen, user?.uid]);
 
   /**
    * Exit the duel and go back to multiplayer lobby
@@ -549,7 +584,7 @@ function App(): React.ReactElement {
   };
 
   /**
-   * Handle selecting single-player from mode select -> go to difficulty select
+   * Handle selecting single-player from mode select.
    */
   const handleSelectSinglePlayer = (): void => {
     setMode('singleplayer');
@@ -557,7 +592,7 @@ function App(): React.ReactElement {
   };
 
   /**
-   * Handle selecting multiplayer from mode select -> go to multiplayer lobby
+   * Handle selecting multiplayer from mode select.
    */
   const handleSelectMultiplayer = (): void => {
     setMode('multiplayer');
@@ -566,7 +601,7 @@ function App(): React.ReactElement {
   };
 
   /**
-   * Handle starting the game from difficulty select (singleplayer only)
+   * Handle starting the game from difficulty select
    */
   const handleStartFromDifficulty = (
     selectedDifficulty: string,
@@ -576,14 +611,16 @@ function App(): React.ReactElement {
     timePenalty?: boolean,
     totalRounds?: number
   ): void => {
-    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
-    const modeVal = selectedMode ?? mode ?? 'singleplayer';
-    if (modeVal === 'singleplayer' && user?.uid) {
+    if (!isGuest) {
+      void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    }
+    const effectiveMode = selectedMode ?? mode ?? 'singleplayer';
+    if (effectiveMode === 'singleplayer' && user?.uid) {
       recordDailyPlay(user.uid);
     }
     (startGame as UseGameStateReturn['startGame'])(
       selectedDifficulty,
-      modeVal,
+      effectiveMode,
       singleplayerVariant ?? 'classic',
       roundTimeSeconds,
       timePenalty,
@@ -650,8 +687,11 @@ function App(): React.ReactElement {
           onOpenLeaderboard={() => setShowLeaderboard(true)}
           onOpenBugReport={() => setShowBugReport(true)}
           onOpenDailyGoals={() => setShowDailyGoals(true)}
-        onOpenAchievements={() => setShowAchievements(true)}
+          onOpenAchievements={() => setShowAchievements(true)}
           isLoading={isLoading}
+          invites={lobbyInvites}
+          onJoinInvite={handleJoinLobbyInvite}
+          onDismissInvite={dismissLobbyInvite}
         />
       )}
 
@@ -681,6 +721,14 @@ function App(): React.ReactElement {
             setScreen('waitingRoom');
           }}
           onBack={() => setScreen('modeSelect')}
+          onOpenMyGames={() => setScreen('myGames')}
+        />
+      )}
+
+      {screen === 'myGames' && !inDuel && (
+        <MyGames
+          userUid={user.uid}
+          onBack={() => setScreen('multiplayerLobby')}
         />
       )}
 

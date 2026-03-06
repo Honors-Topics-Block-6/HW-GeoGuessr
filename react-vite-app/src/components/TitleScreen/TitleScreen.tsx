@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import type { LobbyInvite } from '../../hooks/useLobbyInvites';
 import './TitleScreen.css';
 
 export interface TitleScreenProps {
@@ -12,11 +13,28 @@ export interface TitleScreenProps {
   onOpenDailyGoals: () => void;
   onOpenAchievements: () => void;
   isLoading: boolean;
+  invites: LobbyInvite[];
+  onJoinInvite: (invite: LobbyInvite) => Promise<boolean>;
+  onDismissInvite: (inviteId: string) => void;
 }
 
-function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, onOpenLeaderboard, onOpenBugReport, onOpenDailyGoals, onOpenAchievements, isLoading }: TitleScreenProps): React.ReactElement {
+function TitleScreen({
+  onPlay,
+  onOpenSubmission,
+  onOpenProfile,
+  onOpenFriends,
+  onOpenLeaderboard,
+  onOpenBugReport,
+  onOpenDailyGoals,
+  onOpenAchievements,
+  isLoading,
+  invites,
+  onJoinInvite,
+  onDismissInvite
+}: TitleScreenProps): React.ReactElement {
   const { userDoc, logout, levelInfo, levelTitle: _levelTitle } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [joiningInviteId, setJoiningInviteId] = useState<string | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async (): Promise<void> => {
@@ -37,6 +55,16 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleJoinClick = async (invite: LobbyInvite): Promise<void> => {
+    if (joiningInviteId) return;
+    setJoiningInviteId(invite.id);
+    try {
+      await onJoinInvite(invite);
+    } finally {
+      setJoiningInviteId(null);
+    }
+  };
 
   return (
     <div className="title-screen">
@@ -84,23 +112,60 @@ function TitleScreen({ onPlay, onOpenSubmission, onOpenProfile, onOpenFriends, o
           )}
         </div>
         <div className="title-top-actions">
-          <button className="submit-photo-button" onClick={onOpenSubmission} aria-label="Submit Photo">
-            <span className="title-action-icon" aria-hidden>📷</span>
-            <span className="title-action-label">Submit Photo</span>
+          <button className="submit-photo-button" onClick={onOpenSubmission}>
+            Submit Photo
           </button>
-          <button className="title-bug-report-button" onClick={onOpenBugReport} aria-label="Report Bug">
-            <span className="title-action-icon" aria-hidden>🐛</span>
-            <span className="title-action-label">Report Bug</span>
+          <button className="title-bug-report-button" onClick={onOpenBugReport}>
+            Report Bug
           </button>
-          <button className="title-leaderboard-button" onClick={onOpenLeaderboard} aria-label="Leaderboard">
-            <span className="title-action-icon" aria-hidden>🏆</span>
-            <span className="title-action-label">Leaderboard</span>
+          <button className="title-leaderboard-button" onClick={onOpenLeaderboard}>
+            Leaderboard
           </button>
         </div>
       </div>
       <div className="title-background">
         <div className="title-overlay"></div>
       </div>
+      {invites.length > 0 && (
+        <div className="title-invitations" role="region" aria-label="Game invitations">
+          <div className="title-invitations-header">
+            <span className="title-invitations-title">Game Invitations</span>
+            <span className="title-invitations-count">{invites.length}</span>
+          </div>
+          <div className="title-invitations-list">
+            {invites.map((invite) => (
+              <div key={invite.id} className="title-invite-item">
+                <div className="title-invite-info">
+                  <div className="title-invite-userline">
+                    <span className="title-invite-username">{invite.senderUsername}</span>
+                    {invite.gameId && (
+                      <span className="title-invite-code">Code: {invite.gameId}</span>
+                    )}
+                  </div>
+                  <span className="title-invite-subtext">invited you to a game</span>
+                </div>
+                <div className="title-invite-actions">
+                  <button
+                    className="title-invite-join"
+                    onClick={() => handleJoinClick(invite)}
+                    disabled={!!joiningInviteId}
+                  >
+                    {joiningInviteId === invite.id ? 'Joining...' : 'Join'}
+                  </button>
+                  <button
+                    className="title-invite-decline"
+                    type="button"
+                    onClick={() => onDismissInvite(invite.id)}
+                    aria-label={`Decline ${invite.senderUsername}'s invite`}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="title-content">
         <div className="logo-container">
           <img className="logo-crest" src="/Crest.png" alt="Harvard-Westlake Crest" />

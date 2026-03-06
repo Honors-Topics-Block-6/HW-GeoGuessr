@@ -2,7 +2,7 @@
 .lobby-screen {
   position: relative;
   width: 100%;
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -20,7 +20,7 @@
 }
 
 .lobby-background::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
@@ -45,13 +45,16 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 1rem 1.2rem;
+  padding: 0.8rem 1.1rem;
   max-width: 1240px;
   width: 100%;
-  padding-top: 1.5rem;
-  padding-bottom: 1rem;
+  padding-top: 1rem;
+  padding-bottom: 0.75rem;
   height: 100%;
+  min-height: 0;
   box-sizing: border-box;
+  margin-top: 0;
+  overflow: hidden;
 }
 
 /* Back Button */
@@ -77,10 +80,10 @@
 
 /* Heading */
 .lobby-heading {
-  font-size: 1.6rem;
+  font-size: 1.45rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.25rem;
 }
 
 .lobby-difficulty-badge {
@@ -94,7 +97,7 @@
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--hw-red);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 /* Error Banner */
@@ -133,26 +136,26 @@
   background: var(--hw-surface);
   border: 1px solid var(--border-color);
   border-radius: 0;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 0.85rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   width: 100%;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.55rem;
 }
 
 .lobby-panel-host {
   align-items: stretch;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.55rem;
 }
 
 .lobby-bottom-sections {
   width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: 0.75rem;
-  flex: 1;
+  gap: 0.55rem;
+  flex: 0 0 auto;
   min-height: 0;
 }
 
@@ -166,18 +169,44 @@
   overflow: hidden;
 }
 
+.lobby-my-games-btn {
+  width: 100%;
+  padding: 0.55rem 1rem;
+  background: var(--hw-gray-100, #e5e7eb);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lobby-my-games-btn:hover {
+  background: var(--hw-gray-200, #d1d5db);
+  border-color: var(--hw-gray-400, #9ca3af);
+  color: var(--text-primary);
+}
+
 .lobby-panel-public {
   align-items: stretch;
 }
 
+.lobby-public-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
 .lobby-panel-heading {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .lobby-panel-desc {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   color: var(--text-secondary);
   margin-bottom: 0.1rem;
 }
@@ -188,14 +217,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .lobby-host-difficulty-options {
   width: 100%;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .lobby-host-difficulty-card {
@@ -203,7 +232,7 @@
   background: var(--hw-surface);
   color: var(--text-secondary);
   border-radius: 0;
-  padding: 0.55rem;
+  padding: 0.45rem;
   text-align: left;
   display: flex;
   flex-direction: column;
@@ -228,13 +257,13 @@
 }
 
 .lobby-host-difficulty-name {
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
 .lobby-host-difficulty-desc {
-  font-size: 0.72rem;
-  line-height: 1.2;
+  font-size: 0.68rem;
+  line-height: 1.15;
   color: var(--text-muted);
 }
 
@@ -251,12 +280,12 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0.7rem 0.5rem;
+  padding: 0.55rem 0.45rem;
   background: var(--hw-surface);
   border: 2px solid var(--border-color);
   border-radius: 0;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -283,7 +312,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .lobby-time-label {
@@ -302,12 +331,12 @@
 
 .lobby-time-btn {
   flex: 1;
-  padding: 0.5rem 0.25rem;
+  padding: 0.4rem 0.2rem;
   background: var(--hw-surface);
   border: 2px solid var(--border-color);
   border-radius: 0;
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -325,32 +354,62 @@
   color: var(--text-primary);
 }
 
-.lobby-time-custom {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.lobby-time-custom-input {
+.lobby-time-input {
   flex: 1;
-  padding: 0.5rem 0.6rem;
+  padding: 0.4rem 0.2rem;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--text-primary);
   background: var(--hw-surface);
   border: 2px solid var(--border-color);
   border-radius: 0;
   outline: none;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
-.lobby-time-custom-input:focus {
+.lobby-time-input-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.2rem;
+  background: var(--hw-surface);
+  border: 2px solid var(--border-color);
+  border-radius: 0;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.lobby-time-input-wrapper.selected {
+  background: rgba(200, 16, 46, 0.04);
   border-color: var(--hw-red);
 }
 
-.lobby-time-custom-input::placeholder {
+.lobby-time-input-wrapper .lobby-time-input {
+  padding-right: 0.7rem;
+  background: transparent;
+  border: none;
+}
+
+.lobby-time-input-wrapper .lobby-time-input:focus {
+  border-color: transparent;
+}
+
+.lobby-time-unit {
+  position: absolute;
+  right: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.lobby-time-input:focus {
+  border-color: var(--hw-red);
+}
+
+.lobby-time-input::placeholder {
   color: var(--text-muted);
   font-weight: 400;
 }
@@ -394,10 +453,10 @@
 /* Create Game Button */
 .lobby-create-btn {
   width: 100%;
-  padding: 0.6rem 1.2rem;
+  padding: 0.5rem 1rem;
   background: var(--hw-red);
   color: #ffffff;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   border: none;
   border-radius: 0;
@@ -502,24 +561,24 @@
 }
 
 .lobby-section-heading {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 0.2rem;
 }
 
 .lobby-section-desc {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.45rem;
 }
 
 .lobby-public-filters {
   width: 100%;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
 }
 
 .lobby-public-filter-item {
@@ -549,12 +608,39 @@
 
 /* Public Game List */
 .public-list {
+  --public-card-height: 2.45rem;
+  --public-card-gap: 0.3rem;
+  --public-list-header-height: 2.2rem;
+  --public-visible-cards: 2;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
   width: 100%;
   overflow-y: auto;
-  max-height: 300px;
+  overflow-x: hidden;
+  padding-right: 0.2rem;
+  flex: 1;
+  min-height: calc((var(--public-card-height) * var(--public-visible-cards)) + (var(--public-card-gap) * (var(--public-visible-cards) - 1)) + var(--public-list-header-height));
+  max-height: calc((var(--public-card-height) * var(--public-visible-cards)) + (var(--public-card-gap) * (var(--public-visible-cards) - 1)) + var(--public-list-header-height));
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) transparent;
+}
+
+.public-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.public-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.public-list::-webkit-scrollbar-thumb {
+  background: rgba(60, 60, 60, 0.35);
+  border-radius: 999px;
+}
+
+.public-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(60, 60, 60, 0.55);
 }
 
 .public-list-empty {
@@ -620,11 +706,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.8rem 1rem;
+  padding: 0.6rem 0.85rem;
   background: var(--hw-surface);
   border: 1px solid var(--border-color);
   border-radius: 0;
   transition: all 0.2s ease;
+  min-height: var(--public-card-height);
 }
 
 .public-game-card:not(.disabled):hover {
@@ -660,6 +747,30 @@
   color: var(--text-secondary);
 }
 
+.public-game-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.public-game-code-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+.public-game-code-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  font-family: var(--hw-font-sans), 'Courier New', monospace;
+}
+
 .public-game-join-btn {
   padding: 0.5rem 1.2rem;
   background: rgba(200, 16, 46, 0.06);
@@ -690,10 +801,11 @@
   .lobby-screen {
     min-height: 100vh;
     height: auto;
-    overflow-y: auto;
+    overflow: auto;
   }
 
   .lobby-content {
+    min-height: 100vh;
     height: auto;
     padding-top: 1.5rem;
   }

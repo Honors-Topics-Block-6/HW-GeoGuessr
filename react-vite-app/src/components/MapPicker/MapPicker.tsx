@@ -8,9 +8,6 @@ import {
   type Ref
 } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
-
-const MOBILE_BREAKPOINT = 768;
-const MOBILE_MAX_SCALE = 2.5;
 import './MapPicker.css';
 
 export interface MapCoordinates {
@@ -45,9 +42,6 @@ export interface MapPickerHandle {
   clickAtCursor: () => boolean;
 }
 
-const MAP_HINT_TOUCH = 'Tap to place • Pinch to zoom • Drag to pan';
-const MAP_HINT_MOUSE = 'Click to place • Double-click to zoom in • Drag or pinch to pan';
-
 function getCentroid(points: PolygonPoint[]): PolygonPoint {
   if (!points || points.length === 0) return { x: 0, y: 0 };
   let sumX = 0;
@@ -67,25 +61,10 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
   ref: Ref<MapPickerHandle>
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const zoomContentRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [mapHint] = useState(() =>
-    typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
-      ? MAP_HINT_TOUCH
-      : MAP_HINT_MOUSE
-  );
-
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
 
   const coordsFromClientPos = useCallback((clientX: number, clientY: number): MapCoordinates | null => {
     if (!imageRef.current) return null;
@@ -104,12 +83,12 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     handlers,
     zoomIn,
     zoomInAtPoint,
-    zoomOut,
+    zoomOutAtPoint,
     resetZoom,
     hasMoved,
     isPanning,
     isTouchActive
-  } = useMapZoom(containerRef, { maxScale: isMobile ? MOBILE_MAX_SCALE : undefined });
+  } = useMapZoom(containerRef, { zoomContentRef });
   const { onDoubleClick: _ignoredOnDoubleClick, ...mapHandlers } = handlers;
 
   const placeMarkerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,6 +136,23 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     lastMousePos.current = null;
     if (handlers.onMouseLeave) handlers.onMouseLeave();
   };
+
+  const getZoomAnchor = useCallback((): { x: number; y: number } | null => {
+    const container = containerRef.current;
+    if (!container) return null;
+
+    const rect = container.getBoundingClientRect();
+    const mouse = lastMousePos.current;
+    if (mouse) {
+      const x = mouse.x - rect.left;
+      const y = mouse.y - rect.top;
+      if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+        return { x, y };
+      }
+    }
+
+    return { x: rect.width / 2, y: rect.height / 2 };
+  }, []);
 
   const toggleFullscreen = (event: React.MouseEvent<HTMLButtonElement>): void => {
     event.stopPropagation();
@@ -212,7 +208,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
       <div className="map-header">
         <div className="map-header-left">
           <span className="map-icon">🗺️</span>
-          <span>{mapHint}</span>
+          <span>Click to place • Double-click to zoom in • Drag or pinch to pan</span>
         </div>
         <button
           className="map-fullscreen-toggle"
@@ -227,13 +223,14 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''} ${isTouchActive ? 'touch-active' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
         ref={containerRef}
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
         {...mapHandlers}
         onDoubleClick={handleDoubleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="map-zoom-content" style={{ transform: transformStyle }}>
+        <div className="map-zoom-content" ref={zoomContentRef} style={{ transform: transformStyle }}>
           <img
             ref={imageRef}
             className="map-image"
@@ -337,7 +334,15 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         <div className="zoom-controls">
           <button
             className="zoom-btn zoom-in-btn"
-            onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); zoomIn(); }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              const anchor = getZoomAnchor();
+              if (anchor) {
+                zoomInAtPoint(anchor.x, anchor.y);
+              } else {
+                zoomIn();
+              }
+            }}
             title="Zoom in"
             aria-label="Zoom in"
           >
@@ -345,7 +350,13 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
           </button>
           <button
             className="zoom-btn zoom-out-btn"
-            onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); zoomOut(); }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              const anchor = getZoomAnchor();
+              if (anchor) {
+                zoomOutAtPoint(anchor.x, anchor.y);
+              }
+            }}
             title="Zoom out"
             aria-label="Zoom out"
             disabled={!isZoomed}
