@@ -158,7 +158,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
         {/* Host a Game */}
         <div className="lobby-panel lobby-panel-host">
           <h2 className="lobby-panel-heading">Host a Game</h2>
-          <p className="lobby-panel-desc">Create a new game and invite friends</p>
 
           <div className="lobby-host-difficulty">
             <p className="lobby-time-label">Difficulty</p>
@@ -253,10 +252,9 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
         </div>
 
         <div className="lobby-bottom-sections">
-          {/* Join by Code */}
+          {/* Join by Code (top-left) */}
           <div className="lobby-panel lobby-panel-join">
             <h2 className="lobby-panel-heading">Join a Game</h2>
-            <p className="lobby-panel-desc">Enter a game code to join</p>
             <GameCodeInput
               onJoin={handleJoinByCode}
               isJoining={isJoining}
@@ -266,12 +264,9 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
             </button>
           </div>
 
-          {/* Browse Public Games */}
-          <div className="lobby-public-section">
+          {/* Public filters (top-right) */}
+          <div className="lobby-panel lobby-public-filters-panel">
             <h2 className="lobby-section-heading">Public Games</h2>
-            <p className="lobby-section-desc">
-              Join an open game — only {diffInfo.label} difficulty games can be joined
-            </p>
             <div className="lobby-public-filters">
               <label className="lobby-public-filter-item">
                 <span>Difficulty</span>
@@ -302,6 +297,10 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
                 </select>
               </label>
             </div>
+          </div>
+
+          {/* Public games list (full width, two-wide inside) */}
+          <div className="lobby-panel lobby-public-list-panel">
             <PublicGameList
               lobbies={filteredPublicLobbies}
               selectedDifficulty={difficulty}
