@@ -372,6 +372,39 @@
   height: 1px;
 }
 
+.loading-more-indicator {
+  margin: 16px auto 0;
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  background: var(--hw-surface, #ffffff);
+  color: var(--text-secondary, #4b5563);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.loading-more-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--hw-gray-300, #e5e7eb);
+  border-top-color: var(--hw-red, #c8102e);
+  border-radius: 50%;
+  animation: adminSpin 0.8s linear infinite;
+}
+
+.loading-more-indicator.idle .loading-more-spinner {
+  animation-play-state: paused;
+  opacity: 0.55;
+}
+
+@keyframes adminSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ===== Modal ===== */
 .modal-overlay {
   position: fixed;

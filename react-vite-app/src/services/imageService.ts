@@ -51,6 +51,13 @@ export interface AdminSourceCounts {
   denied: number;
 }
 
+export type AdminSourceCountsResultSource = 'live' | 'cache' | 'persisted' | 'backoff';
+
+export interface AdminSourceCountsResult extends AdminSourceCounts {
+  isFallback: boolean;
+  source: AdminSourceCountsResultSource;
+}
+
 export interface AdminSubmissionPageItem {
   id: string;
   photoURL: string | null;
@@ -82,10 +89,10 @@ export interface AdminPageResult<T> {
 
 const ADMIN_SOURCE_COUNTS_TTL_MS = 60_000;
 let adminSourceCountsCache: { value: AdminSourceCounts; expiresAtMs: number } | null = null;
-let adminSourceCountsInFlight: Promise<AdminSourceCounts> | null = null;
+let adminSourceCountsInFlight: Promise<AdminSourceCountsResult> | null = null;
 const ADMIN_SOURCE_COUNTS_BACKOFF_KEY = 'admin.sourceCounts.backoffUntilMs';
 const ADMIN_SOURCE_COUNTS_ERROR_BACKOFF_MS = 5 * 60_000;
-const ADMIN_COUNTS_DEBUG_RUN_ID = `admin-counts-${Date.now()}`;
+const ADMIN_SOURCE_COUNTS_CACHE_KEY = 'admin.sourceCounts.cached.v1';
 
 function readCountsBackoffUntilMs(): number {
   if (typeof window === 'undefined') return 0;
@@ -101,6 +108,38 @@ function writeCountsBackoffUntilMs(value: number): void {
     return;
   }
   window.localStorage.setItem(ADMIN_SOURCE_COUNTS_BACKOFF_KEY, String(value));
+}
+
+function readPersistedSourceCounts(): AdminSourceCounts | null {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(ADMIN_SOURCE_COUNTS_CACHE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<AdminSourceCounts>;
+    if (
+      typeof parsed.images !== 'number' ||
+      typeof parsed.submissions !== 'number' ||
+      typeof parsed.pending !== 'number' ||
+      typeof parsed.approved !== 'number' ||
+      typeof parsed.denied !== 'number'
+    ) {
+      return null;
+    }
+    return {
+      images: Math.max(0, parsed.images),
+      submissions: Math.max(0, parsed.submissions),
+      pending: Math.max(0, parsed.pending),
+      approved: Math.max(0, parsed.approved),
+      denied: Math.max(0, parsed.denied)
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedSourceCounts(value: AdminSourceCounts): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(ADMIN_SOURCE_COUNTS_CACHE_KEY, JSON.stringify(value));
 }
 
 function isQuotaError(error: unknown): boolean {
@@ -377,48 +416,48 @@ function parseLocation(value: unknown): { x: number; y: number } | null {
 /**
  * Fetch lightweight source/status counts for admin tabs.
  */
-export async function getAdminSourceCounts(): Promise<AdminSourceCounts> {
+export async function getAdminSourceCounts(): Promise<AdminSourceCountsResult> {
   const now = Date.now();
+  const persistedCounts = readPersistedSourceCounts();
   const fallbackCounts: AdminSourceCounts = adminSourceCountsCache?.value ?? {
-    images: 0,
-    submissions: 0,
-    pending: 0,
-    approved: 0,
-    denied: 0
+    images: persistedCounts?.images ?? 0,
+    submissions: persistedCounts?.submissions ?? 0,
+    pending: persistedCounts?.pending ?? 0,
+    approved: persistedCounts?.approved ?? 0,
+    denied: persistedCounts?.denied ?? 0
   };
 
   const backoffUntilMs = readCountsBackoffUntilMs();
-  // #region agent log
-  fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:entry',message:'count fetch entry',data:{now,backoffUntilMs,hasCache:Boolean(adminSourceCountsCache),hasInFlight:Boolean(adminSourceCountsInFlight)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   if (backoffUntilMs > now) {
-    // #region agent log
-    fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:backoff',message:'returning backoff fallback',data:{backoffUntilMs,now},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    return fallbackCounts;
+    return {
+      ...fallbackCounts,
+      isFallback: true,
+      source: persistedCounts ? 'persisted' : 'backoff'
+    };
   }
 
   if (adminSourceCountsCache && adminSourceCountsCache.expiresAtMs > now) {
-    // #region agent log
-    fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:cacheHit',message:'returning cached counts',data:{expiresAtMs:adminSourceCountsCache.expiresAtMs,now},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    return adminSourceCountsCache.value;
+    return {
+      ...adminSourceCountsCache.value,
+      isFallback: false,
+      source: 'cache'
+    };
   }
   if (adminSourceCountsInFlight) {
-    // #region agent log
-    fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H3',location:'imageService.ts:getAdminSourceCounts:inFlight',message:'reusing in-flight counts promise',data:{now},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return adminSourceCountsInFlight;
   }
 
+  const imagePoolRef = collection(db, 'imagePool');
   const imagesRef = collection(db, 'images');
   const submissionsRef = collection(db, 'submissions');
-  // #region agent log
-  fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H1',location:'imageService.ts:getAdminSourceCounts:queryStart',message:'starting aggregation query batch',data:{now},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   adminSourceCountsInFlight = (async () => {
     try {
-      // Sequential fetch avoids 5 concurrent aggregation calls when quota is tight.
+      // Use precomputed imagePool totals for stable denominator, with images collection as safety floor.
+      const imagePoolImageCount = await getCountFromServer(query(
+        imagePoolRef,
+        where('active', '==', true),
+        where('sourceType', '==', 'image')
+      ));
       const imagesCount = await getCountFromServer(imagesRef);
       const submissionsCount = await getCountFromServer(submissionsRef);
       const pendingCount = await getCountFromServer(query(submissionsRef, where('status', '==', 'pending')));
@@ -426,7 +465,7 @@ export async function getAdminSourceCounts(): Promise<AdminSourceCounts> {
       const deniedCount = await getCountFromServer(query(submissionsRef, where('status', '==', 'denied')));
 
       const value: AdminSourceCounts = {
-        images: imagesCount.data().count,
+        images: Math.max(imagePoolImageCount.data().count, imagesCount.data().count),
         submissions: submissionsCount.data().count,
         pending: pendingCount.data().count,
         approved: approvedCount.data().count,
@@ -436,23 +475,34 @@ export async function getAdminSourceCounts(): Promise<AdminSourceCounts> {
         value,
         expiresAtMs: Date.now() + ADMIN_SOURCE_COUNTS_TTL_MS
       };
+      writePersistedSourceCounts(value);
       writeCountsBackoffUntilMs(0);
-      // #region agent log
-      fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:success',message:'aggregation query batch succeeded',data:value,timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      return value;
+      return {
+        ...value,
+        isFallback: false,
+        source: 'live'
+      };
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:error',message:'aggregation query batch failed',data:{error:error instanceof Error ? error.message : String(error),quota:isQuotaError(error)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (isQuotaError(error)) {
         writeCountsBackoffUntilMs(Date.now() + ADMIN_SOURCE_COUNTS_ERROR_BACKOFF_MS);
-        return fallbackCounts;
+        return {
+          ...fallbackCounts,
+          isFallback: true,
+          source: persistedCounts ? 'persisted' : 'backoff'
+        };
       }
       if (adminSourceCountsCache) {
-        return adminSourceCountsCache.value;
+        return {
+          ...adminSourceCountsCache.value,
+          isFallback: false,
+          source: 'cache'
+        };
       }
-      return fallbackCounts;
+      return {
+        ...fallbackCounts,
+        isFallback: true,
+        source: persistedCounts ? 'persisted' : 'backoff'
+      };
     } finally {
       adminSourceCountsInFlight = null;
     }
