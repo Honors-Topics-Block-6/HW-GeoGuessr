@@ -287,12 +287,7 @@ export async function joinLobby(
 
 /**
  * Leave a lobby. Removes the player from the players array.
-<<<<<<< auto-close-games
- * If the lobby becomes empty, delete it.
- * If the host leaves, close the lobby for everyone.
-=======
  * If the lobby becomes empty or the host leaves, delete it.
->>>>>>> main
  */
 export async function leaveLobby(docId: string, playerUid: string): Promise<void> {
   const lobbyRef = doc(db, 'lobbies', docId);
@@ -304,20 +299,12 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
   const player = lobby.players.find(p => p.uid === playerUid);
   if (!player) return;
 
-<<<<<<< auto-close-games
-  // Product behavior: if host leaves, the game closes for everyone.
+  // If the host leaves, close the game entirely by deleting the lobby.
   if (lobby.hostUid === playerUid) {
     await deleteDoc(lobbyRef);
     await markLobbyHistoryDeletedSafe(docId);
     return;
   }
-=======
-   // If the host leaves, close the game entirely by deleting the lobby.
-   if (lobby.hostUid === playerUid) {
-     await deleteDoc(lobbyRef);
-     return;
-   }
->>>>>>> main
 
   const remainingPlayers = lobby.players.filter(p => p.uid !== playerUid);
 
@@ -701,19 +688,8 @@ export async function removeStalePlayersFromLobby(
 
     const remaining = fresh.players.filter(p => p.uid !== stalePlayer.uid);
 
-<<<<<<< auto-close-games
-    // Product behavior: if host goes stale/disconnects, close the lobby.
-    if (fresh.hostUid === stalePlayer.uid) {
-      await deleteDoc(lobbyRef);
-      await markLobbyHistoryDeletedSafe(docId);
-      return true;
-    }
-
-    if (remaining.length === 0) {
-=======
     // If no one is left or the host has gone stale, delete the lobby (close the game).
     if (remaining.length === 0 || fresh.hostUid === stalePlayer.uid) {
->>>>>>> main
       await deleteDoc(lobbyRef);
       await markLobbyHistoryDeletedSafe(docId);
       return true;
