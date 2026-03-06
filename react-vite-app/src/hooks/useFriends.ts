@@ -93,7 +93,11 @@ export function useFriends(uid: string | null | undefined, username: string): Us
 
   // Send a friend request
   const sendRequest = useCallback(async (targetUid: string): Promise<void> => {
-    if (!uid || !username) return;
+    if (!uid || !username) {
+      const err = new Error('You must be signed in with a full account to send friend requests.');
+      setError(err.message);
+      throw err;
+    }
     setError(null);
     try {
       await sendFriendRequest(uid, username, targetUid);

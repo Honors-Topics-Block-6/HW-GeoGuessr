@@ -78,10 +78,13 @@ export interface UseMyGamesReturn {
  * Hook for the MultiplayerLobby screen.
  * Manages: public lobby list, hosting flow, join-by-code flow.
  */
+const GUEST_HOST_ERROR = 'Guests can only join games. Sign in to host.';
+
 export function useLobby(
   userUid: string,
   userUsername: string,
-  selectedDifficulty: string
+  selectedDifficulty: string,
+  isGuest: boolean
 ): UseLobbyReturn {
   const [publicLobbies, setPublicLobbies] = useState<PublicLobby[]>([]);
   const [isCreating, setIsCreating] = useState<boolean>(false);
@@ -98,8 +101,13 @@ export function useLobby(
 
   /**
    * Host a new game.
+   * Hosting is only allowed for non-guest (logged-in) accounts.
    */
   const hostGame = useCallback(async (visibility: 'public' | 'private', roundTimeSeconds?: number): Promise<HostGameResult | null> => {
+    if (isGuest) {
+      setError(GUEST_HOST_ERROR);
+      return null;
+    }
     setIsCreating(true);
     setError(null);
     try {
@@ -112,7 +120,7 @@ export function useLobby(
     } finally {
       setIsCreating(false);
     }
-  }, [userUid, userUsername, selectedDifficulty]);
+  }, [userUid, userUsername, selectedDifficulty, isGuest]);
 
   /**
    * Join a game by its 6-character code.
