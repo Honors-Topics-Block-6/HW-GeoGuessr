@@ -227,16 +227,22 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
             </div>
           </div>
 
-          <div className="lobby-time-penalty-toggle">
-            <label className="lobby-time-penalty-label">
-              <input
-                type="checkbox"
-                checked={timePenaltyEnabled}
-                onChange={(e) => setTimePenaltyEnabled(e.target.checked)}
-                className="lobby-time-penalty-checkbox"
-              />
-              <span className="lobby-time-penalty-text">Time penalty (slower guesses = fewer points)</span>
-            </label>
+          <div className="lobby-time-penalty-section">
+            <p className="lobby-time-label">Time Penalty</p>
+            <div className="lobby-time-penalty-toggle">
+              <button
+                className={`lobby-vis-btn ${!timePenaltyEnabled ? 'selected' : ''}`}
+                onClick={() => setTimePenaltyEnabled(false)}
+              >
+                Off
+              </button>
+              <button
+                className={`lobby-vis-btn ${timePenaltyEnabled ? 'selected' : ''}`}
+                onClick={() => setTimePenaltyEnabled(true)}
+              >
+                On
+              </button>
+            </div>
           </div>
 
           <button
