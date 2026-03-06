@@ -179,6 +179,7 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const hasLeft = useRef<boolean>(false);
+  const hadLobbySnapshot = useRef<boolean>(false);
   const docIdRef = useRef<string>(lobbyDocId);
   const uidRef = useRef<string>(userUid);
 
@@ -193,14 +194,23 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     if (!lobbyDocId) return;
 
     hasLeft.current = false;
+    hadLobbySnapshot.current = false;
 
     const unsubscribe = subscribeLobby(lobbyDocId, (lobbyData) => {
       setLobby(lobbyData as LobbyData | null);
       setIsLoading(false);
 
       if (!lobbyData) {
-        setError('This lobby no longer exists.');
+        // Differentiate user-initiated leave from host/lobby closure for clearer UX.
+        setError(
+          hasLeft.current
+            ? 'This lobby no longer exists.'
+            : hadLobbySnapshot.current
+              ? 'Host left the lobby. The game was closed.'
+              : 'This lobby no longer exists.'
+        );
       } else {
+        hadLobbySnapshot.current = true;
         setError(null);
       }
     });
