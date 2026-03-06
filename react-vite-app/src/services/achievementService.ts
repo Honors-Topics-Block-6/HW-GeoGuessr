@@ -44,7 +44,7 @@ const ACHIEVEMENT_META_BY_ID: Record<AchievementId, AchievementMeta> = {
     icon: '🧭',
     highlight: 'Play your first game.',
     details: 'Start your GeoGuessr journey by completing one full game.',
-    xpReward: 5000
+    xpReward: 2000
   },
   'weekend-warrior': {
     id: 'weekend-warrior',
@@ -66,9 +66,9 @@ const ACHIEVEMENT_META_BY_ID: Record<AchievementId, AchievementMeta> = {
     id: 'xp-collector',
     title: 'XP Collector',
     icon: '⚡',
-    highlight: 'Earn 5,000 total XP.',
+    highlight: 'Earn 1,000 total XP.',
     details: 'Build momentum by stacking enough XP across matches.',
-    xpReward: 15000
+    xpReward: 1000
   },
   'rising-star': {
     id: 'rising-star',
@@ -76,7 +76,7 @@ const ACHIEVEMENT_META_BY_ID: Record<AchievementId, AchievementMeta> = {
     icon: '⭐',
     highlight: 'Reach level 10.',
     details: 'Push your level up through consistent performance.',
-    xpReward: 22000
+    xpReward: 15000
   },
   'verified-account': {
     id: 'verified-account',
@@ -84,7 +84,7 @@ const ACHIEVEMENT_META_BY_ID: Record<AchievementId, AchievementMeta> = {
     icon: '✅',
     highlight: 'Verify your email address.',
     details: 'Secure your profile and confirm account ownership.',
-    xpReward: 8000
+    xpReward: 1000
   },
   'easy-finish': {
     id: 'easy-finish',
