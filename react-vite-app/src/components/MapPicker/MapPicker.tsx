@@ -5,6 +5,7 @@ import {
   useCallback,
   useState,
   useEffect,
+  useId,
   type Ref
 } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
@@ -65,6 +66,9 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
   const imageRef = useRef<HTMLImageElement>(null);
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Generate unique ID for SVG mask to avoid conflicts when multiple MapPicker instances exist
+  const maskId = useId();
 
   const coordsFromClientPos = useCallback((clientX: number, clientY: number): MapCoordinates | null => {
     if (!imageRef.current) return null;
@@ -248,7 +252,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
             >
               <defs>
                 {/* Define the playing area as a mask - white = visible, black = hidden */}
-                <mask id="playing-area-mask">
+                <mask id={`playing-area-mask-${maskId}`}>
                   {/* Start with white background (everything visible) */}
                   <rect x="0" y="0" width="100" height="100" fill="white" />
                   {/* Cut out the playing area (make it black = hidden from dark overlay) */}
@@ -266,7 +270,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
                 width="100"
                 height="100"
                 fill="rgba(0, 0, 0, 0.5)"
-                mask="url(#playing-area-mask)"
+                mask={`url(#playing-area-mask-${maskId})`}
               />
 
               {/* Border around the playing area */}

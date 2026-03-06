@@ -9,6 +9,22 @@
   overflow: hidden;
 }
 
+/* Mobile: fixed fullscreen scrollable overlay */
+@media (max-width: 768px) {
+  .duel-final-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 2rem;
+    z-index: 50;
+  }
+}
+
 .duel-final-background {
   position: fixed;
   top: 0;
@@ -419,6 +435,12 @@
 }
 
 /* ── Responsive ── */
+@media (max-width: 768px) {
+  .duel-final-content {
+    flex: 1;
+  }
+}
+
 @media (max-width: 600px) {
   .duel-final-screen {
     padding: 1rem;
