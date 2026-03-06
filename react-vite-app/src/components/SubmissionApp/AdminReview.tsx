@@ -292,17 +292,30 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     setSubmissions(prev => {
       if (reset) return page.submissions
       const prevKeys = new Set(prev.map(item => `${item._source}-${item.id}`))
-      const overlapping = page.submissions
-        .map(item => `${item._source}-${item.id}`)
-        .filter((key) => prevKeys.has(key))
+      const overlapping: string[] = []
+      const uniqueIncoming: SubmissionItem[] = []
+      page.submissions.forEach((item) => {
+        const key = `${item._source}-${item.id}`
+        if (prevKeys.has(key)) {
+          overlapping.push(key)
+          return
+        }
+        uniqueIncoming.push(item)
+      })
       if (overlapping.length > 0) {
         // #region agent log
-        fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_REVIEW_DEBUG_RUN_ID,hypothesisId:'H1',location:'AdminReview.tsx:applyPage:duplicateDetected',message:'duplicate submission keys detected during merge',data:{overlapCount:overlapping.length,overlapSample:overlapping.slice(0,5),prevCount:prev.length,incomingCount:page.submissions.length},timestamp:Date.now()})}).catch(()=>{});
+        fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_REVIEW_DEBUG_RUN_ID,hypothesisId:'H1',location:'AdminReview.tsx:applyPage:duplicateDetected',message:'duplicate submission keys detected during merge',data:{overlapCount:overlapping.length,overlapSample:overlapping.slice(0,5),prevCount:prev.length,incomingCount:page.submissions.length,keptCount:uniqueIncoming.length},timestamp:Date.now()})}).catch(()=>{});
         // #endregion
       }
-      return [...prev, ...page.submissions]
+      if (uniqueIncoming.length === 0) return prev
+      return [...prev, ...uniqueIncoming]
     })
-    setFirestoreImages(prev => reset ? page.images : [...prev, ...page.images])
+    setFirestoreImages(prev => {
+      if (reset) return page.images
+      const prevKeys = new Set(prev.map(item => `${item._source}-${item.id}`))
+      const uniqueIncoming = page.images.filter((item) => !prevKeys.has(`${item._source}-${item.id}`))
+      return uniqueIncoming.length === 0 ? prev : [...prev, ...uniqueIncoming]
+    })
     setSampleImages(page.includeTesting ? getAllSampleImages().map(img => ({
       id: img.id,
       photoURL: img.url,
@@ -434,6 +447,12 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_REVIEW_DEBUG_RUN_ID,hypothesisId:'H1',location:'AdminReview.tsx:loadNextPage:entry',message:'loadNextPage invoked',data:{loading,loadingMore,prefetchQueueLength:prefetchQueue.length,submissionCursor,imageCursor,hasMoreSubmissions,hasMoreImages,currentQueryKey},timestamp:Date.now()})}).catch(()=>{});
     // #endregion
     if (loading || loadingMore) return
+    if (isPrefetching && prefetchQueue.length === 0) {
+      // #region agent log
+      fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_REVIEW_DEBUG_RUN_ID,hypothesisId:'H3',location:'AdminReview.tsx:loadNextPage:skipWhilePrefetching',message:'skipping network load while prefetch in progress and queue empty',data:{submissionCursor,imageCursor,currentQueryKey},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return
+    }
     const hasMoreFromState =
       (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
       (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages)
@@ -469,7 +488,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       console.error('Error loading more review items:', error)
       setLoadingMore(false)
     }
-  }, [ADMIN_REVIEW_DEBUG_RUN_ID, applyPage, currentQueryKey, fetchPage, filter, hasMoreImages, hasMoreSubmissions, imageCursor, loading, loadingMore, prefetchQueue, sourceFilter, submissionCursor])
+  }, [ADMIN_REVIEW_DEBUG_RUN_ID, applyPage, currentQueryKey, fetchPage, filter, hasMoreImages, hasMoreSubmissions, imageCursor, isPrefetching, loading, loadingMore, prefetchQueue, sourceFilter, submissionCursor])
 
   useEffect(() => {
     const node = loadMoreRef.current

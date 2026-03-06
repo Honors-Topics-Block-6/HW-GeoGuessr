@@ -416,44 +416,47 @@ export async function getAdminSourceCounts(): Promise<AdminSourceCounts> {
   // #region agent log
   fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H1',location:'imageService.ts:getAdminSourceCounts:queryStart',message:'starting aggregation query batch',data:{now},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
-  adminSourceCountsInFlight = Promise.all([
-    getCountFromServer(imagesRef),
-    getCountFromServer(submissionsRef),
-    getCountFromServer(query(submissionsRef, where('status', '==', 'pending'))),
-    getCountFromServer(query(submissionsRef, where('status', '==', 'approved'))),
-    getCountFromServer(query(submissionsRef, where('status', '==', 'denied')))
-  ]).then(([imagesCount, submissionsCount, pendingCount, approvedCount, deniedCount]) => {
-    const value: AdminSourceCounts = {
-      images: imagesCount.data().count,
-      submissions: submissionsCount.data().count,
-      pending: pendingCount.data().count,
-      approved: approvedCount.data().count,
-      denied: deniedCount.data().count
-    };
-    adminSourceCountsCache = {
-      value,
-      expiresAtMs: Date.now() + ADMIN_SOURCE_COUNTS_TTL_MS
-    };
-    writeCountsBackoffUntilMs(0);
-    // #region agent log
-    fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:success',message:'aggregation query batch succeeded',data:value,timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    return value;
-  }).catch((error) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:error',message:'aggregation query batch failed',data:{error:error instanceof Error ? error.message : String(error),quota:isQuotaError(error)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    if (isQuotaError(error)) {
-      writeCountsBackoffUntilMs(Date.now() + ADMIN_SOURCE_COUNTS_ERROR_BACKOFF_MS);
+  adminSourceCountsInFlight = (async () => {
+    try {
+      // Sequential fetch avoids 5 concurrent aggregation calls when quota is tight.
+      const imagesCount = await getCountFromServer(imagesRef);
+      const submissionsCount = await getCountFromServer(submissionsRef);
+      const pendingCount = await getCountFromServer(query(submissionsRef, where('status', '==', 'pending')));
+      const approvedCount = await getCountFromServer(query(submissionsRef, where('status', '==', 'approved')));
+      const deniedCount = await getCountFromServer(query(submissionsRef, where('status', '==', 'denied')));
+
+      const value: AdminSourceCounts = {
+        images: imagesCount.data().count,
+        submissions: submissionsCount.data().count,
+        pending: pendingCount.data().count,
+        approved: approvedCount.data().count,
+        denied: deniedCount.data().count
+      };
+      adminSourceCountsCache = {
+        value,
+        expiresAtMs: Date.now() + ADMIN_SOURCE_COUNTS_TTL_MS
+      };
+      writeCountsBackoffUntilMs(0);
+      // #region agent log
+      fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:success',message:'aggregation query batch succeeded',data:value,timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return value;
+    } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7912/ingest/139b68f9-a809-4009-b8bd-ff9cece305d9',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c127cf'},body:JSON.stringify({sessionId:'c127cf',runId:ADMIN_COUNTS_DEBUG_RUN_ID,hypothesisId:'H2',location:'imageService.ts:getAdminSourceCounts:error',message:'aggregation query batch failed',data:{error:error instanceof Error ? error.message : String(error),quota:isQuotaError(error)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      if (isQuotaError(error)) {
+        writeCountsBackoffUntilMs(Date.now() + ADMIN_SOURCE_COUNTS_ERROR_BACKOFF_MS);
+        return fallbackCounts;
+      }
+      if (adminSourceCountsCache) {
+        return adminSourceCountsCache.value;
+      }
       return fallbackCounts;
+    } finally {
+      adminSourceCountsInFlight = null;
     }
-    if (adminSourceCountsCache) {
-      return adminSourceCountsCache.value;
-    }
-    return fallbackCounts;
-  }).finally(() => {
-    adminSourceCountsInFlight = null;
-  });
+  })();
 
   return adminSourceCountsInFlight;
 }
