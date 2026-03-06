@@ -43,14 +43,15 @@ export interface MultiplayerLobbyProps {
   difficulty: Difficulty;
   userUid: string;
   userUsername: string;
+  isGuest: boolean;
   onJoinedLobby: (docId: string) => void;
   onBack: () => void;
   onOpenMyGames: () => void;
 }
 
-function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack, onOpenMyGames }: MultiplayerLobbyProps): React.ReactElement {
+function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoinedLobby, onBack, onOpenMyGames }: MultiplayerLobbyProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(difficulty);
-  const [visibility, setVisibility] = useState<GameVisibility>('public');
+  const [visibility, setVisibility] = useState<GameVisibility>(() => (isGuest ? 'private' : 'public'));
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
   const [customTime, setCustomTime] = useState<string>('60');
   const [publicDifficultyFilter, setPublicDifficultyFilter] = useState<PublicDifficultyFilter>('any');
@@ -79,6 +80,12 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     setSelectedDifficulty(difficulty);
   }, [difficulty]);
 
+  useEffect(() => {
+    if (isGuest && visibility === 'public') {
+      setVisibility('private');
+    }
+  }, [isGuest, visibility]);
+
   const {
     publicLobbies,
     isCreating,
@@ -87,7 +94,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     hostGame,
     joinByCode,
     clearError
-  } = useLobby(userUid, userUsername, selectedDifficulty);
+  } = useLobby(userUid, userUsername, selectedDifficulty, isGuest);
 
   const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[selectedDifficulty] || DIFFICULTY_LABELS.all;
 
@@ -172,11 +179,14 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
 
           <div className="lobby-visibility-toggle">
             <button
-              className={`lobby-vis-btn ${visibility === 'public' ? 'selected' : ''}`}
-              onClick={() => setVisibility('public')}
+              className={`lobby-vis-btn ${visibility === 'public' ? 'selected' : ''} ${isGuest ? 'lobby-vis-btn-disabled' : ''}`}
+              onClick={() => !isGuest && setVisibility('public')}
+              disabled={isGuest}
+              title={isGuest ? 'Sign in to create public games' : undefined}
             >
               <span className="lobby-vis-icon">🌐</span>
               Public
+              {isGuest && <span className="lobby-vis-guest-hint">(Sign in)</span>}
             </button>
             <button
               className={`lobby-vis-btn ${visibility === 'private' ? 'selected' : ''}`}
@@ -229,7 +239,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
           <button
             className="lobby-create-btn"
             onClick={handleHost}
-            disabled={isCreating}
+            disabled={isCreating || (isGuest && visibility === 'public')}
           >
             {isCreating ? (
               <>

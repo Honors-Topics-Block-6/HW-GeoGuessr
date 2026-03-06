@@ -713,6 +713,7 @@ function App(): React.ReactElement {
           difficulty={difficulty as React.ComponentProps<typeof MultiplayerLobby>['difficulty']}
           userUid={user.uid}
           userUsername={userDoc?.username as string}
+          isGuest={isGuest}
           onJoinedLobby={(docId: string) => {
             setLobbyDocId(docId);
             setScreen('waitingRoom');
