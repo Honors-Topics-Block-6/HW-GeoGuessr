@@ -74,6 +74,8 @@ export interface CreateLobbyResult {
 
 /** How long (ms) before a player's heartbeat is considered stale. */
 export const STALE_TIMEOUT = 30_000;
+/** Lobby inactivity timeout (10 minutes without any heartbeat updates). */
+export const LOBBY_INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000;
 /** Lobby lifetime before auto-expiry (1 hour). */
 export const LOBBY_EXPIRY_MS = 60 * 60 * 1000;
 
@@ -93,6 +95,40 @@ function isLobbyExpired(lobby: Pick<LobbyDoc, 'createdAt'>): boolean {
   const createdMs = getTimestampMillis(lobby.createdAt);
   if (createdMs === null) return false;
   return Date.now() - createdMs >= LOBBY_EXPIRY_MS;
+}
+
+function isLobbyInactive(
+  lobby: Pick<LobbyDoc, 'heartbeats' | 'updatedAt' | 'createdAt'>,
+  timeoutMs: number = LOBBY_INACTIVITY_TIMEOUT_MS
+): boolean {
+  const heartbeatEntries = Object.values(lobby.heartbeats || {});
+  const mostRecentHeartbeatMs = heartbeatEntries
+    .map((value) => getTimestampMillis(value))
+    .reduce<number | null>((max, current) => {
+      if (current === null) return max;
+      if (max === null) return current;
+      return Math.max(max, current);
+    }, null);
+
+  const fallbackMs =
+    mostRecentHeartbeatMs ??
+    getTimestampMillis(lobby.updatedAt) ??
+    getTimestampMillis(lobby.createdAt);
+
+  if (fallbackMs === null) return false;
+  return Date.now() - fallbackMs >= timeoutMs;
+}
+
+async function markLobbyHistoryDeletedSafe(lobbyDocId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'userLobbyHistory', lobbyDocId), {
+      isDeleted: true,
+      deletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  } catch (err) {
+    console.error('Failed to mark lobby history deleted:', err);
+  }
 }
 
 // ────── Functions ──────
