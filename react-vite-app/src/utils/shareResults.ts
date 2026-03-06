@@ -71,7 +71,7 @@ export function generateShareableResultsText(input: {
   });
 
   const lines: string[] = [];
-  lines.push(`🌍 ${label} Score: ${formatPointsWithCommas(totalScore)}`);
+  lines.push(`🏫 ${label} Score: ${formatPointsWithCommas(totalScore)}`);
   roundsSorted.forEach((round, idx) => {
     const roundNum = round.roundNumber ?? (idx + 1);
     lines.push(`📍 Round ${roundNum}: 🚩 ${formatPointsShort(round.score)} points`);

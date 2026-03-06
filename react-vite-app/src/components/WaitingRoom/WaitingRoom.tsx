@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWaitingRoom } from '../../hooks/useLobby';
-import { startDuel } from '../../services/duelService';
+import { startDuel, DUEL_ROUND_TIME_SECONDS } from '../../services/duelService';
 import InviteFriendsModal from '../InviteFriendsModal/InviteFriendsModal';
 import './WaitingRoom.css';
 
@@ -51,10 +51,10 @@ interface TimePreset {
 }
 
 const TIME_PRESETS: TimePreset[] = [
-  { value: 10, label: '10s' },
-  { value: 20, label: '20s' },
+  { value: 15, label: '15s' },
   { value: 30, label: '30s' },
-  { value: 0, label: '∞' },
+  { value: 60, label: '60s' },
+  { value: 0, label: 'No Limit' },
 ];
 
 const CUSTOM_TIME_MIN = 3;
@@ -237,7 +237,7 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
               ? `${lobby.roundTimeSeconds}s`
               : lobby.roundTimeSeconds === 0
                 ? 'No Limit'
-                : '20s'}
+                : `${DUEL_ROUND_TIME_SECONDS}s`}
           </span>
         </div>
 

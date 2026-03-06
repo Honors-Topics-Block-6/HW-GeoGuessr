@@ -21,7 +21,7 @@ const DIFFICULTY_LABELS: Record<Difficulty, DifficultyInfo> = {
 
 export type GameVisibility = 'public' | 'private';
 type PublicDifficultyFilter = 'any' | Difficulty;
-type PublicRoundTimeFilter = 'any' | '10' | '20' | '30' | '0';
+type PublicRoundTimeFilter = 'any' | '15' | '30' | '60' | '0';
 
 /** Preset time options shown as buttons. 0 = no limit. */
 interface TimePreset {
@@ -30,9 +30,9 @@ interface TimePreset {
 }
 
 const TIME_PRESETS: TimePreset[] = [
-  { value: 10, label: '10s' },
-  { value: 20, label: '20s' },
+  { value: 15, label: '15s' },
   { value: 30, label: '30s' },
+  { value: 60, label: '60s' },
   { value: 0, label: 'No Limit' },
 ];
 
@@ -51,8 +51,8 @@ export interface MultiplayerLobbyProps {
 
 function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoinedLobby, onBack, onOpenMyGames }: MultiplayerLobbyProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(difficulty);
-  const [visibility, setVisibility] = useState<GameVisibility>(() => (isGuest ? 'private' : 'public'));
-  const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
+  const [visibility, setVisibility] = useState<GameVisibility>('public');
+  const [timeSelection, setTimeSelection] = useState<number | 'custom'>(30);
   const [customTime, setCustomTime] = useState<string>('60');
   const [publicDifficultyFilter, setPublicDifficultyFilter] = useState<PublicDifficultyFilter>('any');
   const [publicRoundTimeFilter, setPublicRoundTimeFilter] = useState<PublicRoundTimeFilter>('any');
