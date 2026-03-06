@@ -831,15 +831,10 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .lobby-screen {
-    min-height: 100vh;
-    height: auto;
-    overflow: auto;
-  }
-
   .lobby-content {
-    min-height: 100vh;
     height: auto;
+    max-height: calc(100vh - 1rem);
+    overflow-y: auto;
     padding-top: 1.5rem;
   }
 

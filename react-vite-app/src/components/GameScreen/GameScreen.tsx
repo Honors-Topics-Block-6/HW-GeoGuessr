@@ -62,6 +62,11 @@ function GameScreen({
   const isInRegion = availableFloors !== null && availableFloors.length > 0;
   const canSubmit = guessLocation !== null && (!isInRegion || guessFloor !== null);
 
+  // For mobile: show floor selector when location is placed and we're in a region with floors
+  const showMobileFloorOverlay = guessLocation !== null && isInRegion;
+  // For mobile: show guess button when ready to submit
+  const showMobileGuessOverlay = canSubmit;
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Spacebar: submit guess if ready, otherwise click at cursor position on map
     if (e.code === 'Space') {
@@ -91,16 +96,19 @@ function GameScreen({
 
   return (
     <div className="game-screen">
+      {/* Desktop leave button */}
       <button className="game-leave-button" onClick={() => setShowLeaveConfirm(true)}>
         Leave Game
       </button>
+
+      {/* ===== DESKTOP LAYOUT ===== */}
       {/* Left panel - Image */}
-      <div className="image-panel">
+      <div className="image-panel desktop-only">
         <ImageViewer imageUrl={imageUrl} />
       </div>
 
-      {/* Right panel - Guess controls */}
-      <div className="guess-panel">
+      {/* Right panel - Guess controls (desktop) */}
+      <div className="guess-panel desktop-only">
         <div className="guess-panel-header">
           <button className="back-button" onClick={() => setShowLeaveConfirm(true)}>
             <span>⏻</span>
@@ -197,6 +205,93 @@ function GameScreen({
             <div className={`status-item ${guessFloor ? 'complete' : ''}`}>
               <span className="status-icon">{guessFloor ? '✓' : '○'}</span>
               <span>Floor selected</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ===== MOBILE LAYOUT ===== */}
+      <div className="mobile-game-layout mobile-only">
+        {/* Mobile Timer - always at top when present */}
+        {typeof timeRemaining === 'number' && (
+          <div className="mobile-timer">
+            <div className="mobile-timer-bar">
+              <div
+                className={`mobile-timer-fill${
+                  timeRemaining <= 5 ? ' critical' : timeRemaining <= 10 ? ' warning' : ''
+                }`}
+                style={{
+                  width: `${Math.max(0, Math.min(1, timeRemaining / timeLimitSeconds)) * 100}%`
+                }}
+              />
+            </div>
+            <span className={`mobile-timer-value${
+              timeRemaining <= 5 ? ' critical' : timeRemaining <= 10 ? ' warning' : ''
+            }`}>
+              {timeRemaining.toFixed(1)}s
+            </span>
+          </div>
+        )}
+
+        {/* Mobile HP bar for endless mode */}
+        {isEndlessMode && (
+          <div className="mobile-hp-bar">
+            <span className="mobile-hp-label">HP</span>
+            <div className="mobile-hp-track">
+              <div
+                className={`mobile-hp-fill ${(currentHp / maxHp) * 100 <= 25 ? 'critical' : ''}`}
+                style={{ width: `${Math.max(0, (currentHp / maxHp) * 100)}%` }}
+              />
+            </div>
+            <span className="mobile-hp-value">{currentHp.toLocaleString()}</span>
+          </div>
+        )}
+
+        {/* Mobile Image */}
+        <div className="mobile-image-container">
+          <ImageViewer imageUrl={imageUrl} />
+          <button className="mobile-leave-button" onClick={() => setShowLeaveConfirm(true)}>
+            Leave Game
+          </button>
+        </div>
+
+        {/* Mobile Map - takes remaining space */}
+        <div className="mobile-map-container">
+          <MapPicker
+            markerPosition={guessLocation}
+            onMapClick={onMapClick}
+            clickRejected={clickRejected}
+            playingArea={playingArea}
+          />
+
+          {/* Mobile Floor Selector Overlay - shows at top of map when needed */}
+          {showMobileFloorOverlay && (
+            <div className="mobile-floor-overlay">
+              <div className="mobile-floor-content">
+                <span className="mobile-floor-label">Select Floor</span>
+                <div className="mobile-floor-buttons">
+                  {availableFloors.map((floor: number) => (
+                    <button
+                      key={floor}
+                      type="button"
+                      className={`mobile-floor-btn ${guessFloor === floor ? 'selected' : ''}`}
+                      onClick={() => onFloorSelect(floor)}
+                    >
+                      {floor}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile Guess Button Overlay - shows at bottom of map when ready */}
+          {showMobileGuessOverlay && (
+            <div className="mobile-guess-overlay">
+              <button className="mobile-guess-btn" onClick={onSubmitGuess}>
+                <span>🎯</span>
+                <span>Guess</span>
+              </button>
             </div>
           )}
         </div>
