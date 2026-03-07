@@ -476,6 +476,20 @@
   filter: brightness(0.95);
 }
 
+.report-image-button--disabled,
+.report-image-button:disabled {
+  background: #868e96;
+  color: #ced4da;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.report-image-button--disabled:hover,
+.report-image-button:disabled:hover {
+  background: #868e96;
+  filter: none;
+}
+
 .result-stats {
   background-color: #fff;
   padding: 1.25rem;

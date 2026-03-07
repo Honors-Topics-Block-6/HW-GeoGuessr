@@ -69,6 +69,7 @@ import {
 } from "./services/streakService";
 import {
   submitImageReport,
+  hasUserReportedImage,
   type ImageReportPayload,
 } from "./services/imageReportService";
 import "./App.css";
@@ -124,6 +125,7 @@ function App(): React.ReactElement {
   const [collectingDailyReward, setCollectingDailyReward] =
     useState<boolean>(false);
   const [imageReportToast, setImageReportToast] = useState<string | null>(null);
+  const [hasReportedThisImage, setHasReportedThisImage] = useState<boolean>(false);
 
   // Ensure the daily streak resets to 0 if a day was missed (once per app load).
   useEffect(() => {
@@ -316,6 +318,7 @@ function App(): React.ReactElement {
           suggestedLocation: payload.suggestedLocation ?? null,
           suggestedFloor: payload.suggestedFloor ?? null,
         });
+        setHasReportedThisImage(true);
         setImageReportToast("Thanks! Your report has been submitted.");
       } catch (err) {
         setImageReportToast(
@@ -863,6 +866,48 @@ function App(): React.ReactElement {
       ? duel.roundHistory[duel.roundHistory.length - 1]
       : null;
 
+  // Check if user has already reported the current result image (grey out button)
+  useEffect(() => {
+    if (!user?.uid || isGuest) {
+      setHasReportedThisImage(false);
+      return;
+    }
+    const imageId =
+      screen === "result" && currentResult
+        ? currentResult.imageId ?? null
+        : inDuel && duelLatestRound
+          ? duelLatestRound.imageId ?? null
+          : null;
+    const imageUrl =
+      screen === "result" && currentResult
+        ? currentResult.imageUrl
+        : inDuel && duelLatestRound
+          ? duel.currentImage?.url || duelLatestRound.imageUrl
+          : undefined;
+    if (!imageId && !imageUrl) {
+      setHasReportedThisImage(false);
+      return;
+    }
+    let cancelled = false;
+    hasUserReportedImage(user.uid, imageId, imageUrl).then((reported) => {
+      if (!cancelled) setHasReportedThisImage(reported);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user?.uid,
+    isGuest,
+    screen,
+    currentResult?.imageId,
+    currentResult?.imageUrl,
+    inDuel,
+    duel.phase,
+    duelLatestRound?.imageId,
+    duelLatestRound?.imageUrl,
+    duel.currentImage?.url,
+  ]);
+
   // Get my username
   const myUsername: string = userDoc?.username || "You";
 
@@ -1037,6 +1082,7 @@ function App(): React.ReactElement {
                   )
               : undefined
           }
+          reportDisabled={hasReportedThisImage}
           isEndlessMode={isEndlessMode}
           currentHp={currentHp}
           maxHp={startingHp}
@@ -1133,6 +1179,7 @@ function App(): React.ReactElement {
                   )
               : undefined
           }
+          reportDisabled={hasReportedThisImage}
           isGameOver={false}
         />
       )}

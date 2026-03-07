@@ -38,6 +38,8 @@ export interface ResultScreenProps {
   maxHp?: number;
   hpLost?: number;
   onReportInaccurate?: (payload: ImageReportPayload) => void;
+  /** When true, the Report Image button is disabled (user already reported this image) */
+  reportDisabled?: boolean;
 }
 
 /**
@@ -201,7 +203,8 @@ function ResultScreen({
   currentHp = 6000,
   maxHp = 6000,
   hpLost,
-  onReportInaccurate
+  onReportInaccurate,
+  reportDisabled = false
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const zoomControlsRef = useRef<HTMLDivElement>(null);
@@ -582,11 +585,12 @@ function ResultScreen({
             {onReportInaccurate && (
               <button
                 type="button"
-                className="report-image-button"
-                onClick={() => setShowReportModal(true)}
-                aria-label="Report inaccurate image"
+                className={`report-image-button ${reportDisabled ? "report-image-button--disabled" : ""}`}
+                onClick={() => !reportDisabled && setShowReportModal(true)}
+                disabled={reportDisabled}
+                aria-label={reportDisabled ? "Already reported this image" : "Report inaccurate image"}
               >
-                Report Image
+                {reportDisabled ? "Already Reported" : "Report Image"}
               </button>
             )}
           </div>

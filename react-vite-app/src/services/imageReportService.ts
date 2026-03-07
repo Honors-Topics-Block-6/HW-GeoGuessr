@@ -88,6 +88,27 @@ export async function submitImageReport(reportData: ImageReportData): Promise<st
   return docRef.id;
 }
 
+/**
+ * Check if a user has already reported a specific image.
+ * Used to grey out the Report Image button on the result screen.
+ */
+export async function hasUserReportedImage(
+  userId: string,
+  imageId: string | null,
+  imageUrl?: string | null
+): Promise<boolean> {
+  if (!userId || (!imageId && !imageUrl)) return false;
+  const reportsRef = collection(db, 'imageReports');
+  const userReportsQuery = query(reportsRef, where('userId', '==', userId));
+  const existingSnap = await getDocs(userReportsQuery);
+  return existingSnap.docs.some((docSnap) => {
+    const d = docSnap.data();
+    if (imageId && d.imageId === imageId) return true;
+    if (imageUrl && d.imageUrl === imageUrl) return true;
+    return false;
+  });
+}
+
 export interface ImageReportDoc {
   id: string;
   imageId: string | null;
