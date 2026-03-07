@@ -54,10 +54,12 @@ export interface UserDoc {
   emailVerified: boolean;
   totalXp: number;
   gamesPlayed: number;
+  dailyGoalWins?: number;
   createdAt: unknown; // Firestore Timestamp or serverTimestamp sentinel
   permissions?: AdminPermissions;
   lastActive?: unknown;
   lastGameAt?: unknown;
+  lastDailyGoalWinAt?: unknown;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
   fastestGuessTimeSeconds?: number;
