@@ -1,7 +1,9 @@
 import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
+import { getUserByUid } from '../../services/friendService';
 import { subscribeToAllPresence, type PresenceMap, type PresenceData } from '../../services/presenceService';
+import { searchUsersByUsername, type UserLookup } from '../../services/friendService';
 import './FriendsPanel.css';
 
 interface FirestoreTimestamp {
@@ -12,6 +14,7 @@ interface Friend {
   pairId: string;
   friendUid: string;
   friendUsername: string;
+  favoriteEmote?: string;
 }
 
 interface IncomingRequest {
@@ -27,6 +30,7 @@ interface OutgoingRequest {
 }
 
 type FriendsTab = 'friends' | 'requests' | 'add';
+type AddFriendMode = 'uid' | 'username';
 
 export interface FriendsPanelProps {
   onBack: () => void;
@@ -34,7 +38,7 @@ export interface FriendsPanelProps {
 }
 
 function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactElement {
-  const { user, userDoc } = useAuth();
+  const { user, userDoc, isGuest } = useAuth();
   const {
     friends,
     incomingRequests,
@@ -42,19 +46,26 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
     sendRequest,
     acceptRequest,
     declineRequest,
+    cancelRequest,
     removeFriend,
     loading,
     error: friendsError
-  } = useFriends(user?.uid, userDoc?.username ?? '');
+  } = useFriends(isGuest ? null : user?.uid, isGuest ? '' : userDoc?.username ?? '');
 
   const [addUid, setAddUid] = useState<string>('');
+  const [addUsername, setAddUsername] = useState<string>('');
+  const [addMode, setAddMode] = useState<AddFriendMode>('uid');
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState<boolean>(false);
+  const [searchLoading, setSearchLoading] = useState<boolean>(false);
+  const [searchResults, setSearchResults] = useState<UserLookup[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [presenceMap, setPresenceMap] = useState<PresenceMap>({});
   const [tab, setTab] = useState<FriendsTab>('friends');
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [copiedUid, setCopiedUid] = useState<boolean>(false);
+  const [friendEmotes, setFriendEmotes] = useState<Record<string, string>>({});
 
   // Subscribe to presence for online status
   useEffect(() => {
@@ -63,6 +74,33 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadFavoriteEmotes = async (): Promise<void> => {
+      const friendList = friends as Friend[];
+      if (friendList.length === 0) {
+        if (!cancelled) setFriendEmotes({});
+        return;
+      }
+      const entries = await Promise.all(friendList.map(async (friend) => {
+        try {
+          const lookup = await getUserByUid(friend.friendUid);
+          return [friend.friendUid, lookup?.favoriteEmote || '😎'] as const;
+        } catch {
+          return [friend.friendUid, '😎'] as const;
+        }
+      }));
+      if (!cancelled) {
+        setFriendEmotes(Object.fromEntries(entries));
+      }
+    };
+
+    void loadFavoriteEmotes();
+    return () => {
+      cancelled = true;
+    };
+  }, [friends]);
 
   const isUserOnline = (uid: string): boolean => {
     const presence = presenceMap[uid];
@@ -80,15 +118,15 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
     setAddError(null);
     setAddSuccess(null);
 
-    const trimmed = addUid.trim();
-    if (!trimmed) {
-      setAddError('Please enter a user ID.');
-      return;
-    }
-
     setAddLoading(true);
     try {
-      await sendRequest(trimmed);
+      const trimmedUid = addUid.trim();
+      if (!trimmedUid) {
+        setAddError('Please enter a user ID.');
+        return;
+      }
+
+      await sendRequest(trimmedUid);
       setAddSuccess('Friend request sent!');
       setAddUid('');
       setTimeout(() => setAddSuccess(null), 3000);
@@ -97,6 +135,53 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
       setAddError(message);
     } finally {
       setAddLoading(false);
+    }
+  };
+
+  const handleSearchByUsername = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    setAddError(null);
+    setAddSuccess(null);
+    setSearchResults([]);
+
+    const trimmed = addUsername.trim();
+    if (!trimmed) {
+      setAddError('Please enter a User ID, username, or email.');
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const results = await searchUsersByUsername(trimmed, 10);
+      // Never show the current user as a search target
+      const filtered = results.filter(r => r.uid !== user?.uid);
+      setSearchResults(filtered);
+      if (filtered.length === 0) {
+        setAddError('No users found with that username.');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to search users.';
+      setAddError(message);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleSendFromSearch = async (targetUid: string): Promise<void> => {
+    setActionLoading(targetUid);
+    setAddError(null);
+    setAddSuccess(null);
+    try {
+      await sendRequest(targetUid);
+      setAddSuccess('Friend request sent!');
+      // Optimistically remove from results to avoid double-sends
+      setSearchResults(prev => prev.filter(r => r.uid !== targetUid));
+      setTimeout(() => setAddSuccess(null), 3000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to send request.';
+      setAddError(message);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -117,6 +202,17 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
       await declineRequest(requestId);
     } catch (err) {
       console.error('Decline failed:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancel = async (requestId: string): Promise<void> => {
+    setActionLoading(requestId);
+    try {
+      await cancelRequest(requestId);
+    } catch (err) {
+      console.error('Cancel failed:', err);
     } finally {
       setActionLoading(null);
     }
@@ -182,7 +278,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
               <div className="friends-empty">
                 <span className="friends-empty-icon">👥</span>
                 <p>No friends yet</p>
-                <p className="friends-empty-hint">Add friends by their user ID!</p>
+                <p className="friends-empty-hint">Add friends by their User ID, username, or email!</p>
               </div>
             ) : (
               <div className="friends-list">
@@ -193,6 +289,9 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                       <div className="friend-info">
                         <span className={`friend-online-dot ${online ? 'online' : 'offline'}`}></span>
                         <span className="friend-username">{friend.friendUsername}</span>
+                        <span className="friend-favorite-emote" role="img" aria-label={`${friend.friendUsername} favorite emote`}>
+                          {friendEmotes[friend.friendUid] || '😎'}
+                        </span>
                         {online && (
                           <span className="friend-status-text">Online</span>
                         )}
@@ -288,7 +387,13 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                         <span className="request-username">{req.toUsername}</span>
                         <span className="request-uid">{req.toUid}</span>
                       </div>
-                      <span className="request-pending-badge">Pending</span>
+                      <button
+                        className="request-cancel"
+                        onClick={() => handleCancel(req.id)}
+                        disabled={actionLoading === req.id}
+                      >
+                        {actionLoading === req.id ? '...' : 'Cancel'}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -300,45 +405,127 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
         {/* Add Friend Tab */}
         {tab === 'add' && (
           <div className="friends-add-section">
-            <div className="add-friend-info">
-              <p>Add a friend by entering their User ID.</p>
-              <div className="your-uid-box">
-                <span className="your-uid-label">Your User ID:</span>
-                <code className="your-uid-value">{user?.uid}</code>
-                <button
-                  className="copy-uid-button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(user?.uid || '');
-                  }}
-                >
-                  Copy
-                </button>
+            {isGuest ? (
+              <div className="add-friend-info">
+                <p>Guest accounts cannot send friend requests.</p>
+                <p className="friends-empty-hint">Sign up or log in to add friends and invite them to games.</p>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="add-friend-info">
+                  <p>Add a friend by entering their User ID, username, or email address.</p>
+                  <div className="your-uid-box">
+                    <span className="your-uid-label">Your User ID:</span>
+                    <code className="your-uid-value">{user?.uid}</code>
+                    <button
+                      className="copy-uid-button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(user?.uid || '');
+                        setCopiedUid(true);
+                        setTimeout(() => setCopiedUid(false), 2000);
+                      }}
+                    >
+                      {copiedUid ? '✓' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
 
-            {addError && <div className="add-friend-error">{addError}</div>}
-            {addSuccess && <div className="add-friend-success">{addSuccess}</div>}
+                {addError && <div className="add-friend-error">{addError}</div>}
+                {addSuccess && <div className="add-friend-success">{addSuccess}</div>}
 
-            <form onSubmit={handleAddFriend} className="add-friend-form">
-              <input
-                type="text"
-                className="add-friend-input"
-                placeholder="Enter friend's User ID..."
-                value={addUid}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  setAddUid(e.target.value);
-                  setAddError(null);
-                }}
-                disabled={addLoading}
-              />
-              <button
-                type="submit"
-                className="add-friend-submit"
-                disabled={addLoading || !addUid.trim()}
-              >
-                {addLoading ? 'Sending...' : 'Send Request'}
-              </button>
-            </form>
+                <div className="add-friend-mode">
+                  <button
+                    type="button"
+                    className={`add-friend-mode-button ${addMode === 'uid' ? 'active' : ''}`}
+                    onClick={() => {
+                      setAddMode('uid');
+                      setAddError(null);
+                      setAddSuccess(null);
+                    }}
+                  >
+                    By User ID
+                  </button>
+                  <button
+                    type="button"
+                    className={`add-friend-mode-button ${addMode === 'username' ? 'active' : ''}`}
+                    onClick={() => {
+                      setAddMode('username');
+                      setAddError(null);
+                      setAddSuccess(null);
+                    }}
+                  >
+                    By Username
+                  </button>
+                </div>
+
+                {addMode === 'uid' ? (
+                  <form onSubmit={handleAddFriend} className="add-friend-form">
+                    <input
+                      type="text"
+                      className="add-friend-input"
+                      placeholder="Enter friend's User ID..."
+                      value={addUid}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        setAddUid(e.target.value);
+                        setAddError(null);
+                      }}
+                      disabled={addLoading}
+                    />
+                    <button
+                      type="submit"
+                      className="add-friend-submit"
+                      disabled={addLoading || !addUid.trim()}
+                    >
+                      {addLoading ? 'Sending...' : 'Send Request'}
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <form onSubmit={handleSearchByUsername} className="add-friend-form">
+                      <input
+                        type="text"
+                        className="add-friend-input"
+                        placeholder="Search username (exact match)..."
+                        value={addUsername}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                          setAddUsername(e.target.value);
+                          setAddError(null);
+                        }}
+                        disabled={searchLoading}
+                      />
+                      <button
+                        type="submit"
+                        className="add-friend-submit"
+                        disabled={searchLoading || !addUsername.trim()}
+                      >
+                        {searchLoading ? 'Searching...' : 'Search'}
+                      </button>
+                    </form>
+
+                    {searchResults.length > 0 && (
+                      <div className="add-friend-results">
+                        {searchResults.map((u) => (
+                          <div key={u.uid} className="add-friend-result-item">
+                            <div className="add-friend-result-info">
+                              <span className="add-friend-result-username">{u.username}</span>
+                              <span className="add-friend-result-uid">{u.uid}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="add-friend-result-send"
+                              onClick={() => handleSendFromSearch(u.uid)}
+                              disabled={actionLoading === u.uid}
+                            >
+                              {actionLoading === u.uid ? '...' : 'Send Request'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

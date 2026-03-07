@@ -159,6 +159,19 @@ describe('TitleScreen', () => {
     });
   });
 
+  describe('profile navigation', () => {
+    it('should call onOpenProfile when the username is clicked', async () => {
+      const user = userEvent.setup();
+      const onOpenProfile = vi.fn();
+
+      render(<TitleScreen {...defaultProps} onOpenProfile={onOpenProfile} />);
+
+      await user.click(screen.getByRole('button', { name: 'TestUser' }));
+
+      expect(onOpenProfile).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('accessibility', () => {
     it('should have accessible button names', () => {
       render(<TitleScreen {...defaultProps} />);
@@ -185,6 +198,33 @@ describe('TitleScreen', () => {
       const { container } = render(<TitleScreen {...defaultProps} isLoading={false} />);
 
       expect(container.querySelector('.button-spinner')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('invitations', () => {
+    it('should allow declining an invite', async () => {
+      const user = userEvent.setup();
+      const onDismissInvite = vi.fn();
+
+      render(
+        <TitleScreen
+          {...defaultProps}
+          invites={[{
+            id: 'invite-1',
+            senderUid: 'friend-1',
+            senderUsername: 'Sam',
+            lobbyDocId: 'lobby-1',
+            difficulty: 'all',
+            sentAt: null
+          }]}
+          onDismissInvite={onDismissInvite}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /decline sam's invite/i }));
+
+      expect(onDismissInvite).toHaveBeenCalledTimes(1);
+      expect(onDismissInvite).toHaveBeenCalledWith('invite-1');
     });
   });
 });

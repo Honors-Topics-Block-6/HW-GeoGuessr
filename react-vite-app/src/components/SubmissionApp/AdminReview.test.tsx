@@ -151,7 +151,7 @@ describe('AdminReview', () => {
     });
 
     mockUpdateDoc.mockResolvedValue(undefined);
-    mockCompressImage.mockResolvedValue('data:image/jpeg;base64,compressed');
+    mockCompressImage.mockResolvedValue('data:image/webp;base64,compressed');
     mockDeleteSubmission.mockResolvedValue(undefined);
     mockDeleteImage.mockResolvedValue(undefined);
 
@@ -1404,7 +1404,7 @@ describe('AdminReview', () => {
           expect(mockUpdateDoc).toHaveBeenCalledWith(
             undefined,
             expect.objectContaining({
-              photoURL: 'data:image/jpeg;base64,compressed',
+              photoURL: 'data:image/webp;base64,compressed',
             })
           );
         });
@@ -1435,7 +1435,7 @@ describe('AdminReview', () => {
     });
 
     describe('validation', () => {
-      it('should show error when floor is missing', async () => {
+      it('should allow saving when floor is missing', async () => {
         const user = userEvent.setup();
 
         // Mock with a submission that has null floor
@@ -1465,9 +1465,9 @@ describe('AdminReview', () => {
         await user.click(screen.getByText('Edit'));
         await user.click(screen.getByText('Save Changes'));
 
-        expect(screen.getByText('Floor is required')).toBeInTheDocument();
-        // updateDoc should NOT have been called
-        expect(mockUpdateDoc).not.toHaveBeenCalled();
+        await waitFor(() => {
+          expect(mockUpdateDoc).toHaveBeenCalled();
+        });
       });
     });
   });

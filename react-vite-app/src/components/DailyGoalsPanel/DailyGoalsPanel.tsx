@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDailyGoals } from '../../hooks/useDailyGoals';
 import './DailyGoalsPanel.css';
@@ -37,6 +37,14 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
 
   const [claiming, setClaiming] = useState<boolean>(false);
   const [claimed, setClaimed] = useState<boolean>(false);
+  const confettiIntervalRef = useRef<number | null>(null);
+  const confettiTimeoutRef = useRef<number | null>(null);
+
+  // Keep header/profile stats in sync when goals change
+  useEffect(() => {
+    if (!user?.uid) return;
+    void refreshUserDoc();
+  }, [user?.uid, allCompleted, bonusXpAwarded, refreshUserDoc]);
 
   const handleClaimBonus = async (): Promise<void> => {
     setClaiming(true);
@@ -52,6 +60,82 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
   };
 
   const completedCount = (goals as DailyGoal[]).filter((g: DailyGoal) => g.completed).length;
+  const totalGoals = (goals as DailyGoal[]).length;
+  const remainingGoals = Math.max(totalGoals - completedCount, 0);
+  const progressPercent = totalGoals > 0 ? Math.round((completedCount / totalGoals) * 100) : 0;
+  const progressEmoji = completedCount === totalGoals && totalGoals > 0 ? '🎉' : completedCount > 0 ? '🔥' : '🚀';
+
+  const progressHeadline = completedCount === totalGoals && totalGoals > 0
+    ? 'All goals crushed!'
+    : completedCount > 0
+      ? 'Momentum unlocked!'
+      : 'Adventure awaits!';
+
+  const motivationCopy = completedCount === totalGoals && totalGoals > 0
+    ? 'You cleared every mission for today. Bask in that victory glow!'
+    : completedCount > 0
+      ? `Only ${remainingGoals} more ${remainingGoals === 1 ? 'goal' : 'goals'} until bonus XP riches. Keep the streak alive!`
+      : 'Kick things off with any goal below to start your XP streak.';
+
+  const stopCelebrateRain = (): void => {
+    if (confettiIntervalRef.current !== null) {
+      window.clearInterval(confettiIntervalRef.current);
+      confettiIntervalRef.current = null;
+    }
+    if (confettiTimeoutRef.current !== null) {
+      window.clearTimeout(confettiTimeoutRef.current);
+      confettiTimeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCelebrateRain();
+    };
+  }, []);
+
+  const handleCelebrate = async (): Promise<void> => {
+    const durationMs = 3200;
+    const endTime = Date.now() + durationMs;
+    const colors = ['#ffc107', '#6cb52d', '#ff6b6b', '#4dabf7', '#c77dff'];
+
+    stopCelebrateRain();
+
+    try {
+      const module = await import('canvas-confetti');
+      const confetti = module.default;
+
+      const fireRain = (): void => {
+        const timeLeft = endTime - Date.now();
+        if (timeLeft <= 0) {
+          stopCelebrateRain();
+          return;
+        }
+
+        const particleCount = 5 + Math.floor((timeLeft / durationMs) * 4);
+        confetti({
+          particleCount,
+          startVelocity: 28,
+          spread: 35,
+          ticks: 240,
+          gravity: 1.1,
+          scalar: 0.9,
+          colors,
+          disableForReducedMotion: true,
+          origin: {
+            x: Math.random(),
+            y: 0
+          }
+        });
+      };
+
+      fireRain();
+      confettiIntervalRef.current = window.setInterval(fireRain, 140);
+      confettiTimeoutRef.current = window.setTimeout(stopCelebrateRain, durationMs + 400);
+    } catch (error) {
+      console.error('Failed to load confetti animation', error);
+    }
+  };
 
   return (
     <div className="daily-goals-panel">
@@ -63,21 +147,37 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
           &larr; Back
         </button>
 
-        <h1 className="daily-goals-title">Daily Goals</h1>
+        <h1 className="daily-goals-title">
+          Daily Goals <span className="daily-goals-title-emoji">🎯</span>
+        </h1>
         <p className="daily-goals-subtitle">
           Complete all goals to earn {bonusXpAmount.toLocaleString()} bonus XP!
         </p>
 
+        <div className="daily-goals-hype-card">
+          <span className="daily-goals-hype-emoji" role="img" aria-hidden="true">{progressEmoji}</span>
+          <div className="daily-goals-hype-copy">
+            <span className="daily-goals-hype-headline">{progressHeadline}</span>
+            <span className="daily-goals-hype-subline">{motivationCopy}</span>
+          </div>
+        </div>
+
         {/* Progress summary */}
         <div className="daily-goals-progress-summary">
+          <div className="daily-goals-progress-meta">
+            <span className="daily-goals-progress-pill">
+              {completedCount}/{totalGoals || 0} completed
+            </span>
+            <span className="daily-goals-progress-percent">{progressPercent}%</span>
+          </div>
           <div className="daily-goals-progress-bar">
             <div
               className="daily-goals-progress-fill"
-              style={{ width: `${(goals as DailyGoal[]).length > 0 ? (completedCount / (goals as DailyGoal[]).length) * 100 : 0}%` }}
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
           <span className="daily-goals-progress-text">
-            {completedCount} / {(goals as DailyGoal[]).length} completed
+            {completedCount} / {totalGoals || 0} completed
           </span>
         </div>
 
@@ -92,11 +192,18 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
                 key={goal.id}
                 className={`daily-goal-item ${goal.completed ? 'completed' : ''}`}
               >
-                <div className="daily-goal-check">
-                  {goal.completed ? '\u2705' : '\u2B1C'}
+                <div
+                  className="daily-goal-check"
+                  role="img"
+                  aria-label={goal.completed ? 'Goal completed' : 'Goal in progress'}
+                >
+                  {goal.completed ? '✅' : '✨'}
                 </div>
                 <div className="daily-goal-info">
-                  <span className="daily-goal-description">{goal.description}</span>
+                  <span className="daily-goal-description">
+                    {goal.completed ? 'Completed · ' : 'Objective · '}
+                    <span className="daily-goal-description-text">{goal.description}</span>
+                  </span>
                   <div className="daily-goal-progress-bar">
                     <div
                       className="daily-goal-progress-fill"
@@ -109,6 +216,11 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
                     {goal.isThreshold
                       ? `Best: ${goal.current.toLocaleString()} / ${goal.target.toLocaleString()}`
                       : `${Math.min(goal.current, goal.target)} / ${goal.target}`}
+                    {!goal.completed && (
+                      <span className="daily-goal-progress-spark">
+                        {goal.isThreshold ? ' ⚡ Keep pushing!' : ' 💪 You got this!'}
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
@@ -119,6 +231,12 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
         {/* Bonus section */}
         {allCompleted && (
           <div className="daily-goals-bonus-section">
+            <button
+              className="daily-goals-celebrate-button"
+              onClick={handleCelebrate}
+            >
+              🎉 Celebrate!
+            </button>
             {bonusXpAwarded || claimed ? (
               <div className="daily-goals-bonus-claimed">
                 <span className="bonus-claimed-icon">{'\uD83C\uDF89'}</span>

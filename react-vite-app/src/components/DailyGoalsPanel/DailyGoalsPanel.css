@@ -2,7 +2,7 @@
 .daily-goals-panel {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -15,7 +15,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #0c0c0f 0%, #1a1a2e 50%, #16213e 100%);
+  background: var(--hw-page-bg, #f2f0ec);
   z-index: 0;
 }
 
@@ -26,9 +26,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-image:
-    radial-gradient(circle at 25% 75%, rgba(255, 193, 7, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 75% 25%, rgba(108, 181, 45, 0.08) 0%, transparent 40%);
+  background: transparent;
 }
 
 .daily-goals-overlay {
@@ -37,23 +35,20 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background:
-    linear-gradient(0deg, rgba(12, 12, 15, 0.8) 0%, transparent 50%),
-    linear-gradient(180deg, rgba(12, 12, 15, 0.4) 0%, transparent 30%);
+  background: transparent;
 }
 
 .daily-goals-card {
   position: relative;
   z-index: 1;
-  background: rgba(22, 33, 62, 0.6);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--border-color);
+  border-radius: 0;
   padding: 2.5rem;
   width: 100%;
   max-width: 550px;
   margin: 1rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -65,7 +60,7 @@
   background: transparent;
 }
 .daily-goals-card::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--hw-gray-300, #d1d5db);
   border-radius: 3px;
 }
 
@@ -73,10 +68,10 @@
   position: absolute;
   top: 1.25rem;
   left: 1.25rem;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #b0b8cc;
+  background: var(--hw-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 0;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   font-weight: 500;
   padding: 0.5rem 1rem;
@@ -85,24 +80,64 @@
 }
 
 .daily-goals-back-button:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--text-primary);
 }
 
 .daily-goals-title {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #e0e6f0;
+  color: var(--text-primary);
   text-align: center;
   margin-bottom: 0.5rem;
   margin-top: 0.5rem;
 }
 
+.daily-goals-title-emoji {
+  font-size: 2rem;
+  display: inline-block;
+  transform: translateY(4px);
+}
+
 .daily-goals-subtitle {
   text-align: center;
-  color: #8892a8;
+  color: var(--text-secondary);
   font-size: 0.95rem;
   margin-bottom: 1.5rem;
+}
+
+.daily-goals-hype-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: 0;
+  background: rgba(240, 179, 35, 0.08);
+  border: 1px solid rgba(240, 179, 35, 0.25);
+  margin-bottom: 1.4rem;
+}
+
+.daily-goals-hype-emoji {
+  font-size: 2.2rem;
+}
+
+.daily-goals-hype-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.daily-goals-hype-headline {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--hw-gold, #f0b323);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.daily-goals-hype-subline {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
 
 /* ===== Progress Summary ===== */
@@ -110,19 +145,46 @@
   margin-bottom: 1.5rem;
 }
 
+.daily-goals-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.daily-goals-progress-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 0;
+  border: 1px solid var(--border-color);
+  background: var(--hw-gray-100, #f3f4f6);
+}
+
+.daily-goals-progress-percent {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--hw-gold, #f0b323);
+}
+
 .daily-goals-progress-bar {
   width: 100%;
   height: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+  background: var(--hw-gray-200, #e5e7eb);
+  border-radius: 0;
   overflow: hidden;
   margin-bottom: 0.5rem;
 }
 
 .daily-goals-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #ffc107, #6cb52d);
-  border-radius: 4px;
+  background: var(--hw-gold, #f0b323);
+  border-radius: 0;
   transition: width 0.5s ease;
 }
 
@@ -130,25 +192,25 @@
   display: block;
   text-align: center;
   font-size: 0.85rem;
-  color: #8892a8;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 /* ===== Error & Loading ===== */
 .daily-goals-error {
-  background: rgba(248, 113, 113, 0.1);
-  color: #f87171;
+  background: rgba(200, 16, 46, 0.06);
+  color: var(--hw-red);
   padding: 0.75rem 1rem;
-  border-radius: 12px;
+  border-radius: 0;
   margin-bottom: 1rem;
   font-size: 0.9rem;
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  border: 1px solid rgba(200, 16, 46, 0.2);
   text-align: center;
 }
 
 .daily-goals-loading {
   text-align: center;
-  color: #8892a8;
+  color: var(--text-secondary);
   padding: 2rem;
   font-size: 0.95rem;
 }
@@ -165,15 +227,20 @@
   align-items: flex-start;
   gap: 14px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  transition: all 0.25s ease;
+  background: var(--hw-gray-100, #f3f4f6);
+  border: 1px solid var(--border-color);
+  border-radius: 0;
+  transition: all 0.2s ease;
+}
+
+.daily-goal-item:hover {
+  border-color: var(--hw-gray-400, #9ca3af);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .daily-goal-item.completed {
-  border-color: rgba(108, 181, 45, 0.2);
-  background: rgba(108, 181, 45, 0.05);
+  border-color: rgba(200, 16, 46, 0.2);
+  background: rgba(200, 16, 46, 0.03);
 }
 
 .daily-goal-check {
@@ -191,38 +258,53 @@
   display: block;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #e0e6f0;
+  color: var(--text-primary);
   margin-bottom: 8px;
+  letter-spacing: 0.01em;
+}
+
+.daily-goal-description-text {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.daily-goal-item.completed .daily-goal-description-text {
+  color: var(--hw-red);
 }
 
 .daily-goal-item.completed .daily-goal-description {
-  color: #6cb52d;
+  color: var(--hw-red);
 }
 
 .daily-goal-progress-bar {
   width: 100%;
   height: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
+  background: var(--hw-gray-200, #e5e7eb);
+  border-radius: 0;
   overflow: hidden;
   margin-bottom: 4px;
 }
 
 .daily-goal-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #ffc107, #ffca28);
-  border-radius: 3px;
+  background: var(--hw-gold, #f0b323);
+  border-radius: 0;
   transition: width 0.4s ease;
 }
 
 .daily-goal-item.completed .daily-goal-progress-fill {
-  background: linear-gradient(90deg, #6cb52d, #85d147);
+  background: var(--hw-red);
 }
 
 .daily-goal-progress-text {
   font-size: 0.78rem;
-  color: #6b7280;
+  color: var(--text-muted);
   font-weight: 500;
+}
+
+.daily-goal-progress-spark {
+  margin-left: 0.35rem;
+  color: var(--hw-gold, #f0b323);
 }
 
 /* ===== Bonus Section ===== */
@@ -231,23 +313,39 @@
   text-align: center;
 }
 
+.daily-goals-celebrate-button {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  padding: 10px 18px;
+  border-radius: 0;
+  border: 1px solid var(--border-color);
+  background: var(--hw-surface);
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.daily-goals-celebrate-button:hover {
+  background: var(--hw-gray-100, #f3f4f6);
+}
+
 .daily-goals-claim-button {
   display: inline-block;
   padding: 14px 32px;
-  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
-  color: #1a1a2e;
+  background: var(--hw-gold, #f0b323);
+  color: var(--hw-black, #231f20);
   border: none;
-  border-radius: 50px;
+  border-radius: 0;
   font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(255, 193, 7, 0.4);
+  transition: all 0.2s ease;
 }
 
 .daily-goals-claim-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 30px rgba(255, 193, 7, 0.5);
+  background: #d9a020;
 }
 
 .daily-goals-claim-button:disabled {
@@ -261,12 +359,12 @@
   justify-content: center;
   gap: 10px;
   padding: 14px 24px;
-  background: rgba(108, 181, 45, 0.1);
-  border: 1px solid rgba(108, 181, 45, 0.25);
-  border-radius: 12px;
+  background: rgba(200, 16, 46, 0.06);
+  border: 1px solid rgba(200, 16, 46, 0.2);
+  border-radius: 0;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #6cb52d;
+  color: var(--hw-red);
 }
 
 .bonus-claimed-icon {

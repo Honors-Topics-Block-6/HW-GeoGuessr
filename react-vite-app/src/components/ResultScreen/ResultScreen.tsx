@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
+import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
 import './ResultScreen.css';
 
 export interface MapPoint {
@@ -15,6 +16,7 @@ export interface ResultScreenProps {
   imageUrl: string;
   locationScore: number | null;
   floorCorrect: boolean | null;
+  exactSpotBonus?: number;
   totalScore: number;
   timeTakenSeconds: number | null;
   timedOut: boolean;
@@ -24,6 +26,11 @@ export interface ResultScreenProps {
   onNextRound: () => void;
   onViewFinalResults: () => void;
   isLastRound: boolean;
+  onBackToTitle?: () => void;
+  isEndlessMode?: boolean;
+  currentHp?: number;
+  maxHp?: number;
+  hpLost?: number;
 }
 
 /**
@@ -43,8 +50,63 @@ function formatDistance(distance: number | null): string {
   if (distance === null) return 'No guess';
   // Convert percentage distance to feet (1 percentage unit = 2 feet)
   const feet = Math.round(distance * 2);
-  if (feet <= 10) return 'Perfect!';
+  if (feet === 0) return 'Perfect!';
   return `${feet} ft away`;
+}
+
+/**
+ * Compute the actual rendered bounds of an image using object-fit: contain.
+ * Returns the offset and scale as percentages of the container so that
+ * image-space percentages (0-100) can be mapped to container-space percentages.
+ *
+ * containerPct = offsetPct + imagePct * (renderedSize / containerSize) * 100
+ */
+interface ImageFit {
+  offsetXPct: number;   // horizontal offset of image within container (%)
+  offsetYPct: number;   // vertical offset of image within container (%)
+  scaleX: number;       // rendered image width / container width
+  scaleY: number;       // rendered image height / container height
+}
+
+function computeContainFit(img: HTMLImageElement): ImageFit {
+  const { naturalWidth, naturalHeight, clientWidth, clientHeight } = img;
+  if (!naturalWidth || !naturalHeight || !clientWidth || !clientHeight) {
+    return { offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 };
+  }
+
+  const containerAR = clientWidth / clientHeight;
+  const imageAR = naturalWidth / naturalHeight;
+
+  let renderedW: number;
+  let renderedH: number;
+
+  if (imageAR > containerAR) {
+    // Image is wider than container — fits width, letterbox top/bottom
+    renderedW = clientWidth;
+    renderedH = clientWidth / imageAR;
+  } else {
+    // Image is taller than container — fits height, letterbox left/right
+    renderedH = clientHeight;
+    renderedW = clientHeight * imageAR;
+  }
+
+  const offsetX = (clientWidth - renderedW) / 2;
+  const offsetY = (clientHeight - renderedH) / 2;
+
+  return {
+    offsetXPct: (offsetX / clientWidth) * 100,
+    offsetYPct: (offsetY / clientHeight) * 100,
+    scaleX: renderedW / clientWidth,
+    scaleY: renderedH / clientHeight,
+  };
+}
+
+/** Map a point from image-percentage space to container-percentage space. */
+function toContainerPct(point: MapPoint, fit: ImageFit): MapPoint {
+  return {
+    x: fit.offsetXPct + (point.x / 100) * fit.scaleX * 100,
+    y: fit.offsetYPct + (point.y / 100) * fit.scaleY * 100,
+  };
 }
 
 function ResultScreen({
@@ -55,6 +117,7 @@ function ResultScreen({
   imageUrl,
   locationScore,
   floorCorrect,
+  exactSpotBonus = 0,
   totalScore,
   timeTakenSeconds,
   timedOut,
@@ -63,13 +126,21 @@ function ResultScreen({
   totalRounds,
   onNextRound,
   onViewFinalResults,
-  isLastRound
+  isLastRound,
+  onBackToTitle,
+  isEndlessMode = false,
+  currentHp = 6000,
+  maxHp = 6000,
+  hpLost
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
   const mapOuterRef = useRef<HTMLDivElement>(null);
+  const mapImageRef = useRef<HTMLImageElement>(null);
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [displayedScore, setDisplayedScore] = useState<number>(0);
+  const [imageFit, setImageFit] = useState<ImageFit>({ offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 });
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Sync map container height to match the details panel height
   useEffect(() => {
@@ -93,6 +164,37 @@ function ResultScreen({
 
     return () => observer.disconnect();
   }, []);
+
+  // Recompute image fit whenever the container or image dimensions change
+  const updateImageFit = useCallback((): void => {
+    const img = mapImageRef.current;
+    if (img && img.naturalWidth) {
+      setImageFit(computeContainFit(img));
+    }
+  }, []);
+
+  useEffect(() => {
+    const img = mapImageRef.current;
+    if (!img) return;
+
+    // Recalculate once the image has loaded
+    img.addEventListener('load', updateImageFit);
+    // Also recalculate if already cached
+    if (img.complete) updateImageFit();
+
+    // Recalculate when the container resizes (height sync, window resize, etc.)
+    const observer = new ResizeObserver(updateImageFit);
+    observer.observe(img);
+
+    return () => {
+      img.removeEventListener('load', updateImageFit);
+      observer.disconnect();
+    };
+  }, [updateImageFit]);
+
+  // Map coordinates from image-space to container-space
+  const mappedGuess: MapPoint | null = guessLocation ? toContainerPct(guessLocation, imageFit) : null;
+  const mappedActual: MapPoint = toContainerPct(actualLocation, imageFit);
 
   const {
     scale,
@@ -172,14 +274,31 @@ function ResultScreen({
       {/* Top section - Round info and score */}
       <div className="result-header">
         <div className="round-indicator">
-          Round {roundNumber} of {totalRounds}
+          {isEndlessMode ? `Round ${roundNumber}` : `Round ${roundNumber} of ${totalRounds}`}
         </div>
         <div className={`score-display ${animationPhase >= 3 ? 'visible' : ''}`}>
           <span className="score-label">Score</span>
           <span className="score-value">{displayedScore.toLocaleString()}</span>
-          <span className="score-max">/ 5,000</span>
+          <span className="score-max">/ 5,500</span>
         </div>
       </div>
+
+      {isEndlessMode && (
+        <div className="result-hp-section">
+          <div className="result-hp-bar">
+            <div
+              className={`result-hp-fill ${(currentHp / maxHp) * 100 <= 25 ? 'critical' : ''}`}
+              style={{ width: `${Math.max(0, (currentHp / maxHp) * 100)}%` }}
+            />
+          </div>
+          <div className="result-hp-info">
+            <span className="result-hp-value">{currentHp.toLocaleString()} HP</span>
+            {hpLost !== undefined && hpLost > 0 && (
+              <span className="result-hp-lost">-{hpLost.toLocaleString()} HP</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {noGuess ? (
         <div className="result-banner timeout-banner">
@@ -206,6 +325,7 @@ function ResultScreen({
               {/* Map Image */}
               <img
                 className="map-image"
+                ref={mapImageRef}
                 src="/FINAL_MAP.png"
                 alt="Campus Map"
                 draggable="false"
@@ -213,7 +333,7 @@ function ResultScreen({
               />
 
               {/* Line between guess and actual (Phase 2+) */}
-              {guessLocation && animationPhase >= 2 && (
+              {mappedGuess && animationPhase >= 2 && (
                 <svg
                   className="result-line-svg"
                   style={{
@@ -227,10 +347,10 @@ function ResultScreen({
                 >
                   <line
                     className="result-line"
-                    x1={`${guessLocation.x}%`}
-                    y1={`${guessLocation.y}%`}
-                    x2={`${actualLocation.x}%`}
-                    y2={`${actualLocation.y}%`}
+                    x1={`${mappedGuess.x}%`}
+                    y1={`${mappedGuess.y}%`}
+                    x2={`${mappedActual.x}%`}
+                    y2={`${mappedActual.y}%`}
                     stroke="#ffc107"
                     strokeWidth="3"
                     strokeDasharray="8,4"
@@ -239,12 +359,12 @@ function ResultScreen({
               )}
 
               {/* Guess marker (only when a guess was made) */}
-              {guessLocation && (
+              {mappedGuess && (
                 <div
                   className="result-marker guess-marker"
                   style={{
-                    left: `${guessLocation.x}%`,
-                    top: `${guessLocation.y}%`
+                    left: `${mappedGuess.x}%`,
+                    top: `${mappedGuess.y}%`
                   }}
                 >
                   <div className="marker-pin guess-pin"></div>
@@ -257,8 +377,8 @@ function ResultScreen({
                 <div
                   className="result-marker actual-marker"
                   style={{
-                    left: `${actualLocation.x}%`,
-                    top: `${actualLocation.y}%`
+                    left: `${mappedActual.x}%`,
+                    top: `${mappedActual.y}%`
                   }}
                 >
                   <div className="marker-pin actual-pin"></div>
@@ -354,6 +474,12 @@ function ResultScreen({
                   <span>-{floorPenalty.toLocaleString()}</span>
                 </div>
               )}
+              {exactSpotBonus > 0 && (
+                <div className="breakdown-row bonus">
+                  <span>Exact Spot Bonus</span>
+                  <span>+{exactSpotBonus.toLocaleString()}</span>
+                </div>
+              )}
               <div className="breakdown-row total">
                 <span>Total</span>
                 <span>{totalScore.toLocaleString()}</span>
@@ -361,25 +487,46 @@ function ResultScreen({
             </div>
           </div>
 
-          <button
-            className="next-round-button"
-            onClick={isLastRound ? onViewFinalResults : onNextRound}
-          >
-            {isLastRound ? 'View Final Results' : 'Next Round'}
-            <span className="button-arrow">→</span>
-          </button>
+          <div className="result-actions">
+            <button
+              className="next-round-button"
+              onClick={isLastRound ? onViewFinalResults : onNextRound}
+            >
+              {isLastRound ? 'View Final Results' : 'Next Round'}
+              <span className="button-arrow">→</span>
+            </button>
+            {onBackToTitle && (
+              <button className="leave-game-button" onClick={() => setShowLeaveConfirm(true)}>
+                <span className="button-icon">⏻</span>
+                Leave Game
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="round-progress">
-        {[...Array(totalRounds)].map((_, i) => (
-          <div
-            key={i}
-            className={`progress-dot ${i < roundNumber ? 'completed' : ''} ${i === roundNumber - 1 ? 'current' : ''}`}
-          />
-        ))}
-      </div>
+      {showLeaveConfirm && onBackToTitle && (
+        <LeaveConfirmModal
+          onConfirm={() => {
+            setShowLeaveConfirm(false);
+            onBackToTitle();
+          }}
+          onCancel={() => setShowLeaveConfirm(false)}
+          isDuel={false}
+        />
+      )}
+
+      {/* Progress bar - hidden in endless mode */}
+      {!isEndlessMode && (
+        <div className="round-progress">
+          {[...Array(totalRounds)].map((_, i) => (
+            <div
+              key={i}
+              className={`progress-dot ${i < roundNumber ? 'completed' : ''} ${i === roundNumber - 1 ? 'current' : ''}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

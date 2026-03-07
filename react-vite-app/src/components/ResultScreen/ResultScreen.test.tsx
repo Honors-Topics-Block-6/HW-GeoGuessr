@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ResultScreen from './ResultScreen';
 
@@ -12,6 +12,7 @@ describe('ResultScreen', () => {
     imageUrl: 'https://example.com/image.jpg',
     locationScore: 5000,
     floorCorrect: true as boolean | null,
+    exactSpotBonus: 0,
     totalScore: 5000,
     timeTakenSeconds: 30 as number | null,
     timedOut: false,
@@ -80,7 +81,7 @@ describe('ResultScreen', () => {
     it('should display max score indicator', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('/ 5,000')).toBeInTheDocument();
+      expect(screen.getByText('/ 5,500')).toBeInTheDocument();
     });
 
     it('should show score after animation completes', () => {
@@ -262,6 +263,59 @@ describe('ResultScreen', () => {
 
       expect(onViewFinalResults).toHaveBeenCalledTimes(1);
     });
+
+    it('should not render Leave Game button when onBackToTitle not provided', () => {
+      render(<ResultScreen {...defaultProps} />);
+
+      expect(screen.queryByText('Leave Game')).not.toBeInTheDocument();
+    });
+
+    it('should render Leave Game button when onBackToTitle provided', () => {
+      render(<ResultScreen {...defaultProps} onBackToTitle={vi.fn()} />);
+
+      expect(screen.getByText('Leave Game')).toBeInTheDocument();
+    });
+
+    it('should open confirmation modal when Leave Game clicked', async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+      const onBackToTitle = vi.fn();
+
+      render(<ResultScreen {...defaultProps} onBackToTitle={onBackToTitle} />);
+
+      await user.click(screen.getByText('Leave Game'));
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Leave Game?')).toBeInTheDocument();
+      expect(onBackToTitle).not.toHaveBeenCalled();
+    });
+
+    it('should call onBackToTitle when Leave Game confirmed in modal', async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+      const onBackToTitle = vi.fn();
+
+      render(<ResultScreen {...defaultProps} onBackToTitle={onBackToTitle} />);
+
+      await user.click(screen.getByText('Leave Game'));
+      const dialog = screen.getByRole('dialog');
+      await user.click(within(dialog).getByText('Leave Game'));
+
+      expect(onBackToTitle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not call onBackToTitle when Cancel clicked in modal', async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+      const onBackToTitle = vi.fn();
+
+      render(<ResultScreen {...defaultProps} onBackToTitle={onBackToTitle} />);
+
+      await user.click(screen.getByText('Leave Game'));
+      await user.click(screen.getByText('Cancel'));
+
+      expect(onBackToTitle).not.toHaveBeenCalled();
+    });
   });
 
   describe('distance display', () => {
@@ -309,8 +363,8 @@ describe('ResultScreen', () => {
       expect(screen.getByText(/\d+ ft away/)).toBeInTheDocument();
     });
 
-    it('should show "Perfect!" for distance within 10 ft', () => {
-      // Distance is 1, * 2 = 2 ft which is <= 10 ft
+    it('should show feet away for small non-zero distance', () => {
+      // Distance is 1, * 2 = 2 ft
       render(
         <ResultScreen
           {...defaultProps}
@@ -319,7 +373,7 @@ describe('ResultScreen', () => {
         />
       );
 
-      expect(screen.getAllByText('Perfect!').length).toBeGreaterThan(0);
+      expect(screen.getByText('2 ft away')).toBeInTheDocument();
     });
   });
 
@@ -334,6 +388,13 @@ describe('ResultScreen', () => {
       render(<ResultScreen {...defaultProps} />);
 
       expect(screen.getByText('Total')).toBeInTheDocument();
+    });
+
+    it('should show exact spot bonus when present', () => {
+      render(<ResultScreen {...defaultProps} exactSpotBonus={500} totalScore={5500} />);
+
+      expect(screen.getByText('Exact Spot Bonus')).toBeInTheDocument();
+      expect(screen.getByText('+500')).toBeInTheDocument();
     });
   });
 
@@ -425,11 +486,11 @@ describe('ResultScreen', () => {
     it('should observe the details panel with ResizeObserver', () => {
       const { container } = render(<ResultScreen {...defaultProps} />);
 
-      const detailsPanel = container.querySelector('.result-details');
+      const detailsPanel = container.querySelector('.result-details') as HTMLElement;
       const observers = (global as Record<string, unknown>)._resizeObserverInstances as Array<{ observe: ReturnType<typeof vi.fn> }>;
-      const lastObserver = observers[observers.length - 1];
+      const detailsObserver = observers.find((obs) => obs.observe.mock.calls.some(([arg]) => arg === detailsPanel));
 
-      expect(lastObserver.observe).toHaveBeenCalledWith(detailsPanel);
+      expect(detailsObserver).toBeDefined();
     });
 
     it('should update map height when details panel resizes', () => {

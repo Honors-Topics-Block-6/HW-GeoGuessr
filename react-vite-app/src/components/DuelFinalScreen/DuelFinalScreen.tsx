@@ -49,6 +49,7 @@ export interface DuelFinalScreenProps {
   players: DuelPlayer[];
   roundHistory: RoundHistory[];
   health: Record<string, number>;
+  forfeitBy?: string | null;
   onPlayAgain: () => void;
   onBackToTitle: () => void;
 }
@@ -60,6 +61,7 @@ function DuelFinalScreen({
   players,
   roundHistory,
   health,
+  forfeitBy = null,
   onPlayAgain,
   onBackToTitle
 }: DuelFinalScreenProps): React.ReactElement {
@@ -79,24 +81,34 @@ function DuelFinalScreen({
 
   const isWinner = winner === myUid;
   const winnerPlayer = players.find((p: DuelPlayer) => p.uid === winner);
-  const loserPlayer = players.find((p: DuelPlayer) => p.uid === loser);
   const winnerUsername = winnerPlayer?.username || 'Winner';
-  const loserUsername = loserPlayer?.username || 'Loser';
+  const loserUsername = players.find((p: DuelPlayer) => p.uid === loser)?.username || 'Loser';
 
-  // My opponent
-  const opponent = players.find((p: DuelPlayer) => p.uid !== myUid);
-  const opponentUid = opponent?.uid || null;
-  const myUsername = players.find((p: DuelPlayer) => p.uid === myUid)?.username || 'You';
-  const opponentUsername = opponent?.username || 'Opponent';
-
-  // Calculate total scores
+  // Calculate total scores per player
   const totalRounds = roundHistory.length;
-  const myTotalScore = roundHistory.reduce((sum: number, r: RoundHistory) => sum + (r.players?.[myUid]?.score || 0), 0);
-  const opTotalScore = roundHistory.reduce((sum: number, r: RoundHistory) => sum + (r.players?.[opponentUid || '']?.score || 0), 0);
+  const totalScoreByUid: Record<string, number> = {};
+  for (const p of players) totalScoreByUid[p.uid] = 0;
+  for (const r of roundHistory) {
+    const map = r.players || {};
+    for (const [uid, pdata] of Object.entries(map)) {
+      totalScoreByUid[uid] = (totalScoreByUid[uid] || 0) + ((pdata.score as number) || 0);
+    }
+  }
 
-  // Final health
-  const myFinalHealth = health?.[myUid] ?? 0;
-  const opFinalHealth = health?.[opponentUid || ''] ?? 0;
+  const standings = [...players]
+    .map((p) => ({
+      uid: p.uid,
+      username: p.username,
+      totalScore: totalScoreByUid[p.uid] || 0,
+      finalHealth: health?.[p.uid] ?? 0
+    }))
+    .sort((a, b) => {
+      if (a.uid === winner) return -1;
+      if (b.uid === winner) return 1;
+      if (b.finalHealth !== a.finalHealth) return b.finalHealth - a.finalHealth;
+      if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+      return a.username.localeCompare(b.username);
+    });
 
   // Spacebar to play again
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -117,21 +129,18 @@ function DuelFinalScreen({
     return () => clearTimeout(timer);
   }, []);
 
-  // Record daily goal progress for duel completion
+  // Record daily goal progress for duel completion (await so doc is created once, then all updates apply)
   useEffect(() => {
     if (goalsRecorded.current || !myUid) return;
     goalsRecorded.current = true;
 
-    // Goal: play a duel
-    recordProgress(GOAL_TYPES.PLAY_DUEL, 1);
-
-    // Goal: win a duel
-    if (winner === myUid) {
-      recordProgress(GOAL_TYPES.WIN_DUEL, 1);
-    }
-
-    // Goal: games played (duels count as games)
-    recordProgress(GOAL_TYPES.GAMES_PLAYED, 1);
+    (async () => {
+      await recordProgress(GOAL_TYPES.PLAY_DUEL, 1);
+      if (winner === myUid) {
+        await recordProgress(GOAL_TYPES.WIN_DUEL, 1);
+      }
+      await recordProgress(GOAL_TYPES.GAMES_PLAYED, 1);
+    })().catch((err: Error) => console.error('Failed to record daily goal progress:', err));
   }, [myUid, winner, recordProgress]);
 
   return (
@@ -164,51 +173,45 @@ function DuelFinalScreen({
             {isWinner ? 'Victory!' : 'Defeat'}
           </h1>
           <p className="duel-final-subtitle">
-            {isWinner
-              ? `You defeated ${loserUsername} in ${totalRounds} rounds!`
-              : `${winnerUsername} won after ${totalRounds} rounds`}
+            {isWinner && forfeitBy === loser
+              ? `You win! ${loserUsername} forfeited.`
+              : isWinner
+                ? `You defeated ${loserUsername} in ${totalRounds} rounds!`
+                : `${winnerUsername} won after ${totalRounds} rounds`}
           </p>
+          {isWinner && forfeitBy === loser && (
+            <div className="duel-final-forfeit-banner" role="status" aria-live="polite">
+              Opponent left the duel. Win awarded by forfeit.
+            </div>
+          )}
         </div>
 
         {/* Score Summary */}
-        <div className="duel-final-summary">
-          <div className={`duel-final-player-card ${isWinner ? 'winner-card' : 'loser-card'}`}>
-            <span className="duel-final-card-label">
-              {isWinner ? '👑 Winner' : ''}
-            </span>
-            <span className="duel-final-card-name">{myUsername}</span>
-            <span className="duel-final-card-score">{myTotalScore.toLocaleString()}</span>
-            <span className="duel-final-card-sub">Total Points</span>
-            <div className="duel-final-card-health">
-              <div className="duel-final-card-health-bar">
-                <div
-                  className="duel-final-card-health-fill green"
-                  style={{ width: `${(myFinalHealth / STARTING_HEALTH) * 100}%` }}
-                />
+        <div className="duel-final-summary duel-final-summary-multi">
+          {standings.map((p, idx) => {
+            const isWinnerCard = p.uid === winner;
+            return (
+              <div key={p.uid} className={`duel-final-player-card ${isWinnerCard ? 'winner-card' : 'loser-card'}`}>
+                <span className="duel-final-card-label">
+                  {isWinnerCard ? '👑 Winner' : `#${idx + 1}`}
+                </span>
+                <span className="duel-final-card-name">
+                  {p.username}{p.uid === myUid ? ' (You)' : ''}
+                </span>
+                <span className="duel-final-card-score">{p.totalScore.toLocaleString()}</span>
+                <span className="duel-final-card-sub">Total Points</span>
+                <div className="duel-final-card-health">
+                  <div className="duel-final-card-health-bar">
+                    <div
+                      className={`duel-final-card-health-fill ${isWinnerCard ? 'green' : 'red'}`}
+                      style={{ width: `${Math.max(0, (p.finalHealth / STARTING_HEALTH) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="duel-final-card-health-value">{p.finalHealth.toLocaleString()} HP</span>
+                </div>
               </div>
-              <span className="duel-final-card-health-value">{myFinalHealth.toLocaleString()} HP</span>
-            </div>
-          </div>
-
-          <div className="duel-final-vs">VS</div>
-
-          <div className={`duel-final-player-card ${!isWinner ? 'winner-card' : 'loser-card'}`}>
-            <span className="duel-final-card-label">
-              {!isWinner ? '👑 Winner' : ''}
-            </span>
-            <span className="duel-final-card-name">{opponentUsername}</span>
-            <span className="duel-final-card-score">{opTotalScore.toLocaleString()}</span>
-            <span className="duel-final-card-sub">Total Points</span>
-            <div className="duel-final-card-health">
-              <div className="duel-final-card-health-bar">
-                <div
-                  className="duel-final-card-health-fill red"
-                  style={{ width: `${(opFinalHealth / STARTING_HEALTH) * 100}%` }}
-                />
-              </div>
-              <span className="duel-final-card-health-value">{opFinalHealth.toLocaleString()} HP</span>
-            </div>
-          </div>
+            );
+          })}
         </div>
 
         {/* Round History */}
@@ -216,14 +219,13 @@ function DuelFinalScreen({
           <h2 className="duel-final-history-title">Round History</h2>
           <div className="duel-final-rounds-list">
             {roundHistory.map((round: RoundHistory, index: number) => {
-              const myRoundData = round.players?.[myUid] || {};
-              const opRoundData = round.players?.[opponentUid || ''] || {};
-              const myRoundScore = (myRoundData.score as number) || 0;
-              const opRoundScore = (opRoundData.score as number) || 0;
-              const iWonRound = myRoundScore > opRoundScore;
-              const tiedRound = myRoundScore === opRoundScore;
-              const myHealthAfter = round.healthAfter?.[myUid] ?? 0;
-              const opHealthAfter = round.healthAfter?.[opponentUid || ''] ?? 0;
+              const roundPlayers = round.players || {};
+              const scores = Object.entries(roundPlayers).map(([uid, data]) => ({
+                uid,
+                username: players.find(p => p.uid === uid)?.username || 'Unknown',
+                score: (data?.score as number) || 0
+              })).sort((a, b) => b.score - a.score);
+              const top = scores[0];
 
               return (
                 <div key={index} className="duel-final-round-item">
@@ -233,14 +235,11 @@ function DuelFinalScreen({
                   </div>
 
                   <div className="duel-final-round-scores">
-                    <div className={`duel-final-round-player ${iWonRound && !tiedRound ? 'round-winner' : ''}`}>
-                      <span className="duel-frp-name">{myUsername}</span>
-                      <span className="duel-frp-score">{myRoundScore.toLocaleString()}</span>
-                    </div>
-                    <span className="duel-final-round-vs">vs</span>
-                    <div className={`duel-final-round-player ${!iWonRound && !tiedRound ? 'round-winner' : ''}`}>
-                      <span className="duel-frp-name">{opponentUsername}</span>
-                      <span className="duel-frp-score">{opRoundScore.toLocaleString()}</span>
+                    <div className="duel-final-round-player round-winner">
+                      <span className="duel-frp-name">Top</span>
+                      <span className="duel-frp-score">
+                        {top ? `${top.username} • ${top.score.toLocaleString()}` : '—'}
+                      </span>
                     </div>
                   </div>
 
@@ -248,32 +247,11 @@ function DuelFinalScreen({
                     {round.damage > 0 ? (
                       <span className="duel-frd-text">
                         -{round.damage.toLocaleString()} HP to{' '}
-                        {round.damagedPlayer === myUid ? myUsername : opponentUsername}
+                        {players.find(p => p.uid === round.damagedPlayer)?.username || 'Unknown'}
                       </span>
                     ) : (
                       <span className="duel-frd-text duel-frd-tie">Tie - No damage</span>
                     )}
-                  </div>
-
-                  <div className="duel-final-round-health">
-                    <div className="duel-frh-bar-wrapper">
-                      <div className="duel-frh-bar">
-                        <div
-                          className="duel-frh-fill green"
-                          style={{ width: `${(myHealthAfter / STARTING_HEALTH) * 100}%` }}
-                        />
-                      </div>
-                      <span className="duel-frh-val">{myHealthAfter.toLocaleString()}</span>
-                    </div>
-                    <div className="duel-frh-bar-wrapper">
-                      <div className="duel-frh-bar">
-                        <div
-                          className="duel-frh-fill red"
-                          style={{ width: `${(opHealthAfter / STARTING_HEALTH) * 100}%` }}
-                        />
-                      </div>
-                      <span className="duel-frh-val">{opHealthAfter.toLocaleString()}</span>
-                    </div>
                   </div>
                 </div>
               );

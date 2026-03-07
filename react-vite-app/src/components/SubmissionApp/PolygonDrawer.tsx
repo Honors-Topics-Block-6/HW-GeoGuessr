@@ -7,7 +7,8 @@ const CLOSE_THRESHOLD = 2 // Distance to first point to close polygon (in percen
 export const DRAW_MODE = {
   NONE: 'none',
   REGION: 'region',
-  PLAYING_AREA: 'playing_area'
+  PLAYING_AREA: 'playing_area',
+  BUILDING: 'building'
 } as const
 
 export type DrawModeType = typeof DRAW_MODE[keyof typeof DRAW_MODE]
@@ -37,6 +38,11 @@ export interface DraggingPointState {
   pointIndex: number
 }
 
+export interface BuildingPolygonItem {
+  name: string
+  polygon: PolygonPoint[]
+}
+
 export interface PolygonDrawerProps {
   regions: Region[]
   selectedRegionId: string | null
@@ -44,6 +50,7 @@ export interface PolygonDrawerProps {
   drawMode?: DrawModeType
   newPolygonPoints: PolygonPoint[]
   playingArea: PlayingArea | null
+  buildingPolygons?: BuildingPolygonItem[]
   onRegionSelect: (id: string) => void
   onPointAdd: (point: PolygonPoint) => void
   onPolygonComplete: () => void
@@ -57,6 +64,7 @@ function PolygonDrawer({
   drawMode = DRAW_MODE.NONE,
   newPolygonPoints,
   playingArea,
+  buildingPolygons = [],
   onRegionSelect,
   onPointAdd,
   onPolygonComplete,
@@ -186,6 +194,7 @@ function PolygonDrawer({
   }
 
   const isDrawingPlayingArea = drawMode === DRAW_MODE.PLAYING_AREA
+  const isDrawingBuilding = drawMode === DRAW_MODE.BUILDING
 
   return (
     <div
@@ -226,6 +235,19 @@ function PolygonDrawer({
             />
           </g>
         )}
+
+        {/* Building polygons (for submission autofill) */}
+        {buildingPolygons.map((b, idx) => (
+          <g key={`building-${idx}-${b.name}`} className="building-polygon-group">
+            <polygon
+              points={getPolygonPointsString(b.polygon)}
+              fill="rgba(139, 92, 246, 0.25)"
+              stroke="rgba(139, 92, 246, 0.9)"
+              strokeWidth="0.35"
+              className="building-polygon"
+            />
+          </g>
+        ))}
 
         {/* Existing regions */}
         {regions.map(region => (
@@ -286,7 +308,7 @@ function PolygonDrawer({
             <polyline
               points={getPolygonPointsString(newPolygonPoints)}
               fill="none"
-              stroke={isDrawingPlayingArea ? '#27ae60' : '#3498db'}
+              stroke={isDrawingBuilding ? '#8b5cf6' : isDrawingPlayingArea ? '#27ae60' : '#3498db'}
               strokeWidth={0.25}
               strokeDasharray="1,0.5"
             />
@@ -298,7 +320,7 @@ function PolygonDrawer({
                 cx={point.x}
                 cy={point.y}
                 r={i === 0 ? (hoverFirstPoint ? 1.5 : 1.25) : 0.75}
-                fill={i === 0 ? (hoverFirstPoint ? '#27ae60' : '#2ecc71') : (isDrawingPlayingArea ? '#27ae60' : '#3498db')}
+                fill={i === 0 ? (hoverFirstPoint ? '#8b5cf6' : '#a78bfa') : (isDrawingBuilding ? '#8b5cf6' : isDrawingPlayingArea ? '#27ae60' : '#3498db')}
                 stroke="white"
                 strokeWidth={0.25}
                 className={`drawing-vertex ${i === 0 ? 'first-vertex' : ''}`}
@@ -324,10 +346,12 @@ function PolygonDrawer({
 
       {/* Drawing mode hint overlay */}
       {isDrawing && newPolygonPoints.length === 0 && (
-        <div className={`polygon-drawer-hint ${isDrawingPlayingArea ? 'playing-area' : ''}`}>
-          {isDrawingPlayingArea
-            ? 'Click on the map to draw the playing area boundary. Click first point to close.'
-            : 'Click on the map to add points. Click first point to close.'}
+        <div className={`polygon-drawer-hint ${isDrawingPlayingArea ? 'playing-area' : ''} ${isDrawingBuilding ? 'building' : ''}`}>
+          {isDrawingBuilding
+            ? 'Click on the map to draw a building polygon. Click first point again to close.'
+            : isDrawingPlayingArea
+              ? 'Click on the map to draw the playing area boundary. Click first point to close.'
+              : 'Click on the map to add points. Click first point to close.'}
         </div>
       )}
 

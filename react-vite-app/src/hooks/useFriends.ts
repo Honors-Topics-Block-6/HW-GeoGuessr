@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   subscribeFriendsList,
   subscribeFriendRequests,
+  subscribeOutgoingRequests,
   sendFriendRequest,
   acceptFriendRequest,
   declineFriendRequest,
+  cancelFriendRequest,
   removeFriend as removeFriendService,
-  getOutgoingRequests,
   type FriendDoc,
   type FriendRequestDoc
 } from '../services/friendService';
@@ -24,8 +25,8 @@ export interface UseFriendsReturn {
   sendRequest: (targetUid: string) => Promise<void>;
   acceptRequest: (requestId: string) => Promise<void>;
   declineRequest: (requestId: string) => Promise<void>;
+  cancelRequest: (requestId: string) => Promise<void>;
   removeFriend: (friendUid: string) => Promise<void>;
-  refreshOutgoing: () => Promise<void>;
   loading: boolean;
   error: string | null;
 }
@@ -76,40 +77,35 @@ export function useFriends(uid: string | null | undefined, username: string): Us
     };
   }, [uid]);
 
-  // Fetch outgoing requests (not real-time, refreshed on actions)
-  const refreshOutgoing = useCallback(async (): Promise<void> => {
-    if (!uid) return;
-    try {
-      const requests = await getOutgoingRequests(uid);
-      setOutgoingRequests(requests as FriendRequest[]);
-    } catch (err) {
-      console.error('Failed to fetch outgoing requests:', err);
-    }
-  }, [uid]);
-
+  // Subscribe to outgoing friend requests (real-time)
   useEffect(() => {
     if (!uid) return;
-    let cancelled = false;
-    getOutgoingRequests(uid).then((requests) => {
-      if (!cancelled) setOutgoingRequests(requests as FriendRequest[]);
-    }).catch((err: unknown) => {
-      console.error('Failed to fetch outgoing requests:', err);
+
+    const unsubscribe = subscribeOutgoingRequests(uid, (requests) => {
+      setOutgoingRequests(requests as FriendRequest[]);
     });
-    return () => { cancelled = true; };
+
+    return () => {
+      unsubscribe();
+      setOutgoingRequests(EMPTY_REQUESTS);
+    };
   }, [uid]);
 
   // Send a friend request
   const sendRequest = useCallback(async (targetUid: string): Promise<void> => {
-    if (!uid || !username) return;
+    if (!uid || !username) {
+      const err = new Error('You must be signed in with a full account to send friend requests.');
+      setError(err.message);
+      throw err;
+    }
     setError(null);
     try {
       await sendFriendRequest(uid, username, targetUid);
-      await refreshOutgoing();
     } catch (err) {
       setError((err as Error).message);
       throw err;
     }
-  }, [uid, username, refreshOutgoing]);
+  }, [uid, username]);
 
   // Accept a friend request
   const acceptRequest = useCallback(async (requestId: string): Promise<void> => {
@@ -133,6 +129,18 @@ export function useFriends(uid: string | null | undefined, username: string): Us
     }
   }, []);
 
+  // Cancel an outgoing friend request
+  const cancelRequest = useCallback(async (requestId: string): Promise<void> => {
+    if (!uid) return;
+    setError(null);
+    try {
+      await cancelFriendRequest(requestId, uid);
+    } catch (err) {
+      setError((err as Error).message);
+      throw err;
+    }
+  }, [uid]);
+
   // Remove a friend
   const removeFriend = useCallback(async (friendUid: string): Promise<void> => {
     if (!uid) return;
@@ -152,9 +160,9 @@ export function useFriends(uid: string | null | undefined, username: string): Us
     sendRequest,
     acceptRequest,
     declineRequest,
+    cancelRequest,
     removeFriend,
-    refreshOutgoing,
     loading,
     error
-  }), [friends, incomingRequests, outgoingRequests, sendRequest, acceptRequest, declineRequest, removeFriend, refreshOutgoing, loading, error]);
+  }), [friends, incomingRequests, outgoingRequests, sendRequest, acceptRequest, declineRequest, cancelRequest, removeFriend, loading, error]);
 }

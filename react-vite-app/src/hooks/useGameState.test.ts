@@ -24,13 +24,22 @@ vi.mock('../services/regionService', () => ({
   ]),
   getPlayingArea: vi.fn().mockResolvedValue(null),
   getFloorsForPoint: vi.fn().mockReturnValue([1, 2, 3]),
+  getRegionForPoint: vi.fn().mockReturnValue({ id: 'test-region' }),
   isPointInPlayingArea: vi.fn().mockReturnValue(true),
   isPointInPolygon: vi.fn().mockReturnValue(true)
 }));
 
 import { getRandomImage } from '../services/imageService';
+import { getRegionForPoint } from '../services/regionService';
 
 const mockedGetRandomImage = vi.mocked(getRandomImage);
+const mockedGetRegionForPoint = vi.mocked(getRegionForPoint);
+
+const mockRegion = {
+  id: 'test-region',
+  polygon: [],
+  floors: [1, 2, 3]
+};
 
 import type { GameImage } from '../services/imageService';
 
@@ -46,7 +55,9 @@ const mockImage: GameImage = {
 describe('useGameState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     mockedGetRandomImage.mockResolvedValue(mockImage);
+    mockedGetRegionForPoint.mockReturnValue(mockRegion);
   });
 
   afterEach(() => {
@@ -148,6 +159,16 @@ describe('useGameState', () => {
       });
 
       expect(result.current.currentRound).toBe(1);
+    });
+
+    it('should store selected total rounds in state', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium', 'singleplayer', 20, 10);
+      });
+
+      expect(result.current.totalRounds).toBe(10);
     });
 
     it('should clear previous round results', async () => {
@@ -380,7 +401,8 @@ describe('useGameState', () => {
         result.current.submitGuess();
       });
 
-      expect(result.current.currentResult!.score).toBe(5000);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(500);
+      expect(result.current.currentResult!.score).toBe(5500);
       expect(result.current.currentResult!.floorCorrect).toBe(true);
     });
 
@@ -404,9 +426,70 @@ describe('useGameState', () => {
       });
 
       expect(result.current.currentResult!.floorCorrect).toBe(false);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
       expect(result.current.currentResult!.score).toBe(4000); // 5000 * 0.8
     });
 
+    it('should not award exact spot bonus when guess is not very close', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 53, y: 50 }); // distance 3 (> exact-spot threshold)
+      });
+
+      act(() => {
+        result.current.selectFloor(2); // Correct floor
+      });
+
+      act(() => {
+        result.current.submitGuess();
+      });
+
+      expect(result.current.currentResult!.floorCorrect).toBe(true);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
+      expect(result.current.currentResult!.score).toBe(5000);
+    });
+
+    it('should apply floor penalty when floor matches but building is wrong', async () => {
+      const imageInDifferentBuilding: GameImage = {
+        ...mockImage,
+        correctLocation: { x: 55, y: 50 }, // Building B (avoid zero score)
+        correctFloor: 2
+      };
+      mockedGetRandomImage.mockResolvedValue(imageInDifferentBuilding);
+      mockedGetRegionForPoint.mockImplementation((point) => {
+        if (point.x < 50) {
+          return { id: 'building-a', polygon: [], floors: [1, 2, 3] };
+        }
+        return { id: 'building-b', polygon: [], floors: [1, 2, 3] };
+      });
+
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 45, y: 50 }); // Building A
+      });
+
+      act(() => {
+        result.current.selectFloor(2); // Correct floor number, wrong building
+      });
+
+      act(() => {
+        result.current.submitGuess();
+      });
+
+      expect(result.current.currentResult!.floorCorrect).toBe(false);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
+      expect(result.current.currentResult!.score).toBe(Math.round(result.current.currentResult!.locationScore * 0.8));
+    });
     it('should store result in roundResults', async () => {
       const { result } = renderHook(() => useGameState());
 
@@ -497,6 +580,90 @@ describe('useGameState', () => {
       expect(result.current.currentImage).toEqual(newImage);
     });
 
+    it('should request a non-repeating image for subsequent rounds', async () => {
+      const secondImage = { ...mockImage, id: 'test-2', url: 'https://example.com/image-2.jpg' };
+      mockedGetRandomImage.mockResolvedValueOnce(mockImage).mockResolvedValueOnce(secondImage);
+
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 50, y: 50 });
+        result.current.selectFloor(2);
+        result.current.submitGuess();
+      });
+
+      await act(async () => {
+        await result.current.nextRound();
+      });
+
+      expect(mockedGetRandomImage).toHaveBeenNthCalledWith(2, 'medium', {
+        excludeImageIds: ['test-1'],
+        excludeImageUrls: ['https://example.com/image.jpg']
+      });
+      expect(result.current.currentImage?.id).toBe('test-2');
+    });
+
+    it('should reuse images as fallback when history exhausts the pool', async () => {
+      const firstImage = { ...mockImage, id: 'test-1', url: 'https://example.com/image-1.jpg' };
+      mockedGetRandomImage
+        .mockResolvedValueOnce(firstImage)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(firstImage);
+
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.resetGame();
+      });
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      expect(mockedGetRandomImage).toHaveBeenNthCalledWith(2, 'medium', {
+        excludeImageIds: ['test-1'],
+        excludeImageUrls: ['https://example.com/image-1.jpg']
+      });
+      expect(mockedGetRandomImage).toHaveBeenNthCalledWith(3, 'medium');
+      expect(result.current.currentImage?.id).toBe('test-1');
+      expect(result.current.screen).toBe('game');
+    });
+
+    it('should try to avoid repeats across multiple singleplayer games', async () => {
+      const secondImage = { ...mockImage, id: 'test-2', url: 'https://example.com/image-2.jpg' };
+      mockedGetRandomImage
+        .mockResolvedValueOnce(mockImage)
+        .mockResolvedValueOnce(secondImage);
+
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.resetGame();
+      });
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      expect(mockedGetRandomImage).toHaveBeenNthCalledWith(2, 'medium', {
+        excludeImageIds: ['test-1'],
+        excludeImageUrls: ['https://example.com/image.jpg']
+      });
+      expect(result.current.currentImage?.id).toBe('test-2');
+    });
+
     it('should clear guess location and floor', async () => {
       const { result } = renderHook(() => useGameState());
 
@@ -558,6 +725,30 @@ describe('useGameState', () => {
         });
       }
 
+      expect(result.current.screen).toBe('finalResults');
+    });
+
+    it('should end the game after the selected total rounds', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium', 'singleplayer', 20, 10);
+      });
+
+      // Play through 10 rounds
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          result.current.placeMarker({ x: 50, y: 50 });
+          result.current.selectFloor(2);
+          result.current.submitGuess();
+        });
+
+        await act(async () => {
+          await result.current.nextRound();
+        });
+      }
+
+      expect(result.current.totalRounds).toBe(10);
       expect(result.current.screen).toBe('finalResults');
     });
 
@@ -808,10 +999,9 @@ describe('useGameState', () => {
         result.current.submitGuess();
       });
 
-      // Steep decay: distance=10, perfectRadius=5, effectiveDistance=5
-      // maxDistance = sqrt(100^2+100^2) - 5 ≈ 136.42
-      // ratio = 5/136.42 ≈ 0.0366, score = 5000 * e^(-100 * 0.0366^2) ≈ 4372
-      expect(result.current.currentResult!.locationScore).toBeCloseTo(4372, -2);
+      // 10 map units ≈ 20 ft
+      // 5000 * e^(-(20/40)^2) = 5000 * e^(-0.25) ≈ 3894
+      expect(result.current.currentResult!.locationScore).toBeCloseTo(3894, -2);
     });
   });
 
