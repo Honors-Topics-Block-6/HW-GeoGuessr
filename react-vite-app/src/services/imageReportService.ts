@@ -7,6 +7,7 @@ export interface ImageReportPayload {
   cause: ImageReportCause;
   explanation: string;
   suggestedLocation?: { x: number; y: number } | null;
+  suggestedFloor?: number | null;
 }
 
 export interface ImageReportData {
@@ -18,6 +19,7 @@ export interface ImageReportData {
   cause: ImageReportCause;
   explanation: string;
   suggestedLocation?: { x: number; y: number } | null;
+  suggestedFloor?: number | null;
 }
 
 const RATE_LIMIT_MS = 60_000; // 1 minute between reports per user
@@ -28,7 +30,7 @@ const _lastSubmitTimes = new Map<string, number>();
  * Stores in Firestore for admin review.
  */
 export async function submitImageReport(reportData: ImageReportData): Promise<string> {
-  const { imageId, imageUrl, userId, username, userEmail, cause, explanation, suggestedLocation } = reportData;
+  const { imageId, imageUrl, userId, username, userEmail, cause, explanation, suggestedLocation, suggestedFloor } = reportData;
 
   if (!userId) throw new Error('User ID is required.');
   if (!username) throw new Error('Username is required.');
@@ -54,6 +56,7 @@ export async function submitImageReport(reportData: ImageReportData): Promise<st
     cause,
     explanation: trimmed,
     suggestedLocation: suggestedLocation ?? null,
+    suggestedFloor: suggestedFloor ?? null,
     createdAt: serverTimestamp()
   });
 

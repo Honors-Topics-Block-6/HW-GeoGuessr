@@ -314,6 +314,7 @@ function App(): React.ReactElement {
           cause: payload.cause,
           explanation: payload.explanation,
           suggestedLocation: payload.suggestedLocation ?? null,
+          suggestedFloor: payload.suggestedFloor ?? null,
         });
         setImageReportToast("Thanks! Your report has been submitted.");
       } catch (err) {
