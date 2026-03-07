@@ -161,6 +161,9 @@ export interface UseDuelGameReturn {
 const EMOTE_DISPLAY_MS = 2200;
 const EMOTE_COOLDOWN_MS = 900;
 const RANDOM_GUESS_MAX_ATTEMPTS = 200;
+const DUEL_HEARTBEAT_INTERVAL_MS = 4_000;
+const DUEL_STALE_CHECK_INTERVAL_MS = 5_000;
+const DUEL_STALE_TIMEOUT_MS = 12_000;
 
 /**
  * Custom hook for managing a duel (1v1 multiplayer) game.
@@ -254,13 +257,13 @@ export function useDuelGame(
   useEffect(() => {
     if (!lobbyDocId || !userUid) return;
 
-    sendHeartbeat(lobbyDocId, userUid).catch(() => {});
+    sendHeartbeat(lobbyDocId, userUid).catch(() => { });
 
     const heartbeatInterval = setInterval(() => {
       if (!hasLeft.current) {
-        sendHeartbeat(lobbyDocId, userUid).catch(() => {});
+        sendHeartbeat(lobbyDocId, userUid).catch(() => { });
       }
-    }, 10_000);
+    }, DUEL_HEARTBEAT_INTERVAL_MS);
 
     return () => clearInterval(heartbeatInterval);
   }, [lobbyDocId, userUid]);
@@ -271,9 +274,9 @@ export function useDuelGame(
 
     const staleCheckInterval = setInterval(() => {
       if (!hasLeft.current) {
-        removeStalePlayersFromLobby(lobbyDocId, userUid).catch(() => {});
+        removeStalePlayersFromLobby(lobbyDocId, userUid, DUEL_STALE_TIMEOUT_MS).catch(() => { });
       }
-    }, 15_000);
+    }, DUEL_STALE_CHECK_INTERVAL_MS);
 
     return () => clearInterval(staleCheckInterval);
   }, [lobbyDocId, userUid]);

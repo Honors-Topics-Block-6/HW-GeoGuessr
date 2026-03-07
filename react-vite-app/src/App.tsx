@@ -96,6 +96,11 @@ function App(): React.ReactElement {
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState<boolean>(false);
   const [duelLobbyDocId, setDuelLobbyDocId] = useState<string | null>(null);
+  const duelLobbyDocIdRef = useRef<string | null>(null);
+  const duelOpponentUidRef = useRef<string | null>(null);
+  const duelMyUidRef = useRef<string | null>(null);
+  const inDuelRef = useRef<boolean>(false);
+  const duelPhaseRef = useRef<string | null>(null);
 
   const {
     screen,
@@ -145,6 +150,15 @@ function App(): React.ReactElement {
     user?.uid as string,
     userDoc?.username as string
   );
+
+  // Keep duel refs current so unload handlers can forfeit immediately.
+  useEffect(() => {
+    duelLobbyDocIdRef.current = duelLobbyDocId;
+    duelOpponentUidRef.current = duel.opponentUid;
+    duelMyUidRef.current = user?.uid ?? null;
+    inDuelRef.current = inDuel;
+    duelPhaseRef.current = duel.phase;
+  }, [duelLobbyDocId, duel.opponentUid, user?.uid, inDuel, duel.phase]);
 
   // Track user's online presence and current activity
   usePresence(isGuest ? null : user as Parameters<typeof usePresence>[0], inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard, showFriends, showChat);
@@ -435,6 +449,86 @@ function App(): React.ReactElement {
 
     handleDuelBackToTitle();
   }, [duelLobbyDocId, duel.opponentUid, user?.uid, handleDuelBackToTitle]);
+
+  /**
+   * Best-effort unload-safe forfeit write.
+   * Uses Firestore REST commit endpoint + sendBeacon so it can complete during tab close.
+   * Works for guest and non-guest users because lobby update rules are open.
+   */
+  const sendForfeitKeepalive = useCallback((docId: string, winnerUid: string, loserUid: string): void => {
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined;
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY as string | undefined;
+    if (!projectId || !apiKey) return;
+
+    const encodedProject = encodeURIComponent(projectId);
+    const encodedApiKey = encodeURIComponent(apiKey);
+    const commitUrl = `https://firestore.googleapis.com/v1/projects/${encodedProject}/databases/(default)/documents:commit?key=${encodedApiKey}`;
+
+    const nowIso = new Date().toISOString();
+    const docName = `projects/${projectId}/databases/(default)/documents/lobbies/${docId}`;
+    const payload = {
+      writes: [{
+        update: {
+          name: docName,
+          fields: {
+            phase: { stringValue: 'finished' },
+            winner: { stringValue: winnerUid },
+            loser: { stringValue: loserUid },
+            forfeitBy: { stringValue: loserUid },
+            finishedAt: { timestampValue: nowIso },
+            lastActionAt: { timestampValue: nowIso },
+            updatedAt: { timestampValue: nowIso }
+          }
+        },
+        updateMask: {
+          fieldPaths: ['phase', 'winner', 'loser', 'forfeitBy', 'finishedAt', 'lastActionAt', 'updatedAt']
+        },
+        currentDocument: { exists: true }
+      }]
+    };
+
+    try {
+      const body = JSON.stringify(payload);
+      // sendBeacon is the most reliable way to transmit during unload.
+      const sent = navigator.sendBeacon(commitUrl, new Blob([body], { type: 'text/plain;charset=UTF-8' }));
+      if (sent) return;
+
+      // Fallback: keepalive fetch without custom headers to avoid unload preflight delays.
+      fetch(commitUrl, {
+        method: 'POST',
+        body,
+        keepalive: true,
+        mode: 'cors'
+      }).catch(() => { });
+    } catch {
+      // no-op: this is best-effort for unload scenarios
+    }
+  }, []);
+
+  // If a player closes/reloads the tab during an active duel, forfeit immediately.
+  useEffect(() => {
+    const handleUnloadForfeit = (): void => {
+      if (!inDuelRef.current) return;
+      if (duelPhaseRef.current === 'finished') return;
+
+      const docId = duelLobbyDocIdRef.current;
+      const opponentUid = duelOpponentUidRef.current;
+      const myUid = duelMyUidRef.current;
+
+      if (docId && opponentUid && myUid) {
+        // Fire an unload-safe REST update first, then the normal SDK path.
+        sendForfeitKeepalive(docId, opponentUid, myUid);
+        handleOpponentDisconnect(docId, opponentUid, myUid, myUid).catch(() => { });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleUnloadForfeit);
+    window.addEventListener('pagehide', handleUnloadForfeit);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnloadForfeit);
+      window.removeEventListener('pagehide', handleUnloadForfeit);
+    };
+  }, [sendForfeitKeepalive]);
 
   // Show loading spinner while checking auth state
   if (loading) {
@@ -856,7 +950,7 @@ function App(): React.ReactElement {
           myUid={uid}
           isHost={duel.isHost}
           onNextRound={duel.nextRound}
-          onViewFinalResults={() => {/* Will auto-transition via phase */}}
+          onViewFinalResults={() => {/* Will auto-transition via phase */ }}
           onLeaveDuel={handleDuelForfeit}
           isGameOver={false}
         />

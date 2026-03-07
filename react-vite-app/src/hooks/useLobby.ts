@@ -5,7 +5,7 @@ import {
   joinLobby,
   leaveLobby,
   subscribeLobby,
-  subscribePublicLobbyHistory,
+  subscribePublicLobbies,
   subscribeUserLobbyHistory,
   sendHeartbeat,
   removeStalePlayersFromLobby,
@@ -24,7 +24,7 @@ export interface LobbyPlayer {
   joinedAt?: string;
 }
 
-export type PublicLobby = UserLobbyHistoryDoc & {
+export type PublicLobby = LobbyDoc & {
   [key: string]: unknown;
 };
 
@@ -91,9 +91,9 @@ export function useLobby(
   const [isJoining, setIsJoining] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Subscribe to public lobby history in real-time
+  // Subscribe to active public waiting lobbies in real-time.
   useEffect(() => {
-    const unsubscribe = subscribePublicLobbyHistory((lobbies) => {
+    const unsubscribe = subscribePublicLobbies((lobbies) => {
       setPublicLobbies(lobbies as PublicLobby[]);
     });
     return unsubscribe;
