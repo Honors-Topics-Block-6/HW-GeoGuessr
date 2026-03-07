@@ -147,6 +147,10 @@ export interface UseMapZoomOptions {
   maxScale?: number;
   /** Optional zoomed content element used for offset-aware cursor anchoring */
   zoomContentRef?: React.RefObject<HTMLElement | null>;
+  /** Optional ref to zoom controls - double-click zoom is disabled when click is within deadZonePadding of this element */
+  zoomControlsRef?: React.RefObject<HTMLElement | null>;
+  /** Padding (px) around zoom controls where double-click zoom is disabled (default: 24) */
+  deadZonePadding?: number;
 }
 
 function useMapZoom(
@@ -155,6 +159,8 @@ function useMapZoom(
 ): UseMapZoomReturn {
   const maxScale = options?.maxScale ?? MAX_SCALE;
   const zoomContentRef = options?.zoomContentRef;
+  const zoomControlsRef = options?.zoomControlsRef;
+  const deadZonePadding = options?.deadZonePadding ?? 24;
   const [scale, setScale] = useState<number>(MIN_SCALE);
   const [translate, setTranslate] = useState<Point>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
@@ -601,6 +607,18 @@ function useMapZoom(
     const container = containerRef.current;
     if (!container) return;
 
+    // Skip double-click zoom when click is near zoom controls (avoids accidental zoom-in when rapidly clicking zoom-out)
+    if (zoomControlsRef?.current) {
+      const controlsRect = zoomControlsRef.current.getBoundingClientRect();
+      const pad = deadZonePadding;
+      const inDeadZone =
+        e.clientX >= controlsRect.left - pad &&
+        e.clientX <= controlsRect.right + pad &&
+        e.clientY >= controlsRect.top - pad &&
+        e.clientY <= controlsRect.bottom + pad;
+      if (inDeadZone) return;
+    }
+
     e.preventDefault();
 
     const rect = container.getBoundingClientRect();
@@ -612,7 +630,7 @@ function useMapZoom(
     } else {
       zoomInAtPoint(x, y);
     }
-  }, [containerRef, zoomInAtPoint, zoomOutAtPoint]);
+  }, [containerRef, zoomControlsRef, deadZonePadding, zoomInAtPoint, zoomOutAtPoint]);
 
   /**
    * Check if we were panning (left-click dragging).
