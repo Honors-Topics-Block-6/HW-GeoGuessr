@@ -12,6 +12,7 @@ import {
 } from "../services/regionService";
 import { computeTimeMultiplier } from "../utils/timeScoring";
 import { STARTING_HEALTH } from "../services/duelService";
+import { saveUserGuess } from "../services/guessSubmissionService";
 
 const DEFAULT_TOTAL_ROUNDS = 5;
 const ALLOWED_TOTAL_ROUNDS = [5, 10, 20] as const;
@@ -55,6 +56,7 @@ export interface PlayingArea {
 
 export interface RoundResult {
   roundNumber: number;
+  imageId: string | null;
   imageUrl: string;
   imageBuildingName?: string | null;
   imageDescription?: string | null;
@@ -819,8 +821,10 @@ export function useGameState(): UseGameStateReturn {
     }
 
     // Create result object
+    const imageId = currentImage.id || currentImage.url || null;
     const result: RoundResult = {
       roundNumber: currentRound,
+      imageId,
       imageUrl: currentImage.url,
       imageBuildingName: getImageBuildingName(currentImage),
       imageDescription: currentImage.description ?? null,
@@ -845,6 +849,20 @@ export function useGameState(): UseGameStateReturn {
     // Save result
     setCurrentResult(result);
     setRoundResults((prev) => [...prev, result]);
+
+    // Persist this guess for per-image heatmap history.
+    saveUserGuess({
+      imageId,
+      guessLocation,
+      guessFloor,
+      actualLocation,
+      actualFloor,
+      distance,
+      score: totalScore,
+      roundNumber: currentRound
+    }).catch((error) => {
+      console.warn('Failed to save guess to Firestore:', error);
+    });
 
     // Show result screen
     setScreen("result");
@@ -942,6 +960,7 @@ export function useGameState(): UseGameStateReturn {
 
       const result: RoundResult = {
         roundNumber: currentRound,
+        imageId: currentImage.id || currentImage.url || null,
         imageUrl: currentImage.url,
         imageBuildingName: getImageBuildingName(currentImage),
         imageDescription: currentImage.description ?? null,

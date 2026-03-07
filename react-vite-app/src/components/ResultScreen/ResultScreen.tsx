@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
+import { getGuessHeatmapDataForImage, type HeatmapPoint } from '../../services/guessHistoryService';
 import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
 import './ResultScreen.css';
 
@@ -9,6 +10,7 @@ export interface MapPoint {
 }
 
 export interface ResultScreenProps {
+  imageId: string | null;
   guessLocation: MapPoint | null;
   guessFloor: number | null;
   actualLocation: MapPoint;
@@ -54,6 +56,67 @@ function formatDistance(distance: number | null): string {
   const feet = Math.round(distance * 2);
   if (feet === 0) return 'Perfect!';
   return `${feet} ft away`;
+}
+
+function getHeatmapVisualStyle(weight: number, maxWeight: number): {
+  size: number;
+  opacity: number;
+  gradient: string;
+  glow: string;
+} {
+  const safeMax = Math.max(maxWeight, 0.01);
+  const absoluteIntensity = Math.min(1, Math.max(0, weight / 6));
+  const relativeIntensity = Math.min(1, Math.max(0, weight / safeMax));
+  const intensity = Math.min(1, absoluteIntensity * 0.85 + relativeIntensity * 0.15);
+
+  const size = 56 + intensity * 64;
+  const opacity = 0.34 + intensity * 0.5;
+
+  if (intensity >= 0.82) {
+    return {
+      size,
+      opacity,
+      gradient: `radial-gradient(
+        circle,
+        rgba(255, 228, 96, 0.97) 0%,
+        rgba(255, 96, 82, 0.9) 28%,
+        rgba(178, 82, 205, 0.72) 56%,
+        rgba(80, 44, 142, 0.38) 76%,
+        rgba(26, 18, 51, 0) 100%
+      )`,
+      glow: '0 0 36px rgba(136, 74, 196, 0.42)'
+    };
+  }
+
+  if (intensity >= 0.56) {
+    return {
+      size,
+      opacity,
+      gradient: `radial-gradient(
+        circle,
+        rgba(255, 224, 92, 0.95) 0%,
+        rgba(255, 120, 72, 0.86) 32%,
+        rgba(224, 82, 92, 0.62) 58%,
+        rgba(122, 45, 88, 0.28) 78%,
+        rgba(42, 20, 40, 0) 100%
+      )`,
+      glow: '0 0 28px rgba(222, 88, 106, 0.32)'
+    };
+  }
+
+  return {
+    size,
+    opacity,
+    gradient: `radial-gradient(
+      circle,
+      rgba(255, 232, 112, 0.94) 0%,
+      rgba(255, 180, 86, 0.78) 34%,
+      rgba(255, 116, 74, 0.5) 62%,
+      rgba(114, 46, 52, 0.18) 82%,
+      rgba(30, 16, 20, 0) 100%
+    )`,
+    glow: '0 0 22px rgba(255, 170, 95, 0.24)'
+  };
 }
 
 /**
@@ -110,8 +173,8 @@ function toContainerPct(point: MapPoint, fit: ImageFit): MapPoint {
     y: fit.offsetYPct + (point.y / 100) * fit.scaleY * 100,
   };
 }
-
 function ResultScreen({
+  imageId,
   guessLocation,
   guessFloor,
   actualLocation,
@@ -142,6 +205,10 @@ function ResultScreen({
   const mapImageRef = useRef<HTMLImageElement>(null);
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [displayedScore, setDisplayedScore] = useState<number>(0);
+  const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
+  const [heatmapSource, setHeatmapSource] = useState<'firestore' | 'mock'>('mock');
+  const [heatmapGuessCount, setHeatmapGuessCount] = useState<number>(0);
+  const [heatmapEnabled, setHeatmapEnabled] = useState<boolean>(true);
   const [imageFit, setImageFit] = useState<ImageFit>({ offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 });
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
@@ -212,6 +279,7 @@ function ResultScreen({
   const isZoomed: boolean = scale > 1;
 
   const distance: number | null = guessLocation ? calculateDistance(guessLocation, actualLocation) : null;
+  const maxHeatmapWeight = Math.max(...heatmapPoints.map((point) => point.weight), 1);
   const effectiveLocationScore: number = locationScore ?? 0;
   const hasFloorScoring: boolean = guessFloor !== null && actualFloor !== null;
   const isFloorCorrect: boolean = floorCorrect ?? (guessFloor === actualFloor);
@@ -271,6 +339,30 @@ function ResultScreen({
       return () => clearInterval(interval);
     }
   }, [animationPhase, totalScore]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadHeatmap(): Promise<void> {
+      const { points, source, guessCount } = await getGuessHeatmapDataForImage(imageId, {
+        fallbackCenter: actualLocation,
+        excludePoint: guessLocation ?? undefined
+      });
+      if (!isMounted) return;
+      setHeatmapPoints(points);
+      setHeatmapSource(source);
+      const count = guessCount ?? 0;
+      setHeatmapGuessCount(count);
+      if (count < 25) {
+        setHeatmapEnabled(false);
+      }
+    }
+
+    loadHeatmap();
+    return () => {
+      isMounted = false;
+    };
+  }, [imageId, actualLocation, guessLocation]);
 
   return (
     <div className="result-screen">
@@ -334,6 +426,29 @@ function ResultScreen({
                 draggable="false"
                 onDragStart={(e: React.DragEvent<HTMLImageElement>) => e.preventDefault()}
               />
+
+              {heatmapEnabled && (
+                <div className="heatmap-layer" aria-label="Previous guess heatmap">
+                  {heatmapPoints.map((point, index) => {
+                    const visual = getHeatmapVisualStyle(point.weight, maxHeatmapWeight);
+                    return (
+                      <div
+                        key={`${index}-${point.x}-${point.y}`}
+                        className="heatmap-blob"
+                        style={{
+                          left: `${point.x}%`,
+                          top: `${point.y}%`,
+                          width: `${visual.size}px`,
+                          height: `${visual.size}px`,
+                          opacity: visual.opacity,
+                          background: visual.gradient,
+                          boxShadow: visual.glow
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Line between guess and actual (Phase 2+) */}
               {mappedGuess && animationPhase >= 2 && (
@@ -426,6 +541,31 @@ function ResultScreen({
                 {Math.round(scale * 100)}%
               </div>
             )}
+
+            <div className="heatmap-controls">
+              <button
+                type="button"
+                className={`heatmap-toggle ${heatmapEnabled ? 'active' : ''} ${heatmapGuessCount < 25 ? 'heatmap-insufficient' : ''}`}
+                role="switch"
+                aria-checked={heatmapEnabled}
+                aria-label="Heatmap toggle"
+                title={heatmapGuessCount < 25 ? 'Not enough historical data (need 25+ guesses)' : undefined}
+                onClick={() => {
+                  if (heatmapGuessCount < 25 && !heatmapEnabled) return;
+                  setHeatmapEnabled((prev) => !prev);
+                }}
+              >
+                <span className="heatmap-toggle-label">Heatmap</span>
+                <span className="heatmap-switch-track" aria-hidden="true">
+                  <span className="heatmap-switch-thumb" />
+                </span>
+              </button>
+              <div className="heatmap-badge">
+                {heatmapGuessCount < 25
+                  ? 'Not enough historical data'
+                  : `Previous guesses ${heatmapSource === 'firestore' ? '(live)' : '(mock)'}`}
+              </div>
+            </div>
           </div>
         </div>
 
