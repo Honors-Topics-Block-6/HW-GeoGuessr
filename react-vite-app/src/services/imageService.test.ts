@@ -13,7 +13,7 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import { collection, getDocs } from 'firebase/firestore';
-import { getRandomImage, getAllApprovedImages, getAllSampleImages } from './imageService';
+import { getRandomImage, getAllApprovedImages } from './imageService';
 
 const mockedCollection = vi.mocked(collection);
 const mockedGetDocs = vi.mocked(getDocs);
@@ -21,61 +21,6 @@ const mockedGetDocs = vi.mocked(getDocs);
 describe('imageService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe('getAllSampleImages', () => {
-    it('should return an array of sample images', () => {
-      const images = getAllSampleImages();
-
-      expect(Array.isArray(images)).toBe(true);
-      expect(images.length).toBeGreaterThan(0);
-    });
-
-    it('should return at least 5 sample images', () => {
-      const images = getAllSampleImages();
-
-      expect(images.length).toBeGreaterThanOrEqual(5);
-    });
-
-    it('should return images with all required properties', () => {
-      const images = getAllSampleImages();
-
-      images.forEach((image) => {
-        expect(image).toHaveProperty('id');
-        expect(image).toHaveProperty('url');
-        expect(image).toHaveProperty('correctLocation');
-        expect(image).toHaveProperty('correctFloor');
-        expect(image).toHaveProperty('description');
-      });
-    });
-
-    it('should return a new array (not mutate original)', () => {
-      const images1 = getAllSampleImages();
-      const images2 = getAllSampleImages();
-
-      expect(images1).not.toBe(images2);
-      expect(images1).toEqual(images2);
-    });
-
-    it('should have valid location coordinates', () => {
-      const images = getAllSampleImages();
-
-      images.forEach((image: { correctLocation: { x: number; y: number } }) => {
-        expect(image.correctLocation.x).toBeGreaterThanOrEqual(0);
-        expect(image.correctLocation.x).toBeLessThanOrEqual(100);
-        expect(image.correctLocation.y).toBeGreaterThanOrEqual(0);
-        expect(image.correctLocation.y).toBeLessThanOrEqual(100);
-      });
-    });
-
-    it('should have valid floor numbers', () => {
-      const images = getAllSampleImages();
-
-      images.forEach((image: { correctFloor: number }) => {
-        expect(image.correctFloor).toBeGreaterThanOrEqual(1);
-        expect(image.correctFloor).toBeLessThanOrEqual(3);
-      });
-    });
   });
 
   describe('getAllApprovedImages', () => {

@@ -29,15 +29,6 @@ export interface GameImage {
   description?: string | null;
 }
 
-export interface SampleImage {
-  id: string;
-  url: string;
-  correctLocation: { x: number; y: number };
-  correctFloor: number;
-  difficulty: string;
-  description: string;
-}
-
 export interface RandomImageOptions {
   excludeImageIds?: string[];
   excludeImageUrls?: string[];
@@ -151,50 +142,6 @@ function isQuotaError(error: unknown): boolean {
 }
 
 // ────── Constants ──────
-
-// Sample images for development/testing
-const SAMPLE_IMAGES: readonly SampleImage[] = [
-  {
-    id: 'sample-1',
-    url: 'https://images.unsplash.com/photo-1562774053-701939374585?w=800&q=80',
-    correctLocation: { x: 35, y: 45 },
-    correctFloor: 2,
-    difficulty: 'easy',
-    description: 'Main hallway near the library'
-  },
-  {
-    id: 'sample-2',
-    url: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?w=800&q=80',
-    correctLocation: { x: 65, y: 30 },
-    correctFloor: 1,
-    difficulty: 'medium',
-    description: 'Science building entrance'
-  },
-  {
-    id: 'sample-3',
-    url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&q=80',
-    correctLocation: { x: 80, y: 60 },
-    correctFloor: 1,
-    difficulty: 'hard',
-    description: 'Gymnasium interior'
-  },
-  {
-    id: 'sample-4',
-    url: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&q=80',
-    correctLocation: { x: 25, y: 75 },
-    correctFloor: 3,
-    difficulty: 'easy',
-    description: 'Arts center studio'
-  },
-  {
-    id: 'sample-5',
-    url: 'https://images.unsplash.com/photo-1519452635265-7b1fbfd1e4e0?w=800&q=80',
-    correctLocation: { x: 50, y: 50 },
-    correctFloor: 2,
-    difficulty: 'medium',
-    description: 'Outdoor courtyard view'
-  }
-];
 
 const RANDOM_SELECTION_ATTEMPTS = 8;
 
@@ -622,13 +569,6 @@ export async function getAllImages(): Promise<GameImage[]> {
     console.error('Error fetching all images from Firestore:', error);
     return [];
   }
-}
-
-/**
- * Get all sample images (useful for testing)
- */
-export function getAllSampleImages(): SampleImage[] {
-  return [...SAMPLE_IMAGES];
 }
 
 /**
