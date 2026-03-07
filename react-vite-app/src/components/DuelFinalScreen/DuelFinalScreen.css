@@ -9,6 +9,22 @@
   overflow: hidden;
 }
 
+/* Mobile: fixed fullscreen scrollable overlay */
+@media (max-width: 768px) {
+  .duel-final-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 2rem;
+    z-index: 50;
+  }
+}
+
 .duel-final-background {
   position: fixed;
   top: 0;
@@ -119,11 +135,33 @@
   font-weight: 500;
 }
 
+.duel-final-forfeit-banner {
+  margin: 0.9rem auto 0;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgba(200, 16, 46, 0.28);
+  background: rgba(200, 16, 46, 0.08);
+  color: var(--hw-red);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
 /* ── Score Summary Cards ── */
 .duel-final-summary {
   display: flex;
   align-items: stretch;
   gap: 1rem;
+}
+
+.duel-final-summary-multi {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.duel-final-summary-multi .duel-final-player-card {
+  flex: 1 1 220px;
+  max-width: 320px;
 }
 
 .duel-final-player-card {
@@ -419,6 +457,12 @@
 }
 
 /* ── Responsive ── */
+@media (max-width: 768px) {
+  .duel-final-content {
+    flex: 1;
+  }
+}
+
 @media (max-width: 600px) {
   .duel-final-screen {
     padding: 1rem;

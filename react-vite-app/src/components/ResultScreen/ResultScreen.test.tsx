@@ -18,6 +18,7 @@ describe('ResultScreen', () => {
     imageUrl: 'https://example.com/image.jpg',
     locationScore: 5000,
     floorCorrect: true as boolean | null,
+    exactSpotBonus: 0,
     totalScore: 5000,
     timeTakenSeconds: 30 as number | null,
     timedOut: false,
@@ -119,13 +120,13 @@ describe('ResultScreen', () => {
     it('should display score label', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('Score')).toBeInTheDocument();
+      expect(screen.getAllByText('Score').length).toBeGreaterThan(0);
     });
 
     it('should display max score indicator', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('/ 5,000')).toBeInTheDocument();
+      expect(screen.getByText('/ 5,500')).toBeInTheDocument();
     });
 
     it('should show score after animation completes', () => {
@@ -407,8 +408,8 @@ describe('ResultScreen', () => {
       expect(screen.getByText(/\d+ ft away/)).toBeInTheDocument();
     });
 
-    it('should show "Perfect!" for distance within 10 ft', () => {
-      // Distance is 1, * 2 = 2 ft which is <= 10 ft
+    it('should show feet away for small non-zero distance', () => {
+      // Distance is 1, * 2 = 2 ft
       render(
         <ResultScreen
           {...defaultProps}
@@ -417,7 +418,7 @@ describe('ResultScreen', () => {
         />
       );
 
-      expect(screen.getAllByText('Perfect!').length).toBeGreaterThan(0);
+      expect(screen.getByText('2 ft away')).toBeInTheDocument();
     });
   });
 
@@ -431,7 +432,28 @@ describe('ResultScreen', () => {
     it('should show total score', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('Total')).toBeInTheDocument();
+      expect(screen.getAllByText('Score').length).toBeGreaterThan(0);
+    });
+
+    it('should show time penalty when provided', () => {
+      render(
+        <ResultScreen
+          {...defaultProps}
+          locationScore={5000}
+          totalScore={4500}
+          timePenalty={500}
+        />
+      );
+
+      expect(screen.getByText('Time Penalty')).toBeInTheDocument();
+      expect(screen.getByText('-500')).toBeInTheDocument();
+    });
+
+    it('should show exact spot bonus when present', () => {
+      render(<ResultScreen {...defaultProps} exactSpotBonus={500} totalScore={5500} />);
+
+      expect(screen.getByText('Exact Spot Bonus')).toBeInTheDocument();
+      expect(screen.getByText('+500')).toBeInTheDocument();
     });
   });
 
@@ -523,12 +545,11 @@ describe('ResultScreen', () => {
     it('should observe the details panel with ResizeObserver', () => {
       const { container } = render(<ResultScreen {...defaultProps} />);
 
-      const detailsPanel = container.querySelector('.result-details');
+      const detailsPanel = container.querySelector('.result-details') as HTMLElement;
       const observers = (global as Record<string, unknown>)._resizeObserverInstances as Array<{ observe: ReturnType<typeof vi.fn> }>;
-      const detailsObserver = observers.find(obs => obs.observe.mock.calls.some((call: unknown[]) => call[0] === detailsPanel));
+      const detailsObserver = observers.find((obs) => obs.observe.mock.calls.some(([arg]) => arg === detailsPanel));
 
       expect(detailsObserver).toBeDefined();
-      expect(detailsObserver!.observe).toHaveBeenCalledWith(detailsPanel);
     });
 
     it('should update map height when details panel resizes', () => {

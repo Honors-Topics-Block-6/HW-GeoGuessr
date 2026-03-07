@@ -5,6 +5,7 @@ import {
   useCallback,
   useState,
   useEffect,
+  useId,
   type Ref
 } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
@@ -61,9 +62,13 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
   ref: Ref<MapPickerHandle>
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const zoomContentRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Generate unique ID for SVG mask to avoid conflicts when multiple MapPicker instances exist
+  const maskId = useId();
 
   const coordsFromClientPos = useCallback((clientX: number, clientY: number): MapCoordinates | null => {
     if (!imageRef.current) return null;
@@ -82,12 +87,12 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     handlers,
     zoomIn,
     zoomInAtPoint,
-    zoomOut,
+    zoomOutAtPoint,
     resetZoom,
     hasMoved,
     isPanning,
     isTouchActive
-  } = useMapZoom(containerRef);
+  } = useMapZoom(containerRef, { zoomContentRef });
   const { onDoubleClick: _ignoredOnDoubleClick, ...mapHandlers } = handlers;
 
   const placeMarkerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,6 +140,23 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     lastMousePos.current = null;
     if (handlers.onMouseLeave) handlers.onMouseLeave();
   };
+
+  const getZoomAnchor = useCallback((): { x: number; y: number } | null => {
+    const container = containerRef.current;
+    if (!container) return null;
+
+    const rect = container.getBoundingClientRect();
+    const mouse = lastMousePos.current;
+    if (mouse) {
+      const x = mouse.x - rect.left;
+      const y = mouse.y - rect.top;
+      if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+        return { x, y };
+      }
+    }
+
+    return { x: rect.width / 2, y: rect.height / 2 };
+  }, []);
 
   const toggleFullscreen = (event: React.MouseEvent<HTMLButtonElement>): void => {
     event.stopPropagation();
@@ -205,13 +227,13 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''} ${isTouchActive ? 'touch-active' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
         ref={containerRef}
         onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
         onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
         {...mapHandlers}
+        onDoubleClick={handleDoubleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="map-zoom-content" style={{ transform: transformStyle }}>
+        <div className="map-zoom-content" ref={zoomContentRef} style={{ transform: transformStyle }}>
           <img
             ref={imageRef}
             className="map-image"
@@ -230,7 +252,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
             >
               <defs>
                 {/* Define the playing area as a mask - white = visible, black = hidden */}
-                <mask id="playing-area-mask">
+                <mask id={`playing-area-mask-${maskId}`}>
                   {/* Start with white background (everything visible) */}
                   <rect x="0" y="0" width="100" height="100" fill="white" />
                   {/* Cut out the playing area (make it black = hidden from dark overlay) */}
@@ -248,7 +270,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
                 width="100"
                 height="100"
                 fill="rgba(0, 0, 0, 0.5)"
-                mask="url(#playing-area-mask)"
+                mask={`url(#playing-area-mask-${maskId})`}
               />
 
               {/* Border around the playing area */}
@@ -315,7 +337,15 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         <div className="zoom-controls">
           <button
             className="zoom-btn zoom-in-btn"
-            onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); zoomIn(); }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              const anchor = getZoomAnchor();
+              if (anchor) {
+                zoomInAtPoint(anchor.x, anchor.y);
+              } else {
+                zoomIn();
+              }
+            }}
             title="Zoom in"
             aria-label="Zoom in"
           >
@@ -323,7 +353,13 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
           </button>
           <button
             className="zoom-btn zoom-out-btn"
-            onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); zoomOut(); }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              const anchor = getZoomAnchor();
+              if (anchor) {
+                zoomOutAtPoint(anchor.x, anchor.y);
+              }
+            }}
             title="Zoom out"
             aria-label="Zoom out"
             disabled={!isZoomed}

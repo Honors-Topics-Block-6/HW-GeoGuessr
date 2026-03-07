@@ -26,12 +26,25 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
     loading,
     error,
     claimBonusXp
-  } = useDailyGoals(user?.uid ?? null);
+  } = useDailyGoals(user?.uid ?? null, {
+    onGoalCompleted: async (_completedCount: number) => {
+      await refreshUserDoc();
+    },
+    onAllCompleted: async () => {
+      await refreshUserDoc();
+    }
+  });
 
   const [claiming, setClaiming] = useState<boolean>(false);
   const [claimed, setClaimed] = useState<boolean>(false);
   const confettiIntervalRef = useRef<number | null>(null);
   const confettiTimeoutRef = useRef<number | null>(null);
+
+  // Keep header/profile stats in sync when goals change
+  useEffect(() => {
+    if (!user?.uid) return;
+    void refreshUserDoc();
+  }, [user?.uid, allCompleted, bonusXpAwarded, refreshUserDoc]);
 
   const handleClaimBonus = async (): Promise<void> => {
     setClaiming(true);

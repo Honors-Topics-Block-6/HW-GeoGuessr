@@ -170,7 +170,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame('medium', 'singleplayer', 20, 10);
+        await result.current.startGame('medium', 'singleplayer', 'classic', 20, undefined, 10);
       });
 
       expect(result.current.totalRounds).toBe(10);
@@ -433,7 +433,8 @@ describe('useGameState', () => {
         result.current.submitGuess();
       });
 
-      expect(result.current.currentResult!.score).toBe(5000);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(500);
+      expect(result.current.currentResult!.score).toBe(5500);
       expect(result.current.currentResult!.floorCorrect).toBe(true);
     });
 
@@ -457,7 +458,32 @@ describe('useGameState', () => {
       });
 
       expect(result.current.currentResult!.floorCorrect).toBe(false);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
       expect(result.current.currentResult!.score).toBe(4000); // 5000 * 0.8
+    });
+
+    it('should not award exact spot bonus when guess is not very close', async () => {
+      const { result } = renderHook(() => useGameState());
+
+      await act(async () => {
+        await result.current.startGame('medium');
+      });
+
+      act(() => {
+        result.current.placeMarker({ x: 53, y: 50 }); // distance 3 (> exact-spot threshold)
+      });
+
+      act(() => {
+        result.current.selectFloor(2); // Correct floor
+      });
+
+      act(() => {
+        result.current.submitGuess();
+      });
+
+      expect(result.current.currentResult!.floorCorrect).toBe(true);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
+      expect(result.current.currentResult!.score).toBe(5000);
     });
 
     it('should apply floor penalty when floor matches but building is wrong', async () => {
@@ -493,9 +519,9 @@ describe('useGameState', () => {
       });
 
       expect(result.current.currentResult!.floorCorrect).toBe(false);
-      expect(result.current.currentResult!.score).toBeLessThan(result.current.currentResult!.locationScore);
+      expect(result.current.currentResult!.exactSpotBonus).toBe(0);
+      expect(result.current.currentResult!.score).toBe(Math.round(result.current.currentResult!.locationScore * 0.8));
     });
-
     it('should store result in roundResults', async () => {
       const { result } = renderHook(() => useGameState());
 
@@ -738,7 +764,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame('medium', 'singleplayer', 20, 10);
+        await result.current.startGame('medium', 'singleplayer', 'classic', 20, undefined, 10);
       });
 
       // Play through 10 rounds
@@ -1005,10 +1031,9 @@ describe('useGameState', () => {
         result.current.submitGuess();
       });
 
-      // Steep decay: distance=10, perfectRadius=5, effectiveDistance=5
-      // maxDistance = sqrt(100^2+100^2) - 5 ≈ 136.42
-      // ratio = 5/136.42 ≈ 0.0366, score = 5000 * e^(-100 * 0.0366^2) ≈ 4372
-      expect(result.current.currentResult!.locationScore).toBeCloseTo(4372, -2);
+      // 10 map units ≈ 20 ft
+      // 5000 * e^(-(20/40)^2) = 5000 * e^(-0.25) ≈ 3894
+      expect(result.current.currentResult!.locationScore).toBeCloseTo(3894, -2);
     });
   });
 

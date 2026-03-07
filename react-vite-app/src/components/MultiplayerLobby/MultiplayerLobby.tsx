@@ -21,7 +21,8 @@ const DIFFICULTY_LABELS: Record<Difficulty, DifficultyInfo> = {
 
 export type GameVisibility = 'public' | 'private';
 type PublicDifficultyFilter = 'any' | Difficulty;
-type PublicRoundTimeFilter = 'any' | '10' | '20' | '30' | '0';
+type PublicRoundTimeFilter = 'any' | '15' | '30' | '60' | '0';
+type PublicTimePenaltyFilter = 'any' | 'on' | 'off';
 
 /** Preset time options shown as buttons. 0 = no limit. */
 interface TimePreset {
@@ -30,9 +31,9 @@ interface TimePreset {
 }
 
 const TIME_PRESETS: TimePreset[] = [
-  { value: 10, label: '10s' },
-  { value: 20, label: '20s' },
+  { value: 15, label: '15s' },
   { value: 30, label: '30s' },
+  { value: 60, label: '60s' },
   { value: 0, label: 'No Limit' },
 ];
 
@@ -43,17 +44,25 @@ export interface MultiplayerLobbyProps {
   difficulty: Difficulty;
   userUid: string;
   userUsername: string;
+  isGuest: boolean;
   onJoinedLobby: (docId: string) => void;
   onBack: () => void;
 }
 
-function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
+function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(difficulty);
   const [visibility, setVisibility] = useState<GameVisibility>('public');
-  const [timeSelection, setTimeSelection] = useState<number | 'custom'>(20);
+  const [gameMode, setGameMode] = useState<'duel' | 'multiplayer'>('duel');
+  const [timeSelection, setTimeSelection] = useState<number | 'custom'>(30);
   const [customTime, setCustomTime] = useState<string>('60');
+  const [timePenaltyEnabled, setTimePenaltyEnabled] = useState<boolean>(false);
   const [publicDifficultyFilter, setPublicDifficultyFilter] = useState<PublicDifficultyFilter>('any');
   const [publicRoundTimeFilter, setPublicRoundTimeFilter] = useState<PublicRoundTimeFilter>('any');
+  const [publicTimePenaltyFilter, setPublicTimePenaltyFilter] = useState<PublicTimePenaltyFilter>('any');
+
+  useEffect(() => {
+    setSelectedDifficulty(difficulty);
+  }, [difficulty]);
 
   /** Resolve the actual round time in seconds (0 = no limit) */
   const resolvedTime: number =
@@ -74,9 +83,12 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
       setCustomTime(String(CUSTOM_TIME_MAX));
     }
   };
+
   useEffect(() => {
-    setSelectedDifficulty(difficulty);
-  }, [difficulty]);
+    if (isGuest && visibility === 'public') {
+      setVisibility('private');
+    }
+  }, [isGuest, visibility]);
 
   const {
     publicLobbies,
@@ -85,14 +97,11 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     error,
     hostGame,
     joinByCode,
-    joinPublicGame,
     clearError
-  } = useLobby(userUid, userUsername, selectedDifficulty);
-
-  const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[selectedDifficulty] || DIFFICULTY_LABELS.all;
+  } = useLobby(userUid, userUsername, selectedDifficulty, timePenaltyEnabled, isGuest);
 
   const handleHost = async (): Promise<void> => {
-    const result = await hostGame(visibility, resolvedTime);
+    const result = await hostGame(visibility, resolvedTime, gameMode);
     if (result) {
       onJoinedLobby(result.docId);
     }
@@ -105,27 +114,29 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
     }
   };
 
-  const handleJoinPublic = async (docId: string): Promise<void> => {
-    const success = await joinPublicGame(docId);
-    if (success) {
-      onJoinedLobby(docId);
+  const handleJoinPublic = async (gameId: string): Promise<void> => {
+    const result = await joinByCode(gameId);
+    if (result) {
+      onJoinedLobby(result.docId);
     }
   };
 
   const filteredPublicLobbies = useMemo(() => {
     return publicLobbies.filter((lobby) => {
-      const lobbyDifficulty = (lobby.difficulty || 'all') as Difficulty;
-      const lobbyRoundTime = typeof lobby.roundTimeSeconds === 'number' ? lobby.roundTimeSeconds : 20;
-
-      const difficultyMatch =
-        publicDifficultyFilter === 'any' || lobbyDifficulty === publicDifficultyFilter;
-
-      const roundTimeMatch =
-        publicRoundTimeFilter === 'any' || lobbyRoundTime === Number(publicRoundTimeFilter);
-
-      return difficultyMatch && roundTimeMatch;
+      if (publicDifficultyFilter !== 'any' && lobby.difficulty !== publicDifficultyFilter) {
+        return false;
+      }
+      if (publicRoundTimeFilter !== 'any' && String(lobby.roundTimeSeconds ?? '') !== publicRoundTimeFilter) {
+        return false;
+      }
+      if (publicTimePenaltyFilter !== 'any') {
+        const hasPenalty = !!lobby.timePenaltyEnabled;
+        if (publicTimePenaltyFilter === 'on' && !hasPenalty) return false;
+        if (publicTimePenaltyFilter === 'off' && hasPenalty) return false;
+      }
+      return true;
     });
-  }, [publicDifficultyFilter, publicLobbies, publicRoundTimeFilter]);
+  }, [publicLobbies, publicDifficultyFilter, publicRoundTimeFilter, publicTimePenaltyFilter]);
 
   return (
     <div className="lobby-screen">
@@ -139,10 +150,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
         </button>
 
         <h1 className="lobby-heading">Multiplayer</h1>
-        <div className="lobby-difficulty-badge">
-          <span>{diffInfo.icon}</span>
-          <span>{diffInfo.label} Difficulty</span>
-        </div>
 
         {error && (
           <div className="lobby-error">
@@ -154,10 +161,8 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
         {/* Host a Game */}
         <div className="lobby-panel lobby-panel-host">
           <h2 className="lobby-panel-heading">Host a Game</h2>
-          <p className="lobby-panel-desc">Create a new game and invite friends</p>
 
           <div className="lobby-host-difficulty">
-            <p className="lobby-time-label">Difficulty</p>
             <div className="lobby-host-difficulty-options">
               {(Object.keys(DIFFICULTY_LABELS) as Difficulty[]).map((diff) => (
                 <button
@@ -167,19 +172,44 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
                 >
                   <span className="lobby-host-difficulty-icon">{DIFFICULTY_LABELS[diff].icon}</span>
                   <span className="lobby-host-difficulty-name">{DIFFICULTY_LABELS[diff].label}</span>
-                  <span className="lobby-host-difficulty-desc">{DIFFICULTY_LABELS[diff].description}</span>
                 </button>
               ))}
             </div>
           </div>
 
+          <div className="lobby-game-mode">
+            <div className="lobby-game-mode-options">
+              <button
+                type="button"
+                className={`lobby-game-mode-btn ${gameMode === 'duel' ? 'selected' : ''}`}
+                onClick={() => setGameMode('duel')}
+                disabled={isCreating}
+              >
+                <span className="lobby-game-mode-icon">⚔️</span>
+                <span className="lobby-game-mode-name">Duel</span>
+              </button>
+              <button
+                type="button"
+                className={`lobby-game-mode-btn ${gameMode === 'multiplayer' ? 'selected' : ''}`}
+                onClick={() => setGameMode('multiplayer')}
+                disabled={isCreating}
+              >
+                <span className="lobby-game-mode-icon">👥</span>
+                <span className="lobby-game-mode-name">Multiplayer</span>
+              </button>
+            </div>
+          </div>
+
           <div className="lobby-visibility-toggle">
             <button
-              className={`lobby-vis-btn ${visibility === 'public' ? 'selected' : ''}`}
-              onClick={() => setVisibility('public')}
+              className={`lobby-vis-btn ${visibility === 'public' ? 'selected' : ''} ${isGuest ? 'lobby-vis-btn-disabled' : ''}`}
+              onClick={() => !isGuest && setVisibility('public')}
+              disabled={isGuest}
+              title={isGuest ? 'Sign in to create public games' : undefined}
             >
               <span className="lobby-vis-icon">🌐</span>
               Public
+              {isGuest && <span className="lobby-vis-guest-hint">(Sign in)</span>}
             </button>
             <button
               className={`lobby-vis-btn ${visibility === 'private' ? 'selected' : ''}`}
@@ -192,7 +222,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
 
           {/* Round Time */}
           <div className="lobby-time-section">
-            <p className="lobby-time-label">Round Time</p>
             <div className="lobby-time-options">
               {TIME_PRESETS.map((preset) => (
                 <button
@@ -203,35 +232,54 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
                   {preset.value === 0 ? '∞' : `${preset.label}`}
                 </button>
               ))}
+              {timeSelection === 'custom' ? (
+                <div className="lobby-time-input-wrapper selected">
+                  <input
+                    className="lobby-time-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={customTime}
+                    onChange={(e) => handleCustomTimeChange(e.target.value)}
+                    onBlur={handleCustomTimeBlur}
+                    placeholder="Custom"
+                    autoFocus
+                  />
+                  <span className="lobby-time-unit">s</span>
+                </div>
+              ) : (
+                <button
+                  className="lobby-time-btn"
+                  onClick={() => setTimeSelection('custom')}
+                  aria-label="Custom time"
+                >
+                  Custom
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="lobby-time-penalty-section">
+            <span className="lobby-time-penalty-label">Time penalty</span>
+            <div className="lobby-time-penalty-toggle">
               <button
-                className={`lobby-time-btn ${timeSelection === 'custom' ? 'selected' : ''}`}
-                onClick={() => setTimeSelection('custom')}
+                className={`lobby-time-penalty-btn ${!timePenaltyEnabled ? 'selected' : ''}`}
+                onClick={() => setTimePenaltyEnabled(false)}
               >
-                ✏️
+                Off
+              </button>
+              <button
+                className={`lobby-time-penalty-btn ${timePenaltyEnabled ? 'selected' : ''}`}
+                onClick={() => setTimePenaltyEnabled(true)}
+              >
+                On
               </button>
             </div>
-            {timeSelection === 'custom' && (
-              <div className="lobby-time-custom">
-                <input
-                  className="lobby-time-custom-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={customTime}
-                  onChange={(e) => handleCustomTimeChange(e.target.value)}
-                  onBlur={handleCustomTimeBlur}
-                  placeholder="e.g. 60"
-                />
-                <span className="lobby-time-custom-hint">
-                  {CUSTOM_TIME_MIN}–{CUSTOM_TIME_MAX}s
-                </span>
-              </div>
-            )}
           </div>
 
           <button
             className="lobby-create-btn"
             onClick={handleHost}
-            disabled={isCreating}
+            disabled={isCreating || (isGuest && visibility === 'public')}
           >
             {isCreating ? (
               <>
@@ -245,22 +293,18 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
         </div>
 
         <div className="lobby-bottom-sections">
-          {/* Join by Code */}
+          {/* Join by Code (top-left) */}
           <div className="lobby-panel lobby-panel-join">
             <h2 className="lobby-panel-heading">Join a Game</h2>
-            <p className="lobby-panel-desc">Enter a game code to join</p>
             <GameCodeInput
               onJoin={handleJoinByCode}
               isJoining={isJoining}
             />
           </div>
 
-          {/* Browse Public Games */}
-          <div className="lobby-public-section">
+          {/* Public filters (top-right) */}
+          <div className="lobby-panel lobby-public-filters-panel">
             <h2 className="lobby-section-heading">Public Games</h2>
-            <p className="lobby-section-desc">
-              Join an open game — only {diffInfo.label} difficulty games can be joined
-            </p>
             <div className="lobby-public-filters">
               <label className="lobby-public-filter-item">
                 <span>Difficulty</span>
@@ -284,16 +328,32 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, onJoinedLobby, on
                   onChange={(e) => setPublicRoundTimeFilter(e.target.value as PublicRoundTimeFilter)}
                 >
                   <option value="any">Any</option>
-                  <option value="10">10s</option>
-                  <option value="20">20s</option>
+                  <option value="15">15s</option>
                   <option value="30">30s</option>
+                  <option value="60">60s</option>
                   <option value="0">No Limit</option>
                 </select>
               </label>
+              <label className="lobby-public-filter-item">
+                <span>Time Penalty</span>
+                <select
+                  className="lobby-public-filter-select"
+                  value={publicTimePenaltyFilter}
+                  onChange={(e) => setPublicTimePenaltyFilter(e.target.value as PublicTimePenaltyFilter)}
+                >
+                  <option value="any">Any</option>
+                  <option value="on">On</option>
+                  <option value="off">Off</option>
+                </select>
+              </label>
             </div>
+          </div>
+
+          {/* Public games list (full width, two-wide inside) */}
+          <div className="lobby-panel lobby-public-list-panel">
             <PublicGameList
               lobbies={filteredPublicLobbies}
-              selectedDifficulty={difficulty}
+              selectedDifficulty={selectedDifficulty}
               onJoin={handleJoinPublic}
               isJoining={isJoining}
             />

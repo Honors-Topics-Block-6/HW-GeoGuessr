@@ -1,40 +1,59 @@
-import React, { useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import { useAuth } from './contexts/AuthContext';
-import { useGameState, type Difficulty } from './hooks/useGameState';
-import { useDuelGame } from './hooks/useDuelGame';
-import { usePresence } from './hooks/usePresence';
-import { useAdminMessages } from './hooks/useAdminMessages';
-import { useFriends } from './hooks/useFriends';
-import { useChatNotifications } from './hooks/useChatNotifications';
-import { STARTING_HEALTH, handleOpponentDisconnect } from './services/duelService';
-import { useDailyGoals } from './hooks/useDailyGoals';
-import { joinLobby } from './services/lobbyService';
-import { touchLastActive } from './services/lastActiveService';
-import LoginScreen from './components/LoginScreen/LoginScreen';
-import ProfileScreen from './components/ProfileScreen/ProfileScreen';
-import TitleScreen from './components/TitleScreen/TitleScreen';
-import ModeSelect from './components/ModeSelect/ModeSelect';
-import DifficultySelect from './components/DifficultySelect/DifficultySelect';
-import GameScreen from './components/GameScreen/GameScreen';
-import ResultScreen from './components/ResultScreen/ResultScreen';
-import FinalResultsScreen from './components/FinalResultsScreen/FinalResultsScreen';
-import MultiplayerLobby from './components/MultiplayerLobby/MultiplayerLobby';
-import WaitingRoom from './components/WaitingRoom/WaitingRoom';
-import DuelGameScreen from './components/DuelGameScreen/DuelGameScreen';
-import DuelResultScreen from './components/DuelResultScreen/DuelResultScreen';
-import DuelFinalScreen from './components/DuelFinalScreen/DuelFinalScreen';
-import LeaderboardScreen from './components/LeaderboardScreen/LeaderboardScreen';
-import SubmissionApp from './components/SubmissionApp/SubmissionApp';
-import FriendsPanel from './components/FriendsPanel/FriendsPanel';
-import ChatWindow from './components/ChatWindow/ChatWindow';
-import BugReportModal from './components/BugReportModal/BugReportModal';
-import DailyGoalsPanel from './components/DailyGoalsPanel/DailyGoalsPanel';
-import DailyGoalsCompletionModal from './components/DailyGoalsCompletionModal/DailyGoalsCompletionModal';
-import AchievementsScreen from './components/AchievementsScreen/AchievementsScreen';
-import MessageBanner from './components/MessageBanner/MessageBanner';
-import ChatNotificationBanner from './components/ChatNotificationBanner/ChatNotificationBanner';
-import EmailVerificationBanner from './components/EmailVerificationBanner/EmailVerificationBanner';
-import { getLevelInfo } from './utils/xpLevelling';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  ReactNode,
+} from "react";
+import { useAuth } from "./contexts/AuthContext";
+import {
+  useGameState,
+  type Difficulty,
+  type GameMode,
+  type UseGameStateReturn,
+} from "./hooks/useGameState";
+import { useDuelGame } from "./hooks/useDuelGame";
+import { usePresence } from "./hooks/usePresence";
+import { useAdminMessages } from "./hooks/useAdminMessages";
+import { useFriends } from "./hooks/useFriends";
+import {
+  useChatNotifications,
+  type ChatNotificationItem,
+} from "./hooks/useChatNotifications";
+import { useLobbyInvites, type LobbyInvite } from "./hooks/useLobbyInvites";
+import {
+  STARTING_HEALTH,
+  handleOpponentDisconnect,
+} from "./services/duelService";
+import { useDailyGoals } from "./hooks/useDailyGoals";
+import { joinLobby } from "./services/lobbyService";
+import { touchLastActive } from "./services/lastActiveService";
+import LoginScreen from "./components/LoginScreen/LoginScreen";
+import ProfileScreen from "./components/ProfileScreen/ProfileScreen";
+import TitleScreen from "./components/TitleScreen/TitleScreen";
+import ModeSelect from "./components/ModeSelect/ModeSelect";
+import DifficultySelect from "./components/DifficultySelect/DifficultySelect";
+import GameScreen from "./components/GameScreen/GameScreen";
+import ResultScreen from "./components/ResultScreen/ResultScreen";
+import FinalResultsScreen from "./components/FinalResultsScreen/FinalResultsScreen";
+import MultiplayerLobby from "./components/MultiplayerLobby/MultiplayerLobby";
+import MyGames from "./components/MyGames/MyGames";
+import WaitingRoom from "./components/WaitingRoom/WaitingRoom";
+import DuelGameScreen from "./components/DuelGameScreen/DuelGameScreen";
+import DuelResultScreen from "./components/DuelResultScreen/DuelResultScreen";
+import DuelFinalScreen from "./components/DuelFinalScreen/DuelFinalScreen";
+import LeaderboardScreen from "./components/LeaderboardScreen/LeaderboardScreen";
+import SubmissionApp from "./components/SubmissionApp/SubmissionApp";
+import FriendsPanel from "./components/FriendsPanel/FriendsPanel";
+import ChatWindow from "./components/ChatWindow/ChatWindow";
+import BugReportModal from "./components/BugReportModal/BugReportModal";
+import DailyGoalsPanel from "./components/DailyGoalsPanel/DailyGoalsPanel";
+import DailyGoalsCompletionModal from "./components/DailyGoalsCompletionModal/DailyGoalsCompletionModal";
+import AchievementsScreen from "./components/AchievementsScreen/AchievementsScreen";
+import MessageBanner from "./components/MessageBanner/MessageBanner";
+import ChatNotificationBanner from "./components/ChatNotificationBanner/ChatNotificationBanner";
+import EmailVerificationBanner from "./components/EmailVerificationBanner/EmailVerificationBanner";
+import { getLevelInfo } from "./utils/xpLevelling";
 import {
   ACHIEVEMENTS_UPDATED_EVENT,
   type AchievementId,
@@ -42,10 +61,13 @@ import {
   getDifficultyAchievementId,
   getProgressUnlockedAchievementIds,
   unlockAchievement,
-  type AchievementUpdateDetail
-} from './services/achievementService';
-import { recordDailyPlay, syncDailyStreakRollover } from './services/streakService';
-import './App.css';
+  type AchievementUpdateDetail,
+} from "./services/achievementService";
+import {
+  recordDailyPlay,
+  syncDailyStreakRollover,
+} from "./services/streakService";
+import "./App.css";
 
 /** Shape of a friend object used when opening chat */
 interface ChatFriend {
@@ -68,7 +90,16 @@ interface AchievementToastData {
 }
 
 function App(): React.ReactElement {
-  const { user, userDoc, loading, needsUsername, isAdmin, emailVerified, refreshUserDoc } = useAuth();
+  const {
+    user,
+    userDoc,
+    loading,
+    isGuest,
+    needsUsername,
+    isAdmin,
+    emailVerified,
+    refreshUserDoc,
+  } = useAuth();
   const [showSubmissionApp, setShowSubmissionApp] = useState<boolean>(false);
   const [showProfile, setShowProfile] = useState<boolean>(false);
   const [showFriends, setShowFriends] = useState<boolean>(false);
@@ -78,21 +109,32 @@ function App(): React.ReactElement {
   const [showBugReport, setShowBugReport] = useState<boolean>(false);
   const [showDailyGoals, setShowDailyGoals] = useState<boolean>(false);
   const [showAchievements, setShowAchievements] = useState<boolean>(false);
-  const [achievementToastQueue, setAchievementToastQueue] = useState<AchievementToastData[]>([]);
-  const [achievementToastFading, setAchievementToastFading] = useState<boolean>(false);
+  const [achievementToastQueue, setAchievementToastQueue] = useState<
+    AchievementToastData[]
+  >([]);
+  const [achievementToastFading, setAchievementToastFading] =
+    useState<boolean>(false);
   const shownAchievementToastsRef = useRef<Set<AchievementId>>(new Set());
-  const [showDailyGoalsReward, setShowDailyGoalsReward] = useState<boolean>(false);
-  const [collectingDailyReward, setCollectingDailyReward] = useState<boolean>(false);
+  const [showDailyGoalsReward, setShowDailyGoalsReward] =
+    useState<boolean>(false);
+  const [collectingDailyReward, setCollectingDailyReward] =
+    useState<boolean>(false);
 
   // Ensure the daily streak resets to 0 if a day was missed (once per app load).
   useEffect(() => {
+    if (isGuest) return;
     if (!user?.uid) return;
     syncDailyStreakRollover(user.uid);
-  }, [user?.uid]);
+  }, [isGuest, user?.uid]);
 
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState<boolean>(false);
   const [duelLobbyDocId, setDuelLobbyDocId] = useState<string | null>(null);
+  const duelLobbyDocIdRef = useRef<string | null>(null);
+  const duelOpponentUidRef = useRef<string | null>(null);
+  const duelMyUidRef = useRef<string | null>(null);
+  const inDuelRef = useRef<boolean>(false);
+  const duelPhaseRef = useRef<string | null>(null);
 
   const {
     screen,
@@ -113,6 +155,7 @@ function App(): React.ReactElement {
     difficulty,
     mode,
     lobbyDocId,
+    timePenaltyEnabled,
     isEndlessMode,
     currentHp,
     startingHp,
@@ -126,87 +169,157 @@ function App(): React.ReactElement {
     resetGame,
     setMode,
     setLobbyDocId,
-    setDifficulty
+    setDifficulty,
   } = useGameState();
 
   const {
     allCompleted: dailyGoalsAllCompleted,
     bonusXpAwarded: dailyGoalsBonusXpAwarded,
     bonusXpAmount: dailyGoalsBonusXpAmount,
-    claimBonusXp: claimDailyGoalsBonusXp
+    claimBonusXp: claimDailyGoalsBonusXp,
   } = useDailyGoals(user?.uid ?? null);
 
   // Duel game hook -- only active when inDuel is true and we have a lobby doc ID
   const duel = useDuelGame(
     (inDuel ? duelLobbyDocId : null) as string,
     user?.uid as string,
-    userDoc?.username as string
+    userDoc?.username as string,
   );
 
+  // Keep duel refs current so unload handlers can forfeit immediately.
+  useEffect(() => {
+    duelLobbyDocIdRef.current = duelLobbyDocId;
+    duelOpponentUidRef.current = duel.opponentUid;
+    duelMyUidRef.current = user?.uid ?? null;
+    inDuelRef.current = inDuel;
+    duelPhaseRef.current = duel.phase;
+  }, [duelLobbyDocId, duel.opponentUid, user?.uid, inDuel, duel.phase]);
+
   // Track user's online presence and current activity
-  usePresence(user as Parameters<typeof usePresence>[0], inDuel ? `duel-${duel.phase}` : screen, showSubmissionApp, showProfile, isAdmin, showLeaderboard, showFriends, showChat);
+  usePresence(
+    isGuest ? null : (user as Parameters<typeof usePresence>[0]),
+    inDuel ? `duel-${duel.phase}` : screen,
+    showSubmissionApp,
+    showProfile,
+    isAdmin,
+    showLeaderboard,
+    showFriends,
+    showChat,
+  );
 
   // Listen for admin messages sent to this user
-  const { messages, dismissMessage } = useAdminMessages(user?.uid);
+  const { messages, dismissMessage } = useAdminMessages(
+    isGuest ? null : user?.uid,
+  );
 
   // Friends list for chat notification subscriptions
-  const { friends } = useFriends(user?.uid, userDoc?.username ?? '');
+  const { friends } = useFriends(
+    isGuest ? null : user?.uid,
+    isGuest ? "" : (userDoc?.username ?? ""),
+  );
   const friendUids = friends.map((f) => f.friendUid);
-  const { notifications: chatNotifications, dismissNotification: dismissChatNotification } =
-    useChatNotifications(user?.uid ?? null, friendUids, chatFriend?.uid ?? null);
+  const {
+    notifications: chatNotifications,
+    dismissNotification: dismissChatNotification,
+  } = useChatNotifications(
+    user?.uid ?? null,
+    friendUids,
+    chatFriend?.uid ?? null,
+  );
+  const { invites: lobbyInvites, dismissInvite: dismissLobbyInvite } =
+    useLobbyInvites(user?.uid ?? null, friendUids);
 
   /**
    * Handle joining a lobby from a chat invite message.
    * Joins the lobby and navigates to the WaitingRoom.
    */
-  const handleJoinFromInvite = useCallback(async (inviteMsg: InviteMessage): Promise<void> => {
-    try {
-      const lobbyId = inviteMsg.lobbyDocId;
-      const diff = inviteMsg.difficulty;
-      if (!lobbyId || !diff) return;
+  const handleJoinFromInvite = useCallback(
+    async (inviteMsg: InviteMessage): Promise<boolean> => {
+      try {
+        const lobbyId = inviteMsg.lobbyDocId;
+        const diff = inviteMsg.difficulty;
+        if (!lobbyId || !diff) return false;
 
-      await joinLobby(
-        lobbyId,
-        user!.uid,
-        userDoc?.username ?? '',
-        diff
-      );
-      // Close any open panels so we land cleanly on the WaitingRoom
-      setShowFriends(false);
-      setShowChat(false);
-      setChatFriend(null);
-      setShowProfile(false);
-      setShowLeaderboard(false);
-      setShowDailyGoals(false);
-      setShowSubmissionApp(false);
-      // Set game state for the WaitingRoom
-      setDifficulty(diff as Difficulty);
-      setLobbyDocId(lobbyId);
-      setScreen('waitingRoom');
-    } catch (err: unknown) {
-      console.error('Failed to join lobby from invite:', err);
-      const message = err instanceof Error ? err.message : 'Failed to join lobby.';
-      alert(message);
-    }
-  }, [user, userDoc, setDifficulty, setLobbyDocId, setScreen]);
+        await joinLobby(lobbyId, user!.uid, userDoc?.username ?? "", diff);
+        // Close any open panels so we land cleanly on the WaitingRoom
+        setShowFriends(false);
+        setShowChat(false);
+        setChatFriend(null);
+        setShowProfile(false);
+        setShowLeaderboard(false);
+        setShowDailyGoals(false);
+        setShowSubmissionApp(false);
+        // Set game state for the WaitingRoom
+        setDifficulty(diff as Difficulty);
+        setLobbyDocId(lobbyId);
+        setScreen("waitingRoom");
+        return true;
+      } catch (err: unknown) {
+        console.error("Failed to join lobby from invite:", err);
+        const message =
+          err instanceof Error ? err.message : "Failed to join lobby.";
+        alert(message);
+        return false;
+      }
+    },
+    [user, userDoc, setDifficulty, setLobbyDocId, setScreen],
+  );
+
+  const handleJoinLobbyInvite = useCallback(
+    async (invite: LobbyInvite): Promise<boolean> => {
+      const success = await handleJoinFromInvite({
+        lobbyDocId: invite.lobbyDocId,
+        difficulty: invite.difficulty,
+      });
+      if (success) {
+        dismissLobbyInvite(invite.id);
+      }
+      return success;
+    },
+    [dismissLobbyInvite, handleJoinFromInvite],
+  );
+
+  const handleJoinChatNotification = useCallback(
+    async (item: ChatNotificationItem): Promise<boolean> => {
+      if (item.type !== "lobby_invite") return false;
+      return handleJoinFromInvite({
+        lobbyDocId: item.lobbyDocId,
+        difficulty: item.difficulty,
+      });
+    },
+    [handleJoinFromInvite],
+  );
 
   // Prepare the message banner (uses createPortal, renders at viewport top)
-  const messageBanner: ReactNode = user && messages.length > 0 ? (
-    <MessageBanner messages={messages as unknown as React.ComponentProps<typeof MessageBanner>['messages']} onDismiss={dismissMessage} />
-  ) : null;
+  const messageBanner: ReactNode =
+    user && messages.length > 0 ? (
+      <MessageBanner
+        messages={
+          messages as unknown as React.ComponentProps<
+            typeof MessageBanner
+          >["messages"]
+        }
+        onDismiss={dismissMessage}
+      />
+    ) : null;
 
   const chatNotificationBanner: ReactNode =
     user && chatNotifications.length > 0 ? (
-      <ChatNotificationBanner notifications={chatNotifications} onDismiss={dismissChatNotification} />
+      <ChatNotificationBanner
+        notifications={chatNotifications}
+        onDismiss={dismissChatNotification}
+        onJoinInvite={handleJoinChatNotification}
+      />
     ) : null;
   useEffect(() => {
+    if (isGuest) return;
     if (!user || !userDoc) return;
     const level = getLevelInfo(userDoc.totalXp ?? 0).level;
     const progressAchievementIds = getProgressUnlockedAchievementIds({
       gamesPlayed: userDoc.gamesPlayed ?? 0,
       totalXp: userDoc.totalXp ?? 0,
       level,
-      emailVerified
+      emailVerified,
     });
 
     let cancelled = false;
@@ -225,16 +338,20 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [emailVerified, refreshUserDoc, user, userDoc]);
+  }, [emailVerified, isGuest, refreshUserDoc, user, userDoc]);
 
   useEffect(() => {
-    if (!user || screen !== 'finalResults') return;
+    if (isGuest) return;
+    if (!user || screen !== "finalResults") return;
     const difficultyAchievementId = getDifficultyAchievementId(difficulty);
     if (!difficultyAchievementId) return;
 
     let cancelled = false;
     const unlockDifficultyAchievement = async (): Promise<void> => {
-      const rewardXp = await unlockAchievement(user.uid, difficultyAchievementId);
+      const rewardXp = await unlockAchievement(
+        user.uid,
+        difficultyAchievementId,
+      );
       if (rewardXp > 0 && !cancelled) {
         await refreshUserDoc();
       }
@@ -244,15 +361,16 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [difficulty, refreshUserDoc, screen, user]);
+  }, [difficulty, isGuest, refreshUserDoc, screen, user]);
 
   useEffect(() => {
+    if (isGuest) return;
     if (!user || !currentResult) return;
     if (currentResult.score < 5000) return;
 
     let cancelled = false;
     const unlockBullseye = async (): Promise<void> => {
-      const rewardXp = await unlockAchievement(user.uid, 'bullseye');
+      const rewardXp = await unlockAchievement(user.uid, "bullseye");
       if (rewardXp > 0 && !cancelled) {
         await refreshUserDoc();
       }
@@ -262,7 +380,7 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [currentResult, refreshUserDoc, user]);
+  }, [currentResult, isGuest, refreshUserDoc, user]);
 
   useEffect(() => {
     const onAchievementUpdated = (event: Event): void => {
@@ -278,22 +396,35 @@ function App(): React.ReactElement {
 
       setAchievementToastQueue((previous) => [
         ...previous,
-        { icon: meta.icon, title: meta.title, description: `${meta.highlight} ${meta.details}`, rewardXp: customEvent.detail?.rewardXp ?? meta.xpReward }
+        {
+          icon: meta.icon,
+          title: meta.title,
+          description: `${meta.highlight} ${meta.details}`,
+          rewardXp: customEvent.detail?.rewardXp ?? meta.xpReward,
+        },
       ]);
     };
 
     window.addEventListener(ACHIEVEMENTS_UPDATED_EVENT, onAchievementUpdated);
-    return () => window.removeEventListener(ACHIEVEMENTS_UPDATED_EVENT, onAchievementUpdated);
+    return () =>
+      window.removeEventListener(
+        ACHIEVEMENTS_UPDATED_EVENT,
+        onAchievementUpdated,
+      );
   }, []);
 
   useEffect(() => {
     if (achievementToastQueue.length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
     setAchievementToastFading(false);
     const fadeTimer = window.setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
       setAchievementToastFading(true);
     }, 4200);
     const removeTimer = window.setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
       setAchievementToastQueue((previous) => previous.slice(1));
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
       setAchievementToastFading(false);
     }, 6200);
     return () => {
@@ -335,11 +466,14 @@ function App(): React.ReactElement {
   /**
    * Handle opening a chat from the friends panel
    */
-  const handleOpenChat = useCallback((friendUid: string, friendUsername: string): void => {
-    setChatFriend({ uid: friendUid, username: friendUsername });
-    setShowChat(true);
-    setShowFriends(false);
-  }, []);
+  const handleOpenChat = useCallback(
+    (friendUid: string, friendUsername: string): void => {
+      setChatFriend({ uid: friendUid, username: friendUsername });
+      setShowChat(true);
+      setShowFriends(false);
+    },
+    [],
+  );
 
   /**
    * Handle closing the chat -> go back to friends panel
@@ -354,12 +488,14 @@ function App(): React.ReactElement {
    * Handle transition from WaitingRoom to the duel game
    */
   const handleDuelGameStart = useCallback((): void => {
-    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    if (!isGuest) {
+      void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    }
     if (user?.uid) recordDailyPlay(user.uid);
     setInDuel(true);
     setDuelLobbyDocId(lobbyDocId);
-    setScreen('duelGame');
-  }, [lobbyDocId, setScreen, user?.uid]);
+    setScreen("duelGame");
+  }, [isGuest, lobbyDocId, setScreen, user?.uid]);
 
   /**
    * Exit the duel and go back to multiplayer lobby
@@ -368,7 +504,7 @@ function App(): React.ReactElement {
     setInDuel(false);
     setDuelLobbyDocId(null);
     setLobbyDocId(null);
-    setScreen('multiplayerLobby');
+    setScreen("multiplayerLobby");
   }, [setLobbyDocId, setScreen]);
 
   /**
@@ -394,12 +530,92 @@ function App(): React.ReactElement {
       try {
         await handleOpponentDisconnect(docId, opponentUid, myUid, myUid);
       } catch (err) {
-        console.error('Forfeit update failed:', err);
+        console.error("Forfeit update failed:", err);
       }
     }
 
     handleDuelBackToTitle();
   }, [duelLobbyDocId, duel.opponentUid, user?.uid, handleDuelBackToTitle]);
+
+  /**
+   * Best-effort unload-safe forfeit write.
+   * Uses Firestore REST commit endpoint + sendBeacon so it can complete during tab close.
+   * Works for guest and non-guest users because lobby update rules are open.
+   */
+  const sendForfeitKeepalive = useCallback((docId: string, winnerUid: string, loserUid: string): void => {
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined;
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY as string | undefined;
+    if (!projectId || !apiKey) return;
+
+    const encodedProject = encodeURIComponent(projectId);
+    const encodedApiKey = encodeURIComponent(apiKey);
+    const commitUrl = `https://firestore.googleapis.com/v1/projects/${encodedProject}/databases/(default)/documents:commit?key=${encodedApiKey}`;
+
+    const nowIso = new Date().toISOString();
+    const docName = `projects/${projectId}/databases/(default)/documents/lobbies/${docId}`;
+    const payload = {
+      writes: [{
+        update: {
+          name: docName,
+          fields: {
+            phase: { stringValue: 'finished' },
+            winner: { stringValue: winnerUid },
+            loser: { stringValue: loserUid },
+            forfeitBy: { stringValue: loserUid },
+            finishedAt: { timestampValue: nowIso },
+            lastActionAt: { timestampValue: nowIso },
+            updatedAt: { timestampValue: nowIso }
+          }
+        },
+        updateMask: {
+          fieldPaths: ['phase', 'winner', 'loser', 'forfeitBy', 'finishedAt', 'lastActionAt', 'updatedAt']
+        },
+        currentDocument: { exists: true }
+      }]
+    };
+
+    try {
+      const body = JSON.stringify(payload);
+      // sendBeacon is the most reliable way to transmit during unload.
+      const sent = navigator.sendBeacon(commitUrl, new Blob([body], { type: 'text/plain;charset=UTF-8' }));
+      if (sent) return;
+
+      // Fallback: keepalive fetch without custom headers to avoid unload preflight delays.
+      fetch(commitUrl, {
+        method: 'POST',
+        body,
+        keepalive: true,
+        mode: 'cors'
+      }).catch(() => { });
+    } catch {
+      // no-op: this is best-effort for unload scenarios
+    }
+  }, []);
+
+  // If a player closes/reloads the tab during an active duel, forfeit immediately.
+  useEffect(() => {
+    const handleUnloadForfeit = (): void => {
+      if (!inDuelRef.current) return;
+      if (duelPhaseRef.current === 'finished') return;
+
+      const docId = duelLobbyDocIdRef.current;
+      const opponentUid = duelOpponentUidRef.current;
+      const myUid = duelMyUidRef.current;
+
+      if (docId && opponentUid && myUid) {
+        // Fire an unload-safe REST update first, then the normal SDK path.
+        sendForfeitKeepalive(docId, opponentUid, myUid);
+        handleOpponentDisconnect(docId, opponentUid, myUid, myUid).catch(() => { });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleUnloadForfeit);
+    window.addEventListener('pagehide', handleUnloadForfeit);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnloadForfeit);
+      window.removeEventListener('pagehide', handleUnloadForfeit);
+    };
+  }, [sendForfeitKeepalive]);
 
   // Show loading spinner while checking auth state
   if (loading) {
@@ -428,7 +644,11 @@ function App(): React.ReactElement {
           friendUid={chatFriend.uid}
           friendUsername={chatFriend.username}
           onBack={handleCloseChat}
-          onJoinLobby={handleJoinFromInvite as unknown as React.ComponentProps<typeof ChatWindow>['onJoinLobby']}
+          onJoinLobby={
+            handleJoinFromInvite as unknown as React.ComponentProps<
+              typeof ChatWindow
+            >["onJoinLobby"]
+          }
         />
         {dailyGoalsRewardModal}
       </>
@@ -544,24 +764,24 @@ function App(): React.ReactElement {
    * Handle the "Play" button on the title screen -> go to mode select
    */
   const handlePlay = (): void => {
-    setScreen('modeSelect');
+    setScreen("modeSelect");
   };
 
   /**
    * Handle selecting single-player from mode select.
    */
   const handleSelectSinglePlayer = (): void => {
-    setMode('singleplayer');
-    setScreen('difficultySelect');
+    setMode("singleplayer");
+    setScreen("difficultySelect");
   };
 
   /**
    * Handle selecting multiplayer from mode select.
    */
   const handleSelectMultiplayer = (): void => {
-    setMode('multiplayer');
-    setDifficulty((prev) => prev ?? 'all');
-    setScreen('multiplayerLobby');
+    setMode("multiplayer");
+    setDifficulty((prev) => prev ?? "all");
+    setScreen("multiplayerLobby");
   };
 
   /**
@@ -569,22 +789,26 @@ function App(): React.ReactElement {
    */
   const handleStartFromDifficulty = (
     selectedDifficulty: string,
-    selectedMode: string,
-    singleplayerVariant?: 'classic' | 'endless',
+    selectedMode: GameMode,
+    singleplayerVariant?: "classic" | "endless",
     roundTimeSeconds?: number,
-    totalRounds?: number
+    timePenalty?: boolean,
+    totalRounds?: number,
   ): void => {
-    void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
-    const effectiveMode = selectedMode ?? mode ?? 'singleplayer';
-    if (effectiveMode === 'singleplayer' && user?.uid) {
+    if (!isGuest) {
+      void touchLastActive(user?.uid, { minIntervalMs: 2 * 60 * 1000 });
+    }
+    const effectiveMode = selectedMode ?? mode ?? "singleplayer";
+    if (effectiveMode === "singleplayer" && user?.uid) {
       recordDailyPlay(user.uid);
     }
-    startGame(
+    (startGame as UseGameStateReturn["startGame"])(
       selectedDifficulty,
       effectiveMode,
-      singleplayerVariant ?? 'classic',
+      singleplayerVariant ?? "classic",
       roundTimeSeconds,
-      totalRounds
+      timePenalty,
+      totalRounds,
     );
   };
 
@@ -592,43 +816,42 @@ function App(): React.ReactElement {
    * Go back from difficulty select to the title screen
    */
   const handleBackToTitle = (): void => {
-    setScreen('title');
+    setScreen("title");
   };
 
   // --- Duel game state derivation ---
   // Get the latest round from roundHistory to show in results
-  const duelLatestRound = duel.roundHistory?.length > 0
-    ? duel.roundHistory[duel.roundHistory.length - 1]
-    : null;
+  const duelLatestRound =
+    duel.roundHistory?.length > 0
+      ? duel.roundHistory[duel.roundHistory.length - 1]
+      : null;
 
   // Get my username
-  const myUsername: string = userDoc?.username || 'You';
+  const myUsername: string = userDoc?.username || "You";
 
-  // Compute health before the latest round's damage was applied
   const uid = user?.uid ?? '';
-  const opUid = duel.opponentUid ?? '';
-
-  const duelMyHealthBefore: number = duelLatestRound
-    ? (duel.roundHistory.length > 1
-      ? duel.roundHistory[duel.roundHistory.length - 2].healthAfter?.[uid] ?? STARTING_HEALTH
-      : STARTING_HEALTH)
-    : STARTING_HEALTH;
-
-  const duelOpHealthBefore: number = duelLatestRound
-    ? (duel.roundHistory.length > 1
-      ? duel.roundHistory[duel.roundHistory.length - 2].healthAfter?.[opUid] ?? STARTING_HEALTH
-      : STARTING_HEALTH)
-    : STARTING_HEALTH;
 
   return (
     <div className="app">
       {achievementToastQueue[0] && (
-        <div className={`global-achievement-toast ${achievementToastFading ? 'fading' : ''}`} role="status" aria-live="polite">
-          <div className="global-achievement-toast-badge">{achievementToastQueue[0].icon}</div>
+        <div
+          className={`global-achievement-toast ${achievementToastFading ? "fading" : ""}`}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="global-achievement-toast-badge">
+            {achievementToastQueue[0].icon}
+          </div>
           <div className="global-achievement-toast-text">
-            <div className="global-achievement-toast-title">Achievement Unlocked: {achievementToastQueue[0].title}</div>
-            <div className="global-achievement-toast-description">{achievementToastQueue[0].description}</div>
-            <div className="global-achievement-toast-reward">+{achievementToastQueue[0].rewardXp.toLocaleString()} XP</div>
+            <div className="global-achievement-toast-title">
+              Achievement Unlocked: {achievementToastQueue[0].title}
+            </div>
+            <div className="global-achievement-toast-description">
+              {achievementToastQueue[0].description}
+            </div>
+            <div className="global-achievement-toast-reward">
+              +{achievementToastQueue[0].rewardXp.toLocaleString()} XP
+            </div>
           </div>
         </div>
       )}
@@ -638,7 +861,7 @@ function App(): React.ReactElement {
 
       {/* --- Single Player Screens --- */}
 
-      {screen === 'title' && !inDuel && (
+      {screen === "title" && !inDuel && (
         <TitleScreen
           onPlay={handlePlay}
           onOpenSubmission={() => setShowSubmissionApp(true)}
@@ -647,12 +870,15 @@ function App(): React.ReactElement {
           onOpenLeaderboard={() => setShowLeaderboard(true)}
           onOpenBugReport={() => setShowBugReport(true)}
           onOpenDailyGoals={() => setShowDailyGoals(true)}
-        onOpenAchievements={() => setShowAchievements(true)}
+          onOpenAchievements={() => setShowAchievements(true)}
           isLoading={isLoading}
+          invites={lobbyInvites}
+          onJoinInvite={handleJoinLobbyInvite}
+          onDismissInvite={dismissLobbyInvite}
         />
       )}
 
-      {screen === 'modeSelect' && !inDuel && (
+      {screen === "modeSelect" && !inDuel && (
         <ModeSelect
           onSelectSinglePlayer={handleSelectSinglePlayer}
           onSelectMultiplayer={handleSelectMultiplayer}
@@ -660,40 +886,52 @@ function App(): React.ReactElement {
         />
       )}
 
-      {screen === 'difficultySelect' && !inDuel && (
+      {screen === "difficultySelect" && !inDuel && (
         <DifficultySelect
           onStart={handleStartFromDifficulty}
-          onBack={() => setScreen('modeSelect')}
+          onBack={() => setScreen("modeSelect")}
           isLoading={isLoading}
         />
       )}
 
-      {screen === 'multiplayerLobby' && !inDuel && (
+      {screen === "multiplayerLobby" && !inDuel && (
         <MultiplayerLobby
-          difficulty={difficulty as React.ComponentProps<typeof MultiplayerLobby>['difficulty']}
+          difficulty={
+            difficulty as React.ComponentProps<
+              typeof MultiplayerLobby
+            >["difficulty"]
+          }
           userUid={user.uid}
           userUsername={userDoc?.username as string}
+          isGuest={isGuest}
           onJoinedLobby={(docId: string) => {
             setLobbyDocId(docId);
-            setScreen('waitingRoom');
+            setScreen("waitingRoom");
           }}
-          onBack={() => setScreen('modeSelect')}
+          onBack={() => setScreen("modeSelect")}
         />
       )}
 
-      {screen === 'waitingRoom' && lobbyDocId && !inDuel && (
+      {screen === "myGames" && !inDuel && (
+        <MyGames
+          userUid={user.uid}
+          onBack={() => setScreen("multiplayerLobby")}
+        />
+      )}
+
+      {screen === "waitingRoom" && lobbyDocId && !inDuel && (
         <WaitingRoom
           lobbyDocId={lobbyDocId}
           userUid={user.uid}
           onLeave={() => {
             setLobbyDocId(null);
-            setScreen('multiplayerLobby');
+            setScreen("multiplayerLobby");
           }}
           onGameStart={handleDuelGameStart}
         />
       )}
 
-      {screen === 'game' && currentImage && !inDuel && (
+      {screen === "game" && currentImage && !inDuel && (
         <GameScreen
           imageUrl={currentImage.url}
           guessLocation={guessLocation}
@@ -706,7 +944,11 @@ function App(): React.ReactElement {
           currentRound={currentRound}
           totalRounds={totalRounds}
           clickRejected={clickRejected}
-          playingArea={playingArea as React.ComponentProps<typeof GameScreen>['playingArea']}
+          playingArea={
+            playingArea as React.ComponentProps<
+              typeof GameScreen
+            >["playingArea"]
+          }
           timeRemaining={roundTimeSeconds > 0 ? timeRemaining : undefined}
           timeLimitSeconds={roundTimeSeconds}
           isEndlessMode={isEndlessMode}
@@ -715,7 +957,7 @@ function App(): React.ReactElement {
         />
       )}
 
-      {screen === 'result' && currentResult && !inDuel && (
+      {screen === "result" && currentResult && !inDuel && (
         <ResultScreen
           imageId={currentResult.imageId}
           guessLocation={currentResult.guessLocation}
@@ -725,15 +967,19 @@ function App(): React.ReactElement {
           imageUrl={currentResult.imageUrl}
           locationScore={currentResult.locationScore}
           floorCorrect={currentResult.floorCorrect}
+          exactSpotBonus={currentResult.exactSpotBonus}
           totalScore={currentResult.score}
           timeTakenSeconds={currentResult.timeTakenSeconds}
           timedOut={currentResult.timedOut}
           noGuess={currentResult.noGuess ?? false}
+          timePenalty={currentResult.timePenalty}
           roundNumber={currentRound}
           totalRounds={totalRounds}
           onNextRound={nextRound}
           onViewFinalResults={viewFinalResults}
-          isLastRound={isEndlessMode ? currentHp <= 0 : currentRound >= totalRounds}
+          isLastRound={
+            isEndlessMode ? currentHp <= 0 : currentRound >= totalRounds
+          }
           onBackToTitle={resetGame}
           isEndlessMode={isEndlessMode}
           currentHp={currentHp}
@@ -742,10 +988,10 @@ function App(): React.ReactElement {
         />
       )}
 
-      {screen === 'finalResults' && !inDuel && (
+      {screen === "finalResults" && !inDuel && (
         <FinalResultsScreen
           rounds={roundResults}
-          onPlayAgain={() => setScreen('difficultySelect')}
+          onPlayAgain={() => setScreen("difficultySelect")}
           onBackToTitle={resetGame}
           difficulty={difficulty}
           isEndlessMode={isEndlessMode}
@@ -754,7 +1000,7 @@ function App(): React.ReactElement {
       )}
 
       {/* Loading state for single-player game screen */}
-      {screen === 'game' && !currentImage && isLoading && !inDuel && (
+      {screen === "game" && !currentImage && isLoading && !inDuel && (
         <div className="loading-container">
           <div className="loading-spinner"></div>
         </div>
@@ -762,7 +1008,7 @@ function App(): React.ReactElement {
 
       {/* --- Duel (Multiplayer) Screens --- */}
 
-      {inDuel && duel.phase === 'guessing' && duel.currentImage && (
+      {inDuel && duel.phase === "guessing" && duel.currentImage && (
         <DuelGameScreen
           imageUrl={duel.currentImage.url}
           guessLocation={duel.localGuessLocation}
@@ -774,14 +1020,24 @@ function App(): React.ReactElement {
           onBackToTitle={handleDuelForfeit}
           currentRound={duel.currentRound}
           clickRejected={duel.clickRejected}
-          playingArea={duel.playingArea as React.ComponentProps<typeof DuelGameScreen>['playingArea']}
-          timeRemaining={duel.roundTimeSeconds > 0 ? duel.timeRemaining : undefined}
+          playingArea={
+            duel.playingArea as React.ComponentProps<
+              typeof DuelGameScreen
+            >["playingArea"]
+          }
+          timeRemaining={
+            duel.roundTimeSeconds > 0 ? duel.timeRemaining : undefined
+          }
           timeLimitSeconds={duel.roundTimeSeconds}
           hasSubmitted={duel.hasSubmitted}
           opponentHasSubmitted={duel.opponentHasSubmitted}
           opponentUsername={duel.opponentUsername}
           myHealth={duel.myHealth}
           opponentHealth={duel.opponentHealth}
+          activeGuessesCount={duel.activeGuessesCount}
+          activePlayerCount={duel.activePlayerCount}
+          totalPlayerCount={duel.totalPlayerCount}
+          allActiveGuessed={duel.allActiveGuessed}
           myUsername={myUsername}
           myActiveEmote={duel.myActiveEmote}
           opponentActiveEmote={duel.opponentActiveEmote}
@@ -789,32 +1045,32 @@ function App(): React.ReactElement {
         />
       )}
 
-      {inDuel && duel.phase === 'results' && duelLatestRound && (
+      {inDuel && duel.phase === "results" && duelLatestRound && (
         <DuelResultScreen
           roundNumber={duelLatestRound.roundNumber}
-          imageUrl={duelLatestRound.imageUrl}
+          imageUrl={duel.currentImage?.url || duelLatestRound.imageUrl}
           actualLocation={duelLatestRound.actualLocation}
-          myGuess={duelLatestRound.players?.[uid]}
-          opponentGuess={duelLatestRound.players?.[opUid]}
-          myUsername={myUsername}
-          opponentUsername={duel.opponentUsername}
-          myHealth={duel.myHealth}
-          opponentHealth={duel.opponentHealth}
-          myHealthBefore={duelMyHealthBefore}
-          opponentHealthBefore={duelOpHealthBefore}
+          players={duel.players}
+          roundGuessesByUid={duelLatestRound.players || {}}
+          healthAfter={duelLatestRound.healthAfter || {}}
+          healthBefore={
+            duel.roundHistory.length > 1
+              ? (duel.roundHistory[duel.roundHistory.length - 2].healthAfter || {})
+              : Object.fromEntries((duel.players || []).map((p) => [p.uid, STARTING_HEALTH]))
+          }
           damage={duelLatestRound.damage}
           multiplier={duelLatestRound.multiplier}
           damagedPlayer={duelLatestRound.damagedPlayer}
           myUid={uid}
           isHost={duel.isHost}
           onNextRound={duel.nextRound}
-          onViewFinalResults={() => {/* Will auto-transition via phase */}}
+          onViewFinalResults={() => {/* Will auto-transition via phase */ }}
           onLeaveDuel={handleDuelForfeit}
           isGameOver={false}
         />
       )}
 
-      {inDuel && duel.phase === 'finished' && duel.winner && duel.loser && (
+      {inDuel && duel.phase === "finished" && duel.winner && duel.loser && (
         <DuelFinalScreen
           winner={duel.winner}
           loser={duel.loser}
@@ -822,7 +1078,11 @@ function App(): React.ReactElement {
           players={duel.players}
           roundHistory={duel.roundHistory}
           health={duel.duelState?.health || {}}
-          forfeitBy={typeof duel.duelState?.forfeitBy === 'string' ? duel.duelState.forfeitBy : null}
+          forfeitBy={
+            typeof duel.duelState?.forfeitBy === "string"
+              ? duel.duelState.forfeitBy
+              : null
+          }
           onPlayAgain={handleExitDuel}
           onBackToTitle={handleDuelBackToTitle}
         />
@@ -840,8 +1100,8 @@ function App(): React.ReactElement {
         <BugReportModal
           onClose={() => setShowBugReport(false)}
           userId={user.uid}
-          username={userDoc?.username ?? ''}
-          userEmail={user.email ?? ''}
+          username={userDoc?.username ?? ""}
+          userEmail={user.email ?? ""}
         />
       )}
       {dailyGoalsRewardModal}

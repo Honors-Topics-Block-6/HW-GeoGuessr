@@ -38,17 +38,21 @@ export interface UserDoc {
   email: string;
   username: string;
   favoriteEmote?: string;
-  photoURL?: string;
+  photoURL?: string | null;
+  avatarEmoji?: string | null;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
   gamesPlayed: number;
+  dailyGoalWins?: number;
   createdAt: unknown;
   lastActive?: unknown;
   permissions?: PermissionsMap;
   lastGameAt?: unknown;
+  lastDailyGoalWinAt?: unknown;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount?: number;
   twentyFiveKCount?: number;
   photosSubmittedCount?: number;
@@ -70,11 +74,16 @@ export interface UserProfileUpdates {
   email?: string;
   isAdmin?: boolean;
   emailVerified?: boolean;
+  photoURL?: string | null;
+  avatarEmoji?: string | null;
   totalXp?: number;
   gamesPlayed?: number;
+  dailyGoalWins?: number;
   lastGameAt?: Date | string | null;
+  lastDailyGoalWinAt?: Date | string | null;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount?: number;
   twentyFiveKCount?: number;
   photosSubmittedCount?: number;
@@ -106,11 +115,25 @@ export interface BuildingStat {
 
 export interface DailyStatBucket {
   gamesPlayed: number;
+  roundsPlayed?: number;
   totalScore: number;
   totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount: number;
   twentyFiveKCount: number;
   photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
+  byRoundCount?: Partial<Record<'5' | '10' | '20', DailyStatBucketRound>>;
+}
+
+export interface DailyStatBucketRound {
+  gamesPlayed: number;
+  roundsPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
   buildingStats: Record<string, BuildingStat>;
 }
 
@@ -368,6 +391,9 @@ export async function createUserDoc(uid: string, email: string, username: string
     emailVerified: false,
     totalXp: 0,
     gamesPlayed: 0,
+    dailyGoalWins: 0,
+    photoURL: null,
+    avatarEmoji: null,
     createdAt: serverTimestamp(),
     // Updated on login + meaningful activity via server time.
     lastActive: serverTimestamp(),
@@ -468,6 +494,44 @@ export async function isUsernameTaken(username: string, excludeUid: string | nul
     return (data.username || '').toLowerCase() === lower && docSnap.id !== excludeUid;
   });
   return !!match;
+}
+
+/**
+ * Lookup a user document by username (case-insensitive; prefers usernameLower if present).
+ * Returns null if not found.
+ */
+export async function getUserByUsername(username: string): Promise<{ uid: string; email: string } | null> {
+  const usersRef = collection(db, 'users');
+  const trimmed = username.trim();
+  const lower = trimmed.toLowerCase();
+
+  // Try case-insensitive index
+  const qLower = query(usersRef, where('usernameLower', '==', lower));
+  const snapLower = await getDocs(qLower);
+  if (!snapLower.empty) {
+    const docSnap = snapLower.docs[0];
+    const data = docSnap.data() as { email?: string };
+    return { uid: docSnap.id, email: data.email };
+  }
+
+  // Fallback: exact match on username
+  const qExact = query(usersRef, where('username', '==', trimmed));
+  const snapExact = await getDocs(qExact);
+  if (!snapExact.empty) {
+    const docSnap = snapExact.docs[0];
+    const data = docSnap.data() as { email?: string };
+    return { uid: docSnap.id, email: data.email };
+  }
+
+  // Final fallback: scan and compare case-insensitively
+  const allSnap = await getDocs(usersRef);
+  const match = allSnap.docs.find(docSnap => {
+    const data = docSnap.data() as { username?: string; email?: string };
+    return (data.username || '').toLowerCase() === lower;
+  });
+  if (!match) return null;
+  const data = match.data() as { email?: string };
+  return { uid: match.id, email: data.email };
 }
 
 /**
@@ -628,6 +692,14 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
     updates.gamesPlayed = gp;
   }
 
+  if ('dailyGoalWins' in updates) {
+    const wins = Number(updates.dailyGoalWins);
+    if (isNaN(wins) || wins < 0 || !Number.isInteger(wins)) {
+      throw new Error('Daily goal wins must be a non-negative whole number.');
+    }
+    updates.dailyGoalWins = wins;
+  }
+
   // Convert lastGameAt to a Firestore-compatible Date if provided
   if ('lastGameAt' in updates && updates.lastGameAt !== null) {
     const date = updates.lastGameAt instanceof Date ? updates.lastGameAt : new Date(updates.lastGameAt as string);
@@ -635,6 +707,16 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
       throw new Error('Last game date is invalid.');
     }
     updates.lastGameAt = date;
+  }
+
+  if ('lastDailyGoalWinAt' in updates && updates.lastDailyGoalWinAt !== null) {
+    const date = updates.lastDailyGoalWinAt instanceof Date
+      ? updates.lastDailyGoalWinAt
+      : new Date(updates.lastDailyGoalWinAt as string);
+    if (isNaN(date.getTime())) {
+      throw new Error('Last daily goal win date is invalid.');
+    }
+    updates.lastDailyGoalWinAt = date;
   }
 
   // Keep emailLower in sync when email is updated

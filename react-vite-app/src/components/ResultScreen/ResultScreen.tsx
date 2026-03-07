@@ -18,6 +18,7 @@ export interface ResultScreenProps {
   imageUrl: string;
   locationScore: number | null;
   floorCorrect: boolean | null;
+  exactSpotBonus?: number;
   totalScore: number;
   timeTakenSeconds: number | null;
   timedOut: boolean;
@@ -27,6 +28,8 @@ export interface ResultScreenProps {
   onNextRound: () => void;
   onViewFinalResults: () => void;
   isLastRound: boolean;
+  /** Points deducted due to time (hard mode) */
+  timePenalty?: number;
   onBackToTitle?: () => void;
   isEndlessMode?: boolean;
   currentHp?: number;
@@ -51,7 +54,7 @@ function formatDistance(distance: number | null): string {
   if (distance === null) return 'No guess';
   // Convert percentage distance to feet (1 percentage unit = 2 feet)
   const feet = Math.round(distance * 2);
-  if (feet <= 10) return 'Perfect!';
+  if (feet === 0) return 'Perfect!';
   return `${feet} ft away`;
 }
 
@@ -179,6 +182,7 @@ function ResultScreen({
   imageUrl,
   locationScore,
   floorCorrect,
+  exactSpotBonus = 0,
   totalScore,
   timeTakenSeconds,
   timedOut,
@@ -188,6 +192,7 @@ function ResultScreen({
   onNextRound,
   onViewFinalResults,
   isLastRound,
+  timePenalty,
   onBackToTitle,
   isEndlessMode = false,
   currentHp = 6000,
@@ -362,7 +367,7 @@ function ResultScreen({
         <div className={`score-display ${animationPhase >= 3 ? 'visible' : ''}`}>
           <span className="score-label">Score</span>
           <span className="score-value">{displayedScore.toLocaleString()}</span>
-          <span className="score-max">/ 5,000</span>
+          <span className="score-max">/ 5,500</span>
         </div>
       </div>
 
@@ -593,14 +598,26 @@ function ResultScreen({
                 <span>Location Score</span>
                 <span>{effectiveLocationScore.toLocaleString()}</span>
               </div>
+              {(timePenalty ?? 0) > 0 && (
+                <div className="breakdown-row penalty">
+                  <span>Time Penalty</span>
+                  <span>-{(timePenalty ?? 0).toLocaleString()}</span>
+                </div>
+              )}
               {floorPenalty > 0 && (
                 <div className="breakdown-row penalty">
                   <span>Wrong Floor (-20%)</span>
                   <span>-{floorPenalty.toLocaleString()}</span>
                 </div>
               )}
+              {exactSpotBonus > 0 && (
+                <div className="breakdown-row bonus">
+                  <span>Exact Spot Bonus</span>
+                  <span>+{exactSpotBonus.toLocaleString()}</span>
+                </div>
+              )}
               <div className="breakdown-row total">
-                <span>Total</span>
+                <span>Score</span>
                 <span>{totalScore.toLocaleString()}</span>
               </div>
             </div>
@@ -616,7 +633,7 @@ function ResultScreen({
             </button>
             {onBackToTitle && (
               <button className="leave-game-button" onClick={() => setShowLeaveConfirm(true)}>
-                <span className="button-icon">←</span>
+                <span className="button-icon">⏻</span>
                 Leave Game
               </button>
             )}

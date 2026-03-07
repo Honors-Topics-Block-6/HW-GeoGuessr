@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInAnonymously,
   GoogleAuthProvider,
   signOut,
   sendEmailVerification,
@@ -16,6 +17,7 @@ import {
   updateUserDoc,
   updateUserProfile,
   isUsernameTaken,
+  getUserByUsername,
   checkUsernameAvailability,
   isHardcodedAdmin,
   getAllPermissions,
@@ -46,17 +48,21 @@ export interface UserDoc {
   email: string;
   username: string;
   favoriteEmote?: string;
-  photoURL?: string;
+  photoURL?: string | null;
+  avatarEmoji?: string | null;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
   gamesPlayed: number;
+  dailyGoalWins?: number;
   createdAt: unknown; // Firestore Timestamp or serverTimestamp sentinel
   permissions?: AdminPermissions;
   lastActive?: unknown;
   lastGameAt?: unknown;
+  lastDailyGoalWinAt?: unknown;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount?: number;
   twentyFiveKCount?: number;
   photosSubmittedCount?: number;
@@ -76,11 +82,25 @@ export interface BuildingStat {
 
 export interface DailyStatBucket {
   gamesPlayed: number;
+  roundsPlayed?: number;
   totalScore: number;
   totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount: number;
   twentyFiveKCount: number;
   photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
+  byRoundCount?: Partial<Record<'5' | '10' | '20', DailyStatBucketRound>>;
+}
+
+export interface DailyStatBucketRound {
+  gamesPlayed: number;
+  roundsPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
   buildingStats: Record<string, BuildingStat>;
 }
 
@@ -102,6 +122,7 @@ export interface AuthContextType {
   user: FirebaseUser | null;
   userDoc: UserDoc | null;
   loading: boolean;
+  isGuest: boolean;
   needsUsername: boolean;
   isAdmin: boolean;
   permissions: AdminPermissions;
@@ -113,11 +134,13 @@ export interface AuthContextType {
   signup: (email: string, password: string, username: string) => Promise<FirebaseUser>;
   login: (email: string, password: string) => Promise<FirebaseUser>;
   loginWithGoogle: () => Promise<FirebaseUser>;
+  continueAsGuest: () => Promise<FirebaseUser>;
   completeGoogleSignUp: (username: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
   updateFavoriteEmote: (favoriteEmote: string) => Promise<void>;
   updateProfileImage: (file: File) => Promise<string>;
+  updateProfileEmoji: (emoji: string | null) => Promise<void>;
   refreshUserDoc: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
 }
@@ -143,6 +166,19 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   const [loading, setLoading] = useState<boolean>(true);    // Initial auth check loading
   const [needsUsername, setNeedsUsername] = useState<boolean>(false); // Google sign-in needs username
   const [emailVerified, setEmailVerified] = useState<boolean>(false); // Email verification status
+  const isGuest: boolean = !!user?.isAnonymous;
+
+  const createGuestUserDoc = useCallback((firebaseUser: FirebaseUser): UserDoc => ({
+    uid: firebaseUser.uid,
+    email: firebaseUser.email ?? '',
+    username: 'Guest',
+    isAdmin: false,
+    emailVerified: true,
+    totalXp: 0,
+    gamesPlayed: 0,
+    createdAt: new Date(),
+    permissions: getNoPermissions()
+  }), []);
 
   // Listen for auth state changes
   useEffect(() => {
@@ -152,6 +188,13 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
         const authVerified = firebaseUser?.emailVerified ?? false;
 
         if (firebaseUser) {
+          if (firebaseUser.isAnonymous) {
+            setEmailVerified(true);
+            setUserDoc(createGuestUserDoc(firebaseUser));
+            setNeedsUsername(false);
+            return;
+          }
+
           // Fetch the user's Firestore document
           const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
           if (doc) {
@@ -201,7 +244,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     });
 
     return unsubscribe;
-  }, []);
+  }, [createGuestUserDoc]);
 
   // Poll for email verification status (focus + interval)
   // Checks both Firebase Auth (user clicked email link) and Firestore (admin toggled it)
@@ -320,6 +363,30 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   }, []);
 
   /**
+   * Log in with email OR username. If input lacks '@', treat as username and resolve to email.
+   */
+  const loginWithIdentifier = useCallback(async (identifier: string, password: string): Promise<FirebaseUser> => {
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      throw new Error('Please enter your email or username.');
+    }
+
+    let emailToUse = trimmed;
+    if (!trimmed.includes('@')) {
+      const userLookup = await getUserByUsername(trimmed);
+      if (!userLookup || !userLookup.email) {
+        throw new Error('No account found with that username.');
+      }
+      emailToUse = userLookup.email;
+    }
+
+    const credential = await signInWithEmailAndPassword(auth, emailToUse, password);
+    const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
+    setUserDoc(doc);
+    return credential.user;
+  }, []);
+
+  /**
    * Sign in with Google
    */
   const loginWithGoogle = useCallback(async (): Promise<FirebaseUser> => {
@@ -338,6 +405,21 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     }
 
     return credential.user;
+  }, []);
+
+  /**
+   * Continue without creating an account.
+   */
+  const continueAsGuest = useCallback(async (): Promise<FirebaseUser> => {
+    if (auth.currentUser?.isAnonymous) {
+      return auth.currentUser;
+    }
+    try {
+      const credential = await signInAnonymously(auth);
+      return credential.user;
+    } catch (err) {
+      throw err;
+    }
   }, []);
 
   /**
@@ -405,10 +487,28 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     // Mirror submission upload flow: compress and store Base64 data URL in Firestore.
     const photoURL = await compressImage(file);
 
-    await updateUserDoc(user.uid, { photoURL });
-    setUserDoc(prev => (prev ? { ...prev, photoURL } : prev));
+    await updateUserDoc(user.uid, { photoURL, avatarEmoji: null });
+    setUserDoc(prev => (prev ? { ...prev, photoURL, avatarEmoji: null } : prev));
 
     return photoURL;
+  }, [user]);
+
+  const updateProfileEmoji = useCallback(async (emoji: string | null): Promise<void> => {
+    if (!user) throw new Error('No authenticated user');
+
+    await updateUserDoc(user.uid, {
+      avatarEmoji: emoji ?? null,
+      ...(emoji ? { photoURL: null } : {})
+    });
+
+    setUserDoc(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        avatarEmoji: emoji ?? null,
+        photoURL: emoji ? null : prev.photoURL
+      };
+    });
   }, [user]);
 
   /**
@@ -449,6 +549,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     user,
     userDoc,
     loading,
+    isGuest,
     needsUsername,
     isAdmin,
     permissions,
@@ -458,13 +559,15 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     levelTitle,
     emailVerified,
     signup,
-    login,
+    login: loginWithIdentifier,
     loginWithGoogle,
+    continueAsGuest,
     completeGoogleSignUp,
     logout,
     updateUsername,
     updateFavoriteEmote,
     updateProfileImage,
+    updateProfileEmoji,
     refreshUserDoc,
     sendVerificationEmail: sendVerificationEmailToUser
   };

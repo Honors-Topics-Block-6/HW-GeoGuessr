@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { useAuth, type BuildingStat, type DailyStatBucket } from '../../contexts/AuthContext';
+import { useAuth, type BuildingStat, type DailyStatBucket, type DailyStatBucketRound } from '../../contexts/AuthContext';
 import { useFriends } from '../../hooks/useFriends';
 import { getFavoriteAndWorstBuildings } from '../../utils/buildingStats';
 import { getAllAchievementMeta, isAchievementUnlocked, type AchievementId } from '../../services/achievementService';
@@ -31,6 +31,8 @@ interface AchievementDefinition {
   unlocked: boolean;
 }
 
+type StatsRoundCount = 'all' | '5' | '10' | '20';
+
 function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScreenProps): React.ReactElement {
   const {
     user,
@@ -38,6 +40,7 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
     updateUsername,
     updateFavoriteEmote,
     updateProfileImage,
+    updateProfileEmoji,
     totalXp,
     levelInfo,
     levelTitle,
@@ -65,6 +68,7 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isSavingEmote, setIsSavingEmote] = useState<boolean>(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
+  const [isSettingEmoji, setIsSettingEmoji] = useState<boolean>(false);
   const [isEditingEmote, setIsEditingEmote] = useState<boolean>(false);
   const [newFavoriteEmote, setNewFavoriteEmote] = useState<string>(userDoc?.favoriteEmote || '😎');
   const [error, setError] = useState<string>('');
@@ -76,17 +80,32 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
   const [cropOffset, setCropOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [cropImageSize, setCropImageSize] = useState<{ width: number; height: number } | null>(null);
   const [isDraggingCrop, setIsDraggingCrop] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'stats'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'achievements'>('profile');
   const [statsInterval, setStatsInterval] = useState<'day' | 'week' | 'month' | 'all'>('all');
   const [statsDifficulty, setStatsDifficulty] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [statsRoundCount, setStatsRoundCount] = useState<StatsRoundCount>('all');
   const cropImageRef = useRef<HTMLImageElement | null>(null);
   const cropDragRef = useRef<{ startX: number; startY: number; offsetX: number; offsetY: number } | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     return () => {
       if (cropPreviewUrl) URL.revokeObjectURL(cropPreviewUrl);
     };
   }, [cropPreviewUrl]);
+
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handleClickOutside = (e: MouseEvent): void => {
+      const target = e.target as Node;
+      if (emojiPickerRef.current?.contains(target) || emojiButtonRef.current?.contains(target)) return;
+      setShowEmojiPicker(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
 
   const resetCropState = (): void => {
     setPhotoToCrop(null);
@@ -115,6 +134,13 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
       y: Math.min(maxOffsetY, Math.max(-maxOffsetY, offset.y))
     };
   };
+
+  const emojiOptions = [
+    '😀', '😁', '😂', '😎', '🤩', '😊', '😇', '🥳', '🤗', '😍',
+    '😋', '🤓', '😈', '👻', '🤖', '🐶', '🐱', '🦊', '🐻', '🐼',
+    '🦁', '🐯', '🐸', '🐵', '🐔', '🦄', '🌈', '⭐', '🔥', '💯',
+    '🎯', '🧠', '🚀', '💪', '👍', '❤️', '🤝', '🎮', '🎸', '⚽'
+  ];
 
   const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
     let file = e.target.files?.[0];
@@ -215,6 +241,32 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
       setError((err as Error).message || 'Failed to upload profile image.');
     } finally {
       setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleEmojiSelect = async (emoji: string): Promise<void> => {
+    setError('');
+    setIsSettingEmoji(true);
+    setShowEmojiPicker(false);
+    try {
+      await updateProfileEmoji(emoji);
+    } catch (err) {
+      setError((err as Error).message || 'Failed to update avatar.');
+    } finally {
+      setIsSettingEmoji(false);
+    }
+  };
+
+  const handleClearEmoji = async (): Promise<void> => {
+    setError('');
+    setIsSettingEmoji(true);
+    setShowEmojiPicker(false);
+    try {
+      await updateProfileEmoji(null);
+    } catch (err) {
+      setError((err as Error).message || 'Failed to reset avatar.');
+    } finally {
+      setIsSettingEmoji(false);
     }
   };
 
@@ -361,8 +413,10 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
   const sumBuckets = (bucketsByDate: Record<string, DailyStatBucket>, keys: string[] | null) => {
     const totals = {
       gamesPlayed: 0,
+      roundsPlayed: 0,
       totalScore: 0,
       totalGuessTimeSeconds: 0,
+      fastestGuessTimeSeconds: null as number | null,
       fiveKCount: 0,
       twentyFiveKCount: 0,
       photosSubmittedCount: 0,
@@ -373,8 +427,14 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
       const dayStats = bucketsByDate[key];
       if (!dayStats) continue;
       totals.gamesPlayed += dayStats.gamesPlayed ?? 0;
+      totals.roundsPlayed += dayStats.roundsPlayed ?? (dayStats.gamesPlayed ?? 0) * 5;
       totals.totalScore += dayStats.totalScore ?? 0;
       totals.totalGuessTimeSeconds += dayStats.totalGuessTimeSeconds ?? 0;
+      if (typeof dayStats.fastestGuessTimeSeconds === 'number') {
+        totals.fastestGuessTimeSeconds = totals.fastestGuessTimeSeconds === null
+          ? dayStats.fastestGuessTimeSeconds
+          : Math.min(totals.fastestGuessTimeSeconds, dayStats.fastestGuessTimeSeconds);
+      }
       totals.fiveKCount += dayStats.fiveKCount ?? 0;
       totals.twentyFiveKCount += dayStats.twentyFiveKCount ?? 0;
       totals.photosSubmittedCount += dayStats.photosSubmittedCount ?? 0;
@@ -396,42 +456,125 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
     return totals;
   };
 
+  const sumRoundBuckets = (bucketsByDate: Record<string, DailyStatBucket>, keys: string[] | null, roundCount: '5' | '10' | '20') => {
+    const totals = {
+      gamesPlayed: 0,
+      roundsPlayed: 0,
+      totalScore: 0,
+      totalGuessTimeSeconds: 0,
+      fastestGuessTimeSeconds: null as number | null,
+      fiveKCount: 0,
+      twentyFiveKCount: 0,
+      photosSubmittedCount: 0,
+      buildingStats: {} as Record<string, BuildingStat>
+    };
+    const dates = keys ?? Object.keys(bucketsByDate);
+    for (const key of dates) {
+      const dayStats = bucketsByDate[key];
+      if (!dayStats) continue;
+
+      // Legacy fallback: pre-round-count data is treated as 5-round games.
+      let bucket: DailyStatBucketRound | null = null;
+      if (dayStats.byRoundCount?.[roundCount]) {
+        bucket = dayStats.byRoundCount[roundCount] ?? null;
+      } else if (roundCount === '5') {
+        bucket = {
+          gamesPlayed: dayStats.gamesPlayed ?? 0,
+          roundsPlayed: dayStats.roundsPlayed ?? (dayStats.gamesPlayed ?? 0) * 5,
+          totalScore: dayStats.totalScore ?? 0,
+          totalGuessTimeSeconds: dayStats.totalGuessTimeSeconds ?? 0,
+          fastestGuessTimeSeconds: dayStats.fastestGuessTimeSeconds,
+          fiveKCount: dayStats.fiveKCount ?? 0,
+          twentyFiveKCount: dayStats.twentyFiveKCount ?? 0,
+          buildingStats: dayStats.buildingStats ?? {}
+        };
+      }
+      if (!bucket) continue;
+
+      totals.gamesPlayed += bucket.gamesPlayed ?? 0;
+      totals.roundsPlayed += bucket.roundsPlayed ?? 0;
+      totals.totalScore += bucket.totalScore ?? 0;
+      totals.totalGuessTimeSeconds += bucket.totalGuessTimeSeconds ?? 0;
+      if (typeof bucket.fastestGuessTimeSeconds === 'number') {
+        totals.fastestGuessTimeSeconds = totals.fastestGuessTimeSeconds === null
+          ? bucket.fastestGuessTimeSeconds
+          : Math.min(totals.fastestGuessTimeSeconds, bucket.fastestGuessTimeSeconds);
+      }
+      totals.fiveKCount += bucket.fiveKCount ?? 0;
+      totals.twentyFiveKCount += bucket.twentyFiveKCount ?? 0;
+
+      for (const [entryKey, entry] of Object.entries(bucket.buildingStats ?? {})) {
+        const current = totals.buildingStats[entryKey];
+        if (!current) {
+          totals.buildingStats[entryKey] = { ...entry };
+        } else {
+          totals.buildingStats[entryKey] = {
+            building: current.building,
+            floor: current.floor,
+            totalScore: current.totalScore + entry.totalScore,
+            count: current.count + entry.count
+          };
+        }
+      }
+    }
+    return totals;
+  };
+
   const getFilteredStats = () => {
-    if (statsInterval === 'all') {
+    const days = statsInterval === 'day' ? 1 : statsInterval === 'week' ? 7 : 30;
+    const keys = statsInterval === 'all' ? null : getDateKeys(days);
+    const baseBuckets = statsDifficulty === 'all'
+      ? dailyStats
+      : Object.fromEntries(
+        Object.entries(dailyStatsByDifficulty).map(([dateKey, diffMap]) => [dateKey, diffMap[statsDifficulty]])
+      ) as Record<string, DailyStatBucket>;
+
+    if (statsRoundCount !== 'all') {
+      const roundTotals = sumRoundBuckets(baseBuckets, keys, statsRoundCount);
+      const photoSource = statsInterval === 'all'
+        ? photosSubmittedCountAllTime
+        : sumBuckets(dailyStats, keys).photosSubmittedCount;
+      return { ...roundTotals, photosSubmittedCount: photoSource };
+    }
+
+    if (statsInterval === 'all' && statsDifficulty === 'all') {
       const allTimeTotals = {
         gamesPlayed: gamesPlayedAllTime,
+        roundsPlayed: gamesPlayedAllTime * 5,
         totalScore: totalScoreAllTime,
         totalGuessTimeSeconds: totalGuessTimeSecondsAllTime,
+        fastestGuessTimeSeconds: typeof userDoc?.fastestGuessTimeSeconds === 'number' ? userDoc.fastestGuessTimeSeconds : null,
         fiveKCount: fiveKCountAllTime,
         twentyFiveKCount: twentyFiveKCountAllTime,
         photosSubmittedCount: photosSubmittedCountAllTime,
         buildingStats
       };
-      if (statsDifficulty === 'all') return allTimeTotals;
-      const difficultyTotals = sumBuckets(
-        Object.fromEntries(
-          Object.entries(dailyStatsByDifficulty).map(([dateKey, diffMap]) => [dateKey, diffMap[statsDifficulty]])
-        ) as Record<string, DailyStatBucket>,
-        null
-      );
-      return { ...allTimeTotals, ...difficultyTotals, photosSubmittedCount: allTimeTotals.photosSubmittedCount };
+      return allTimeTotals;
     }
-    const days = statsInterval === 'day' ? 1 : statsInterval === 'week' ? 7 : 30;
-    const keys = getDateKeys(days);
-    const timeTotals = sumBuckets(dailyStats, keys);
-    if (statsDifficulty === 'all') return timeTotals;
-    const difficultyTotals = sumBuckets(
-      Object.fromEntries(
-        keys.map((dateKey) => [dateKey, dailyStatsByDifficulty[dateKey]?.[statsDifficulty]])
-      ) as Record<string, DailyStatBucket>,
-      keys
-    );
-    return { ...timeTotals, ...difficultyTotals, photosSubmittedCount: timeTotals.photosSubmittedCount };
+
+    const totals = sumBuckets(baseBuckets, keys);
+    if (statsDifficulty !== 'all') {
+      const photoSource = statsInterval === 'all'
+        ? photosSubmittedCountAllTime
+        : sumBuckets(dailyStats, keys).photosSubmittedCount;
+      return { ...totals, photosSubmittedCount: photoSource };
+    }
+    return totals;
   };
 
   const filteredStats = getFilteredStats();
   const averageScore = filteredStats.gamesPlayed > 0 ? Math.round(filteredStats.totalScore / filteredStats.gamesPlayed) : 0;
-  const averageGuessTime = filteredStats.gamesPlayed > 0 ? filteredStats.totalGuessTimeSeconds / (filteredStats.gamesPlayed * 5) : 0;
+  const totalGuesses = filteredStats.roundsPlayed > 0
+    ? filteredStats.roundsPlayed
+    : filteredStats.gamesPlayed * (statsRoundCount === 'all' ? 5 : Number(statsRoundCount));
+  const averageGuessTime = totalGuesses > 0 ? filteredStats.totalGuessTimeSeconds / totalGuesses : 0;
+  const perfectGameLabel = statsRoundCount === '5'
+    ? 'Number of 25ks'
+    : statsRoundCount === '10'
+      ? 'Number of 50ks'
+      : statsRoundCount === '20'
+        ? 'Number of 100ks'
+        : 'Number of Perfect Games';
   const friendsToFollowerRatio = followersCount > 0 ? (friends.length / followersCount) : null;
   const { favoriteBuilding, worstBuilding } = getFavoriteAndWorstBuildings(filteredStats.buildingStats);
 
@@ -466,13 +609,61 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
           <div className="profile-avatar">
             {userDoc?.photoURL ? (
               <img className="profile-avatar-image" src={userDoc.photoURL} alt={`${userDoc.username}'s profile`} />
+            ) : userDoc?.avatarEmoji ? (
+              <span className="profile-avatar-emoji">{userDoc.avatarEmoji}</span>
             ) : (
               <span className="profile-avatar-icon">👤</span>
             )}
-            <label className={`profile-photo-upload ${isUploadingPhoto ? 'disabled' : ''}`}>
-              {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
-              <input type="file" accept="image/*,.heic,.heif" onChange={handlePhotoUpload} disabled={isUploadingPhoto} />
-            </label>
+            <div className="profile-avatar-buttons">
+              <label className={`profile-photo-upload ${isUploadingPhoto ? 'disabled' : ''}`}>
+                {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                <input type="file" accept="image/*,.heic,.heif" onChange={handlePhotoUpload} disabled={isUploadingPhoto} />
+              </label>
+              <div className="profile-emoji-button-wrapper">
+                <button
+                  ref={emojiButtonRef}
+                  type="button"
+                  className={`profile-emoji-button ${showEmojiPicker ? 'active' : ''}`}
+                  onClick={() => setShowEmojiPicker((v) => !v)}
+                  disabled={isSettingEmoji || isUploadingPhoto}
+                  aria-label="Choose emoji avatar"
+                  aria-expanded={showEmojiPicker}
+                >
+                  {userDoc?.avatarEmoji && !userDoc?.photoURL ? userDoc.avatarEmoji : '😀'}
+                </button>
+                {showEmojiPicker && (
+                  <div className="profile-emoji-dropdown" ref={emojiPickerRef}>
+                    <div className="profile-emoji-grid">
+                      {emojiOptions.map(emoji => {
+                        const isSelected = userDoc?.avatarEmoji === emoji && !userDoc?.photoURL;
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className={`profile-emoji-option ${isSelected ? 'selected' : ''}`}
+                            onClick={() => handleEmojiSelect(emoji)}
+                            disabled={isSettingEmoji}
+                            aria-label={`Use ${emoji} as profile avatar`}
+                          >
+                            {emoji}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {userDoc?.avatarEmoji && !userDoc?.photoURL && (
+                      <button
+                        type="button"
+                        className="profile-emoji-clear"
+                        onClick={handleClearEmoji}
+                        disabled={isSettingEmoji}
+                      >
+                        Reset to default
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           <h1 className="profile-title">Your Profile</h1>
           {error && <div className="profile-error">{error}</div>}
@@ -481,36 +672,40 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
             <button className={`profile-tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')} type="button">Profile</button>
             <button className={`profile-tab ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')} type="button">Statistics</button>
           </div>
-          {/* ── Level & XP Section ── */}
-          <div className="profile-level-section">
-            <div className="profile-level-header">
-              <span className="profile-level-badge">Lvl {levelInfo.level}</span>
-              <span className="profile-level-title">{levelTitle}</span>
-            </div>
-            <div className="profile-xp-bar-container">
-              <div className="profile-xp-bar">
-                <div className="profile-xp-bar-fill" style={{ width: `${progressPercent}%` }} />
+          {activeTab === 'profile' && (
+            <>
+              {/* ── Level & XP Section ── */}
+              <div className="profile-level-section">
+                <div className="profile-level-header">
+                  <span className="profile-level-badge">Lvl {levelInfo.level}</span>
+                  <span className="profile-level-title">{levelTitle}</span>
+                </div>
+                <div className="profile-xp-bar-container">
+                  <div className="profile-xp-bar">
+                    <div className="profile-xp-bar-fill" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                  <div className="profile-xp-bar-labels">
+                    <span className="profile-xp-current">{levelInfo.xpIntoLevel.toLocaleString()} XP</span>
+                    <span className="profile-xp-needed">{levelInfo.currentLevelXp.toLocaleString()} XP</span>
+                  </div>
+                </div>
+                <div className="profile-xp-stats">
+                  <div className="profile-xp-stat">
+                    <span className="profile-xp-stat-value">{totalXp.toLocaleString()}</span>
+                    <span className="profile-xp-stat-label">Total XP</span>
+                  </div>
+                  <div className="profile-xp-stat">
+                    <span className="profile-xp-stat-value">{gamesPlayed}</span>
+                    <span className="profile-xp-stat-label">Games Played</span>
+                  </div>
+                  <div className="profile-xp-stat">
+                    <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
+                    <span className="profile-xp-stat-label">XP to Next Level</span>
+                  </div>
+                </div>
               </div>
-              <div className="profile-xp-bar-labels">
-                <span className="profile-xp-current">{levelInfo.xpIntoLevel.toLocaleString()} XP</span>
-                <span className="profile-xp-needed">{levelInfo.currentLevelXp.toLocaleString()} XP</span>
-              </div>
-            </div>
-            <div className="profile-xp-stats">
-              <div className="profile-xp-stat">
-                <span className="profile-xp-stat-value">{totalXp.toLocaleString()}</span>
-                <span className="profile-xp-stat-label">Total XP</span>
-              </div>
-              <div className="profile-xp-stat">
-                <span className="profile-xp-stat-value">{gamesPlayed}</span>
-                <span className="profile-xp-stat-label">Games Played</span>
-              </div>
-              <div className="profile-xp-stat">
-                <span className="profile-xp-stat-value">{levelInfo.xpToNextLevel.toLocaleString()}</span>
-                <span className="profile-xp-stat-label">XP to Next Level</span>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
           {activeTab === 'profile' ? (
             <div className="profile-fields">
               <div className="profile-field">
@@ -552,11 +747,43 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
                 </div>
               )}
               <div className="profile-field">
-                <span className="profile-label">Member Since</span>
+                <span className="profile-label">Time Joined</span>
                 <span className="profile-value">{formatTimestamp(userDoc?.createdAt)}</span>
               </div>
+              <div className="profile-field">
+                <span className="profile-label">Last Online</span>
+                <span className="profile-value">{formatTimestamp(userDoc?.lastOnline)}</span>
+              </div>
+              <div className="profile-field">
+                <span className="profile-label">Friends to Follower Ratio</span>
+                <span className="profile-value">{friendsToFollowerRatio !== null ? friendsToFollowerRatio.toFixed(2) : 'N/A'}</span>
+              </div>
+              <div className="profile-field">
+                <span className="profile-label">Number of Photos Submitted</span>
+                <span className="profile-value">{photosSubmittedCountAllTime.toLocaleString()}</span>
+              </div>
+              <div className="profile-field">
+                <span className="profile-label">Favorite Emote</span>
+                {isEditingEmote ? (
+                  <div className="profile-edit-row">
+                    <input type="text" value={newFavoriteEmote} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewFavoriteEmote(e.target.value)} className="profile-input profile-emote-input" disabled={isSavingEmote} placeholder="Pick an emoji" />
+                    <div className="profile-emote-quick-row">
+                      {QUICK_PROFILE_EMOTES.map((emote) => (
+                        <button key={emote} className="profile-emote-quick-button" onClick={() => setNewFavoriteEmote(emote)} type="button" disabled={isSavingEmote} aria-label={`Set favorite emote to ${emote}`}>{emote}</button>
+                      ))}
+                    </div>
+                    <button className="profile-save-button" onClick={handleSaveFavoriteEmote} disabled={isSavingEmote}>{isSavingEmote ? 'Saving...' : 'Save'}</button>
+                    <button className="profile-cancel-button" onClick={handleCancelFavoriteEmote} disabled={isSavingEmote}>Cancel</button>
+                  </div>
+                ) : (
+                  <div className="profile-value-row">
+                    <span className="profile-value profile-favorite-emote">{userDoc?.favoriteEmote || '😎'}</span>
+                    <button className="profile-edit-button" onClick={() => setIsEditingEmote(true)}>Edit</button>
+                  </div>
+                )}
+              </div>
             </div>
-          ) : (
+          ) : activeTab === 'stats' ? (
             <div className="profile-stats">
               <div className="profile-activity">
                 <div className="profile-activity-header">
@@ -625,76 +852,63 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
                   ))}
                 </div>
               </div>
+              <div className="profile-stats-interval">
+                <span className="profile-stats-interval-label">Rounds</span>
+                <div className="profile-stats-interval-buttons">
+                  {(['all', '5', '10', '20'] as const).map((roundCount) => (
+                    <button key={roundCount} type="button" className={`profile-stats-interval-button ${statsRoundCount === roundCount ? 'active' : ''}`} onClick={() => setStatsRoundCount(roundCount)}>
+                      {roundCount === 'all' ? 'All' : `${roundCount} Rounds`}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="profile-stat-row"><span className="profile-stat-label">Games Played</span><span className="profile-stat-value">{filteredStats.gamesPlayed.toLocaleString()}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Average Score</span><span className="profile-stat-value">{filteredStats.gamesPlayed > 0 ? averageScore.toLocaleString() : 'N/A'}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Number of 5ks</span><span className="profile-stat-value">{filteredStats.fiveKCount.toLocaleString()}</span></div>
-              <div className="profile-stat-row"><span className="profile-stat-label">Number of 25ks</span><span className="profile-stat-value">{filteredStats.twentyFiveKCount.toLocaleString()}</span></div>
+              <div className="profile-stat-row"><span className="profile-stat-label">{perfectGameLabel}</span><span className="profile-stat-value">{filteredStats.twentyFiveKCount.toLocaleString()}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Favorite Building</span><span className="profile-stat-value">{favoriteBuilding}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Worst Building</span><span className="profile-stat-value">{worstBuilding}</span></div>
               <div className="profile-stat-row"><span className="profile-stat-label">Average Guess Time</span><span className="profile-stat-value">{filteredStats.gamesPlayed > 0 ? `${averageGuessTime.toFixed(2)}s` : 'N/A'}</span></div>
-              <div className="profile-stat-row"><span className="profile-stat-label">Number of Photos Submitted</span><span className="profile-stat-value">{filteredStats.photosSubmittedCount.toLocaleString()}</span></div>
-              <div className="profile-stat-row"><span className="profile-stat-label">Time Joined</span><span className="profile-stat-value">{formatTimestamp(userDoc?.createdAt)}</span></div>
-              <div className="profile-stat-row"><span className="profile-stat-label">Last Online</span><span className="profile-stat-value">{formatTimestamp(userDoc?.lastOnline)}</span></div>
-              <div className="profile-stat-row"><span className="profile-stat-label">Friends to Follower Ratio</span><span className="profile-stat-value">{friendsToFollowerRatio !== null ? friendsToFollowerRatio.toFixed(2) : 'N/A'}</span></div>
-              <div className="profile-stat-row"><span className="profile-stat-label">Favorite Emote</span><span className="profile-stat-value">{userDoc?.favoriteEmote || '😎'}</span></div>
-              <div className="profile-field">
-                <span className="profile-label">Favorite Emote (Public)</span>
-                {isEditingEmote ? (
-                  <div className="profile-edit-row">
-                    <input type="text" value={newFavoriteEmote} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewFavoriteEmote(e.target.value)} className="profile-input profile-emote-input" disabled={isSavingEmote} placeholder="Pick an emoji" />
-                    <div className="profile-emote-quick-row">
-                      {QUICK_PROFILE_EMOTES.map((emote) => (
-                        <button key={emote} className="profile-emote-quick-button" onClick={() => setNewFavoriteEmote(emote)} type="button" disabled={isSavingEmote} aria-label={`Set favorite emote to ${emote}`}>{emote}</button>
-                      ))}
-                    </div>
-                    <button className="profile-save-button" onClick={handleSaveFavoriteEmote} disabled={isSavingEmote}>{isSavingEmote ? 'Saving...' : 'Save'}</button>
-                    <button className="profile-cancel-button" onClick={handleCancelFavoriteEmote} disabled={isSavingEmote}>Cancel</button>
-                  </div>
-                ) : (
-                  <div className="profile-value-row">
-                    <span className="profile-value profile-favorite-emote">{userDoc?.favoriteEmote || '😎'}</span>
-                    <button className="profile-edit-button" onClick={() => setIsEditingEmote(true)}>Edit</button>
-                  </div>
-                )}
+              <div className="profile-stat-row"><span className="profile-stat-label">Fastest Guess Time</span><span className="profile-stat-value">{typeof filteredStats.fastestGuessTimeSeconds === 'number' ? `${filteredStats.fastestGuessTimeSeconds.toFixed(2)}s` : 'N/A'}</span></div>
+            </div>
+          ) : (
+            <section className="profile-achievements-section">
+              <div className="profile-achievements-header">
+                <span className="profile-label">Achievements</span>
+                <span className="profile-achievements-summary">{completedAchievements}/{achievementDefinitions.length} unlocked</span>
               </div>
-            </div>
+              <div className="profile-achievements-panel">
+                {achievementDefinitions.map((achievement) => {
+                  const isUnlocked = achievement.unlocked;
+                  const progressPct = Math.round((achievement.progress / achievement.target) * 100);
+                  return (
+                    <div key={achievement.id} className={`profile-achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`}>
+                      <div className="profile-achievement-card-header">
+                        <div className={`profile-achievement-circle ${isUnlocked ? 'unlocked' : 'locked'}`}>
+                          <span className="profile-achievement-icon">{achievement.icon}</span>
+                        </div>
+                        <div className="profile-achievement-main">
+                          <span className="profile-achievement-title">{achievement.title}</span>
+                          <span className="profile-achievement-reward">+{achievement.xpReward.toLocaleString()} XP</span>
+                        </div>
+                        <span className={`profile-achievement-status ${isUnlocked ? 'unlocked' : 'locked'}`}>{isUnlocked ? 'Unlocked' : 'Locked'}</span>
+                      </div>
+                      <div className="profile-achievement-progress-row">
+                        <div className="profile-achievement-progress-track">
+                          <div className="profile-achievement-progress-fill" style={{ width: `${progressPct}%` }} />
+                        </div>
+                        <span className="profile-achievement-progress">{achievement.progress.toLocaleString()} / {achievement.target.toLocaleString()}</span>
+                      </div>
+                      <div className="profile-achievement-hover-card" role="tooltip">
+                        <p><strong>{achievement.highlight}</strong> {achievement.details}</p>
+                        <p className="profile-achievement-hover-reward">XP Bonus: +{achievement.xpReward.toLocaleString()} XP</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           )}
-          <section className="profile-achievements-section">
-            <div className="profile-achievements-header">
-              <span className="profile-label">Achievements</span>
-              <span className="profile-achievements-summary">{completedAchievements}/{achievementDefinitions.length} unlocked</span>
-            </div>
-            <div className="profile-achievements-panel">
-              {achievementDefinitions.map((achievement) => {
-                const isUnlocked = achievement.unlocked;
-                const progressPct = Math.round((achievement.progress / achievement.target) * 100);
-                return (
-                  <div key={achievement.id} className={`profile-achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`}>
-                    <div className="profile-achievement-card-header">
-                      <div className={`profile-achievement-circle ${isUnlocked ? 'unlocked' : 'locked'}`}>
-                        <span className="profile-achievement-icon">{achievement.icon}</span>
-                      </div>
-                      <div className="profile-achievement-main">
-                        <span className="profile-achievement-title">{achievement.title}</span>
-                        <span className="profile-achievement-reward">+{achievement.xpReward.toLocaleString()} XP</span>
-                      </div>
-                      <span className={`profile-achievement-status ${isUnlocked ? 'unlocked' : 'locked'}`}>{isUnlocked ? 'Unlocked' : 'Locked'}</span>
-                    </div>
-                    <div className="profile-achievement-progress-row">
-                      <div className="profile-achievement-progress-track">
-                        <div className="profile-achievement-progress-fill" style={{ width: `${progressPct}%` }} />
-                      </div>
-                      <span className="profile-achievement-progress">{achievement.progress.toLocaleString()} / {achievement.target.toLocaleString()}</span>
-                    </div>
-                    <div className="profile-achievement-hover-card" role="tooltip">
-                      <p><strong>{achievement.highlight}</strong> {achievement.details}</p>
-                      <p className="profile-achievement-hover-reward">XP Bonus: +{achievement.xpReward.toLocaleString()} XP</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
         </div>
       </div>
       {cropPreviewUrl &&

@@ -200,4 +200,31 @@ describe('TitleScreen', () => {
       expect(container.querySelector('.button-spinner')).not.toBeInTheDocument();
     });
   });
+
+  describe('invitations', () => {
+    it('should allow declining an invite', async () => {
+      const user = userEvent.setup();
+      const onDismissInvite = vi.fn();
+
+      render(
+        <TitleScreen
+          {...defaultProps}
+          invites={[{
+            id: 'invite-1',
+            senderUid: 'friend-1',
+            senderUsername: 'Sam',
+            lobbyDocId: 'lobby-1',
+            difficulty: 'all',
+            sentAt: null
+          }]}
+          onDismissInvite={onDismissInvite}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /decline sam's invite/i }));
+
+      expect(onDismissInvite).toHaveBeenCalledTimes(1);
+      expect(onDismissInvite).toHaveBeenCalledWith('invite-1');
+    });
+  });
 });

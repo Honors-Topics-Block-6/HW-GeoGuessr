@@ -44,6 +44,7 @@ export interface DailyGoalsDoc {
 export interface GoalProgressResult {
   updated: boolean;
   allCompleted: boolean;
+  completedGoalsDelta: number;
 }
 
 export interface GoalProgressParams {
@@ -153,25 +154,25 @@ export async function recordGoalProgress(
     await getOrCreateDailyGoals(uid);
     snapshot = await getDoc(goalsRef);
     if (!snapshot.exists()) {
-      return { updated: false, allCompleted: false };
+      return { updated: false, allCompleted: false, completedGoalsDelta: 0 };
     }
     data = snapshot.data() as DailyGoalsDoc;
   }
 
   if (!data) {
-    return { updated: false, allCompleted: false };
+    return { updated: false, allCompleted: false, completedGoalsDelta: 0 };
   }
 
   // Already all completed + bonus awarded — no further updates needed
   if (data.allCompleted && data.bonusXpAwarded) {
-    return { updated: false, allCompleted: true };
+    return { updated: false, allCompleted: true, completedGoalsDelta: 0 };
   }
 
-  let result: GoalProgressResult = { updated: false, allCompleted: false };
+  let result: GoalProgressResult = { updated: false, allCompleted: false, completedGoalsDelta: 0 };
   await runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(goalsRef);
     if (!snapshot.exists()) {
-      result = { updated: false, allCompleted: false };
+      result = { updated: false, allCompleted: false, completedGoalsDelta: 0 };
       return;
     }
 
@@ -179,17 +180,18 @@ export async function recordGoalProgress(
 
     // Don't update stale goals
     if (data.date !== today) {
-      result = { updated: false, allCompleted: false };
+      result = { updated: false, allCompleted: false, completedGoalsDelta: 0 };
       return;
     }
 
     // Already all completed + bonus awarded — no further updates needed
     if (data.allCompleted && data.bonusXpAwarded) {
-      result = { updated: false, allCompleted: true };
+      result = { updated: false, allCompleted: true, completedGoalsDelta: 0 };
       return;
     }
 
     let anyUpdated = false;
+    let newlyCompletedCount = 0;
     const updatedGoals = data.goals.map(goal => {
       if (goal.type !== goalType) return goal;
       if (goal.completed) return goal;
@@ -211,6 +213,7 @@ export async function recordGoalProgress(
 
       if (updated.current >= goal.target) {
         updated.completed = true;
+        if (!goal.completed) newlyCompletedCount += 1;
       }
 
       anyUpdated = true;
@@ -218,7 +221,7 @@ export async function recordGoalProgress(
     });
 
     if (!anyUpdated) {
-      result = { updated: false, allCompleted: data.allCompleted };
+      result = { updated: false, allCompleted: data.allCompleted, completedGoalsDelta: 0 };
       return;
     }
 
@@ -233,8 +236,17 @@ export async function recordGoalProgress(
     }
 
     transaction.update(goalsRef, updatePayload);
-    result = { updated: true, allCompleted };
+    result = { updated: true, allCompleted, completedGoalsDelta: newlyCompletedCount };
   });
+
+  // Update user's dailyGoalWins when goals are newly completed
+  if (result.completedGoalsDelta > 0) {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, {
+      dailyGoalWins: increment(result.completedGoalsDelta),
+      lastDailyGoalWinAt: serverTimestamp()
+    });
+  }
 
   return result;
 }

@@ -101,9 +101,8 @@
 }
 
 @media (max-width: 768px) {
-  .mode-select-screen {
-    min-height: 100vh;
-    height: auto;
+  .mode-select-content {
+    max-height: calc(100vh - 3rem);
     overflow-y: auto;
   }
 }
