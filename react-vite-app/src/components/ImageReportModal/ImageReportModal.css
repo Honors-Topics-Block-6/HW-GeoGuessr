@@ -23,14 +23,17 @@
   background: var(--hw-surface, #ffffff);
   border: 1px solid var(--hw-gray-300, #d1d5db);
   border-radius: 0;
-  max-width: 560px;
+  max-width: 820px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   position: relative;
   padding: 24px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   animation: imageReportSlideIn 0.3s ease-out;
+  margin: auto;
 }
 
 @keyframes imageReportSlideIn {
@@ -97,15 +100,47 @@
   accent-color: var(--hw-red, #c8102e);
 }
 
+.image-report-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .image-report-body.has-location {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(320px, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .image-report-body.has-location .image-report-form-column {
+    order: 2;
+  }
+
+  .image-report-body.has-location .image-report-location-section {
+    order: 1;
+  }
+}
+
+.image-report-form-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
 .image-report-location-section {
-  margin-bottom: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-width: 0;
 }
 
 .image-report-map-wrapper {
   min-height: 280px;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .image-report-map-wrapper .map-picker {

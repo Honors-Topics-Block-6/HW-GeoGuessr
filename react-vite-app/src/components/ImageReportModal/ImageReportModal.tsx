@@ -160,112 +160,118 @@ function ImageReportModal({ onClose, onSubmit }: ImageReportModalProps): React.R
           ×
         </button>
 
-        <div className="image-report-field">
-          <label className="image-report-label">Cause</label>
-          <div className="image-report-causes">
-            {CAUSE_OPTIONS.map((opt) => (
-              <label key={opt.value} className="image-report-cause-option">
-                <input
-                  type="radio"
-                  name="cause"
-                  value={opt.value}
-                  checked={cause === opt.value}
-                  onChange={() => {
-                    setCause(opt.value as ImageReportCause);
-                    if (opt.value !== 'wrong_location') {
-                      setSuggestedLocation(null);
-                      setSuggestedFloor(null);
-                      setAvailableFloors(null);
-                    }
-                  }}
-                />
-                <span>{opt.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {cause === 'wrong_location' && (
-          <div className="image-report-location-section">
-            <label className="image-report-label">
-              Where do you think this photo was taken?
-            </label>
-            <div className="image-report-map-wrapper">
-              <MapPicker
-                markerPosition={suggestedLocation}
-                onMapClick={handleMapClick}
-                clickRejected={clickRejected}
-                playingArea={overrideRestrictions ? null : playingArea}
-              />
-            </div>
-
-            <div className="image-report-override">
-              <label className="image-report-override-label">
-                <input
-                  type="checkbox"
-                  checked={overrideRestrictions}
-                  onChange={handleOverrideChange}
-                />
-                <span>Allow any location and floor</span>
-              </label>
-              <p className="image-report-override-hint">
-                Bypasses playing area and region restrictions
-              </p>
-            </div>
-
-            {isInRegion && (
-              <FloorSelector
-                selectedFloor={suggestedFloor}
-                onFloorSelect={handleFloorSelect}
-                floors={availableFloors ?? []}
-              />
-            )}
-
-            <div className="image-report-status">
-              <div className={`image-report-status-item ${suggestedLocation ? 'complete' : ''}`}>
-                <span className="image-report-status-icon">
-                  {suggestedLocation ? '✓' : '○'}
-                </span>
-                <span>Location selected</span>
+        <div
+          className={`image-report-body ${cause === 'wrong_location' ? 'has-location' : ''}`}
+        >
+          <div className="image-report-form-column">
+            <div className="image-report-field">
+              <label className="image-report-label">Cause</label>
+              <div className="image-report-causes">
+                {CAUSE_OPTIONS.map((opt) => (
+                  <label key={opt.value} className="image-report-cause-option">
+                    <input
+                      type="radio"
+                      name="cause"
+                      value={opt.value}
+                      checked={cause === opt.value}
+                      onChange={() => {
+                        setCause(opt.value as ImageReportCause);
+                        if (opt.value !== 'wrong_location') {
+                          setSuggestedLocation(null);
+                          setSuggestedFloor(null);
+                          setAvailableFloors(null);
+                        }
+                      }}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
               </div>
-              {isInRegion && (
-                <div className={`image-report-status-item ${suggestedFloor ? 'complete' : ''}`}>
-                  <span className="image-report-status-icon">
-                    {suggestedFloor ? '✓' : '○'}
-                  </span>
-                  <span>Floor selected</span>
-                </div>
-              )}
+            </div>
+
+            <div className="image-report-field">
+              <label htmlFor="image-report-explanation" className="image-report-label">
+                Explanation (required)
+              </label>
+              <textarea
+                id="image-report-explanation"
+                className="image-report-explanation"
+                value={explanation}
+                onChange={(e) => setExplanation(e.target.value)}
+                placeholder="Please describe the issue..."
+                rows={4}
+              />
+            </div>
+
+            <div className="image-report-actions">
+              <button type="button" className="image-report-cancel" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="image-report-submit"
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+              >
+                Submit Report
+              </button>
             </div>
           </div>
-        )}
 
-        <div className="image-report-field">
-          <label htmlFor="image-report-explanation" className="image-report-label">
-            Explanation (required)
-          </label>
-          <textarea
-            id="image-report-explanation"
-            className="image-report-explanation"
-            value={explanation}
-            onChange={(e) => setExplanation(e.target.value)}
-            placeholder="Please describe the issue..."
-            rows={4}
-          />
-        </div>
+          {cause === 'wrong_location' && (
+            <div className="image-report-location-section">
+              <label className="image-report-label">
+                Where do you think this photo was taken?
+              </label>
+              <div className="image-report-map-wrapper">
+                <MapPicker
+                  markerPosition={suggestedLocation}
+                  onMapClick={handleMapClick}
+                  clickRejected={clickRejected}
+                  playingArea={overrideRestrictions ? null : playingArea}
+                />
+              </div>
 
-        <div className="image-report-actions">
-          <button type="button" className="image-report-cancel" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="image-report-submit"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-          >
-            Submit Report
-          </button>
+              <div className="image-report-override">
+                <label className="image-report-override-label">
+                  <input
+                    type="checkbox"
+                    checked={overrideRestrictions}
+                    onChange={handleOverrideChange}
+                  />
+                  <span>Allow any location and floor</span>
+                </label>
+                <p className="image-report-override-hint">
+                  Bypasses playing area and region restrictions
+                </p>
+              </div>
+
+              {isInRegion && (
+                <FloorSelector
+                  selectedFloor={suggestedFloor}
+                  onFloorSelect={handleFloorSelect}
+                  floors={availableFloors ?? []}
+                />
+              )}
+
+              <div className="image-report-status">
+                <div className={`image-report-status-item ${suggestedLocation ? 'complete' : ''}`}>
+                  <span className="image-report-status-icon">
+                    {suggestedLocation ? '✓' : '○'}
+                  </span>
+                  <span>Location selected</span>
+                </div>
+                {isInRegion && (
+                  <div className={`image-report-status-item ${suggestedFloor ? 'complete' : ''}`}>
+                    <span className="image-report-status-icon">
+                      {suggestedFloor ? '✓' : '○'}
+                    </span>
+                    <span>Floor selected</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>,
