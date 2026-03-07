@@ -22,6 +22,7 @@ import { db } from '../firebase';
 
 export interface UserLookup {
   uid: string;
+  friendCode?: string;
   username: string;
   email: string;
   favoriteEmote?: string;
@@ -67,14 +68,43 @@ export function getFriendPairId(uid1: string, uid2: string): string {
 
 /**
  * Look up a user document by UID.
- * Returns { uid, username, email } or null.
+ * Returns { uid, friendCode, username, email } or null.
  */
 export async function getUserByUid(uid: string): Promise<UserLookup | null> {
   const userRef = doc(db, 'users', uid);
   const snapshot = await getDoc(userRef);
   if (!snapshot.exists()) return null;
   const data = snapshot.data();
-  return { uid: snapshot.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+  return {
+    uid: snapshot.id,
+    friendCode: data.friendCode,
+    username: data.username,
+    email: data.email,
+    favoriteEmote: data.favoriteEmote
+  };
+}
+
+/**
+ * Look up a user document by friend code (short, uppercase alphanumeric).
+ * Returns { uid, friendCode, username, email } or null.
+ * Accepts both uppercase (new) and lowercase (legacy) codes.
+ */
+export async function getUserByFriendCode(friendCode: string): Promise<UserLookup | null> {
+  const trimmed = friendCode.trim();
+  if (!trimmed || trimmed.length !== 6) return null;
+
+  // Try uppercase first (new format), then lowercase (legacy)
+  for (const normalized of [trimmed.toUpperCase(), trimmed.toLowerCase()]) {
+    const codeRef = doc(db, 'friendCodes', normalized);
+    const codeSnap = await getDoc(codeRef);
+    if (codeSnap.exists()) {
+      const data = codeSnap.data() as { uid?: string };
+      const uid = data?.uid;
+      if (!uid) return null;
+      return getUserByUid(uid);
+    }
+  }
+  return null;
 }
 
 /**
@@ -93,9 +123,10 @@ export async function searchUsersByUsername(
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map(docSnap => {
-    const data = docSnap.data() as { username?: string; email?: string };
+    const data = docSnap.data() as { username?: string; email?: string; friendCode?: string };
     return {
       uid: docSnap.id,
+      friendCode: data.friendCode,
       username: data.username || '',
       email: data.email || ''
     };
@@ -117,7 +148,7 @@ export async function getUserByEmail(email: string): Promise<UserLookup | null> 
   if (!snapLower.empty) {
     const docSnap = snapLower.docs[0];
     const data = docSnap.data();
-    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+    return { uid: docSnap.id, friendCode: data.friendCode, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
   }
 
   // Fallback: exact email match (for existing users without emailLower)
@@ -126,7 +157,7 @@ export async function getUserByEmail(email: string): Promise<UserLookup | null> 
   if (!snapExact.empty) {
     const docSnap = snapExact.docs[0];
     const data = docSnap.data();
-    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+    return { uid: docSnap.id, friendCode: data.friendCode, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
   }
 
   return null;
@@ -146,7 +177,7 @@ export async function getUserByUsername(username: string): Promise<UserLookup | 
   if (!snapLower.empty) {
     const docSnap = snapLower.docs[0];
     const data = docSnap.data();
-    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+    return { uid: docSnap.id, friendCode: data.friendCode, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
   }
 
   // Fallback: exact username match (for users without usernameLower)
@@ -155,7 +186,7 @@ export async function getUserByUsername(username: string): Promise<UserLookup | 
   if (!snapshot.empty) {
     const docSnap = snapshot.docs[0];
     const data = docSnap.data();
-    return { uid: docSnap.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+    return { uid: docSnap.id, friendCode: data.friendCode, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
   }
 
   // Final fallback: scan and compare case-insensitively for legacy users
@@ -166,18 +197,28 @@ export async function getUserByUsername(username: string): Promise<UserLookup | 
   });
   if (!match) return null;
   const data = match.data();
-  return { uid: match.id, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
+  return { uid: match.id, friendCode: data.friendCode, username: data.username, email: data.email, favoriteEmote: data.favoriteEmote };
 }
 
+/** Friend code pattern: exactly 6 chars, uppercase letters and digits only (no ambiguous) */
+const FRIEND_CODE_PATTERN = /^[A-Z0-9]{6}$/;
+
 /**
- * Resolve a user by UID, email, or username.
- * If input contains '@', treats as email; otherwise tries UID first, then username.
+ * Resolve a user by friend code, UID, email, or username.
+ * If input contains '@', treats as email.
+ * If input is 6 chars matching friend code pattern, tries friend code first.
+ * Otherwise tries UID, then username.
  */
 export async function getUserByIdOrEmail(input: string): Promise<UserLookup | null> {
   const trimmed = input.trim();
   if (!trimmed) return null;
   if (trimmed.includes('@')) {
     return getUserByEmail(trimmed);
+  }
+  const upper = trimmed.toUpperCase();
+  if (upper.length === 6 && FRIEND_CODE_PATTERN.test(upper)) {
+    const byFriendCode = await getUserByFriendCode(upper);
+    if (byFriendCode) return byFriendCode;
   }
   const byUid = await getUserByUid(trimmed);
   if (byUid) return byUid;
