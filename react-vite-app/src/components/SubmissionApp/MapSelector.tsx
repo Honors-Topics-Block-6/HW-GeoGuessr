@@ -15,6 +15,8 @@ function MapSelector({ onLocationSelect, selectedLocation }: MapSelectorProps): 
   const [clickPosition, setClickPosition] = useState<MapPosition | null>(selectedLocation || null)
   const imageRef = useRef<HTMLImageElement>(null)
 
+  const formatCoordinate = (value: number): string => Number(value).toFixed(2)
+
   const handleMapClick = (e: React.MouseEvent<HTMLImageElement>): void => {
     if (!imageRef.current) return
 
@@ -57,7 +59,7 @@ function MapSelector({ onLocationSelect, selectedLocation }: MapSelectorProps): 
 
       {clickPosition && (
         <div className="selected-coordinates">
-          <strong>Selected Location:</strong> X: {clickPosition.x}, Y: {clickPosition.y}
+          <strong>Selected Location:</strong> X: {formatCoordinate(clickPosition.x)}, Y: {formatCoordinate(clickPosition.y)}
         </div>
       )}
     </div>

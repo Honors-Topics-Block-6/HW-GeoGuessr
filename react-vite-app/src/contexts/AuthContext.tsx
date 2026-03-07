@@ -4,15 +4,32 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInAnonymously,
   GoogleAuthProvider,
   signOut,
   sendEmailVerification,
   User as FirebaseUser
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { createUserDoc, getUserDoc, updateUserDoc, updateUserProfile, isUsernameTaken, isHardcodedAdmin, getAllPermissions, getNoPermissions, ADMIN_PERMISSIONS, normalizeFavoriteEmote } from '../services/userService';
+import {
+  createUserDoc,
+  getUserDoc,
+  updateUserDoc,
+  updateUserProfile,
+  isUsernameTaken,
+  getUserByUsername,
+  checkUsernameAvailability,
+  isHardcodedAdmin,
+  getAllPermissions,
+  getNoPermissions,
+  ADMIN_PERMISSIONS,
+  normalizeFavoriteEmote,
+  UsernameTakenError
+} from '../services/userService';
+import { touchLastActive } from '../services/lastActiveService';
 import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
 import { compressImage } from '../utils/compressImage';
+import { coerceTimestampToDate } from '../utils/formatLastActive';
 
 /**
  * Shape of the admin permissions object.
@@ -31,16 +48,19 @@ export interface UserDoc {
   email: string;
   username: string;
   favoriteEmote?: string;
-  photoURL?: string;
+  photoURL?: string | null;
+  avatarEmoji?: string | null;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
   gamesPlayed: number;
   createdAt: unknown; // Firestore Timestamp or serverTimestamp sentinel
   permissions?: AdminPermissions;
+  lastActive?: unknown;
   lastGameAt?: unknown;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount?: number;
   twentyFiveKCount?: number;
   photosSubmittedCount?: number;
@@ -60,11 +80,25 @@ export interface BuildingStat {
 
 export interface DailyStatBucket {
   gamesPlayed: number;
+  roundsPlayed?: number;
   totalScore: number;
   totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
   fiveKCount: number;
   twentyFiveKCount: number;
   photosSubmittedCount: number;
+  buildingStats: Record<string, BuildingStat>;
+  byRoundCount?: Partial<Record<'5' | '10' | '20', DailyStatBucketRound>>;
+}
+
+export interface DailyStatBucketRound {
+  gamesPlayed: number;
+  roundsPlayed: number;
+  totalScore: number;
+  totalGuessTimeSeconds: number;
+  fastestGuessTimeSeconds?: number;
+  fiveKCount: number;
+  twentyFiveKCount: number;
   buildingStats: Record<string, BuildingStat>;
 }
 
@@ -86,6 +120,7 @@ export interface AuthContextType {
   user: FirebaseUser | null;
   userDoc: UserDoc | null;
   loading: boolean;
+  isGuest: boolean;
   needsUsername: boolean;
   isAdmin: boolean;
   permissions: AdminPermissions;
@@ -97,11 +132,13 @@ export interface AuthContextType {
   signup: (email: string, password: string, username: string) => Promise<FirebaseUser>;
   login: (email: string, password: string) => Promise<FirebaseUser>;
   loginWithGoogle: () => Promise<FirebaseUser>;
+  continueAsGuest: () => Promise<FirebaseUser>;
   completeGoogleSignUp: (username: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
   updateFavoriteEmote: (favoriteEmote: string) => Promise<void>;
   updateProfileImage: (file: File) => Promise<string>;
+  updateProfileEmoji: (emoji: string | null) => Promise<void>;
   refreshUserDoc: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
 }
@@ -127,47 +164,85 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   const [loading, setLoading] = useState<boolean>(true);    // Initial auth check loading
   const [needsUsername, setNeedsUsername] = useState<boolean>(false); // Google sign-in needs username
   const [emailVerified, setEmailVerified] = useState<boolean>(false); // Email verification status
+  const isGuest: boolean = !!user?.isAnonymous;
+
+  const createGuestUserDoc = useCallback((firebaseUser: FirebaseUser): UserDoc => ({
+    uid: firebaseUser.uid,
+    email: firebaseUser.email ?? '',
+    username: 'Guest',
+    isAdmin: false,
+    emailVerified: true,
+    totalXp: 0,
+    gamesPlayed: 0,
+    createdAt: new Date(),
+    permissions: getNoPermissions()
+  }), []);
 
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      setUser(firebaseUser);
-      const authVerified = firebaseUser?.emailVerified ?? false;
+      try {
+        setUser(firebaseUser);
+        const authVerified = firebaseUser?.emailVerified ?? false;
 
-      if (firebaseUser) {
-        // Fetch the user's Firestore document
-        const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
-        if (doc) {
-          // Verified if either Firebase Auth or Firestore says so
-          // (admin can set emailVerified in Firestore, user can verify via email link)
-          const isVerified = authVerified || doc.emailVerified === true;
-          setEmailVerified(isVerified);
-
-          // Sync Firebase Auth -> Firestore when user verifies via email link
-          if (authVerified && !doc.emailVerified) {
-            await updateUserDoc(firebaseUser.uid, { emailVerified: true });
-            doc.emailVerified = true;
+        if (firebaseUser) {
+          if (firebaseUser.isAnonymous) {
+            setEmailVerified(true);
+            setUserDoc(createGuestUserDoc(firebaseUser));
+            setNeedsUsername(false);
+            return;
           }
 
-          setUserDoc(doc);
-          setNeedsUsername(false);
+          // Fetch the user's Firestore document
+          const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
+          if (doc) {
+            // Verified if either Firebase Auth or Firestore says so
+            // (admin can set emailVerified in Firestore, user can verify via email link)
+            const isVerified = authVerified || doc.emailVerified === true;
+            setEmailVerified(isVerified);
+
+            // Sync Firebase Auth -> Firestore when user verifies via email link
+            if (authVerified && !doc.emailVerified) {
+              await updateUserDoc(firebaseUser.uid, { emailVerified: true });
+              doc.emailVerified = true;
+            }
+
+            setUserDoc(doc);
+            setNeedsUsername(false);
+
+            // Mark "last active" on session start (throttled, server time).
+            const lastActiveDate = coerceTimestampToDate(doc.lastActive as unknown);
+            const STALE_AFTER_MS = 5 * 60 * 1000;
+            const shouldTouch = !lastActiveDate || (Date.now() - lastActiveDate.getTime() > STALE_AFTER_MS);
+            if (shouldTouch) {
+              void touchLastActive(firebaseUser.uid).then((didWrite) => {
+                if (didWrite) {
+                  setUserDoc(prev => (prev ? { ...prev, lastActive: new Date() } : prev));
+                }
+              });
+            }
+          } else {
+            setEmailVerified(authVerified);
+            // User exists in Auth but not in Firestore (Google sign-in, first time)
+            setUserDoc(null);
+            setNeedsUsername(true);
+          }
         } else {
-          setEmailVerified(authVerified);
-          // User exists in Auth but not in Firestore (Google sign-in, first time)
+          setEmailVerified(false);
           setUserDoc(null);
-          setNeedsUsername(true);
+          setNeedsUsername(false);
         }
-      } else {
-        setEmailVerified(false);
+      } catch (err) {
+        console.error('Failed to initialize auth state:', err);
         setUserDoc(null);
         setNeedsUsername(false);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return unsubscribe;
-  }, []);
+  }, [createGuestUserDoc]);
 
   // Poll for email verification status (focus + interval)
   // Checks both Firebase Auth (user clicked email link) and Firestore (admin toggled it)
@@ -220,13 +295,19 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
    * Sign up with email and password
    */
   const signup = useCallback(async (email: string, password: string, username: string): Promise<FirebaseUser> => {
-    // Check username uniqueness before creating account
-    const taken = await isUsernameTaken(username);
-    if (taken) {
-      throw new Error('Username is already taken. Please choose another.');
+    // Fast pre-check to avoid creating Auth users for obviously-taken usernames.
+    const availability = await checkUsernameAvailability(username, null, true);
+    if (!availability.available) {
+      throw new UsernameTakenError(availability.suggestions || []);
     }
 
-    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    let credential;
+    try {
+      credential = await createUserWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      console.error('[signup] Firebase createUserWithEmailAndPassword failed:', err);
+      throw err;
+    }
 
     // Send verification email (non-blocking -- signup succeeds even if this fails)
     try {
@@ -235,9 +316,19 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
       console.error('Failed to send verification email:', err);
     }
 
-    await createUserDoc(credential.user.uid, email, username);
+    try {
+      await createUserDoc(credential.user.uid, email, username);
+    } catch (err) {
+      // If the username was taken due to a race, remove the just-created auth user.
+      try {
+        await credential.user.delete();
+      } catch (deleteErr) {
+        console.error('Failed to delete auth user after username conflict:', deleteErr);
+      }
+      throw err;
+    }
     const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
-    setUserDoc(doc);
+    setUserDoc(doc ? { ...doc, lastActive: new Date() } : doc);
     setNeedsUsername(false);
     return credential.user;
   }, []);
@@ -246,7 +337,48 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
    * Log in with email and password
    */
   const login = useCallback(async (email: string, password: string): Promise<FirebaseUser> => {
-    const credential = await signInWithEmailAndPassword(auth, email, password);
+    // If already logged in, don't re-login
+    if (auth.currentUser) {
+      console.log('[login] Already logged in, skipping');
+      return auth.currentUser;
+    }
+    console.log('[login] Attempting login for:', email);
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('[login] signInWithEmailAndPassword succeeded:', credential.user.uid);
+      await touchLastActive(credential.user.uid);
+      const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
+      console.log('[login] getUserDoc result:', doc ? 'found' : 'not found');
+      // Don't set needsUsername here - let onAuthStateChanged handle it to avoid race
+      if (doc) {
+        setUserDoc({ ...doc, lastActive: new Date() });
+      }
+      return credential.user;
+    } catch (err) {
+      console.error('[login] Login failed:', err);
+      throw err;
+    }
+  }, []);
+
+  /**
+   * Log in with email OR username. If input lacks '@', treat as username and resolve to email.
+   */
+  const loginWithIdentifier = useCallback(async (identifier: string, password: string): Promise<FirebaseUser> => {
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      throw new Error('Please enter your email or username.');
+    }
+
+    let emailToUse = trimmed;
+    if (!trimmed.includes('@')) {
+      const userLookup = await getUserByUsername(trimmed);
+      if (!userLookup || !userLookup.email) {
+        throw new Error('No account found with that username.');
+      }
+      emailToUse = userLookup.email;
+    }
+
+    const credential = await signInWithEmailAndPassword(auth, emailToUse, password);
     const doc = await getUserDoc(credential.user.uid) as UserDoc | null;
     setUserDoc(doc);
     return credential.user;
@@ -262,7 +394,8 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     // Check if user already has a Firestore doc
     const existingDoc = await getUserDoc(credential.user.uid) as UserDoc | null;
     if (existingDoc) {
-      setUserDoc(existingDoc);
+      await touchLastActive(credential.user.uid);
+      setUserDoc({ ...existingDoc, lastActive: new Date() });
       setNeedsUsername(false);
     } else {
       // New Google user -- needs to pick a username
@@ -273,19 +406,41 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   }, []);
 
   /**
-   * Complete Google sign-in by setting a username (called after Google sign-in for new users)
+   * Continue without creating an account.
+   */
+  const continueAsGuest = useCallback(async (): Promise<FirebaseUser> => {
+    if (auth.currentUser?.isAnonymous) {
+      return auth.currentUser;
+    }
+    try {
+      const credential = await signInAnonymously(auth);
+      return credential.user;
+    } catch (err) {
+      throw err;
+    }
+  }, []);
+
+  /**
+   * Complete sign-up by setting a username (called after sign-in for users without Firestore doc)
    */
   const completeGoogleSignUp = useCallback(async (username: string): Promise<void> => {
     if (!user) throw new Error('No authenticated user');
+    console.log('[completeGoogleSignUp] Creating user doc for:', user.uid, 'username:', username);
 
-    const taken = await isUsernameTaken(username);
-    if (taken) {
-      throw new Error('Username is already taken. Please choose another.');
+    const availability = await checkUsernameAvailability(username, user.uid, true);
+    if (!availability.available) {
+      throw new UsernameTakenError(availability.suggestions || []);
     }
 
     await createUserDoc(user.uid, user.email!, username);
+    console.log('[completeGoogleSignUp] User doc created, fetching...');
     const doc = await getUserDoc(user.uid) as UserDoc | null;
-    setUserDoc(doc);
+    console.log('[completeGoogleSignUp] getUserDoc result:', doc ? 'found' : 'not found');
+    if (doc) {
+      setUserDoc({ ...doc, lastActive: new Date() });
+    } else {
+      console.error('[completeGoogleSignUp] Failed to fetch user doc after creation!');
+    }
     setNeedsUsername(false);
   }, [user]);
 
@@ -330,10 +485,28 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     // Mirror submission upload flow: compress and store Base64 data URL in Firestore.
     const photoURL = await compressImage(file);
 
-    await updateUserDoc(user.uid, { photoURL });
-    setUserDoc(prev => (prev ? { ...prev, photoURL } : prev));
+    await updateUserDoc(user.uid, { photoURL, avatarEmoji: null });
+    setUserDoc(prev => (prev ? { ...prev, photoURL, avatarEmoji: null } : prev));
 
     return photoURL;
+  }, [user]);
+
+  const updateProfileEmoji = useCallback(async (emoji: string | null): Promise<void> => {
+    if (!user) throw new Error('No authenticated user');
+
+    await updateUserDoc(user.uid, {
+      avatarEmoji: emoji ?? null,
+      ...(emoji ? { photoURL: null } : {})
+    });
+
+    setUserDoc(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        avatarEmoji: emoji ?? null,
+        photoURL: emoji ? null : prev.photoURL
+      };
+    });
   }, [user]);
 
   /**
@@ -374,6 +547,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     user,
     userDoc,
     loading,
+    isGuest,
     needsUsername,
     isAdmin,
     permissions,
@@ -383,13 +557,15 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     levelTitle,
     emailVerified,
     signup,
-    login,
+    login: loginWithIdentifier,
     loginWithGoogle,
+    continueAsGuest,
     completeGoogleSignUp,
     logout,
     updateUsername,
     updateFavoriteEmote,
     updateProfileImage,
+    updateProfileEmoji,
     refreshUserDoc,
     sendVerificationEmail: sendVerificationEmailToUser
   };

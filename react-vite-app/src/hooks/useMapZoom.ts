@@ -2,9 +2,9 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 4.5;
-const ZOOM_STEP = 1.25;
-const WHEEL_ZOOM_FACTOR = 0.008;
-const PINCH_ZOOM_EXPONENT = 6;
+const ZOOM_STEP = 1.8;
+const WHEEL_ZOOM_FACTOR = 0.016;
+const PINCH_ZOOM_EXPONENT = 8;
 const DRAG_THRESHOLD = 5;
 
 interface Point {
@@ -35,6 +35,7 @@ export interface UseMapZoomReturn {
   zoomIn: () => void;
   zoomInAtPoint: (x: number, y: number) => void;
   zoomOut: () => void;
+  zoomOutAtPoint: (x: number, y: number) => void;
   resetZoom: () => void;
   hasMoved: () => boolean;
   isPanning: boolean;
@@ -42,22 +43,65 @@ export interface UseMapZoomReturn {
 }
 
 /**
- * Clamp translate values to prevent panning content off-screen.
+ * Clamp translate values to keep panned content visible.
  * With transform: translate(tx, ty) scale(s) and transform-origin: 0 0,
- * the content is first translated then scaled from top-left.
+ * the content's natural (untransformed) top-left sits at (contentOffsetX, contentOffsetY)
+ * within the container (e.g. from flexbox centering in fullscreen mode). After the
+ * transform the content occupies:
+ *   X: [contentOffsetX + tx,  contentOffsetX + tx + contentWidth  * scale]
+ *   Y: [contentOffsetY + ty,  contentOffsetY + ty + contentHeight * scale]
  *
- * Visible area covers [0, containerWidth] x [0, containerHeight] in screen space.
- * Content occupies [tx, tx + containerWidth * scale] x [ty, ty + containerHeight * scale].
- * We want the content to always cover the visible area:
- *   tx <= 0  and  tx + containerWidth * scale >= containerWidth
- *   => tx <= 0  and  tx >= containerWidth * (1 - scale)
- *   => containerWidth * (1 - scale) <= tx <= 0
+ * We enforce two symmetric constraints:
+ *   A = -(contentOffsetX)                          — content left edge at container left
+ *   B = containerWidth - contentOffsetX - contentWidth * scale — content right edge at container right
+ * and clamp tx to [min(A,B), max(A,B)].
+ *
+ * When content fills the container (contentOffsetX = 0, contentWidth = containerWidth):
+ *   A = 0, B = containerWidth * (1 - scale)  →  reduces to the original formula.
+ * When content is smaller (centred, scale = 1):
+ *   A = -offsetX < 0, B = offsetX > 0  →  image can drift slightly but stays inside container.
+ * At the crossover point (contentWidth * scale = containerWidth):
+ *   A = B = -offsetX  →  image exactly covers the container and is left-anchored.
  */
-function clampTranslate(tx: number, ty: number, scale: number, containerWidth: number, containerHeight: number): Point {
-  const minX = containerWidth * (1 - scale);
-  const maxX = 0;
-  const minY = containerHeight * (1 - scale);
-  const maxY = 0;
+function clampTranslate(
+  tx: number,
+  ty: number,
+  scale: number,
+  containerWidth: number,
+  containerHeight: number,
+  contentOffsetX = 0,
+  contentOffsetY = 0,
+  contentWidth = containerWidth,
+  contentHeight = containerHeight
+): Point {
+  const nearlyEqual = (a: number, b: number): boolean => Math.abs(a - b) < 0.5;
+  const matchesContainer =
+    nearlyEqual(contentOffsetX, 0) &&
+    nearlyEqual(contentOffsetY, 0) &&
+    nearlyEqual(contentWidth, containerWidth) &&
+    nearlyEqual(contentHeight, containerHeight);
+
+  // Original strict clamp: content must always cover the viewport.
+  // This is ideal when the zoom content exactly matches container size.
+  if (matchesContainer) {
+    const minX = containerWidth * (1 - scale);
+    const maxX = 0;
+    const minY = containerHeight * (1 - scale);
+    const maxY = 0;
+
+    return {
+      x: Math.max(minX, Math.min(maxX, tx)),
+      y: Math.max(minY, Math.min(maxY, ty))
+    };
+  }
+
+  // Relaxed clamp for centred/non-matching content (e.g. fullscreen map with letterboxing):
+  // keep at least a sliver visible so zoom can stay anchored to cursor.
+  const MIN_VISIBLE_PX = 48;
+  const minX = -contentOffsetX - contentWidth * scale + MIN_VISIBLE_PX;
+  const maxX = containerWidth - contentOffsetX - MIN_VISIBLE_PX;
+  const minY = -contentOffsetY - contentHeight * scale + MIN_VISIBLE_PX;
+  const maxY = containerHeight - contentOffsetY - MIN_VISIBLE_PX;
 
   return {
     x: Math.max(minX, Math.min(maxX, tx)),
@@ -90,8 +134,27 @@ function getTouchMidpoint(touches: React.TouchList | TouchList): Point {
  * Uses CSS transform: translate(tx, ty) scale(s) with transform-origin: 0 0
  * on a wrapper div. All child elements (image, SVG overlay, markers) zoom
  * together automatically.
+ *
+ * @param containerRef  The scrollable/event-listening container element.
+ * @param options.maxScale  Optional override for maximum zoom level.
+ * @param options.zoomContentRef  Optional ref to the element that receives the CSS transform.
+ *   When provided (e.g. in fullscreen mode where the content is flex-centred inside
+ *   the container) its offsetLeft/Top/Width/Height are used so that zoom always
+ *   centres on the cursor relative to the actual content, not the surrounding container.
  */
-function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZoomReturn {
+export interface UseMapZoomOptions {
+  /** Lower max scale for mobile to reduce excessive zoom (default: 4.5) */
+  maxScale?: number;
+  /** Optional zoomed content element used for offset-aware cursor anchoring */
+  zoomContentRef?: React.RefObject<HTMLElement | null>;
+}
+
+function useMapZoom(
+  containerRef: React.RefObject<HTMLElement | null>,
+  options?: UseMapZoomOptions
+): UseMapZoomReturn {
+  const maxScale = options?.maxScale ?? MAX_SCALE;
+  const zoomContentRef = options?.zoomContentRef;
   const [scale, setScale] = useState<number>(MIN_SCALE);
   const [translate, setTranslate] = useState<Point>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
@@ -171,8 +234,33 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
   }, []);
 
   /**
+   * Read the zoom-content element's layout offset and natural size within the container.
+   * These are unaffected by the CSS transform, so they give the "before-transform"
+   * position — exactly what the zoom math needs.
+   * Falls back to (0, 0, containerW, containerH) when no zoomContentRef is provided,
+   * which reproduces the original behaviour for non-fullscreen callers.
+   */
+  const getContentInfo = useCallback((containerW: number, containerH: number) => {
+    const el = zoomContentRef?.current;
+    if (el) {
+      return {
+        offsetX: el.offsetLeft,
+        offsetY: el.offsetTop,
+        contentW: el.offsetWidth,
+        contentH: el.offsetHeight,
+      };
+    }
+    return { offsetX: 0, offsetY: 0, contentW: containerW, contentH: containerH };
+  }, [zoomContentRef]);
+
+  /**
    * Zoom toward a specific point (in container-relative screen pixels).
    * The point under the cursor/finger stays fixed on screen.
+   *
+   * When a zoomContentRef is provided the cursor is first translated into the
+   * content's own coordinate space (subtracting the flex-centering offset) so
+   * that the anchor point is computed against the actual image, not the surrounding
+   * container space.
    */
   const zoomToPoint = useCallback((
     cursorX: number,
@@ -185,22 +273,35 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
     if (!container) return null;
 
     const rect = container.getBoundingClientRect();
-    const clampedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+    const clampedScale = Math.max(MIN_SCALE, Math.min(maxScale, newScale));
 
     if (clampedScale === currentScale) return null;
 
     // To keep the point under cursor fixed:
-    // Before zoom: screenPoint = cursorX = tx + contentX * currentScale
-    // After zoom:  screenPoint = cursorX = newTx + contentX * clampedScale
-    // => newTx = cursorX - (cursorX - tx) * (clampedScale / currentScale)
+    // Before zoom: cursorRelX = tx + contentX * currentScale
+    // After zoom:  cursorRelX = newTx + contentX * clampedScale
+    // => newTx = cursorRelX - (cursorRelX - tx) * (clampedScale / currentScale)
+    const { offsetX, offsetY, contentW, contentH } = getContentInfo(rect.width, rect.height);
     const scaleRatio = clampedScale / currentScale;
-    const newTx = cursorX - scaleRatio * (cursorX - currentTranslate.x);
-    const newTy = cursorY - scaleRatio * (cursorY - currentTranslate.y);
+    const cursorRelX = cursorX - offsetX;
+    const cursorRelY = cursorY - offsetY;
+    const newTx = cursorRelX - scaleRatio * (cursorRelX - currentTranslate.x);
+    const newTy = cursorRelY - scaleRatio * (cursorRelY - currentTranslate.y);
 
-    const clamped = clampTranslate(newTx, newTy, clampedScale, rect.width, rect.height);
+    const clamped = clampTranslate(
+      newTx,
+      newTy,
+      clampedScale,
+      rect.width,
+      rect.height,
+      offsetX,
+      offsetY,
+      contentW,
+      contentH
+    );
 
     return { scale: clampedScale, translate: clamped };
-  }, [containerRef]);
+  }, [containerRef, getContentInfo, maxScale]);
 
   /**
    * Handle wheel zoom - zoom toward cursor position.
@@ -371,16 +472,21 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
       if (!container) return;
 
       const rect = container.getBoundingClientRect();
+      const { offsetX, offsetY, contentW, contentH } = getContentInfo(rect.width, rect.height);
       const clamped = clampTranslate(
         translateStart.current.x + dx,
         translateStart.current.y + dy,
         scaleRef.current,
         rect.width,
-        rect.height
+        rect.height,
+        offsetX,
+        offsetY,
+        contentW,
+        contentH
       );
       setTranslate(clamped);
     }
-  }, [containerRef, zoomToPoint]);
+  }, [containerRef, zoomToPoint, getContentInfo]);
 
   /**
    * Touch end - clean up gesture state.
@@ -420,13 +526,13 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
 
     const currentScale = scaleRef.current;
     const currentTranslate = translateRef.current;
-    const newScale = Math.min(MAX_SCALE, currentScale * ZOOM_STEP);
+    const newScale = Math.min(maxScale, currentScale * ZOOM_STEP);
 
     const result = zoomToPoint(cx, cy, newScale, currentScale, currentTranslate);
     if (result) {
       animateTo(result.scale, result.translate);
     }
-  }, [containerRef, zoomToPoint, animateTo]);
+  }, [containerRef, zoomToPoint, animateTo, maxScale]);
 
   /**
    * Zoom in by ZOOM_STEP factor toward a specific point (container-relative coords).
@@ -434,13 +540,13 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
   const zoomInAtPoint = useCallback((x: number, y: number): void => {
     const currentScale = scaleRef.current;
     const currentTranslate = translateRef.current;
-    const newScale = Math.min(MAX_SCALE, currentScale * ZOOM_STEP);
+    const newScale = Math.min(maxScale, currentScale * ZOOM_STEP);
 
     const result = zoomToPoint(x, y, newScale, currentScale, currentTranslate);
     if (result) {
       animateTo(result.scale, result.translate);
     }
-  }, [zoomToPoint, animateTo]);
+  }, [zoomToPoint, animateTo, maxScale]);
 
   const zoomOutAtPoint = useCallback((x: number, y: number): void => {
     const currentScale = scaleRef.current;
@@ -535,6 +641,7 @@ function useMapZoom(containerRef: React.RefObject<HTMLElement | null>): UseMapZo
     zoomIn,
     zoomInAtPoint,
     zoomOut,
+    zoomOutAtPoint,
     resetZoom,
     hasMoved,
     isPanning,

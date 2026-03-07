@@ -1,9 +1,11 @@
+/* ===== Email Verification Banner – HW Design System ===== */
+
 .email-verification-banner {
   position: relative;
   z-index: 1000;
   width: 100%;
-  background: rgba(251, 191, 36, 0.12);
-  border-bottom: 1px solid rgba(251, 191, 36, 0.25);
+  background: rgba(240, 179, 35, 0.1);
+  border-bottom: 2px solid var(--hw-gold, #f0b323);
 }
 
 .email-verification-banner-content {
@@ -23,18 +25,20 @@
 }
 
 .email-verification-banner-text {
-  color: #fbbf24;
+  color: var(--hw-black, #231f20);
   font-size: 0.85rem;
   font-weight: 500;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
 }
 
 .email-verification-banner-resend {
-  background: rgba(251, 191, 36, 0.2);
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  border-radius: 6px;
-  color: #fbbf24;
+  background: var(--hw-gold, #f0b323);
+  border: none;
+  border-radius: 0;
+  color: var(--hw-black, #231f20);
   font-size: 0.8rem;
   font-weight: 600;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
   padding: 0.3rem 0.75rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -42,7 +46,7 @@
 }
 
 .email-verification-banner-resend:hover:not(:disabled) {
-  background: rgba(251, 191, 36, 0.3);
+  background: #d9a020;
 }
 
 .email-verification-banner-resend:disabled {
@@ -53,7 +57,7 @@
 .email-verification-banner-dismiss {
   background: none;
   border: none;
-  color: rgba(251, 191, 36, 0.6);
+  color: var(--text-secondary, #4b5563);
   font-size: 1.2rem;
   cursor: pointer;
   padding: 0 0.25rem;
@@ -63,7 +67,7 @@
 }
 
 .email-verification-banner-dismiss:hover {
-  color: #fbbf24;
+  color: var(--hw-black, #231f20);
 }
 
 @media (max-width: 480px) {

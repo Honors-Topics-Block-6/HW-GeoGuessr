@@ -19,6 +19,7 @@ interface Friend {
 export interface InviteFriendsModalProps {
   onClose: () => void;
   lobbyDocId: string;
+  gameId: string;
   difficulty: string;
 }
 
@@ -26,7 +27,7 @@ export interface InviteFriendsModalProps {
  * Modal popup that shows the user's friends list with "Invite" buttons.
  * Sends a lobby invite as a special chat message to the friend.
  */
-function InviteFriendsModal({ onClose, lobbyDocId, difficulty }: InviteFriendsModalProps): React.ReactElement {
+function InviteFriendsModal({ onClose, lobbyDocId, gameId, difficulty }: InviteFriendsModalProps): React.ReactElement {
   const { user, userDoc } = useAuth();
   const { friends, loading } = useFriends(user?.uid, userDoc?.username ?? '');
   const [presenceMap, setPresenceMap] = useState<PresenceMap>({});
@@ -57,7 +58,7 @@ function InviteFriendsModal({ onClose, lobbyDocId, difficulty }: InviteFriendsMo
     try {
       const username = userDoc?.username || 'Player';
       const chatId = getChatId(user!.uid, friendUid);
-      await sendLobbyInvite(chatId, user!.uid, username, lobbyDocId, difficulty);
+      await sendLobbyInvite(chatId, user!.uid, username, lobbyDocId, gameId, difficulty);
       setInvitedFriends((prev: Set<string>) => new Set([...prev, friendUid]));
     } catch (err) {
       console.error('Failed to send invite:', err);

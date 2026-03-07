@@ -23,6 +23,7 @@ vi.mock('./services/regionService', () => ({
       ]
     }
   ]),
+  getRegionForPoint: vi.fn().mockReturnValue({ id: 'test-region' }),
   getPlayingArea: vi.fn().mockResolvedValue(null),
   getFloorsForPoint: vi.fn().mockReturnValue([1, 2, 3]),
   getRegionForPoint: vi.fn().mockReturnValue({ id: 'test-region' }),
@@ -92,11 +93,17 @@ const mockImage: GameImage = {
 
 /**
  * Helper: navigate from title screen through difficulty select to the game screen.
- * Clicks Play on title -> selects Easy difficulty -> clicks Play on difficulty select.
+ * Clicks Play on title -> selects Single Player -> selects Easy -> clicks Play.
  */
 const navigateToGame = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-  // Click Play on title screen to go to difficulty select
+  // Click Play on title screen to go to mode select
   await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+  // Choose single-player mode
+  await waitFor(() => {
+    expect(screen.getByText('Choose Mode')).toBeInTheDocument();
+  });
+  await user.click(screen.getByRole('button', { name: /single player/i }));
 
   // Wait for difficulty select screen
   await waitFor(() => {
@@ -146,20 +153,38 @@ describe('App', () => {
     });
   });
 
-  describe('difficulty select flow', () => {
-    it('should show difficulty select screen when play is clicked', async () => {
+  describe('mode and difficulty flow', () => {
+    it('should show mode select screen when play is clicked', async () => {
       const user = userEvent.setup();
 
       render(<App />);
 
       await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose Mode')).toBeInTheDocument();
+      });
+    });
+
+    it('should show difficulty select when single player is chosen', async () => {
+      const user = userEvent.setup();
+
+      render(<App />);
+
+      await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose Mode')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /single player/i }));
 
       await waitFor(() => {
         expect(screen.getByText('Choose Difficulty')).toBeInTheDocument();
       });
     });
 
-    it('should return to title screen when back is clicked from difficulty select', async () => {
+    it('should open multiplayer lobby when multiplayer is chosen', async () => {
       const user = userEvent.setup();
 
       render(<App />);
@@ -167,7 +192,25 @@ describe('App', () => {
       await user.click(screen.getByRole('button', { name: /^play$/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('Choose Difficulty')).toBeInTheDocument();
+        expect(screen.getByText('Choose Mode')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /multiplayer/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Multiplayer')).toBeInTheDocument();
+      });
+    });
+
+    it('should return to title screen when back is clicked from mode select', async () => {
+      const user = userEvent.setup();
+
+      render(<App />);
+
+      await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose Mode')).toBeInTheDocument();
       });
 
       await user.click(screen.getByText('\u2190 Back'));
@@ -211,7 +254,7 @@ describe('App', () => {
       await navigateToGame(user);
 
       await waitFor(() => {
-        expect(screen.getByText('1 / 5')).toBeInTheDocument();
+        expect(screen.getByText('Round 1 / 5')).toBeInTheDocument();
       });
     });
 
@@ -330,6 +373,9 @@ describe('App', () => {
       });
 
       await user.click(screen.getByText('Back'));
+
+      // Confirm leave in modal
+      await user.click(screen.getByRole('button', { name: /leave game/i }));
 
       await waitFor(() => {
         expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
@@ -541,7 +587,7 @@ describe('App', () => {
       await user.click(screen.getByText('Next Round'));
 
       await waitFor(() => {
-        expect(screen.getByText('2 / 5')).toBeInTheDocument();
+        expect(screen.getByText('Round 2 / 5')).toBeInTheDocument();
       });
 
       vi.useRealTimers();
@@ -619,12 +665,14 @@ describe('App', () => {
         await completeRound(user, round === 5);
       }
 
+      // Ensure we're on the final results screen first (state transition can be async under fake timers)
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /play again/i })).toBeInTheDocument();
+        expect(screen.getByText('Game Complete!')).toBeInTheDocument();
       });
+      expect(screen.getByRole('button', { name: /play again/i })).toBeInTheDocument();
 
       vi.useRealTimers();
-    });
+    }, 20000);
 
     it('should return to title from final results', async () => {
       const user = userEvent.setup();
@@ -646,12 +694,14 @@ describe('App', () => {
       // Click back to title
       await user.click(screen.getByRole('button', { name: /back to home/i }));
 
-      await waitFor(() => {
-        expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
+      // Flush React state updates under fake timers
+      act(() => {
+        vi.runOnlyPendingTimers();
       });
+      expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
 
       vi.useRealTimers();
-    });
+    }, 20000);
   });
 
   describe('loading states', () => {
@@ -667,6 +717,12 @@ describe('App', () => {
 
       // Navigate to difficulty select
       await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose Mode')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /single player/i }));
 
       await waitFor(() => {
         expect(screen.getByText('Choose Difficulty')).toBeInTheDocument();
@@ -699,6 +755,12 @@ describe('App', () => {
 
       // Navigate to difficulty select
       await user.click(screen.getByRole('button', { name: /^play$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose Mode')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /single player/i }));
 
       await waitFor(() => {
         expect(screen.getByText('Choose Difficulty')).toBeInTheDocument();

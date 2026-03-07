@@ -13,8 +13,11 @@ import {
   arrayUnion,
   arrayRemove,
   serverTimestamp,
+  setDoc,
   Timestamp,
-  type FieldValue
+  type FieldValue,
+  type QuerySnapshot,
+  type DocumentData
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -22,6 +25,7 @@ import { db } from '../firebase';
 
 export type LobbyStatus = 'waiting' | 'in_progress' | 'finished';
 export type LobbyVisibility = 'public' | 'private';
+export type GameMode = 'duel' | 'multiplayer';
 
 export interface LobbyPlayer {
   uid: string;
@@ -41,10 +45,29 @@ export interface LobbyDoc {
   heartbeats: Record<string, Timestamp>;
   readyStatus: Record<string, boolean>;
   maxPlayers: number;
+  /** 'duel' = 1v1 fixed 2 players; 'multiplayer' = open-ended, host starts when ready */
+  gameMode?: GameMode;
   /** Round time in seconds. 0 = no time limit. */
+  roundTimeSeconds: number;
+  /** Last meaningful player action timestamp (join/ready/start/guess/etc.). */
+  lastActionAt?: Timestamp | FieldValue | null;
+  createdAt: Timestamp | FieldValue | null;
+  updatedAt: Timestamp | FieldValue | null;
+}
+
+export interface UserLobbyHistoryDoc {
+  docId: string;
+  lobbyDocId: string;
+  hostUid: string;
+  hostUsername?: string;
+  gameId: string;
+  visibility: LobbyVisibility;
+  difficulty: string;
   roundTimeSeconds: number;
   createdAt: Timestamp | FieldValue | null;
   updatedAt: Timestamp | FieldValue | null;
+  isDeleted: boolean;
+  deletedAt?: Timestamp | FieldValue | null;
 }
 
 export interface CreateLobbyResult {
@@ -56,8 +79,15 @@ export interface CreateLobbyResult {
 
 /** How long (ms) before a player's heartbeat is considered stale. */
 export const STALE_TIMEOUT = 30_000;
+/** Lobby inactivity timeout (10 minutes without player actions). */
+export const LOBBY_INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000;
 /** Lobby lifetime before auto-expiry (1 hour). */
 export const LOBBY_EXPIRY_MS = 60 * 60 * 1000;
+
+export const MIN_LOBBY_PLAYERS = 2;
+export const MAX_LOBBY_PLAYERS = 10;
+/** Max players for multiplayer mode (effectively open-ended; host starts when ready) */
+export const MULTIPLAYER_MAX_PLAYERS = 50;
 
 // Characters that avoid ambiguity (no I, O, 0, 1)
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -77,6 +107,46 @@ function isLobbyExpired(lobby: Pick<LobbyDoc, 'createdAt'>): boolean {
   return Date.now() - createdMs >= LOBBY_EXPIRY_MS;
 }
 
+function normalizeMaxPlayers(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return MIN_LOBBY_PLAYERS;
+  const int = Math.trunc(n);
+  return Math.max(MIN_LOBBY_PLAYERS, Math.min(MULTIPLAYER_MAX_PLAYERS, int));
+}
+
+function normalizeRoundTimeSeconds(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return 20;
+  const int = Math.trunc(n);
+  // 0 = no limit. Cap to a reasonable upper bound to avoid nonsense values.
+  return Math.max(0, Math.min(3600, int));
+}
+
+function isLobbyInactive(
+  lobby: Pick<LobbyDoc, 'lastActionAt' | 'updatedAt' | 'createdAt'>,
+  timeoutMs: number = LOBBY_INACTIVITY_TIMEOUT_MS
+): boolean {
+  const fallbackMs =
+    getTimestampMillis(lobby.lastActionAt) ??
+    getTimestampMillis(lobby.updatedAt) ??
+    getTimestampMillis(lobby.createdAt);
+
+  if (fallbackMs === null) return false;
+  return Date.now() - fallbackMs >= timeoutMs;
+}
+
+async function markLobbyHistoryDeletedSafe(lobbyDocId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'userLobbyHistory', lobbyDocId), {
+      isDeleted: true,
+      deletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  } catch (err) {
+    console.error('Failed to mark lobby history deleted:', err);
+  }
+}
+
 // ────── Functions ──────
 
 /**
@@ -92,16 +162,20 @@ export function generateGameId(): string {
 
 /**
  * Create a new lobby document.
+ * @param gameMode - 'duel' = 1v1 (2 players); 'multiplayer' = open-ended, host starts when ready
  */
 export async function createLobby(
   hostUid: string,
   hostUsername: string,
   difficulty: string,
   visibility: LobbyVisibility,
-  roundTimeSeconds: number = 20
+  roundTimeSeconds: number = 30,
+  gameMode: GameMode = 'duel'
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
+  const maxPlayers = gameMode === 'duel' ? MIN_LOBBY_PLAYERS : MULTIPLAYER_MAX_PLAYERS;
+  const normalizedRoundTimeSeconds = normalizeRoundTimeSeconds(roundTimeSeconds);
 
   const lobbyData = {
     hostUid,
@@ -121,14 +195,36 @@ export async function createLobby(
     readyStatus: {
       [hostUid]: false
     },
-    maxPlayers: 2,
-    roundTimeSeconds,
+    maxPlayers,
+    gameMode,
+    roundTimeSeconds: normalizedRoundTimeSeconds,
+    lastActionAt: now,
     createdAt: now,
     updatedAt: now
   };
 
   const docRef = await addDoc(collection(db, 'lobbies'), lobbyData);
-  return { docId: docRef.id, gameId };
+  const lobbyDocId = docRef.id;
+
+  try {
+    const historyRef = doc(db, 'userLobbyHistory', lobbyDocId);
+    await setDoc(historyRef, {
+      lobbyDocId,
+      hostUid,
+      hostUsername,
+      gameId,
+      visibility,
+      difficulty,
+      roundTimeSeconds,
+      createdAt: now,
+      updatedAt: now,
+      isDeleted: false
+    });
+  } catch (err) {
+    console.error('Failed to record lobby history:', err);
+  }
+
+  return { docId: lobbyDocId, gameId };
 }
 
 /**
@@ -147,8 +243,9 @@ export async function findLobbyByGameId(gameId: string): Promise<LobbyDoc | null
 
   const docSnap = snapshot.docs[0];
   const lobby = { docId: docSnap.id, ...docSnap.data() } as LobbyDoc;
-  if (isLobbyExpired(lobby)) {
+  if (isLobbyExpired(lobby) || isLobbyInactive(lobby)) {
     await deleteDoc(doc(db, 'lobbies', docSnap.id));
+    await markLobbyHistoryDeletedSafe(docSnap.id);
     return null;
   }
   return lobby;
@@ -172,10 +269,18 @@ export async function joinLobby(
   }
 
   const lobby = lobbySnap.data() as Omit<LobbyDoc, 'docId'>;
+  const normalizedMaxPlayers = normalizeMaxPlayers(lobby.maxPlayers);
 
   if (isLobbyExpired(lobby as Pick<LobbyDoc, 'createdAt'>)) {
     await deleteDoc(lobbyRef);
+    await markLobbyHistoryDeletedSafe(docId);
     throw new Error('This lobby has expired.');
+  }
+
+  if (isLobbyInactive(lobby as Pick<LobbyDoc, 'lastActionAt' | 'updatedAt' | 'createdAt'>)) {
+    await deleteDoc(lobbyRef);
+    await markLobbyHistoryDeletedSafe(docId);
+    throw new Error('This lobby has closed due to inactivity.');
   }
 
   if (lobby.status !== 'waiting') {
@@ -188,7 +293,7 @@ export async function joinLobby(
     );
   }
 
-  if (lobby.players.length >= lobby.maxPlayers) {
+  if (lobby.players.length >= normalizedMaxPlayers) {
     throw new Error('This lobby is full.');
   }
 
@@ -204,14 +309,14 @@ export async function joinLobby(
     }),
     [`heartbeats.${playerUid}`]: Timestamp.now(),
     [`readyStatus.${playerUid}`]: false,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
 
 /**
  * Leave a lobby. Removes the player from the players array.
- * If the lobby becomes empty, delete it.
- * If the leaving player was the host, transfer host to the next player.
+ * If the lobby becomes empty or the host leaves, delete it.
  */
 export async function leaveLobby(docId: string, playerUid: string): Promise<void> {
   const lobbyRef = doc(db, 'lobbies', docId);
@@ -223,35 +328,38 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
   const player = lobby.players.find(p => p.uid === playerUid);
   if (!player) return;
 
+  // If the host leaves, close the game entirely by deleting the lobby.
+  if (lobby.hostUid === playerUid) {
+    await deleteDoc(lobbyRef);
+    await markLobbyHistoryDeletedSafe(docId);
+    return;
+  }
+
   const remainingPlayers = lobby.players.filter(p => p.uid !== playerUid);
 
   if (remainingPlayers.length === 0) {
     // No one left — delete the lobby
     await deleteDoc(lobbyRef);
+    await markLobbyHistoryDeletedSafe(docId);
     return;
   }
 
   const updates: Record<string, unknown> = {
     players: arrayRemove(player),
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
 
   // Clean up ready status
   const newReadyStatus: Record<string, boolean> = { ...(lobby.readyStatus || {}) };
   delete newReadyStatus[playerUid];
-  
+
   // Reset all remaining players to not ready when someone leaves
   remainingPlayers.forEach(p => {
     newReadyStatus[p.uid] = false;
   });
-  
-  updates.readyStatus = newReadyStatus;
 
-  // Transfer host if the leaving player was the host
-  if (lobby.hostUid === playerUid) {
-    updates.hostUid = remainingPlayers[0].uid;
-    updates.hostUsername = remainingPlayers[0].username;
-  }
+  updates.readyStatus = newReadyStatus;
 
   await updateDoc(lobbyRef, updates);
 }
@@ -261,22 +369,23 @@ export async function leaveLobby(docId: string, playerUid: string): Promise<void
  */
 export function subscribeLobby(
   docId: string,
-  callback: (lobby: LobbyDoc | null) => void
+  callback: (lobby: LobbyDoc | null, reason?: 'inactive' | 'missing') => void
 ): () => void {
   const lobbyRef = doc(db, 'lobbies', docId);
   return onSnapshot(lobbyRef, (snapshot) => {
     if (snapshot.exists()) {
       const lobby = { docId: snapshot.id, ...snapshot.data() } as LobbyDoc;
-      if (isLobbyExpired(lobby)) {
+      if (isLobbyExpired(lobby) || isLobbyInactive(lobby)) {
         deleteDoc(lobbyRef).catch((err: unknown) => {
-          console.error('Failed to delete expired lobby:', err);
+          console.error('Failed to delete inactive/expired lobby:', err);
         });
-        callback(null);
+        markLobbyHistoryDeletedSafe(docId).catch(() => { });
+        callback(null, 'inactive');
         return;
       }
       callback(lobby);
     } else {
-      callback(null);
+      callback(null, 'missing');
     }
   });
 }
@@ -287,10 +396,106 @@ export function subscribeLobby(
 export function subscribePublicLobbies(
   callback: (lobbies: LobbyDoc[]) => void
 ): () => void {
-  const q = query(
+  const buildLobbies = (snapshot: QuerySnapshot<DocumentData>): LobbyDoc[] => {
+    return snapshot.docs
+      .map(docSnap => ({
+        docId: docSnap.id,
+        ...docSnap.data()
+      }) as LobbyDoc)
+      .filter((lobby) => {
+        const expired = isLobbyExpired(lobby);
+        const inactive = isLobbyInactive(lobby);
+        if (expired || inactive) {
+          deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
+            console.error('Failed to delete inactive/expired public lobby:', err);
+          });
+          markLobbyHistoryDeletedSafe(lobby.docId).catch(() => { });
+        }
+        return !expired && !inactive;
+      });
+  };
+
+  const orderedQuery = query(
     collection(db, 'lobbies'),
     where('visibility', '==', 'public'),
     where('status', '==', 'waiting'),
+    orderBy('createdAt', 'desc')
+  );
+
+  const fallbackQuery = query(
+    collection(db, 'lobbies'),
+    where('visibility', '==', 'public'),
+    where('status', '==', 'waiting')
+  );
+  // Background cleanup query: include all public lobbies (including in-progress)
+  // so abandoned games can still be closed on inactivity/expiry.
+  const cleanupQuery = query(
+    collection(db, 'lobbies'),
+    where('visibility', '==', 'public')
+  );
+
+  let unsubscribe = () => { };
+  let unsubscribeCleanup = () => { };
+
+  const startFallback = (): void => {
+    unsubscribe = onSnapshot(fallbackQuery, (snapshot) => {
+      const lobbies = buildLobbies(snapshot);
+      lobbies.sort((a, b) => {
+        const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        const bTime = (b.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+      callback(lobbies);
+    }, (error) => {
+      console.error('Error subscribing to public lobbies (fallback):', error);
+    });
+  };
+
+  unsubscribe = onSnapshot(orderedQuery, (snapshot) => {
+    callback(buildLobbies(snapshot));
+  }, (error) => {
+    console.error('Error subscribing to public lobbies:', error);
+    unsubscribe();
+    startFallback();
+  });
+
+  unsubscribeCleanup = onSnapshot(cleanupQuery, (snapshot) => {
+    snapshot.docs.forEach((docSnap) => {
+      const lobby = { docId: docSnap.id, ...docSnap.data() } as LobbyDoc;
+      const expired = isLobbyExpired(lobby);
+      const inactive = isLobbyInactive(lobby);
+      if (expired || inactive) {
+        deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
+          console.error('Failed to delete inactive/expired public lobby (cleanup):', err);
+        });
+        markLobbyHistoryDeletedSafe(lobby.docId).catch(() => { });
+      }
+    });
+  }, (error) => {
+    console.error('Error subscribing to public lobby cleanup:', error);
+  });
+
+  return () => {
+    unsubscribe();
+    unsubscribeCleanup();
+  };
+}
+
+/**
+ * Subscribe to all lobbies hosted by a specific user.
+ */
+export function subscribeUserLobbies(
+  hostUid: string,
+  callback: (lobbies: LobbyDoc[]) => void
+): () => void {
+  if (!hostUid) {
+    callback([]);
+    return () => { };
+  }
+
+  const q = query(
+    collection(db, 'lobbies'),
+    where('hostUid', '==', hostUid),
     orderBy('createdAt', 'desc')
   );
 
@@ -302,21 +507,21 @@ export function subscribePublicLobbies(
       }) as LobbyDoc)
       .filter((lobby) => {
         const expired = isLobbyExpired(lobby);
-        if (expired) {
+        const inactive = isLobbyInactive(lobby);
+        if (expired || inactive) {
           deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
-            console.error('Failed to delete expired public lobby:', err);
+            console.error('Failed to delete inactive/expired lobby:', err);
           });
+          markLobbyHistoryDeletedSafe(lobby.docId).catch(() => { });
         }
-        return !expired;
+        return !expired && !inactive;
       });
     callback(lobbies);
   }, (error) => {
-    console.error('Error subscribing to public lobbies:', error);
-    // Fallback: query without orderBy (in case index is missing)
+    console.error('Error subscribing to user lobbies:', error);
     const fallbackQ = query(
       collection(db, 'lobbies'),
-      where('visibility', '==', 'public'),
-      where('status', '==', 'waiting')
+      where('hostUid', '==', hostUid)
     );
     return onSnapshot(fallbackQ, (snapshot) => {
       const lobbies = snapshot.docs
@@ -326,14 +531,15 @@ export function subscribePublicLobbies(
         }) as LobbyDoc)
         .filter((lobby) => {
           const expired = isLobbyExpired(lobby);
-          if (expired) {
+          const inactive = isLobbyInactive(lobby);
+          if (expired || inactive) {
             deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
-              console.error('Failed to delete expired public lobby:', err);
+              console.error('Failed to delete inactive/expired lobby:', err);
             });
+            markLobbyHistoryDeletedSafe(lobby.docId).catch(() => { });
           }
-          return !expired;
+          return !expired && !inactive;
         });
-      // Sort client-side as fallback
       lobbies.sort((a, b) => {
         const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
         const bTime = (b.createdAt as Timestamp | null)?.toMillis?.() || 0;
@@ -345,12 +551,127 @@ export function subscribePublicLobbies(
 }
 
 /**
+ * Subscribe to the lobby history for a specific user (created games).
+ */
+export function subscribeUserLobbyHistory(
+  hostUid: string,
+  callback: (lobbies: UserLobbyHistoryDoc[]) => void
+): () => void {
+  if (!hostUid) {
+    callback([]);
+    return () => { };
+  }
+
+  const q = query(
+    collection(db, 'userLobbyHistory'),
+    where('hostUid', '==', hostUid),
+    where('isDeleted', '==', false),
+    orderBy('createdAt', 'desc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const lobbies = snapshot.docs.map(docSnap => ({
+      docId: docSnap.id,
+      ...docSnap.data()
+    })) as UserLobbyHistoryDoc[];
+    callback(lobbies);
+  }, (error) => {
+    console.error('Error subscribing to lobby history:', error);
+    const fallbackQ = query(
+      collection(db, 'userLobbyHistory'),
+      where('hostUid', '==', hostUid),
+      where('isDeleted', '==', false)
+    );
+    return onSnapshot(fallbackQ, (snapshot) => {
+      const lobbies = snapshot.docs.map(docSnap => ({
+        docId: docSnap.id,
+        ...docSnap.data()
+      })) as UserLobbyHistoryDoc[];
+      lobbies.sort((a, b) => {
+        const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        const bTime = (b.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+      callback(lobbies);
+    });
+  });
+}
+
+/**
+ * Subscribe to all public lobby history entries (created games).
+ */
+export function subscribePublicLobbyHistory(
+  callback: (lobbies: UserLobbyHistoryDoc[]) => void
+): () => void {
+  const orderedQuery = query(
+    collection(db, 'userLobbyHistory'),
+    where('visibility', '==', 'public'),
+    where('isDeleted', '==', false),
+    orderBy('createdAt', 'desc')
+  );
+
+  const fallbackQuery = query(
+    collection(db, 'userLobbyHistory'),
+    where('visibility', '==', 'public'),
+    where('isDeleted', '==', false)
+  );
+
+  let unsubscribe = () => { };
+
+  const startFallback = (): void => {
+    unsubscribe = onSnapshot(fallbackQuery, (snapshot) => {
+      const lobbies = snapshot.docs.map(docSnap => ({
+        docId: docSnap.id,
+        ...docSnap.data()
+      })) as UserLobbyHistoryDoc[];
+      lobbies.sort((a, b) => {
+        const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        const bTime = (b.createdAt as Timestamp | null)?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+      callback(lobbies);
+    }, (error) => {
+      console.error('Error subscribing to public lobby history (fallback):', error);
+    });
+  };
+
+  unsubscribe = onSnapshot(orderedQuery, (snapshot) => {
+    const lobbies = snapshot.docs.map(docSnap => ({
+      docId: docSnap.id,
+      ...docSnap.data()
+    })) as UserLobbyHistoryDoc[];
+    callback(lobbies);
+  }, (error) => {
+    console.error('Error subscribing to public lobby history:', error);
+    unsubscribe();
+    startFallback();
+  });
+
+  return () => {
+    unsubscribe();
+  };
+}
+
+/**
+ * Mark a lobby history record as deleted for a user.
+ */
+export async function markUserLobbyDeleted(lobbyDocId: string): Promise<void> {
+  const historyRef = doc(db, 'userLobbyHistory', lobbyDocId);
+  await updateDoc(historyRef, {
+    isDeleted: true,
+    deletedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+}
+
+/**
  * Update the lobby status (e.g. host starts the game).
  */
 export async function updateLobbyStatus(docId: string, status: LobbyStatus): Promise<void> {
   const lobbyRef = doc(db, 'lobbies', docId);
   await updateDoc(lobbyRef, {
     status,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -375,7 +696,7 @@ export async function sendHeartbeat(docId: string, playerUid: string): Promise<v
 
 /**
  * Remove players whose heartbeat has gone stale from a lobby.
- * If the lobby becomes empty after removal, it is deleted.
+ * If the lobby becomes empty after removal or the host goes stale, it is deleted.
  * Returns whether the lobby was deleted.
  */
 export async function removeStalePlayersFromLobby(
@@ -391,6 +712,7 @@ export async function removeStalePlayersFromLobby(
   const lobby = lobbySnap.data() as Omit<LobbyDoc, 'docId'>;
   if (isLobbyExpired(lobby as Pick<LobbyDoc, 'createdAt'>)) {
     await deleteDoc(lobbyRef);
+    await markLobbyHistoryDeletedSafe(docId);
     return true;
   }
   const heartbeats = lobby.heartbeats || {};
@@ -419,8 +741,32 @@ export async function removeStalePlayersFromLobby(
 
     const remaining = fresh.players.filter(p => p.uid !== stalePlayer.uid);
 
-    if (remaining.length === 0) {
+    // Duel forfeit path:
+    // If a duel is already in progress and exactly one player remains,
+    // end the match immediately and award a forfeit win.
+    if (fresh.status === 'in_progress' && remaining.length === 1) {
+      const winnerUid = remaining[0].uid;
+      const loserUid = stalePlayer.uid;
+      const currentHealth = (fresh as unknown as { health?: Record<string, number> }).health || {};
+      const nextHealth: Record<string, number> = { ...currentHealth, [loserUid]: 0 };
+
+      await updateDoc(lobbyRef, {
+        health: nextHealth,
+        phase: 'finished',
+        winner: winnerUid,
+        loser: loserUid,
+        forfeitBy: loserUid,
+        finishedAt: serverTimestamp(),
+        lastActionAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return false;
+    }
+
+    // If no one is left or the host has gone stale, delete the lobby (close the game).
+    if (remaining.length === 0 || fresh.hostUid === stalePlayer.uid) {
       await deleteDoc(lobbyRef);
+      await markLobbyHistoryDeletedSafe(docId);
       return true;
     }
 
@@ -441,12 +787,6 @@ export async function removeStalePlayersFromLobby(
     delete newReadyStatus[stalePlayer.uid];
     updates.readyStatus = newReadyStatus;
 
-    // Transfer host if needed
-    if (fresh.hostUid === stalePlayer.uid) {
-      updates.hostUid = remaining[0].uid;
-      updates.hostUsername = remaining[0].username;
-    }
-
     await updateDoc(lobbyRef, updates);
   }
 
@@ -464,6 +804,7 @@ export async function updateLobbyRoundTime(
   const lobbyRef = doc(db, 'lobbies', docId);
   await updateDoc(lobbyRef, {
     roundTimeSeconds,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -479,6 +820,7 @@ export async function updateLobbyDifficulty(
   const lobbyRef = doc(db, 'lobbies', docId);
   await updateDoc(lobbyRef, {
     difficulty,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -494,6 +836,7 @@ export async function setPlayerReady(
   const lobbyRef = doc(db, 'lobbies', docId);
   await updateDoc(lobbyRef, {
     [`readyStatus.${playerUid}`]: ready,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
