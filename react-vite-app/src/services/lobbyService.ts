@@ -231,6 +231,42 @@ export async function createLobby(
 }
 
 /**
+ * Get active (waiting, non-expired, non-inactive) lobbies hosted by a user.
+ * Used to prevent one account from hosting multiple games simultaneously.
+ */
+export async function getActiveHostedLobbies(hostUid: string): Promise<LobbyDoc[]> {
+  if (!hostUid) return [];
+
+  const q = query(
+    collection(db, 'lobbies'),
+    where('hostUid', '==', hostUid),
+    where('status', '==', 'waiting')
+  );
+
+  const snapshot = await getDocs(q);
+  const lobbies = snapshot.docs
+    .map((docSnap) => ({ docId: docSnap.id, ...docSnap.data() } as LobbyDoc))
+    .filter((lobby) => {
+      const expired = isLobbyExpired(lobby);
+      const inactive = isLobbyInactive(lobby);
+      return !expired && !inactive;
+    });
+  return lobbies;
+}
+
+/**
+ * Close a hosted lobby (delete lobby doc and mark history as deleted).
+ */
+export async function closeHostedLobby(docId: string): Promise<void> {
+  try {
+    await markUserLobbyDeleted(docId);
+  } catch (err) {
+    console.error('Failed to mark lobby history deleted:', err);
+  }
+  await deleteLobby(docId);
+}
+
+/**
  * Find a lobby by its human-readable game code.
  * Only returns lobbies with status === 'waiting'.
  */
@@ -301,7 +337,13 @@ export async function joinLobby(
   }
 
   if (lobby.players.some(p => p.uid === playerUid)) {
-    throw new Error('You are already in this lobby.');
+    // Rejoin: user is already in lobby (e.g. host who lost tab, or reconnecting)
+    await updateDoc(lobbyRef, {
+      [`heartbeats.${playerUid}`]: Timestamp.now(),
+      lastActionAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return;
   }
 
   await updateDoc(lobbyRef, {
