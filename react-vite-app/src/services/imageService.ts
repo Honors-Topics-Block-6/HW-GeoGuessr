@@ -644,3 +644,47 @@ export async function deleteSubmission(submissionId: string): Promise<void> {
 export async function deleteImage(imageId: string): Promise<void> {
   await deleteDoc(doc(db, 'images', imageId));
 }
+
+/**
+ * Fetches the correct location and floor for an image by pool id or document id.
+ * Pool ids are "image_<docId>" or "submission_<docId>".
+ * Returns null if not found or missing location.
+ */
+export async function getImageLocationByPoolId(
+  imageId: string
+): Promise<{ correctLocation: { x: number; y: number }; correctFloor: number | null } | null> {
+  let sourceType: 'image' | 'submission';
+  let sourceId: string;
+
+  if (imageId.startsWith('image_')) {
+    sourceType = 'image';
+    sourceId = imageId.slice(6);
+  } else if (imageId.startsWith('submission_')) {
+    sourceType = 'submission';
+    sourceId = imageId.slice(11);
+  } else {
+    // Assume raw document id - try images first
+    sourceType = 'image';
+    sourceId = imageId;
+  }
+
+  const coll = sourceType === 'image' ? 'images' : 'submissions';
+  let snap = await getDoc(doc(db, coll, sourceId));
+  let fromSubmissions = sourceType === 'submission';
+  if (!snap.exists() && sourceType === 'image') {
+    snap = await getDoc(doc(db, 'submissions', sourceId));
+    fromSubmissions = snap.exists();
+  }
+  if (!snap.exists()) return null;
+
+  const d = snap.data() as Record<string, unknown>;
+  const loc = fromSubmissions
+    ? (d.location as { x?: number; y?: number } | undefined)
+    : (d.correctLocation as { x?: number; y?: number } | undefined);
+  const fl = fromSubmissions
+    ? (typeof d.floor === 'number' ? d.floor : null)
+    : (typeof d.correctFloor === 'number' ? d.correctFloor : null);
+
+  if (!loc || typeof loc.x !== 'number' || typeof loc.y !== 'number') return null;
+  return { correctLocation: { x: loc.x, y: loc.y }, correctFloor: fl };
+}

@@ -6,8 +6,9 @@ import MapEditor from './MapEditor'
 import AccountManagement from './AccountManagement'
 import FriendsManagement from './FriendsManagement'
 import BugReportManagement from './BugReportManagement'
+import ImageReportManagement from './ImageReportManagement'
 
-export type AdminTabKey = 'review' | 'mapEditor' | 'accounts' | 'friends' | 'bugReports'
+export type AdminTabKey = 'review' | 'mapEditor' | 'accounts' | 'friends' | 'bugReports' | 'imageReports'
 
 interface TabDefinition {
   key: AdminTabKey
@@ -57,6 +58,11 @@ function AdminTabs({ activeTab, onTabChange, onBack }: AdminTabsProps): React.JS
       label: 'Bug Reports',
       visible: hasPermission(ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS),
     },
+    {
+      key: 'imageReports',
+      label: 'Image Reports',
+      visible: hasPermission(ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS),
+    },
   ]
 
   const visibleTabs: TabDefinition[] = tabs.filter(t => t.visible)
@@ -88,6 +94,7 @@ function AdminTabs({ activeTab, onTabChange, onBack }: AdminTabsProps): React.JS
         {activeTab === 'accounts' && (hasPermission(ADMIN_PERMISSIONS.VIEW_ACCOUNTS) || hasPermission(ADMIN_PERMISSIONS.EDIT_ACCOUNTS) || hasPermission(ADMIN_PERMISSIONS.MESSAGE_ACCOUNTS) || hasPermission(ADMIN_PERMISSIONS.MANAGE_ADMINS)) && <AccountManagement />}
         {activeTab === 'friends' && hasPermission(ADMIN_PERMISSIONS.MANAGE_FRIENDS_CHATS) && <FriendsManagement />}
         {activeTab === 'bugReports' && hasPermission(ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS) && <BugReportManagement />}
+        {activeTab === 'imageReports' && hasPermission(ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS) && <ImageReportManagement />}
       </div>
     </div>
   )

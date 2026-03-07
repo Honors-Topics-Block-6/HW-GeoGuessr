@@ -1,7 +1,9 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import { STARTING_HEALTH } from '../../services/duelService';
+import type { ImageReportPayload } from '../../services/imageReportService';
 import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
+import ImageReportModal from '../ImageReportModal/ImageReportModal';
 import './DuelResultScreen.css';
 
 interface MapPosition {
@@ -36,6 +38,7 @@ function formatDistance(distance: number | null | undefined): string {
 export interface DuelResultScreenProps {
   roundNumber: number;
   imageUrl: string;
+  imageId?: string | null;
   actualLocation: MapPosition;
   players: DuelPlayer[];
   roundGuessesByUid: Record<string, RoundGuessData>;
@@ -50,6 +53,9 @@ export interface DuelResultScreenProps {
   onViewFinalResults: () => void;
   onLeaveDuel?: () => void;
   isGameOver?: boolean;
+  onReportInaccurate?: (payload: ImageReportPayload) => void;
+  /** When true, the Report Image button is disabled (user already reported this image) */
+  reportDisabled?: boolean;
 }
 
 const PLAYER_COLORS: string[] = [
@@ -88,7 +94,9 @@ function DuelResultScreen({
   onNextRound,
   onViewFinalResults,
   onLeaveDuel,
-  isGameOver = false
+  isGameOver = false,
+  onReportInaccurate,
+  reportDisabled = false
 }: DuelResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const zoomControlsRef = useRef<HTMLDivElement>(null);
@@ -96,6 +104,7 @@ function DuelResultScreen({
   const mapOuterRef = useRef<HTMLDivElement>(null);
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const sortedByScore = [...players]
     .map(p => ({ ...p, score: roundGuessesByUid[p.uid]?.score ?? 0 }))
@@ -264,6 +273,17 @@ function DuelResultScreen({
           {/* Image preview */}
           <div className="duel-result-image-preview">
             <img src={imageUrl} alt="Location" />
+            {onReportInaccurate && (
+              <button
+                type="button"
+                className={`report-image-button ${reportDisabled ? "report-image-button--disabled" : ""}`}
+                onClick={() => !reportDisabled && setShowReportModal(true)}
+                disabled={reportDisabled}
+                aria-label={reportDisabled ? "Already reported this image" : "Report inaccurate image"}
+              >
+                {reportDisabled ? "Already Reported" : "Report Image"}
+              </button>
+            )}
           </div>
 
           {/* Round leaderboard */}
@@ -394,6 +414,16 @@ function DuelResultScreen({
           }}
           onCancel={() => setShowLeaveConfirm(false)}
           isDuel={true}
+        />
+      )}
+
+      {showReportModal && onReportInaccurate && (
+        <ImageReportModal
+          onClose={() => setShowReportModal(false)}
+          onSubmit={(payload) => {
+            onReportInaccurate(payload);
+            setShowReportModal(false);
+          }}
         />
       )}
     </div>

@@ -67,6 +67,11 @@ import {
   recordDailyPlay,
   syncDailyStreakRollover,
 } from "./services/streakService";
+import {
+  submitImageReport,
+  hasUserReportedImage,
+  type ImageReportPayload,
+} from "./services/imageReportService";
 import "./App.css";
 
 /** Shape of a friend object used when opening chat */
@@ -119,6 +124,8 @@ function App(): React.ReactElement {
     useState<boolean>(false);
   const [collectingDailyReward, setCollectingDailyReward] =
     useState<boolean>(false);
+  const [imageReportToast, setImageReportToast] = useState<string | null>(null);
+  const [hasReportedThisImage, setHasReportedThisImage] = useState<boolean>(false);
 
   // Ensure the daily streak resets to 0 if a day was missed (once per app load).
   useEffect(() => {
@@ -194,6 +201,52 @@ function App(): React.ReactElement {
     inDuelRef.current = inDuel;
     duelPhaseRef.current = duel.phase;
   }, [duelLobbyDocId, duel.opponentUid, user?.uid, inDuel, duel.phase]);
+
+  const duelLatestRound =
+    duel.roundHistory?.length > 0
+      ? duel.roundHistory[duel.roundHistory.length - 1]
+      : null;
+
+  useEffect(() => {
+    if (!user?.uid || isGuest) {
+      setHasReportedThisImage(false);
+      return;
+    }
+    const imageId =
+      screen === "result" && currentResult
+        ? currentResult.imageId ?? null
+        : inDuel && duelLatestRound
+          ? duelLatestRound.imageId ?? null
+          : null;
+    const imageUrl =
+      screen === "result" && currentResult
+        ? currentResult.imageUrl
+        : inDuel && duelLatestRound
+          ? duel.currentImage?.url || duelLatestRound.imageUrl
+          : undefined;
+    if (!imageId && !imageUrl) {
+      setHasReportedThisImage(false);
+      return;
+    }
+    let cancelled = false;
+    hasUserReportedImage(user.uid, imageId, imageUrl).then((reported) => {
+      if (!cancelled) setHasReportedThisImage(reported);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user?.uid,
+    isGuest,
+    screen,
+    currentResult?.imageId,
+    currentResult?.imageUrl,
+    inDuel,
+    duel.phase,
+    duelLatestRound?.imageId,
+    duelLatestRound?.imageUrl,
+    duel.currentImage?.url,
+  ]);
 
   // Track user's online presence and current activity
   usePresence(
@@ -288,6 +341,39 @@ function App(): React.ReactElement {
       });
     },
     [handleJoinFromInvite],
+  );
+
+  const handleReportInaccurateImage = useCallback(
+    async (
+      payload: ImageReportPayload,
+      imageId: string | null,
+      imageUrl?: string | null
+    ): Promise<void> => {
+      if (!user?.uid || !userDoc?.username) return;
+      const urlToStore =
+        imageUrl && imageUrl.length <= 500 ? imageUrl : undefined;
+      try {
+        await submitImageReport({
+          imageId,
+          imageUrl: urlToStore,
+          userId: user.uid,
+          username: userDoc.username,
+          userEmail: user.email ?? undefined,
+          cause: payload.cause,
+          explanation: payload.explanation,
+          suggestedLocation: payload.suggestedLocation ?? null,
+          suggestedFloor: payload.suggestedFloor ?? null,
+        });
+        setHasReportedThisImage(true);
+        setImageReportToast("Thanks! Your report has been submitted.");
+      } catch (err) {
+        setImageReportToast(
+          err instanceof Error ? err.message : "Could not submit report. Please try again.",
+        );
+      }
+      setTimeout(() => setImageReportToast(null), 4000);
+    },
+    [user?.uid, user?.email, userDoc?.username],
   );
 
   // Prepare the message banner (uses createPortal, renders at viewport top)
@@ -820,12 +906,6 @@ function App(): React.ReactElement {
   };
 
   // --- Duel game state derivation ---
-  // Get the latest round from roundHistory to show in results
-  const duelLatestRound =
-    duel.roundHistory?.length > 0
-      ? duel.roundHistory[duel.roundHistory.length - 1]
-      : null;
-
   // Get my username
   const myUsername: string = userDoc?.username || "You";
 
@@ -853,6 +933,15 @@ function App(): React.ReactElement {
               +{achievementToastQueue[0].rewardXp.toLocaleString()} XP
             </div>
           </div>
+        </div>
+      )}
+      {imageReportToast && (
+        <div
+          className="image-report-toast"
+          role="status"
+          aria-live="polite"
+        >
+          {imageReportToast}
         </div>
       )}
       {messageBanner}
@@ -981,6 +1070,17 @@ function App(): React.ReactElement {
             isEndlessMode ? currentHp <= 0 : currentRound >= totalRounds
           }
           onBackToTitle={resetGame}
+          onReportInaccurate={
+            user && userDoc && !isGuest
+              ? (payload) =>
+                  handleReportInaccurateImage(
+                    payload,
+                    currentResult.imageId ?? null,
+                    currentResult.imageUrl,
+                  )
+              : undefined
+          }
+          reportDisabled={hasReportedThisImage}
           isEndlessMode={isEndlessMode}
           currentHp={currentHp}
           maxHp={startingHp}
@@ -1049,6 +1149,7 @@ function App(): React.ReactElement {
         <DuelResultScreen
           roundNumber={duelLatestRound.roundNumber}
           imageUrl={duel.currentImage?.url || duelLatestRound.imageUrl}
+          imageId={duelLatestRound.imageId}
           actualLocation={duelLatestRound.actualLocation}
           players={duel.players}
           roundGuessesByUid={duelLatestRound.players || {}}
@@ -1066,6 +1167,17 @@ function App(): React.ReactElement {
           onNextRound={duel.nextRound}
           onViewFinalResults={() => {/* Will auto-transition via phase */ }}
           onLeaveDuel={handleDuelForfeit}
+          onReportInaccurate={
+            user && userDoc && !isGuest
+              ? (payload) =>
+                  handleReportInaccurateImage(
+                    payload,
+                    duelLatestRound.imageId ?? null,
+                    duel.currentImage?.url || duelLatestRound.imageUrl,
+                  )
+              : undefined
+          }
+          reportDisabled={hasReportedThisImage}
           isGameOver={false}
         />
       )}

@@ -37,6 +37,10 @@ vi.mock('./BugReportManagement', () => ({
   default: () => <div data-testid="bug-report-management">Bug Report Management Component</div>
 }));
 
+vi.mock('./ImageReportManagement', () => ({
+  default: () => <div data-testid="image-report-management">Image Report Management Component</div>
+}));
+
 describe('AdminTabs', () => {
   const mockOnTabChange = vi.fn();
   const mockOnBack = vi.fn();
