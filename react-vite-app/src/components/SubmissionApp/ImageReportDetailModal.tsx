@@ -141,8 +141,7 @@ function ImageReportDetailModal({ report, onClose }: ImageReportDetailModalProps
             <div className="img-report-detail-row">
               <span className="img-report-detail-label">Suggested location</span>
               <span className="img-report-detail-value">
-                ({report.suggestedLocation.x.toFixed(1)}%,{' '}
-                {report.suggestedLocation.y.toFixed(1)}%)
+                X: {report.suggestedLocation.x.toFixed(1)}, Y: {report.suggestedLocation.y.toFixed(1)}
                 {report.suggestedFloor != null && ` • Floor ${report.suggestedFloor}`}
               </span>
             </div>
