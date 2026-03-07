@@ -934,7 +934,7 @@ function App(): React.ReactElement {
       {inDuel && duel.phase === 'results' && duelLatestRound && (
         <DuelResultScreen
           roundNumber={duelLatestRound.roundNumber}
-          imageUrl={duelLatestRound.imageUrl}
+          imageUrl={duel.currentImage?.url || duelLatestRound.imageUrl}
           actualLocation={duelLatestRound.actualLocation}
           myGuess={duelLatestRound.players?.[uid]}
           opponentGuess={duelLatestRound.players?.[opUid]}

@@ -72,6 +72,10 @@ export interface RoundPlayerResult {
 export interface RoundHistoryEntry {
   roundNumber: number;
   imageId?: string;
+  /**
+   * Compact, non-essential image reference for history rows.
+   * Avoid storing full image URLs/base64 payloads to keep lobby docs under Firestore 1MB limit.
+   */
   imageUrl: string;
   actualLocation: MapLocation;
   actualFloor: number | null;
@@ -307,7 +311,7 @@ export async function processRound(docId: string): Promise<void> {
   const roundEntry: RoundHistoryEntry = {
     roundNumber: currentRound,
     imageId: currentImage.id,
-    imageUrl: currentImage.url,
+    imageUrl: currentImage.id ? `image:${currentImage.id}` : '',
     actualLocation: currentImage.correctLocation,
     actualFloor: currentImage.correctFloor ?? null,
     players: {
