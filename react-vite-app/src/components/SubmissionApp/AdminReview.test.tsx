@@ -25,13 +25,11 @@ vi.mock('firebase/firestore', () => ({
 
 // Mock imageService
 const mockGetAllImages = vi.fn();
-const mockGetAllSampleImages = vi.fn();
 const mockDeleteSubmission = vi.fn();
 const mockDeleteImage = vi.fn();
 
 vi.mock('../../services/imageService', () => ({
   getAllImages: (...args: unknown[]) => mockGetAllImages(...args),
-  getAllSampleImages: (...args: unknown[]) => mockGetAllSampleImages(...args),
   deleteSubmission: (...args: unknown[]) => mockDeleteSubmission(...args),
   deleteImage: (...args: unknown[]) => mockDeleteImage(...args)
 }));
@@ -126,16 +124,6 @@ describe('AdminReview', () => {
     }
   ];
 
-  const mockSampleImages = [
-    {
-      id: 'sample-1',
-      url: 'https://example.com/sample1.jpg',
-      correctLocation: { x: 35, y: 45 },
-      correctFloor: 2,
-      description: 'Sample image 1'
-    }
-  ];
-
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -157,7 +145,6 @@ describe('AdminReview', () => {
 
     // Mock imageService - return empty by default to keep tests focused
     mockGetAllImages.mockResolvedValue([]);
-    mockGetAllSampleImages.mockReturnValue(mockSampleImages);
   });
 
   describe('loading state', () => {
@@ -193,17 +180,14 @@ describe('AdminReview', () => {
       render(<AdminReview onBack={mockOnBack} />);
       expect(screen.getByText(/Submissions/)).toBeInTheDocument();
       expect(screen.getByText(/Game Images/)).toBeInTheDocument();
-      expect(screen.getByText(/Testing Data/)).toBeInTheDocument();
     });
 
     it('should default to all filter and show all items', async () => {
       render(<AdminReview onBack={mockOnBack} />);
-      // Default filter is 'all', so all submissions + sample images should be shown
-      // Sample images are loaded async, so wait for them
+      // Default filter is 'all', so all submissions should be shown
       await waitFor(() => {
         const submissionCards = document.querySelectorAll('.submission-card');
-        // 3 submissions + 1 sample image = 4
-        expect(submissionCards.length).toBe(4);
+        expect(submissionCards.length).toBe(3);
       });
     });
   });
@@ -239,22 +223,6 @@ describe('AdminReview', () => {
       expect(submissionCards.length).toBe(1);
     });
 
-    it('should show only testing items when Testing filter is clicked', async () => {
-      const user = userEvent.setup();
-      render(<AdminReview onBack={mockOnBack} />);
-
-      // Wait for sample images to load (async useEffect)
-      await waitFor(() => {
-        expect(document.querySelectorAll('.submission-card').length).toBe(4);
-      });
-
-      // Click the "Testing (N)" status filter (not "Testing Data" source filter)
-      await user.click(screen.getByText(/^Testing \(/));
-
-      const submissionCards = document.querySelectorAll('.submission-card');
-      expect(submissionCards.length).toBe(1);
-    });
-
     it('should update active tab styling', async () => {
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
@@ -274,16 +242,6 @@ describe('AdminReview', () => {
 
       const submissionCards = document.querySelectorAll('.submission-card');
       expect(submissionCards.length).toBe(3);
-    });
-
-    it('should show only testing data when Testing Data source filter is clicked', async () => {
-      const user = userEvent.setup();
-      render(<AdminReview onBack={mockOnBack} />);
-
-      await user.click(screen.getByText(/^Testing Data/));
-
-      const submissionCards = document.querySelectorAll('.submission-card');
-      expect(submissionCards.length).toBe(1);
     });
 
     it('should combine source and status filters', async () => {
@@ -318,11 +276,8 @@ describe('AdminReview', () => {
     it('should display source badge', async () => {
       render(<AdminReview onBack={mockOnBack} />);
 
-      // Wait for sample images to load (async useEffect)
       await waitFor(() => {
-        // Should have Submission badges for submissions and Testing Data for samples
         expect(screen.getAllByText('Submission').length).toBe(3);
-        expect(screen.getAllByText('Testing Data').length).toBeGreaterThanOrEqual(1);
       });
     });
 
@@ -493,7 +448,6 @@ describe('AdminReview', () => {
         callback({ docs: [] });
         return mockUnsubscribe;
       });
-      mockGetAllSampleImages.mockReturnValue([]);
 
       const user = userEvent.setup();
       render(<AdminReview onBack={mockOnBack} />);
@@ -714,7 +668,6 @@ describe('AdminReview', () => {
         callback({ docs: [] });
         return mockUnsubscribe;
       });
-      mockGetAllSampleImages.mockReturnValue([]);
 
       render(<AdminReview onBack={mockOnBack} />);
 
@@ -922,26 +875,6 @@ describe('AdminReview', () => {
         expect(screen.getByText('Edit')).toBeInTheDocument();
       });
 
-      it('should NOT show Edit button in modal for testing items', async () => {
-        const user = userEvent.setup();
-        // Only load testing items
-        mockOnSnapshot.mockImplementation((query: unknown, callback: (snapshot: unknown) => void) => {
-          callback({ docs: [] });
-          return vi.fn();
-        });
-
-        render(<AdminReview onBack={mockOnBack} />);
-
-        // Wait for testing data to load
-        await waitFor(() => {
-          expect(screen.getByText(/Testing Data \(1\)/)).toBeInTheDocument();
-        });
-        // Click the source filter tab for Testing Data
-        await user.click(screen.getByText(/^Testing Data \(/));
-        await user.click(screen.getByText('View Full Details'));
-
-        expect(screen.queryByText('Edit')).not.toBeInTheDocument();
-      });
     });
 
     describe('entering and exiting edit mode', () => {
@@ -1506,24 +1439,6 @@ describe('AdminReview', () => {
         expect(screen.getByText('Delete')).toBeInTheDocument();
       });
 
-      it('should NOT show Delete button on testing data cards', async () => {
-        const user = userEvent.setup();
-        // Only show testing items
-        mockOnSnapshot.mockImplementation((query: unknown, callback: (snapshot: unknown) => void) => {
-          callback({ docs: [] });
-          return vi.fn();
-        });
-
-        render(<AdminReview onBack={mockOnBack} />);
-
-        await waitFor(() => {
-          expect(screen.getByText(/Testing Data \(1\)/)).toBeInTheDocument();
-        });
-        await user.click(screen.getByText(/^Testing Data \(/));
-
-        expect(screen.queryByText('Delete')).not.toBeInTheDocument();
-      });
-
       it('should show Delete button in modal for submission items', async () => {
         const user = userEvent.setup();
         render(<AdminReview onBack={mockOnBack} />);
@@ -1537,24 +1452,6 @@ describe('AdminReview', () => {
         expect(modalDeleteBtn).toBeInTheDocument();
       });
 
-      it('should NOT show Delete button in modal for testing items', async () => {
-        const user = userEvent.setup();
-        mockOnSnapshot.mockImplementation((query: unknown, callback: (snapshot: unknown) => void) => {
-          callback({ docs: [] });
-          return vi.fn();
-        });
-
-        render(<AdminReview onBack={mockOnBack} />);
-
-        await waitFor(() => {
-          expect(screen.getByText(/Testing Data \(1\)/)).toBeInTheDocument();
-        });
-        await user.click(screen.getByText(/^Testing Data \(/));
-        await user.click(screen.getByText('View Full Details'));
-
-        const modalDeleteBtn = document.querySelector('.modal-header-actions .delete-photo-button');
-        expect(modalDeleteBtn).not.toBeInTheDocument();
-      });
     });
 
     describe('delete confirmation popup', () => {

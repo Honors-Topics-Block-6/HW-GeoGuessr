@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import {
-  getAllSampleImages,
   deleteSubmission,
   deleteImage,
   getAdminSubmissionsPage,
@@ -36,8 +35,8 @@ export interface Location {
   y: number
 }
 
-type SubmissionSource = 'submission' | 'image' | 'testing'
-type SubmissionStatus = 'pending' | 'approved' | 'denied' | 'testing'
+type SubmissionSource = 'submission' | 'image'
+type SubmissionStatus = 'pending' | 'approved' | 'denied'
 
 export interface SubmissionItem {
   id: string
@@ -58,7 +57,6 @@ interface BufferedPage {
   queryKey: string
   submissions: SubmissionItem[]
   images: SubmissionItem[]
-  includeTesting: boolean
   nextSubmissionCursor: string | null
   nextImageCursor: string | null
   hasMoreSubmissions: boolean
@@ -94,11 +92,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([])
   const [firestoreImages, setFirestoreImages] = useState<SubmissionItem[]>([])
-  const [sampleImages, setSampleImages] = useState<SubmissionItem[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [loadingMore, setLoadingMore] = useState<boolean>(false)
   const [filter, setFilter] = useState<string>('all') // pending, approved, denied, all
-  const [sourceFilter, setSourceFilter] = useState<string>('all') // all, submissions, images, testing
+  const [sourceFilter, setSourceFilter] = useState<string>('all') // all, submissions, images
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null)
   const [submissionCursor, setSubmissionCursor] = useState<string | null>(null)
   const [imageCursor, setImageCursor] = useState<string | null>(null)
@@ -137,9 +134,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const loadedSourceCounts = useMemo(() => ({
     submission: submissions.length,
     image: firestoreImages.length,
-    testing: sampleImages.length,
-    all: submissions.length + firestoreImages.length + sampleImages.length
-  }), [firestoreImages.length, sampleImages.length, submissions.length])
+    all: submissions.length + firestoreImages.length
+  }), [firestoreImages.length, submissions.length])
 
   const BACKFILL_IMAGE_CURSOR_KEY = 'admin.imagePool.backfill.imageCursor.v1'
   const BACKFILL_SUBMISSION_CURSOR_KEY = 'admin.imagePool.backfill.submissionCursor.v1'
@@ -168,23 +164,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     } = options
     const requestId = requestSequenceRef.current
 
-    const includesSubmissions = sourceFilterValue !== 'image' && sourceFilterValue !== 'testing'
-    const includesImages = sourceFilterValue !== 'submission' && sourceFilterValue !== 'testing' && (filterValue === 'all' || filterValue === 'approved')
-    const includesTesting = sourceFilterValue === 'all' || sourceFilterValue === 'testing'
-
-    if (sourceFilterValue === 'testing') {
-      if (queryKey !== activeQueryKeyRef.current || requestId !== requestSequenceRef.current) return null
-      return {
-        queryKey,
-        submissions: [],
-        images: [],
-        includeTesting: true,
-        nextSubmissionCursor: null,
-        nextImageCursor: null,
-        hasMoreSubmissions: false,
-        hasMoreImages: false
-      }
-    }
+    const includesSubmissions = sourceFilterValue !== 'image'
+    const includesImages = sourceFilterValue !== 'submission' && (filterValue === 'all' || filterValue === 'approved')
 
     const currentSubmissionCursor = reset ? null : submissionCursorValue
     const currentImageCursor = reset ? null : imageCursorValue
@@ -250,7 +231,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       queryKey,
       submissions: nextSubmissions,
       images: nextImages,
-      includeTesting: includesTesting,
       nextSubmissionCursor: submissionPage?.nextCursor ?? (reset ? null : submissionCursorValue),
       nextImageCursor: imagePage?.nextCursor ?? (reset ? null : imageCursorValue),
       hasMoreSubmissions: submissionPage?.hasMore ?? false,
@@ -281,16 +261,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       const uniqueIncoming = page.images.filter((item) => !prevKeys.has(`${item._source}-${item.id}`))
       return uniqueIncoming.length === 0 ? prev : [...prev, ...uniqueIncoming]
     })
-    setSampleImages(page.includeTesting ? getAllSampleImages().map(img => ({
-      id: img.id,
-      photoURL: img.url,
-      location: img.correctLocation,
-      floor: img.correctFloor,
-      photoName: img.description || img.id,
-      status: 'testing',
-      _source: 'testing' as SubmissionSource,
-      description: img.description
-    })) : [])
     setSubmissionCursor(page.nextSubmissionCursor)
     setImageCursor(page.nextImageCursor)
     setHasMoreSubmissions(page.hasMoreSubmissions)
@@ -317,7 +287,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     fetchRawPage
   ])
 
-  // Fetch images from Firestore images collection and sample/testing images
+  // Fetch images from Firestore images collection
   useEffect(() => {
     activeQueryKeyRef.current = currentQueryKey
     canTriggerAutoLoadRef.current = true
@@ -332,8 +302,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     setImageCursor(null)
     setPrefetchQueue([])
     setIsPrefetching(false)
-    setHasMoreSubmissions(sourceFilter !== 'image' && sourceFilter !== 'testing')
-    setHasMoreImages(sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved'))
+    setHasMoreSubmissions(sourceFilter !== 'image')
+    setHasMoreImages(sourceFilter !== 'submission' && (filter === 'all' || filter === 'approved'))
 
     void fetchPage({
       reset: true,
@@ -342,8 +312,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       filterValue: filter,
       submissionCursorValue: null,
       imageCursorValue: null,
-      hasMoreSubmissionsValue: sourceFilter !== 'image' && sourceFilter !== 'testing',
-      hasMoreImagesValue: sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved')
+      hasMoreSubmissionsValue: sourceFilter !== 'image',
+      hasMoreImagesValue: sourceFilter !== 'submission' && (filter === 'all' || filter === 'approved')
     }).catch((error) => {
       if (requestId !== requestSequenceRef.current) return
       console.error('Error fetching admin review page:', error)
@@ -409,8 +379,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
       return
     }
     const hasMoreFromState =
-      (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
-      (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages)
+      (sourceFilter !== 'image' && hasMoreSubmissions) ||
+      (sourceFilter !== 'submission' && (filter === 'all' || filter === 'approved') && hasMoreImages)
     if (!hasMoreFromState && prefetchQueue.length === 0) return
     setLoadingMore(true)
     try {
@@ -443,8 +413,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     const node = loadMoreRef.current
     if (!node) return
     const hasMore =
-      (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
-      (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages) ||
+      (sourceFilter !== 'image' && hasMoreSubmissions) ||
+      (sourceFilter !== 'submission' && (filter === 'all' || filter === 'approved') && hasMoreImages) ||
       prefetchQueue.length > 0
     if (!hasMore) return
 
@@ -468,8 +438,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
   useEffect(() => {
     const hasMoreToLoad =
-      (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
-      (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages) ||
+      (sourceFilter !== 'image' && hasMoreSubmissions) ||
+      (sourceFilter !== 'submission' && (filter === 'all' || filter === 'approved') && hasMoreImages) ||
       prefetchQueue.length > 0
     if (!hasMoreToLoad) return
     if (loading || loadingMore || isPrefetching) return
@@ -485,8 +455,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
   useEffect(() => {
     const hasMore =
-      (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
-      (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages)
+      (sourceFilter !== 'image' && hasMoreSubmissions) ||
+      (sourceFilter !== 'submission' && (filter === 'all' || filter === 'approved') && hasMoreImages)
     if (!hasMore || loading || loadingMore || isPrefetching || prefetchQueue.length >= PREFETCH_MAX_PAGES) return
 
     const queueTail = prefetchQueue[prefetchQueue.length - 1]
@@ -883,28 +853,22 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   }
 
   // Combine all loaded sources; counts are fetched separately.
-  const allItems: SubmissionItem[] = useMemo(() => [...submissions, ...firestoreImages, ...sampleImages], [submissions, firestoreImages, sampleImages])
+  const allItems: SubmissionItem[] = useMemo(() => [...submissions, ...firestoreImages], [submissions, firestoreImages])
 
   const loadedStatusCounts = useMemo(() => ({
     pending: submissions.filter((item) => item.status === 'pending').length,
     approved: submissions.filter((item) => item.status === 'approved').length + firestoreImages.length,
-    denied: submissions.filter((item) => item.status === 'denied').length,
-    testing: sampleImages.length
-  }), [firestoreImages.length, sampleImages.length, submissions])
+    denied: submissions.filter((item) => item.status === 'denied').length
+  }), [firestoreImages.length, submissions])
 
   // Format count display as "loaded/total" when totals are available
-  const formatSourceCount = (source: 'all' | 'submission' | 'image' | 'testing'): string => {
+  const formatSourceCount = (source: 'all' | 'submission' | 'image'): string => {
     const loaded = loadedSourceCounts[source]
     if (!totalCounts) return `${loaded}`
 
-    if (source === 'testing') {
-      // Testing data is in-memory only, so loaded = total
-      return `${loaded}`
-    }
-
     let total: number
     if (source === 'all') {
-      total = totalCounts.submissions + totalCounts.images + sampleImages.length
+      total = totalCounts.submissions + totalCounts.images
     } else if (source === 'submission') {
       total = totalCounts.submissions
     } else {
@@ -914,13 +878,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     return `${loaded}/${total}`
   }
 
-  const formatStatusCount = (status: 'all' | 'pending' | 'approved' | 'denied' | 'testing'): string => {
+  const formatStatusCount = (status: 'all' | 'pending' | 'approved' | 'denied'): string => {
     if (status === 'all') {
       return formatSourceCount('all')
-    }
-
-    if (status === 'testing') {
-      return `${loadedStatusCounts.testing}`
     }
 
     const loaded = loadedStatusCounts[status]
@@ -957,7 +917,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     switch (source) {
       case 'submission': return 'source-submission'
       case 'image': return 'source-image'
-      case 'testing': return 'source-testing'
       default: return ''
     }
   }
@@ -966,7 +925,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     switch (source) {
       case 'submission': return 'Submission'
       case 'image': return 'Game Image'
-      case 'testing': return 'Testing'
       default: return source
     }
   }
@@ -986,10 +944,10 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
 
   const roundCoordinate = (value: number): number => Math.round(value * 100) / 100
 
-  const isEditable = selectedSubmission && selectedSubmission._source !== 'testing'
+  const isEditable = Boolean(selectedSubmission)
   const hasMoreItems =
-    (sourceFilter !== 'image' && sourceFilter !== 'testing' && hasMoreSubmissions) ||
-    (sourceFilter !== 'submission' && sourceFilter !== 'testing' && (filter === 'all' || filter === 'approved') && hasMoreImages) ||
+      (sourceFilter !== 'image' && hasMoreSubmissions) ||
+      (sourceFilter !== 'submission' && (filter === 'all' || filter === 'approved') && hasMoreImages) ||
     prefetchQueue.length > 0
 
   if (loading) {
@@ -1032,12 +990,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
             >
               Game Images ({formatSourceCount('image')})
             </button>
-            <button
-              className={`filter-tab ${sourceFilter === 'testing' ? 'active' : ''}`}
-              onClick={() => setSourceFilter('testing')}
-            >
-              Testing Data ({formatSourceCount('testing')})
-            </button>
           </div>
         </div>
 
@@ -1067,12 +1019,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               onClick={() => setFilter('denied')}
             >
               Denied ({formatStatusCount('denied')})
-            </button>
-            <button
-              className={`filter-tab ${filter === 'testing' ? 'active' : ''}`}
-              onClick={() => setFilter('testing')}
-            >
-              Testing ({formatStatusCount('testing')})
             </button>
           </div>
         </div>
@@ -1221,15 +1167,6 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                     Delete
                   </button>
                 </div>
-              )}
-
-              {submission._source === 'testing' && (
-                <button
-                  className="view-details-button"
-                  onClick={() => setSelectedSubmission(submission)}
-                >
-                  View Details
-                </button>
               )}
             </div>
           ))}

@@ -14,7 +14,8 @@
     "test:ui": "vitest --ui",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
-    "backfill:image-pool": "node scripts/backfill-image-pool.mjs"
+    "backfill:image-pool": "node scripts/backfill-image-pool.mjs",
+    "delete:testing-images": "node scripts/delete-testing-images.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
