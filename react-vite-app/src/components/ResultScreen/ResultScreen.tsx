@@ -200,6 +200,7 @@ function ResultScreen({
   hpLost
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const zoomControlsRef = useRef<HTMLDivElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
   const mapOuterRef = useRef<HTMLDivElement>(null);
   const mapImageRef = useRef<HTMLImageElement>(null);
@@ -274,7 +275,7 @@ function ResultScreen({
     zoomOut,
     resetZoom,
     isPanning
-  } = useMapZoom(mapContainerRef);
+  } = useMapZoom(mapContainerRef, { zoomControlsRef });
 
   const isZoomed: boolean = scale > 1;
 
@@ -506,7 +507,7 @@ function ResultScreen({
             </div>
 
             {/* Zoom controls - positioned outside the transform wrapper */}
-            <div className="zoom-controls">
+            <div className="zoom-controls" ref={zoomControlsRef}>
               <button
                 className="zoom-btn zoom-in-btn"
                 onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); zoomIn(); }}
