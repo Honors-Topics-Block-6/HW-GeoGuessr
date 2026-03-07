@@ -7,9 +7,11 @@ export interface HeatmapPoint {
   weight: number;
 }
 
-interface HeatmapResponse {
+export interface HeatmapResponse {
   points: HeatmapPoint[];
   source: 'firestore' | 'mock';
+  /** Number of previous guesses (excluding current). Used to gate heatmap display. */
+  guessCount: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -121,7 +123,8 @@ export async function getGuessHeatmapDataForImage(
   if (!imageId) {
     return {
       points: createMockHeatmapPoints('no-image-id', fallbackCenter),
-      source: 'mock'
+      source: 'mock',
+      guessCount: 0
     };
   }
 
@@ -132,7 +135,8 @@ export async function getGuessHeatmapDataForImage(
     if (snapshot.empty) {
       return {
         points: createMockHeatmapPoints(imageId, fallbackCenter),
-        source: 'mock'
+        source: 'mock',
+        guessCount: 0
       };
     }
 
@@ -153,19 +157,22 @@ export async function getGuessHeatmapDataForImage(
     if (extracted.length === 0) {
       return {
         points: createMockHeatmapPoints(imageId, fallbackCenter),
-        source: 'mock'
+        source: 'mock',
+        guessCount: 0
       };
     }
 
     return {
       points: aggregateNearbyPoints(extracted),
-      source: 'firestore'
+      source: 'firestore',
+      guessCount: extracted.length
     };
   } catch (error) {
     console.warn('Guess heatmap fetch failed, using mock data:', error);
     return {
       points: createMockHeatmapPoints(imageId, fallbackCenter),
-      source: 'mock'
+      source: 'mock',
+      guessCount: 0
     };
   }
 }

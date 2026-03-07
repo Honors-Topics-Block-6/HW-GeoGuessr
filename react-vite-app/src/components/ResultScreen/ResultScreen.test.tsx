@@ -35,7 +35,8 @@ describe('ResultScreen', () => {
     vi.useFakeTimers();
     vi.mocked(getGuessHeatmapDataForImage).mockResolvedValue({
       points: [{ x: 50, y: 50, weight: 2 }],
-      source: 'mock'
+      source: 'mock',
+      guessCount: 30
     });
     (global as Record<string, unknown>)._resizeObserverInstances = [];
   });

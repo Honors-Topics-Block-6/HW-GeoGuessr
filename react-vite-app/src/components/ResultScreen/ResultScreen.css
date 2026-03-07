@@ -291,6 +291,15 @@
   transform: translateY(-1px);
 }
 
+.heatmap-toggle.heatmap-insufficient:not(.active) {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.heatmap-toggle.heatmap-insufficient:not(.active):hover {
+  transform: none;
+}
+
 .heatmap-toggle.active {
   border-color: rgba(255, 170, 100, 0.7);
   box-shadow: 0 0 0 1px rgba(255, 170, 100, 0.28), 0 8px 18px rgba(255, 122, 64, 0.28);

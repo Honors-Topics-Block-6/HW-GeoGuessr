@@ -207,6 +207,7 @@ function ResultScreen({
   const [displayedScore, setDisplayedScore] = useState<number>(0);
   const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
   const [heatmapSource, setHeatmapSource] = useState<'firestore' | 'mock'>('mock');
+  const [heatmapGuessCount, setHeatmapGuessCount] = useState<number>(0);
   const [heatmapEnabled, setHeatmapEnabled] = useState<boolean>(true);
   const [imageFit, setImageFit] = useState<ImageFit>({ offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 });
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -343,13 +344,18 @@ function ResultScreen({
     let isMounted = true;
 
     async function loadHeatmap(): Promise<void> {
-      const { points, source } = await getGuessHeatmapDataForImage(imageId, {
+      const { points, source, guessCount } = await getGuessHeatmapDataForImage(imageId, {
         fallbackCenter: actualLocation,
         excludePoint: guessLocation ?? undefined
       });
       if (!isMounted) return;
       setHeatmapPoints(points);
       setHeatmapSource(source);
+      const count = guessCount ?? 0;
+      setHeatmapGuessCount(count);
+      if (count < 25) {
+        setHeatmapEnabled(false);
+      }
     }
 
     loadHeatmap();
@@ -539,11 +545,15 @@ function ResultScreen({
             <div className="heatmap-controls">
               <button
                 type="button"
-                className={`heatmap-toggle ${heatmapEnabled ? 'active' : ''}`}
+                className={`heatmap-toggle ${heatmapEnabled ? 'active' : ''} ${heatmapGuessCount < 25 ? 'heatmap-insufficient' : ''}`}
                 role="switch"
                 aria-checked={heatmapEnabled}
                 aria-label="Heatmap toggle"
-                onClick={() => setHeatmapEnabled((prev) => !prev)}
+                title={heatmapGuessCount < 25 ? 'Not enough historical data (need 25+ guesses)' : undefined}
+                onClick={() => {
+                  if (heatmapGuessCount < 25 && !heatmapEnabled) return;
+                  setHeatmapEnabled((prev) => !prev);
+                }}
               >
                 <span className="heatmap-toggle-label">Heatmap</span>
                 <span className="heatmap-switch-track" aria-hidden="true">
@@ -551,7 +561,9 @@ function ResultScreen({
                 </span>
               </button>
               <div className="heatmap-badge">
-                Previous guesses {heatmapSource === 'firestore' ? '(live)' : '(mock)'}
+                {heatmapGuessCount < 25
+                  ? 'Not enough historical data'
+                  : `Previous guesses ${heatmapSource === 'firestore' ? '(live)' : '(mock)'}`}
               </div>
             </div>
           </div>
