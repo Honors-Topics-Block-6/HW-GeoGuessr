@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { ImageReportDoc } from '../../services/imageReportService';
 import { CAUSE_LABELS } from '../../services/imageReportService';
 import { getImageLocationByPoolId } from '../../services/imageService';
+import { deleteImageReport } from '../../services/imageReportService';
 import './ImageReportDetailModal.css';
 
 export interface ImageReportDetailModalProps {
@@ -31,6 +32,7 @@ function formatDate(timestamp: unknown): string {
 }
 
 function ImageReportDetailModal({ report, onClose }: ImageReportDetailModalProps): React.JSX.Element {
+  const [isClosing, setIsClosing] = useState(false);
   const imageDisplayUrl =
     report.imageUrl?.startsWith('data:') || report.imageUrl?.startsWith('http')
       ? report.imageUrl
@@ -181,6 +183,26 @@ function ImageReportDetailModal({ report, onClose }: ImageReportDetailModalProps
             <span className="img-report-detail-value">
               {formatDate(report.createdAt)}
             </span>
+          </div>
+
+          <div className="img-report-detail-actions">
+            <button
+              type="button"
+              className="img-report-detail-close-issue-btn"
+              onClick={async () => {
+                if (isClosing) return;
+                setIsClosing(true);
+                try {
+                  await deleteImageReport(report.id);
+                  onClose();
+                } catch {
+                  setIsClosing(false);
+                }
+              }}
+              disabled={isClosing}
+            >
+              {isClosing ? 'Closing…' : 'Close issue'}
+            </button>
           </div>
         </div>
       </div>

@@ -176,3 +176,30 @@
   font-size: 14px;
   color: var(--hw-black, #231f20);
 }
+
+.img-report-detail-actions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--hw-gray-300, #d1d5db);
+}
+
+.img-report-detail-close-issue-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--hw-gray-100, #f3f4f6);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  color: var(--hw-black, #231f20);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.img-report-detail-close-issue-btn:hover:not(:disabled) {
+  background: var(--hw-gray-200, #e5e7eb);
+  border-color: var(--hw-gray-400, #9ca3af);
+}
+
+.img-report-detail-close-issue-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

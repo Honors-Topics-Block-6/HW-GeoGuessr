@@ -1,6 +1,8 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   getDocs,
   onSnapshot,
   orderBy,
@@ -135,6 +137,13 @@ export { CAUSE_LABELS };
  * Subscribe to all image reports in real-time (admin use).
  * Returns an unsubscribe function.
  */
+/**
+ * Deletes an image report by id (admin use).
+ */
+export async function deleteImageReport(reportId: string): Promise<void> {
+  await deleteDoc(doc(db, 'imageReports', reportId));
+}
+
 export function subscribeToImageReports(
   callback: (reports: ImageReportDoc[]) => void
 ): () => void {
