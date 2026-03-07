@@ -38,15 +38,18 @@ export interface UserDoc {
   email: string;
   username: string;
   favoriteEmote?: string;
-  photoURL?: string;
+  photoURL?: string | null;
+  avatarEmoji?: string | null;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
   gamesPlayed: number;
+  dailyGoalWins?: number;
   createdAt: unknown;
   lastActive?: unknown;
   permissions?: PermissionsMap;
   lastGameAt?: unknown;
+  lastDailyGoalWinAt?: unknown;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
   fastestGuessTimeSeconds?: number;
@@ -71,9 +74,13 @@ export interface UserProfileUpdates {
   email?: string;
   isAdmin?: boolean;
   emailVerified?: boolean;
+  photoURL?: string | null;
+  avatarEmoji?: string | null;
   totalXp?: number;
   gamesPlayed?: number;
+  dailyGoalWins?: number;
   lastGameAt?: Date | string | null;
+  lastDailyGoalWinAt?: Date | string | null;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
   fastestGuessTimeSeconds?: number;
@@ -384,6 +391,9 @@ export async function createUserDoc(uid: string, email: string, username: string
     emailVerified: false,
     totalXp: 0,
     gamesPlayed: 0,
+    dailyGoalWins: 0,
+    photoURL: null,
+    avatarEmoji: null,
     createdAt: serverTimestamp(),
     // Updated on login + meaningful activity via server time.
     lastActive: serverTimestamp(),
@@ -682,6 +692,14 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
     updates.gamesPlayed = gp;
   }
 
+  if ('dailyGoalWins' in updates) {
+    const wins = Number(updates.dailyGoalWins);
+    if (isNaN(wins) || wins < 0 || !Number.isInteger(wins)) {
+      throw new Error('Daily goal wins must be a non-negative whole number.');
+    }
+    updates.dailyGoalWins = wins;
+  }
+
   // Convert lastGameAt to a Firestore-compatible Date if provided
   if ('lastGameAt' in updates && updates.lastGameAt !== null) {
     const date = updates.lastGameAt instanceof Date ? updates.lastGameAt : new Date(updates.lastGameAt as string);
@@ -689,6 +707,16 @@ export async function updateUserProfile(uid: string, updates: UserProfileUpdates
       throw new Error('Last game date is invalid.');
     }
     updates.lastGameAt = date;
+  }
+
+  if ('lastDailyGoalWinAt' in updates && updates.lastDailyGoalWinAt !== null) {
+    const date = updates.lastDailyGoalWinAt instanceof Date
+      ? updates.lastDailyGoalWinAt
+      : new Date(updates.lastDailyGoalWinAt as string);
+    if (isNaN(date.getTime())) {
+      throw new Error('Last daily goal win date is invalid.');
+    }
+    updates.lastDailyGoalWinAt = date;
   }
 
   // Keep emailLower in sync when email is updated

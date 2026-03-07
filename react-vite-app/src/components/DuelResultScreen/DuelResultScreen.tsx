@@ -29,7 +29,7 @@ interface DuelPlayer {
 function formatDistance(distance: number | null | undefined): string {
   if (distance === null || distance === undefined) return 'No guess';
   const feet = Math.round(distance * 2);
-  if (feet <= 10) return 'Perfect!';
+  if (feet === 0) return 'Perfect!';
   return `${feet} ft away`;
 }
 
