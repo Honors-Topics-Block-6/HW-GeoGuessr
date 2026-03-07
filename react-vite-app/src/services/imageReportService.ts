@@ -1,4 +1,4 @@
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export type ImageReportCause = 'wrong_location' | 'inappropriate' | 'other';
@@ -45,6 +45,20 @@ export async function submitImageReport(reportData: ImageReportData): Promise<st
   if (lastSubmit && now - lastSubmit < RATE_LIMIT_MS) {
     const remaining = Math.ceil((RATE_LIMIT_MS - (now - lastSubmit)) / 1000);
     throw new Error(`Please wait ${remaining} seconds before submitting another report.`);
+  }
+
+  // Prevent duplicate reports: same user cannot report the same image twice
+  const reportsRef = collection(db, 'imageReports');
+  const userReportsQuery = query(reportsRef, where('userId', '==', userId));
+  const existingSnap = await getDocs(userReportsQuery);
+  const alreadyReported = existingSnap.docs.some((docSnap) => {
+    const d = docSnap.data();
+    if (imageId && d.imageId === imageId) return true;
+    if (imageUrl && d.imageUrl === imageUrl) return true;
+    return false;
+  });
+  if (alreadyReported) {
+    throw new Error('You have already reported this image.');
   }
 
   const docRef = await addDoc(collection(db, 'imageReports'), {
