@@ -193,7 +193,7 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
   );
 
   // Generate confetti data once and memoize it
-  const confettiPieces = useMemo(() => generateConfettiData(30), []);
+  const confettiPieces = useMemo(() => generateConfettiData(60), []);
 
   // Build an idempotency key so StrictMode remounts don't double-write stats.
   const statsWriteKey = useMemo(() => {
@@ -523,24 +523,25 @@ function FinalResultsScreen({ rounds, onPlayAgain, onBackToTitle, difficulty, is
 
   return (
     <div className="final-results-screen">
-      <div className="final-results-background">
-        <div className="confetti-container">
-          {animationComplete && performance.class !== 'beginner' && performance.class !== 'okay' && (
-            <>
-              {confettiPieces.map((piece: ConfettiPiece) => (
-                <div
-                  key={piece.id}
-                  className="confetti"
-                  style={{
-                    left: piece.left,
-                    animationDelay: piece.delay,
-                    backgroundColor: piece.color
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </div>
+      <div className="final-results-background" />
+
+      {/* Confetti layer - above content */}
+      <div className="confetti-container">
+        {animationComplete && performance.class !== 'beginner' && performance.class !== 'okay' && (
+          <>
+            {confettiPieces.map((piece: ConfettiPiece) => (
+              <div
+                key={piece.id}
+                className="confetti"
+                style={{
+                  left: piece.left,
+                  animationDelay: piece.delay,
+                  backgroundColor: piece.color
+                }}
+              />
+            ))}
+          </>
+        )}
       </div>
 
       {/* Level-Up Overlay */}

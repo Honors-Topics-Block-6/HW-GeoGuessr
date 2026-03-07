@@ -18,7 +18,12 @@ import { db } from '../firebase';
 // This user is ALWAYS an admin, regardless of their Firestore isAdmin field
 const HARDCODED_ADMIN_UID = 'bL0Ww9dSPbeDAGSDVlhljYMnqfE3';
 const USERNAMES_COLLECTION = 'usernames';
+const FRIEND_CODES_COLLECTION = 'friendCodes';
 const USERNAME_TAKEN_CODE = 'USERNAME_TAKEN';
+
+/** Uppercase + numbers, no ambiguous chars (I, L, O, 0, 1) */
+const FRIEND_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const FRIEND_CODE_LENGTH = 6;
 
 export type AdminPermissionKey =
   | 'reviewSubmissions'
@@ -35,6 +40,7 @@ export type PermissionsMap = Record<AdminPermissionKey, boolean>;
 
 export interface UserDoc {
   uid: string;
+  friendCode?: string;
   email: string;
   username: string;
   favoriteEmote?: string;
@@ -363,6 +369,98 @@ export function getNoPermissions(): PermissionsMap {
   ) as PermissionsMap;
 }
 
+// ────── Friend Code ──────
+
+/**
+ * Generate a random friend code (uppercase + numbers, no ambiguous chars).
+ */
+function generateFriendCode(): string {
+  let code = '';
+  for (let i = 0; i < FRIEND_CODE_LENGTH; i++) {
+    code += FRIEND_CODE_CHARS.charAt(Math.floor(Math.random() * FRIEND_CODE_CHARS.length));
+  }
+  return code;
+}
+
+/**
+ * Ensure a user has a friend code. For migration: if missing, generates and saves.
+ * Returns the user's friend code.
+ */
+export async function ensureUserFriendCode(uid: string): Promise<string> {
+  const userRef = doc(db, 'users', uid);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) return '';
+
+  const data = userSnap.data();
+  const existing = data?.friendCode as string | undefined;
+  if (existing) return existing;
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const code = generateFriendCode();
+    const codeRef = doc(db, FRIEND_CODES_COLLECTION, code);
+    try {
+      await runTransaction(db, async (tx) => {
+        const codeSnap = await tx.get(codeRef);
+        if (codeSnap.exists()) throw new Error('CODE_TAKEN');
+        tx.set(codeRef, { uid });
+        tx.update(userRef, { friendCode: code });
+      });
+      return code;
+    } catch (e) {
+      if (e instanceof Error && e.message === 'CODE_TAKEN') continue;
+      throw e;
+    }
+  }
+  throw new Error('Failed to generate unique friend code.');
+}
+
+/**
+ * Migrate a single user's friend code from lowercase to uppercase.
+ * Call on login when user has a lowercase code.
+ */
+export async function migrateUserFriendCodeToUppercase(uid: string): Promise<string> {
+  const userRef = doc(db, 'users', uid);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) return '';
+
+  const data = userSnap.data();
+  const oldCode = data?.friendCode as string | undefined;
+  if (!oldCode || oldCode === oldCode.toUpperCase()) return oldCode ?? '';
+
+  const upperCode = oldCode.toUpperCase();
+  const upperRef = doc(db, FRIEND_CODES_COLLECTION, upperCode);
+  const upperSnap = await getDoc(upperRef);
+
+  let newCode: string;
+  if (!upperSnap.exists() || (upperSnap.data() as { uid?: string })?.uid === uid) {
+    newCode = upperCode;
+  } else {
+    newCode = '';
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const candidate = generateFriendCode();
+      const candRef = doc(db, FRIEND_CODES_COLLECTION, candidate);
+      const candSnap = await getDoc(candRef);
+      if (!candSnap.exists()) {
+        newCode = candidate;
+        break;
+      }
+      if (attempt === 19) throw new Error('Could not generate unique code');
+    }
+    if (!newCode) throw new Error('Could not generate unique code');
+  }
+
+  const oldCodeRef = doc(db, FRIEND_CODES_COLLECTION, oldCode);
+  const newCodeRef = doc(db, FRIEND_CODES_COLLECTION, newCode);
+
+  await runTransaction(db, async (tx) => {
+    tx.update(userRef, { friendCode: newCode });
+    tx.set(newCodeRef, { uid });
+    tx.delete(oldCodeRef);
+  });
+
+  return newCode;
+}
+
 // ────── User CRUD ──────
 
 /**
@@ -378,10 +476,14 @@ export async function createUserDoc(uid: string, email: string, username: string
   const userRef = doc(db, 'users', uid);
   const usernameRef = doc(db, USERNAMES_COLLECTION, key);
 
+  const friendCode = generateFriendCode();
+  const friendCodeRef = doc(db, FRIEND_CODES_COLLECTION, friendCode);
+
   const isAdmin = uid === HARDCODED_ADMIN_UID;
   const trimmedUsername = username.trim();
   const userData: Record<string, unknown> = {
     uid,
+    friendCode,
     email,
     emailLower: email.toLowerCase(),
     username: trimmedUsername,
@@ -415,7 +517,7 @@ export async function createUserDoc(uid: string, email: string, username: string
     userData.permissions = getAllPermissions();
   }
 
-  // Use a transaction to atomically create user doc and reserve username
+  // Use a transaction to atomically create user doc, reserve username, and reserve friend code
   await runTransaction(db, async (transaction) => {
     // Check if username is already taken
     const usernameSnap = await transaction.get(usernameRef);
@@ -423,11 +525,20 @@ export async function createUserDoc(uid: string, email: string, username: string
       throw new Error('Username is already taken.');
     }
 
+    // Check if friend code is already taken (collision is extremely rare)
+    const codeSnap = await transaction.get(friendCodeRef);
+    if (codeSnap.exists()) {
+      throw new Error('Friend code collision. Please try again.');
+    }
+
     // Create the user document
     transaction.set(userRef, userData);
 
     // Reserve the username
     transaction.set(usernameRef, { uid, username: trimmedUsername });
+
+    // Reserve the friend code
+    transaction.set(friendCodeRef, { uid });
   });
 }
 
@@ -575,6 +686,72 @@ export async function getAllUsers(): Promise<UserDocWithId[]> {
     }
     return { id: docSnap.id, ...data };
   });
+}
+
+/**
+ * Migrate all users: (1) add friend code if missing, (2) convert lowercase codes to uppercase.
+ * Call from admin to backfill existing users.
+ * Returns { migrated: number, uppercased: number, failed: number }.
+ */
+export async function migrateAllFriendCodes(): Promise<{ migrated: number; uppercased: number; failed: number }> {
+  const usersRef = collection(db, 'users');
+  const snapshot = await getDocs(usersRef);
+  let migrated = 0;
+  let uppercased = 0;
+  let failed = 0;
+
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data() as UserDoc;
+    const uid = docSnap.id;
+
+    try {
+      if (!data.friendCode) {
+        await ensureUserFriendCode(uid);
+        migrated++;
+      } else if (data.friendCode !== data.friendCode.toUpperCase()) {
+        // Migrate lowercase to uppercase
+        const oldCode = data.friendCode;
+        const upperCode = oldCode.toUpperCase();
+
+        const upperRef = doc(db, FRIEND_CODES_COLLECTION, upperCode);
+        const upperSnap = await getDoc(upperRef);
+
+        let newCode: string;
+        if (!upperSnap.exists() || (upperSnap.data() as { uid?: string })?.uid === uid) {
+          newCode = upperCode;
+        } else {
+          // Collision: upperCode taken by another user, generate new unique code
+          newCode = '';
+          for (let attempt = 0; attempt < 20; attempt++) {
+            const candidate = generateFriendCode();
+            const candRef = doc(db, FRIEND_CODES_COLLECTION, candidate);
+            const candSnap = await getDoc(candRef);
+            if (!candSnap.exists()) {
+              newCode = candidate;
+              break;
+            }
+            if (attempt === 19) throw new Error('Could not generate unique code');
+          }
+          if (!newCode) throw new Error('Could not generate unique code');
+        }
+
+        const userRef = doc(db, 'users', uid);
+        const oldCodeRef = doc(db, FRIEND_CODES_COLLECTION, oldCode);
+        const newCodeRef = doc(db, FRIEND_CODES_COLLECTION, newCode);
+
+        await runTransaction(db, async (tx) => {
+          tx.update(userRef, { friendCode: newCode });
+          tx.set(newCodeRef, { uid });
+          tx.delete(oldCodeRef);
+        });
+        uppercased++;
+      }
+    } catch {
+      failed++;
+    }
+  }
+
+  return { migrated, uppercased, failed };
 }
 
 /**

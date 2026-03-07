@@ -496,7 +496,7 @@ export function useDuelGame(
         floor: localGuessFloor,
         timedOut: true,
         noGuess: false
-      }, currentImage).catch((err: unknown) => console.error('Auto-submit failed:', err));
+      }, currentImage, duelState?.roundStartedAt ?? undefined, duelState?.timePenaltyEnabled as boolean | undefined, duelState?.roundTimeSeconds).catch((err: unknown) => console.error('Auto-submit failed:', err));
       setHasSubmitted(true); // eslint-disable-line react-hooks/set-state-in-effect -- Intentional: timer expiry auto-submit
     } else {
       // No guess/incomplete guess — auto-submit a random fallback guess
@@ -507,11 +507,11 @@ export function useDuelGame(
         location: randomLocation,
         floor: randomFloor,
         timedOut: true,
-        noGuess: false
-      }, currentImage).catch((err: unknown) => console.error('No-guess submit failed:', err));
+        noGuess: true
+      }, currentImage, duelState?.roundStartedAt ?? undefined, duelState?.timePenaltyEnabled as boolean | undefined, duelState?.roundTimeSeconds).catch((err: unknown) => console.error('No-guess submit failed:', err));
       setHasSubmitted(true);
     }
-  }, [phase, timeRemaining, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, lobbyRoundTime, generateRandomGuessLocation, pickRandomFloorForLocation]);
+  }, [phase, timeRemaining, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, duelState?.roundStartedAt, duelState?.timePenaltyEnabled, duelState?.roundTimeSeconds, lobbyRoundTime, generateRandomGuessLocation, pickRandomFloorForLocation]);
 
   // --- Host processes round when both have guessed ---
   useEffect(() => {
@@ -577,12 +577,12 @@ export function useDuelGame(
         floor: localGuessFloor,
         timedOut: false,
         noGuess: false
-      }, currentImage);
+      }, currentImage, duelState?.roundStartedAt ?? undefined, duelState?.timePenaltyEnabled as boolean | undefined, duelState?.roundTimeSeconds);
     } catch (err) {
       console.error('Submit guess failed:', err);
       setHasSubmitted(false); // Allow retry
     }
-  }, [hasSubmitted, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid]);
+  }, [hasSubmitted, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, duelState?.roundStartedAt, duelState?.timePenaltyEnabled, duelState?.roundTimeSeconds]);
 
   const sendEmote = useCallback(async (emoji: string): Promise<void> => {
     const trimmed = emoji.trim();

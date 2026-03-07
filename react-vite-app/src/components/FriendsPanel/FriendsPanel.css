@@ -697,6 +697,7 @@
   transition: all 0.2s ease;
   white-space: nowrap;
   flex-shrink: 0;
+  min-width: 140px;
   font-family: var(--hw-font-sans);
 }
 

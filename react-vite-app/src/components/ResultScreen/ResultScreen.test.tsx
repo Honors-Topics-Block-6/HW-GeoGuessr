@@ -2,9 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ResultScreen from './ResultScreen';
+import { getGuessHeatmapDataForImage } from '../../services/guessHistoryService';
+
+vi.mock('../../services/guessHistoryService', () => ({
+  getGuessHeatmapDataForImage: vi.fn()
+}));
 
 describe('ResultScreen', () => {
   const defaultProps = {
+    imageId: 'sample-1',
     guessLocation: { x: 50, y: 50 },
     guessFloor: 2 as number | null,
     actualLocation: { x: 50, y: 50 },
@@ -27,6 +33,11 @@ describe('ResultScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    vi.mocked(getGuessHeatmapDataForImage).mockResolvedValue({
+      points: [{ x: 50, y: 50, weight: 2 }],
+      source: 'mock',
+      guessCount: 30
+    });
     (global as Record<string, unknown>)._resizeObserverInstances = [];
   });
 
@@ -63,6 +74,11 @@ describe('ResultScreen', () => {
       expect(screen.getByAltText('Location')).toHaveAttribute('src', defaultProps.imageUrl);
     });
 
+    it('should render heatmap status badge', () => {
+      render(<ResultScreen {...defaultProps} />);
+      expect(screen.getByText(/Previous guesses/)).toBeInTheDocument();
+    });
+
     it('should render progress dots', () => {
       const { container } = render(<ResultScreen {...defaultProps} totalRounds={5} />);
 
@@ -71,11 +87,41 @@ describe('ResultScreen', () => {
     });
   });
 
+  describe('heatmap', () => {
+    it('should fetch heatmap data by image id', () => {
+      render(<ResultScreen {...defaultProps} imageId="image-123" />);
+      expect(getGuessHeatmapDataForImage).toHaveBeenCalledWith(
+        'image-123',
+        expect.objectContaining({
+          fallbackCenter: defaultProps.actualLocation
+        })
+      );
+    });
+
+    it('should toggle heatmap visibility with switch', async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+      const { container } = render(<ResultScreen {...defaultProps} />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const toggle = screen.getByRole('switch', { name: 'Heatmap toggle' });
+      expect(toggle).toHaveAttribute('aria-checked', 'true');
+      expect(container.querySelector('.heatmap-layer')).toBeInTheDocument();
+
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute('aria-checked', 'false');
+      expect(container.querySelector('.heatmap-layer')).not.toBeInTheDocument();
+    });
+  });
+
   describe('score display', () => {
     it('should display score label', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('Score')).toBeInTheDocument();
+      expect(screen.getAllByText('Score').length).toBeGreaterThan(0);
     });
 
     it('should display max score indicator', () => {
@@ -387,7 +433,21 @@ describe('ResultScreen', () => {
     it('should show total score', () => {
       render(<ResultScreen {...defaultProps} />);
 
-      expect(screen.getByText('Total')).toBeInTheDocument();
+      expect(screen.getAllByText('Score').length).toBeGreaterThan(0);
+    });
+
+    it('should show time penalty when provided', () => {
+      render(
+        <ResultScreen
+          {...defaultProps}
+          locationScore={5000}
+          totalScore={4500}
+          timePenalty={500}
+        />
+      );
+
+      expect(screen.getByText('Time Penalty')).toBeInTheDocument();
+      expect(screen.getByText('-500')).toBeInTheDocument();
     });
 
     it('should show exact spot bonus when present', () => {

@@ -24,7 +24,9 @@ import {
   getNoPermissions,
   ADMIN_PERMISSIONS,
   normalizeFavoriteEmote,
-  UsernameTakenError
+  UsernameTakenError,
+  ensureUserFriendCode,
+  migrateUserFriendCodeToUppercase
 } from '../services/userService';
 import { touchLastActive } from '../services/lastActiveService';
 import { getLevelInfo, getLevelTitle } from '../utils/xpLevelling';
@@ -45,6 +47,7 @@ export interface AdminPermissions {
  */
 export interface UserDoc {
   uid: string;
+  friendCode?: string;
   email: string;
   username: string;
   favoriteEmote?: string;
@@ -196,15 +199,36 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
           }
 
           // Fetch the user's Firestore document
-          const doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
+          let doc = await getUserDoc(firebaseUser.uid) as UserDoc | null;
           if (doc) {
+            // Migrate: ensure user has a friend code (for existing users)
+            if (!doc.friendCode) {
+              try {
+                await ensureUserFriendCode(firebaseUser.uid);
+                const refreshed = await getUserDoc(firebaseUser.uid) as UserDoc | null;
+                if (refreshed) doc = refreshed;
+              } catch (err) {
+                console.error('Failed to ensure friend code:', err);
+              }
+            }
+            // Migrate: convert lowercase friend codes to uppercase
+            else if (doc.friendCode !== doc.friendCode.toUpperCase()) {
+              try {
+                await migrateUserFriendCodeToUppercase(firebaseUser.uid);
+                const refreshed = await getUserDoc(firebaseUser.uid) as UserDoc | null;
+                if (refreshed) doc = refreshed;
+              } catch (err) {
+                console.error('Failed to migrate friend code to uppercase:', err);
+              }
+            }
+
             // Verified if either Firebase Auth or Firestore says so
             // (admin can set emailVerified in Firestore, user can verify via email link)
-            const isVerified = authVerified || doc.emailVerified === true;
+            const isVerified = authVerified || doc?.emailVerified === true;
             setEmailVerified(isVerified);
 
             // Sync Firebase Auth -> Firestore when user verifies via email link
-            if (authVerified && !doc.emailVerified) {
+            if (authVerified && doc && !doc.emailVerified) {
               await updateUserDoc(firebaseUser.uid, { emailVerified: true });
               doc.emailVerified = true;
             }

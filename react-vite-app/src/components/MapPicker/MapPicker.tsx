@@ -63,6 +63,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const zoomContentRef = useRef<HTMLDivElement>(null);
+  const zoomControlsRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -121,6 +122,17 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     if (placeMarkerTimeoutRef.current) {
       clearTimeout(placeMarkerTimeoutRef.current);
       placeMarkerTimeoutRef.current = null;
+    }
+    // Skip double-click zoom when click is near zoom controls (avoids accidental zoom-in when rapidly clicking zoom-out)
+    const DEAD_ZONE_PADDING = 24;
+    if (zoomControlsRef.current) {
+      const rect = zoomControlsRef.current.getBoundingClientRect();
+      const inDeadZone =
+        event.clientX >= rect.left - DEAD_ZONE_PADDING &&
+        event.clientX <= rect.right + DEAD_ZONE_PADDING &&
+        event.clientY >= rect.top - DEAD_ZONE_PADDING &&
+        event.clientY <= rect.bottom + DEAD_ZONE_PADDING;
+      if (inDeadZone) return;
     }
     const container = containerRef.current;
     if (!container) return;
@@ -227,9 +239,9 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''} ${isTouchActive ? 'touch-active' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
         ref={containerRef}
         onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
         onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
         {...mapHandlers}
+        onDoubleClick={handleDoubleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
@@ -334,7 +346,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         </div>
 
         {/* Zoom controls - positioned outside the transform wrapper */}
-        <div className="zoom-controls">
+        <div className="zoom-controls" ref={zoomControlsRef}>
           <button
             className="zoom-btn zoom-in-btn"
             onClick={(e: React.MouseEvent<HTMLButtonElement>) => {

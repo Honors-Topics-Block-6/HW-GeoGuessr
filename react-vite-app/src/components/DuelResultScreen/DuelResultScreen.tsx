@@ -12,8 +12,10 @@ interface MapPosition {
 interface RoundGuessData {
   location?: MapPosition | null;
   score?: number;
+  locationScore?: number;
   distance?: number | null;
   noGuess?: boolean;
+  timePenalty?: number;
 }
 
 interface DuelPlayer {
@@ -89,6 +91,7 @@ function DuelResultScreen({
   isGameOver = false
 }: DuelResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const zoomControlsRef = useRef<HTMLDivElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
   const mapOuterRef = useRef<HTMLDivElement>(null);
   const [animationPhase, setAnimationPhase] = useState<number>(0);
@@ -121,7 +124,7 @@ function DuelResultScreen({
     return () => observer.disconnect();
   }, []);
 
-  const { scale, transformStyle, handlers, zoomIn, zoomOut, resetZoom, isPanning } = useMapZoom(mapContainerRef);
+  const { scale, transformStyle, handlers, zoomIn, zoomOut, resetZoom, isPanning } = useMapZoom(mapContainerRef, { zoomControlsRef });
   const isZoomed = scale > 1;
 
   // Animation sequence
@@ -244,7 +247,7 @@ function DuelResultScreen({
             </div>
 
             {/* Zoom controls */}
-            <div className="zoom-controls">
+            <div className="zoom-controls" ref={zoomControlsRef}>
               <button className="zoom-btn zoom-in-btn" onClick={(e: React.MouseEvent) => { e.stopPropagation(); zoomIn(); }} title="Zoom in" aria-label="Zoom in">+</button>
               <button className="zoom-btn zoom-out-btn" onClick={(e: React.MouseEvent) => { e.stopPropagation(); zoomOut(); }} title="Zoom out" aria-label="Zoom out" disabled={!isZoomed}>-</button>
               <button className="zoom-btn zoom-reset-btn" onClick={(e: React.MouseEvent) => { e.stopPropagation(); resetZoom(); }} title="Reset zoom" aria-label="Reset zoom" disabled={!isZoomed}>&#x21BA;</button>
@@ -280,6 +283,9 @@ function DuelResultScreen({
                     <span className="duel-scoreboard-sub">
                       {g.noGuess ? 'No guess' : formatDistance(g.distance)}
                     </span>
+                    {!g.noGuess && (g.timePenalty ?? 0) > 0 && (
+                      <span className="duel-scoreboard-penalty">-{(g.timePenalty ?? 0).toLocaleString()} time</span>
+                    )}
                   </div>
                 );
               })}

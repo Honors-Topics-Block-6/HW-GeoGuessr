@@ -440,7 +440,7 @@ describe('FinalResultsScreen', () => {
       expect(confetti.length).toBe(0);
     });
 
-    it('should generate exactly 30 confetti pieces', () => {
+    it('should generate exactly 60 confetti pieces', () => {
       const perfectRounds = Array(5).fill(null).map((_, i) =>
         createMockRound({ roundNumber: i + 1, score: 5000, locationScore: 5000 })
       );
@@ -452,7 +452,7 @@ describe('FinalResultsScreen', () => {
       });
 
       const confetti = container.querySelectorAll('.confetti');
-      expect(confetti.length).toBe(30);
+      expect(confetti.length).toBe(60);
     });
   });
 

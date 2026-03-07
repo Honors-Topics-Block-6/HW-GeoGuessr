@@ -413,14 +413,14 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
             ) : (
               <>
                 <div className="add-friend-info">
-                  <p>Add a friend by entering their User ID, username, or email address.</p>
+                  <p>Add a friend by entering their Friend Code, username, or email address.</p>
                   <div className="your-uid-box">
-                    <span className="your-uid-label">Your User ID:</span>
-                    <code className="your-uid-value">{user?.uid}</code>
+                    <span className="your-uid-label">Your Friend Code:</span>
+                    <code className="your-uid-value">{userDoc?.friendCode ?? user?.uid ?? '—'}</code>
                     <button
                       className="copy-uid-button"
                       onClick={() => {
-                        navigator.clipboard.writeText(user?.uid || '');
+                        navigator.clipboard.writeText(userDoc?.friendCode ?? user?.uid ?? '');
                         setCopiedUid(true);
                         setTimeout(() => setCopiedUid(false), 2000);
                       }}
@@ -443,7 +443,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                       setAddSuccess(null);
                     }}
                   >
-                    By User ID
+                    By Friend Code
                   </button>
                   <button
                     type="button"
@@ -463,7 +463,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                     <input
                       type="text"
                       className="add-friend-input"
-                      placeholder="Enter friend's User ID..."
+                      placeholder="Enter friend's Friend Code (e.g. ABC234)..."
                       value={addUid}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => {
                         setAddUid(e.target.value);
@@ -508,7 +508,7 @@ function FriendsPanel({ onBack, onOpenChat }: FriendsPanelProps): React.ReactEle
                           <div key={u.uid} className="add-friend-result-item">
                             <div className="add-friend-result-info">
                               <span className="add-friend-result-username">{u.username}</span>
-                              <span className="add-friend-result-uid">{u.uid}</span>
+                              <span className="add-friend-result-uid">{u.friendCode ?? u.uid}</span>
                             </div>
                             <button
                               type="button"
