@@ -35,6 +35,7 @@ export interface ResultScreenProps {
   currentHp?: number;
   maxHp?: number;
   hpLost?: number;
+  onReportInaccurate?: () => void;
 }
 
 /**
@@ -197,7 +198,8 @@ function ResultScreen({
   isEndlessMode = false,
   currentHp = 6000,
   maxHp = 6000,
-  hpLost
+  hpLost,
+  onReportInaccurate
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const zoomControlsRef = useRef<HTMLDivElement>(null);
@@ -574,6 +576,16 @@ function ResultScreen({
         <div className="result-details" ref={detailsRef}>
           <div className="result-image-preview">
             <img src={imageUrl} alt="Location" />
+            {onReportInaccurate && (
+              <button
+                type="button"
+                className="report-image-button"
+                onClick={onReportInaccurate}
+                aria-label="Report inaccurate image"
+              >
+                Report Image
+              </button>
+            )}
           </div>
 
           <div className="result-stats">

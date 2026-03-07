@@ -976,15 +976,6 @@ function App(): React.ReactElement {
           onFloorSelect={selectFloor}
           onSubmitGuess={submitGuess}
           onBackToTitle={resetGame}
-          onReportInaccurate={
-            user && userDoc && !isGuest
-              ? () =>
-                  handleReportInaccurateImage(
-                    currentImage?.id ?? null,
-                    currentImage?.url,
-                  )
-              : undefined
-          }
           currentRound={currentRound}
           totalRounds={totalRounds}
           clickRejected={clickRejected}
@@ -1025,6 +1016,15 @@ function App(): React.ReactElement {
             isEndlessMode ? currentHp <= 0 : currentRound >= totalRounds
           }
           onBackToTitle={resetGame}
+          onReportInaccurate={
+            user && userDoc && !isGuest
+              ? () =>
+                  handleReportInaccurateImage(
+                    currentResult.imageId ?? null,
+                    currentResult.imageUrl,
+                  )
+              : undefined
+          }
           isEndlessMode={isEndlessMode}
           currentHp={currentHp}
           maxHp={startingHp}
@@ -1062,15 +1062,6 @@ function App(): React.ReactElement {
           onFloorSelect={duel.selectFloor}
           onSubmitGuess={duel.submitGuess}
           onBackToTitle={handleDuelForfeit}
-          onReportInaccurate={
-            user && userDoc && !isGuest
-              ? () =>
-                  handleReportInaccurateImage(
-                    duel.currentImage?.id ?? null,
-                    duel.currentImage?.url,
-                  )
-              : undefined
-          }
           currentRound={duel.currentRound}
           clickRejected={duel.clickRejected}
           playingArea={
@@ -1102,6 +1093,7 @@ function App(): React.ReactElement {
         <DuelResultScreen
           roundNumber={duelLatestRound.roundNumber}
           imageUrl={duel.currentImage?.url || duelLatestRound.imageUrl}
+          imageId={duelLatestRound.imageId}
           actualLocation={duelLatestRound.actualLocation}
           players={duel.players}
           roundGuessesByUid={duelLatestRound.players || {}}
@@ -1119,6 +1111,15 @@ function App(): React.ReactElement {
           onNextRound={duel.nextRound}
           onViewFinalResults={() => {/* Will auto-transition via phase */ }}
           onLeaveDuel={handleDuelForfeit}
+          onReportInaccurate={
+            user && userDoc && !isGuest
+              ? () =>
+                  handleReportInaccurateImage(
+                    duelLatestRound.imageId ?? null,
+                    duel.currentImage?.url || duelLatestRound.imageUrl,
+                  )
+              : undefined
+          }
           isGameOver={false}
         />
       )}

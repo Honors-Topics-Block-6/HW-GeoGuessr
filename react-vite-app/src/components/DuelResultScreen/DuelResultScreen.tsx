@@ -36,6 +36,7 @@ function formatDistance(distance: number | null | undefined): string {
 export interface DuelResultScreenProps {
   roundNumber: number;
   imageUrl: string;
+  imageId?: string | null;
   actualLocation: MapPosition;
   players: DuelPlayer[];
   roundGuessesByUid: Record<string, RoundGuessData>;
@@ -50,6 +51,7 @@ export interface DuelResultScreenProps {
   onViewFinalResults: () => void;
   onLeaveDuel?: () => void;
   isGameOver?: boolean;
+  onReportInaccurate?: () => void;
 }
 
 const PLAYER_COLORS: string[] = [
@@ -264,6 +266,16 @@ function DuelResultScreen({
           {/* Image preview */}
           <div className="duel-result-image-preview">
             <img src={imageUrl} alt="Location" />
+            {onReportInaccurate && (
+              <button
+                type="button"
+                className="report-image-button"
+                onClick={onReportInaccurate}
+                aria-label="Report inaccurate image"
+              >
+                Report Image
+              </button>
+            )}
           </div>
 
           {/* Round leaderboard */}

@@ -5,11 +5,9 @@ export interface ImageViewerProps {
   imageUrl: string;
   alt?: string;
   onImageLoad?: () => void;
-  /** When provided, shows a "Not the right place?" button for reporting inaccurate images */
-  onReportInaccurate?: () => void;
 }
 
-function ImageViewer({ imageUrl, alt = "Mystery location", onImageLoad, onReportInaccurate }: ImageViewerProps): React.ReactElement {
+function ImageViewer({ imageUrl, alt = "Mystery location", onImageLoad }: ImageViewerProps): React.ReactElement {
   const [isPortraitImage, setIsPortraitImage] = useState(false);
 
   useEffect(() => {
@@ -38,16 +36,6 @@ function ImageViewer({ imageUrl, alt = "Mystery location", onImageLoad, onReport
         <span className="hint-icon">📍</span>
         <span>Where was this photo taken?</span>
       </div>
-      {onReportInaccurate && (
-        <button
-          type="button"
-          className="image-report-button"
-          onClick={onReportInaccurate}
-          aria-label="Report inaccurate image location"
-        >
-          Not the right place?
-        </button>
-      )}
     </div>
   );
 }
