@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getAllUsers, setUserAdmin, isHardcodedAdmin, updateUserProfile, updateUserPermissions, ADMIN_PERMISSIONS } from '../../services/userService'
+import { getAllUsers, setUserAdmin, isHardcodedAdmin, updateUserProfile, updateUserPermissions, migrateAllFriendCodes, ADMIN_PERMISSIONS } from '../../services/userService'
 import type { UserDocWithId, PermissionsMap } from '../../services/userService'
 import { subscribeToAllPresence } from '../../services/presenceService'
 import type { PresenceData, PresenceMap } from '../../services/presenceService'
@@ -27,6 +27,7 @@ function AccountManagement(_props: AccountManagementProps): React.JSX.Element {
   const [permissionsUser, setPermissionsUser] = useState<UserAccount | null>(null)
   const [savingPermissions, setSavingPermissions] = useState<boolean>(false)
   const [showMessageAll, setShowMessageAll] = useState<boolean>(false)
+  const [migratingFriendCodes, setMigratingFriendCodes] = useState<boolean>(false)
 
   const _canViewAccounts: boolean = hasPermission(ADMIN_PERMISSIONS.VIEW_ACCOUNTS)
   const canEditAccounts: boolean = hasPermission(ADMIN_PERMISSIONS.EDIT_ACCOUNTS)
@@ -126,6 +127,23 @@ function AccountManagement(_props: AccountManagementProps): React.JSX.Element {
     }
   }
 
+  const handleMigrateFriendCodes = async (): Promise<void> => {
+    setMigratingFriendCodes(true)
+    try {
+      const { migrated, uppercased, failed } = await migrateAllFriendCodes()
+      setError(null)
+      if (migrated > 0 || uppercased > 0 || failed > 0) {
+        await fetchUsers()
+      }
+      alert(`Friend code migration complete. New: ${migrated}, Uppercased: ${uppercased}, Failed: ${failed}`)
+    } catch (err) {
+      console.error('Migration failed:', err)
+      setError((err as Error).message || 'Migration failed.')
+    } finally {
+      setMigratingFriendCodes(false)
+    }
+  }
+
   const formatDate = (timestamp: unknown): string => {
     if (!timestamp) return 'N/A'
     const date = typeof timestamp === 'object' && timestamp !== null && 'toDate' in timestamp
@@ -155,6 +173,15 @@ function AccountManagement(_props: AccountManagementProps): React.JSX.Element {
             Message All
           </button>
         )}
+        {canEditAccounts && (
+          <button
+            className="message-all-button"
+            onClick={handleMigrateFriendCodes}
+            disabled={migratingFriendCodes}
+          >
+            {migratingFriendCodes ? 'Migrating...' : 'Migrate Friend Codes'}
+          </button>
+        )}
       </div>
 
       {error && <div className="account-error">{error}</div>}
@@ -164,7 +191,7 @@ function AccountManagement(_props: AccountManagementProps): React.JSX.Element {
           <thead>
             <tr>
               <th>Username</th>
-              <th>UID</th>
+              <th>Friend Code / UID</th>
               <th>Email</th>
               <th>Created</th>
               <th>Admin</th>
@@ -185,7 +212,7 @@ function AccountManagement(_props: AccountManagementProps): React.JSX.Element {
                     {u.username || '\u2014'}
                     {hardcoded && <span className="permanent-badge">Permanent</span>}
                   </td>
-                  <td className="uid-cell">{u.id}</td>
+                  <td className="uid-cell">{u.friendCode ?? u.id}</td>
                   <td>{u.email || '\u2014'}</td>
                   <td>{formatDate(u.createdAt)}</td>
                   <td>
