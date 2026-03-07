@@ -202,6 +202,52 @@ function App(): React.ReactElement {
     duelPhaseRef.current = duel.phase;
   }, [duelLobbyDocId, duel.opponentUid, user?.uid, inDuel, duel.phase]);
 
+  const duelLatestRound =
+    duel.roundHistory?.length > 0
+      ? duel.roundHistory[duel.roundHistory.length - 1]
+      : null;
+
+  useEffect(() => {
+    if (!user?.uid || isGuest) {
+      setHasReportedThisImage(false);
+      return;
+    }
+    const imageId =
+      screen === "result" && currentResult
+        ? currentResult.imageId ?? null
+        : inDuel && duelLatestRound
+          ? duelLatestRound.imageId ?? null
+          : null;
+    const imageUrl =
+      screen === "result" && currentResult
+        ? currentResult.imageUrl
+        : inDuel && duelLatestRound
+          ? duel.currentImage?.url || duelLatestRound.imageUrl
+          : undefined;
+    if (!imageId && !imageUrl) {
+      setHasReportedThisImage(false);
+      return;
+    }
+    let cancelled = false;
+    hasUserReportedImage(user.uid, imageId, imageUrl).then((reported) => {
+      if (!cancelled) setHasReportedThisImage(reported);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user?.uid,
+    isGuest,
+    screen,
+    currentResult?.imageId,
+    currentResult?.imageUrl,
+    inDuel,
+    duel.phase,
+    duelLatestRound?.imageId,
+    duelLatestRound?.imageUrl,
+    duel.currentImage?.url,
+  ]);
+
   // Track user's online presence and current activity
   usePresence(
     isGuest ? null : (user as Parameters<typeof usePresence>[0]),
@@ -860,54 +906,6 @@ function App(): React.ReactElement {
   };
 
   // --- Duel game state derivation ---
-  // Get the latest round from roundHistory to show in results
-  const duelLatestRound =
-    duel.roundHistory?.length > 0
-      ? duel.roundHistory[duel.roundHistory.length - 1]
-      : null;
-
-  // Check if user has already reported the current result image (grey out button)
-  useEffect(() => {
-    if (!user?.uid || isGuest) {
-      setHasReportedThisImage(false);
-      return;
-    }
-    const imageId =
-      screen === "result" && currentResult
-        ? currentResult.imageId ?? null
-        : inDuel && duelLatestRound
-          ? duelLatestRound.imageId ?? null
-          : null;
-    const imageUrl =
-      screen === "result" && currentResult
-        ? currentResult.imageUrl
-        : inDuel && duelLatestRound
-          ? duel.currentImage?.url || duelLatestRound.imageUrl
-          : undefined;
-    if (!imageId && !imageUrl) {
-      setHasReportedThisImage(false);
-      return;
-    }
-    let cancelled = false;
-    hasUserReportedImage(user.uid, imageId, imageUrl).then((reported) => {
-      if (!cancelled) setHasReportedThisImage(reported);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    user?.uid,
-    isGuest,
-    screen,
-    currentResult?.imageId,
-    currentResult?.imageUrl,
-    inDuel,
-    duel.phase,
-    duelLatestRound?.imageId,
-    duelLatestRound?.imageUrl,
-    duel.currentImage?.url,
-  ]);
-
   // Get my username
   const myUsername: string = userDoc?.username || "You";
 
