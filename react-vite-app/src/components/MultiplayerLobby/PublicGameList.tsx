@@ -59,6 +59,13 @@ function PublicGameList({ lobbies, selectedDifficulty, onJoin, isJoining }: Publ
                 <span className="public-game-code-label">Code</span>
                 <span className="public-game-code-value">{lobby.gameId}</span>
               </span>
+              <span className="public-game-players">
+                {(() => {
+                  const gm = lobby.gameMode ?? 'duel';
+                  const count = lobby.players?.length || 1;
+                  return gm === 'duel' ? `${count}/2 players` : `${count} players`;
+                })()}
+              </span>
             </div>
             <button
               className="public-game-join-btn"

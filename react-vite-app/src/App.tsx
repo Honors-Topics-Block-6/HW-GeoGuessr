@@ -335,12 +335,16 @@ function App(): React.ReactElement {
 
   useEffect(() => {
     if (achievementToastQueue.length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
     setAchievementToastFading(false);
     const fadeTimer = window.setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
       setAchievementToastFading(true);
     }, 4200);
     const removeTimer = window.setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
       setAchievementToastQueue((previous) => previous.slice(1));
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
       setAchievementToastFading(false);
     }, 6200);
     return () => {
@@ -735,21 +739,7 @@ function App(): React.ReactElement {
   // Get my username
   const myUsername: string = userDoc?.username || 'You';
 
-  // Compute health before the latest round's damage was applied
   const uid = user?.uid ?? '';
-  const opUid = duel.opponentUid ?? '';
-
-  const duelMyHealthBefore: number = duelLatestRound
-    ? (duel.roundHistory.length > 1
-      ? duel.roundHistory[duel.roundHistory.length - 2].healthAfter?.[uid] ?? STARTING_HEALTH
-      : STARTING_HEALTH)
-    : STARTING_HEALTH;
-
-  const duelOpHealthBefore: number = duelLatestRound
-    ? (duel.roundHistory.length > 1
-      ? duel.roundHistory[duel.roundHistory.length - 2].healthAfter?.[opUid] ?? STARTING_HEALTH
-      : STARTING_HEALTH)
-    : STARTING_HEALTH;
 
   return (
     <div className="app">
@@ -924,6 +914,10 @@ function App(): React.ReactElement {
           opponentUsername={duel.opponentUsername}
           myHealth={duel.myHealth}
           opponentHealth={duel.opponentHealth}
+          activeGuessesCount={duel.activeGuessesCount}
+          activePlayerCount={duel.activePlayerCount}
+          totalPlayerCount={duel.totalPlayerCount}
+          allActiveGuessed={duel.allActiveGuessed}
           myUsername={myUsername}
           myActiveEmote={duel.myActiveEmote}
           opponentActiveEmote={duel.opponentActiveEmote}
@@ -936,14 +930,14 @@ function App(): React.ReactElement {
           roundNumber={duelLatestRound.roundNumber}
           imageUrl={duel.currentImage?.url || duelLatestRound.imageUrl}
           actualLocation={duelLatestRound.actualLocation}
-          myGuess={duelLatestRound.players?.[uid]}
-          opponentGuess={duelLatestRound.players?.[opUid]}
-          myUsername={myUsername}
-          opponentUsername={duel.opponentUsername}
-          myHealth={duel.myHealth}
-          opponentHealth={duel.opponentHealth}
-          myHealthBefore={duelMyHealthBefore}
-          opponentHealthBefore={duelOpHealthBefore}
+          players={duel.players}
+          roundGuessesByUid={duelLatestRound.players || {}}
+          healthAfter={duelLatestRound.healthAfter || {}}
+          healthBefore={
+            duel.roundHistory.length > 1
+              ? (duel.roundHistory[duel.roundHistory.length - 2].healthAfter || {})
+              : Object.fromEntries((duel.players || []).map((p) => [p.uid, STARTING_HEALTH]))
+          }
           damage={duelLatestRound.damage}
           multiplier={duelLatestRound.multiplier}
           damagedPlayer={duelLatestRound.damagedPlayer}

@@ -23,6 +23,7 @@ vi.mock('./services/regionService', () => ({
       ]
     }
   ]),
+  getRegionForPoint: vi.fn().mockReturnValue({ id: 'test-region' }),
   getPlayingArea: vi.fn().mockResolvedValue(null),
   getFloorsForPoint: vi.fn().mockReturnValue([1, 2, 3]),
   getRegionForPoint: vi.fn().mockReturnValue({ id: 'test-region' }),
@@ -372,6 +373,9 @@ describe('App', () => {
       });
 
       await user.click(screen.getByText('Back'));
+
+      // Confirm leave in modal
+      await user.click(screen.getByRole('button', { name: /leave game/i }));
 
       await waitFor(() => {
         expect(screen.getByText('HW Geoguessr')).toBeInTheDocument();
