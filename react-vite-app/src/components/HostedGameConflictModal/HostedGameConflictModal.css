@@ -1,0 +1,131 @@
+/* ===== Hosted Game Conflict Modal – HW Design System ===== */
+
+.hosted-conflict-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(35, 31, 32, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+  animation: hostedConflictOverlayIn 0.2s ease-out;
+}
+
+@keyframes hostedConflictOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.hosted-conflict-modal {
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
+  max-width: 420px;
+  width: 100%;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  animation: hostedConflictSlideIn 0.3s ease-out;
+}
+
+@keyframes hostedConflictSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hosted-conflict-body {
+  padding: 24px;
+}
+
+.hosted-conflict-title {
+  margin: 0 0 10px 0;
+  color: var(--hw-black, #231f20);
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
+}
+
+.hosted-conflict-message {
+  margin: 0 0 20px 0;
+  color: var(--text-secondary, #4b5563);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.hosted-conflict-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hosted-conflict-cancel {
+  padding: 12px;
+  background: var(--hw-surface, #ffffff);
+  color: var(--text-secondary, #4b5563);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
+  transition: all 0.2s ease;
+}
+
+.hosted-conflict-cancel:hover {
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--hw-black, #231f20);
+  border-color: var(--hw-gray-400, #9ca3af);
+}
+
+.hosted-conflict-close {
+  padding: 12px;
+  background: var(--hw-red, #c8102e);
+  color: #ffffff;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
+  transition: all 0.2s ease;
+}
+
+.hosted-conflict-close:hover:not(:disabled) {
+  background: var(--hw-red-hover, #a50d26);
+}
+
+.hosted-conflict-close:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hosted-conflict-goto {
+  padding: 12px;
+  background: var(--hw-black, #231f20);
+  color: #ffffff;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--hw-font-sans, 'Source Sans 3', sans-serif);
+  transition: all 0.2s ease;
+}
+
+.hosted-conflict-goto:hover {
+  background: var(--hw-gray-700, #374151);
+}
