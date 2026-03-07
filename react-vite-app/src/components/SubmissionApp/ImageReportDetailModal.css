@@ -105,3 +105,74 @@
   object-fit: contain;
   border: 1px solid var(--hw-gray-300, #d1d5db);
 }
+
+/* Location comparison map */
+.img-report-detail-map {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 280px;
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.img-report-detail-map-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.img-report-detail-marker {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -28px);
+}
+
+.img-report-detail-marker .img-report-detail-pin {
+  width: 24px;
+  height: 24px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 2px solid white;
+  flex-shrink: 0;
+}
+
+.img-report-detail-marker--suggested .img-report-detail-pin {
+  background: #c92a2a;
+}
+
+.img-report-detail-marker--actual .img-report-detail-pin {
+  background: #2b8a3e;
+}
+
+.img-report-detail-marker-label {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.img-report-detail-marker--suggested .img-report-detail-marker-label {
+  background: rgba(201, 42, 42, 0.15);
+  color: #c92a2a;
+}
+
+.img-report-detail-marker--actual .img-report-detail-marker-label {
+  background: rgba(43, 138, 62, 0.15);
+  color: #2b8a3e;
+}
+
+.img-report-detail-floor-comparison {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 14px;
+  color: var(--hw-black, #231f20);
+}
