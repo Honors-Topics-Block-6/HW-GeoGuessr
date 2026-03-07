@@ -40,6 +40,7 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
     updateUsername,
     updateFavoriteEmote,
     updateProfileImage,
+    updateProfileEmoji,
     totalXp,
     levelInfo,
     levelTitle,
@@ -67,6 +68,7 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isSavingEmote, setIsSavingEmote] = useState<boolean>(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
+  const [isSettingEmoji, setIsSettingEmoji] = useState<boolean>(false);
   const [isEditingEmote, setIsEditingEmote] = useState<boolean>(false);
   const [newFavoriteEmote, setNewFavoriteEmote] = useState<string>(userDoc?.favoriteEmote || '😎');
   const [error, setError] = useState<string>('');
@@ -84,12 +86,26 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
   const [statsRoundCount, setStatsRoundCount] = useState<StatsRoundCount>('all');
   const cropImageRef = useRef<HTMLImageElement | null>(null);
   const cropDragRef = useRef<{ startX: number; startY: number; offsetX: number; offsetY: number } | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     return () => {
       if (cropPreviewUrl) URL.revokeObjectURL(cropPreviewUrl);
     };
   }, [cropPreviewUrl]);
+
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handleClickOutside = (e: MouseEvent): void => {
+      const target = e.target as Node;
+      if (emojiPickerRef.current?.contains(target) || emojiButtonRef.current?.contains(target)) return;
+      setShowEmojiPicker(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
 
   const resetCropState = (): void => {
     setPhotoToCrop(null);
@@ -118,6 +134,13 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
       y: Math.min(maxOffsetY, Math.max(-maxOffsetY, offset.y))
     };
   };
+
+  const emojiOptions = [
+    '😀', '😁', '😂', '😎', '🤩', '😊', '😇', '🥳', '🤗', '😍',
+    '😋', '🤓', '😈', '👻', '🤖', '🐶', '🐱', '🦊', '🐻', '🐼',
+    '🦁', '🐯', '🐸', '🐵', '🐔', '🦄', '🌈', '⭐', '🔥', '💯',
+    '🎯', '🧠', '🚀', '💪', '👍', '❤️', '🤝', '🎮', '🎸', '⚽'
+  ];
 
   const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
     let file = e.target.files?.[0];
@@ -218,6 +241,32 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
       setError((err as Error).message || 'Failed to upload profile image.');
     } finally {
       setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleEmojiSelect = async (emoji: string): Promise<void> => {
+    setError('');
+    setIsSettingEmoji(true);
+    setShowEmojiPicker(false);
+    try {
+      await updateProfileEmoji(emoji);
+    } catch (err) {
+      setError((err as Error).message || 'Failed to update avatar.');
+    } finally {
+      setIsSettingEmoji(false);
+    }
+  };
+
+  const handleClearEmoji = async (): Promise<void> => {
+    setError('');
+    setIsSettingEmoji(true);
+    setShowEmojiPicker(false);
+    try {
+      await updateProfileEmoji(null);
+    } catch (err) {
+      setError((err as Error).message || 'Failed to reset avatar.');
+    } finally {
+      setIsSettingEmoji(false);
     }
   };
 
@@ -560,13 +609,61 @@ function ProfileScreen({ onBack, onOpenFriends, onOpenAchievements }: ProfileScr
           <div className="profile-avatar">
             {userDoc?.photoURL ? (
               <img className="profile-avatar-image" src={userDoc.photoURL} alt={`${userDoc.username}'s profile`} />
+            ) : userDoc?.avatarEmoji ? (
+              <span className="profile-avatar-emoji">{userDoc.avatarEmoji}</span>
             ) : (
               <span className="profile-avatar-icon">👤</span>
             )}
-            <label className={`profile-photo-upload ${isUploadingPhoto ? 'disabled' : ''}`}>
-              {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
-              <input type="file" accept="image/*,.heic,.heif" onChange={handlePhotoUpload} disabled={isUploadingPhoto} />
-            </label>
+            <div className="profile-avatar-buttons">
+              <label className={`profile-photo-upload ${isUploadingPhoto ? 'disabled' : ''}`}>
+                {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                <input type="file" accept="image/*,.heic,.heif" onChange={handlePhotoUpload} disabled={isUploadingPhoto} />
+              </label>
+              <div className="profile-emoji-button-wrapper">
+                <button
+                  ref={emojiButtonRef}
+                  type="button"
+                  className={`profile-emoji-button ${showEmojiPicker ? 'active' : ''}`}
+                  onClick={() => setShowEmojiPicker((v) => !v)}
+                  disabled={isSettingEmoji || isUploadingPhoto}
+                  aria-label="Choose emoji avatar"
+                  aria-expanded={showEmojiPicker}
+                >
+                  {userDoc?.avatarEmoji && !userDoc?.photoURL ? userDoc.avatarEmoji : '😀'}
+                </button>
+                {showEmojiPicker && (
+                  <div className="profile-emoji-dropdown" ref={emojiPickerRef}>
+                    <div className="profile-emoji-grid">
+                      {emojiOptions.map(emoji => {
+                        const isSelected = userDoc?.avatarEmoji === emoji && !userDoc?.photoURL;
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className={`profile-emoji-option ${isSelected ? 'selected' : ''}`}
+                            onClick={() => handleEmojiSelect(emoji)}
+                            disabled={isSettingEmoji}
+                            aria-label={`Use ${emoji} as profile avatar`}
+                          >
+                            {emoji}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {userDoc?.avatarEmoji && !userDoc?.photoURL && (
+                      <button
+                        type="button"
+                        className="profile-emoji-clear"
+                        onClick={handleClearEmoji}
+                        disabled={isSettingEmoji}
+                      >
+                        Reset to default
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           <h1 className="profile-title">Your Profile</h1>
           {error && <div className="profile-error">{error}</div>}

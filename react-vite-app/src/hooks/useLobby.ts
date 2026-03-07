@@ -50,7 +50,7 @@ export interface UseLobbyReturn {
   isCreating: boolean;
   isJoining: boolean;
   error: string | null;
-  hostGame: (visibility: 'public' | 'private', roundTimeSeconds?: number) => Promise<HostGameResult | null>;
+  hostGame: (visibility: 'public' | 'private', roundTimeSeconds: number, gameMode: 'duel' | 'multiplayer') => Promise<HostGameResult | null>;
   joinByCode: (gameId: string) => Promise<JoinByCodeResult | null>;
   joinPublicGame: (docId: string) => Promise<boolean>;
   clearError: () => void;
@@ -103,7 +103,11 @@ export function useLobby(
    * Host a new game.
    * Guests may host private games, but not public games.
    */
-  const hostGame = useCallback(async (visibility: 'public' | 'private', roundTimeSeconds?: number): Promise<HostGameResult | null> => {
+  const hostGame = useCallback(async (
+    visibility: 'public' | 'private',
+    roundTimeSeconds: number,
+    gameMode: 'duel' | 'multiplayer'
+  ): Promise<HostGameResult | null> => {
     if (isGuest && visibility === 'public') {
       setError(GUEST_PUBLIC_HOST_ERROR);
       return null;
@@ -111,7 +115,7 @@ export function useLobby(
     setIsCreating(true);
     setError(null);
     try {
-      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, roundTimeSeconds);
+      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, roundTimeSeconds, gameMode);
       return result;
     } catch (err) {
       console.error('Failed to create lobby:', err);

@@ -116,18 +116,26 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.profile-avatar-emoji {
+  font-size: 4rem;
+  line-height: 1;
+  display: block;
+  filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.45));
+}
+
 .profile-photo-upload {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 1rem;
   background: rgba(200, 16, 46, 0.08);
   border: 1px solid rgba(200, 16, 46, 0.25);
   border-radius: 0;
   color: var(--hw-red, #c8102e);
   font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.35rem 0.8rem;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: var(--hw-font-sans);
@@ -147,6 +155,123 @@
   inset: 0;
   opacity: 0;
   cursor: pointer;
+}
+
+.profile-avatar-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.profile-emoji-button-wrapper {
+  position: relative;
+}
+
+.profile-emoji-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
+  background: var(--hw-surface, #ffffff);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-emoji-button:hover:not(:disabled) {
+  background: var(--hw-gray-100, #f3f4f6);
+  border-color: rgba(200, 16, 46, 0.35);
+}
+
+.profile-emoji-button.active {
+  border-color: var(--hw-red, #c8102e);
+  background: rgba(200, 16, 46, 0.08);
+}
+
+.profile-emoji-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-emoji-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.35rem;
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
+  padding: 0.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 280px;
+}
+
+.profile-emoji-option {
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  background: var(--hw-gray-100, #f3f4f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.profile-emoji-option:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(200, 16, 46, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.profile-emoji-option.selected {
+  border-color: var(--hw-red, #c8102e);
+  background: rgba(200, 16, 46, 0.08);
+  box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.2);
+}
+
+.profile-emoji-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-emoji-clear {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #4b5563);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.profile-emoji-clear:hover:not(:disabled) {
+  color: var(--hw-red, #c8102e);
+}
+
+.profile-emoji-clear:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .profile-crop-overlay {
@@ -364,6 +489,7 @@
   display: flex;
   justify-content: space-around;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .profile-xp-stat {

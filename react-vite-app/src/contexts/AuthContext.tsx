@@ -48,15 +48,18 @@ export interface UserDoc {
   email: string;
   username: string;
   favoriteEmote?: string;
-  photoURL?: string;
+  photoURL?: string | null;
+  avatarEmoji?: string | null;
   isAdmin: boolean;
   emailVerified: boolean;
   totalXp: number;
   gamesPlayed: number;
+  dailyGoalWins?: number;
   createdAt: unknown; // Firestore Timestamp or serverTimestamp sentinel
   permissions?: AdminPermissions;
   lastActive?: unknown;
   lastGameAt?: unknown;
+  lastDailyGoalWinAt?: unknown;
   totalScore?: number;
   totalGuessTimeSeconds?: number;
   fastestGuessTimeSeconds?: number;
@@ -137,6 +140,7 @@ export interface AuthContextType {
   updateUsername: (newUsername: string) => Promise<void>;
   updateFavoriteEmote: (favoriteEmote: string) => Promise<void>;
   updateProfileImage: (file: File) => Promise<string>;
+  updateProfileEmoji: (emoji: string | null) => Promise<void>;
   refreshUserDoc: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
 }
@@ -483,10 +487,28 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     // Mirror submission upload flow: compress and store Base64 data URL in Firestore.
     const photoURL = await compressImage(file);
 
-    await updateUserDoc(user.uid, { photoURL });
-    setUserDoc(prev => (prev ? { ...prev, photoURL } : prev));
+    await updateUserDoc(user.uid, { photoURL, avatarEmoji: null });
+    setUserDoc(prev => (prev ? { ...prev, photoURL, avatarEmoji: null } : prev));
 
     return photoURL;
+  }, [user]);
+
+  const updateProfileEmoji = useCallback(async (emoji: string | null): Promise<void> => {
+    if (!user) throw new Error('No authenticated user');
+
+    await updateUserDoc(user.uid, {
+      avatarEmoji: emoji ?? null,
+      ...(emoji ? { photoURL: null } : {})
+    });
+
+    setUserDoc(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        avatarEmoji: emoji ?? null,
+        photoURL: emoji ? null : prev.photoURL
+      };
+    });
   }, [user]);
 
   /**
@@ -545,6 +567,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     updateUsername,
     updateFavoriteEmote,
     updateProfileImage,
+    updateProfileEmoji,
     refreshUserDoc,
     sendVerificationEmail: sendVerificationEmailToUser
   };
