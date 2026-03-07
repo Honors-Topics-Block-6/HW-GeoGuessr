@@ -301,7 +301,13 @@ export async function joinLobby(
   }
 
   if (lobby.players.some(p => p.uid === playerUid)) {
-    throw new Error('You are already in this lobby.');
+    // Rejoin: user is already in lobby (e.g. host who lost tab, or reconnecting)
+    await updateDoc(lobbyRef, {
+      [`heartbeats.${playerUid}`]: Timestamp.now(),
+      lastActionAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return;
   }
 
   await updateDoc(lobbyRef, {
