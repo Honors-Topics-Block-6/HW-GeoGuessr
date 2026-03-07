@@ -189,10 +189,6 @@ function DifficultySelect({
         </button>
 
         <h2 className="difficulty-heading">Choose Difficulty</h2>
-        <p className="difficulty-subheading">
-          Select how challenging you want the game to be
-        </p>
-
         <div className="difficulty-options">
           {DIFFICULTIES.map((diff: DifficultyOption) => (
             <button
@@ -208,8 +204,6 @@ function DifficultySelect({
         </div>
 
         <h2 className="time-heading">Round Time</h2>
-        <p className="time-subheading">How long each round lasts</p>
-
         <div className="time-options">
           {TIME_PRESETS.map((preset) => (
             <button
@@ -265,48 +259,41 @@ function DifficultySelect({
 
         {selectedMode === "singleplayer" && (
           <>
-            <div className="mode-and-penalty-row">
-              <div className="mode-section">
-                <h3 className="mode-penalty-section-heading">Mode</h3>
-                <div className="mode-options">
-                  <button
-                    className={`mode-card ${selectedSingleplayerVariant === "classic" ? "selected" : ""}`}
-                    onClick={() => setSelectedSingleplayerVariant("classic")}
-                  >
-                    <span className="mode-card-icon">📋</span>
-                    <span className="mode-card-label">Classic</span>
-                    <span className="mode-card-desc">5 rounds</span>
-                  </button>
-                  <button
-                    className={`mode-card ${selectedSingleplayerVariant === "endless" ? "selected" : ""}`}
-                    onClick={() => setSelectedSingleplayerVariant("endless")}
-                  >
-                    <span className="mode-card-icon">♾️</span>
-                    <span className="mode-card-label">Endless</span>
-                    <span className="mode-card-desc">HP until you run out</span>
-                  </button>
-                </div>
-              </div>
-              <div className="time-penalty-section">
-                <h3 className="mode-penalty-section-heading">Time penalty</h3>
-                <div className="time-penalty-options">
-                  <button
-                    className={`mode-card ${!timePenaltyEnabled ? "selected" : ""}`}
-                    onClick={() => setTimePenaltyEnabled(false)}
-                  >
-                    <span className="mode-card-icon">⏱</span>
-                    <span className="mode-card-label">Disabled</span>
-                    <span className="mode-card-desc">No time penalty</span>
-                  </button>
-                  <button
-                    className={`mode-card ${timePenaltyEnabled ? "selected" : ""}`}
-                    onClick={() => setTimePenaltyEnabled(true)}
-                  >
-                    <span className="mode-card-icon">⚡</span>
-                    <span className="mode-card-label">Enabled</span>
-                    <span className="mode-card-desc">Slower = fewer points</span>
-                  </button>
-                </div>
+            <h2 className="mode-heading">Game Mode</h2>
+            <div className="mode-options-single">
+              <button
+                className={`mode-card ${selectedSingleplayerVariant === "classic" ? "selected" : ""}`}
+                onClick={() => setSelectedSingleplayerVariant("classic")}
+              >
+                <span className="mode-card-icon">📋</span>
+                <span className="mode-card-label">Classic</span>
+                <span className="mode-card-desc">5, 10, or 20 rounds</span>
+              </button>
+              <button
+                className={`mode-card ${selectedSingleplayerVariant === "endless" ? "selected" : ""}`}
+                onClick={() => setSelectedSingleplayerVariant("endless")}
+              >
+                <span className="mode-card-icon">♾️</span>
+                <span className="mode-card-label">Endless</span>
+                <span className="mode-card-desc">HP until you run out</span>
+              </button>
+            </div>
+
+            <div className="time-penalty-row">
+              <span className="time-penalty-label">Time penalty</span>
+              <div className="time-penalty-toggle">
+                <button
+                  className={`time-penalty-btn ${!timePenaltyEnabled ? "selected" : ""}`}
+                  onClick={() => setTimePenaltyEnabled(false)}
+                >
+                  Off
+                </button>
+                <button
+                  className={`time-penalty-btn ${timePenaltyEnabled ? "selected" : ""}`}
+                  onClick={() => setTimePenaltyEnabled(true)}
+                >
+                  On
+                </button>
               </div>
             </div>
           </>
@@ -316,10 +303,6 @@ function DifficultySelect({
           selectedSingleplayerVariant === "classic" && (
             <>
               <h2 className="rounds-heading">Number of Rounds</h2>
-              <p className="rounds-subheading">
-                How many rounds you&apos;ll play this game
-              </p>
-
               <div className="rounds-options">
                 {ROUND_PRESETS.map((preset) => (
                   <button

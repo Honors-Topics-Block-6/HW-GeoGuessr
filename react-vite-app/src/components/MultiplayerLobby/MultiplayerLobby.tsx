@@ -22,6 +22,7 @@ const DIFFICULTY_LABELS: Record<Difficulty, DifficultyInfo> = {
 export type GameVisibility = 'public' | 'private';
 type PublicDifficultyFilter = 'any' | Difficulty;
 type PublicRoundTimeFilter = 'any' | '15' | '30' | '60' | '0';
+type PublicTimePenaltyFilter = 'any' | 'on' | 'off';
 
 /** Preset time options shown as buttons. 0 = no limit. */
 interface TimePreset {
@@ -57,6 +58,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
   const [timePenaltyEnabled, setTimePenaltyEnabled] = useState<boolean>(false);
   const [publicDifficultyFilter, setPublicDifficultyFilter] = useState<PublicDifficultyFilter>('any');
   const [publicRoundTimeFilter, setPublicRoundTimeFilter] = useState<PublicRoundTimeFilter>('any');
+  const [publicTimePenaltyFilter, setPublicTimePenaltyFilter] = useState<PublicTimePenaltyFilter>('any');
 
   useEffect(() => {
     setSelectedDifficulty(difficulty);
@@ -98,8 +100,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
     clearError
   } = useLobby(userUid, userUsername, selectedDifficulty, timePenaltyEnabled, isGuest);
 
-  const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[selectedDifficulty] || DIFFICULTY_LABELS.all;
-
   const handleHost = async (): Promise<void> => {
     const result = await hostGame(visibility, resolvedTime, gameMode);
     if (result) {
@@ -129,9 +129,14 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
       if (publicRoundTimeFilter !== 'any' && String(lobby.roundTimeSeconds ?? '') !== publicRoundTimeFilter) {
         return false;
       }
+      if (publicTimePenaltyFilter !== 'any') {
+        const hasPenalty = !!lobby.timePenaltyEnabled;
+        if (publicTimePenaltyFilter === 'on' && !hasPenalty) return false;
+        if (publicTimePenaltyFilter === 'off' && hasPenalty) return false;
+      }
       return true;
     });
-  }, [publicLobbies, publicDifficultyFilter, publicRoundTimeFilter]);
+  }, [publicLobbies, publicDifficultyFilter, publicRoundTimeFilter, publicTimePenaltyFilter]);
 
   return (
     <div className="lobby-screen">
@@ -145,10 +150,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
         </button>
 
         <h1 className="lobby-heading">Multiplayer</h1>
-        <div className="lobby-difficulty-badge">
-          <span>{diffInfo.icon}</span>
-          <span>{diffInfo.label} Difficulty</span>
-        </div>
 
         {error && (
           <div className="lobby-error">
@@ -162,7 +163,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
           <h2 className="lobby-panel-heading">Host a Game</h2>
 
           <div className="lobby-host-difficulty">
-            <p className="lobby-time-label">Difficulty</p>
             <div className="lobby-host-difficulty-options">
               {(Object.keys(DIFFICULTY_LABELS) as Difficulty[]).map((diff) => (
                 <button
@@ -172,14 +172,12 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
                 >
                   <span className="lobby-host-difficulty-icon">{DIFFICULTY_LABELS[diff].icon}</span>
                   <span className="lobby-host-difficulty-name">{DIFFICULTY_LABELS[diff].label}</span>
-                  <span className="lobby-host-difficulty-desc">{DIFFICULTY_LABELS[diff].description}</span>
                 </button>
               ))}
             </div>
           </div>
 
           <div className="lobby-game-mode">
-            <p className="lobby-time-label">Game Mode</p>
             <div className="lobby-game-mode-options">
               <button
                 type="button"
@@ -188,7 +186,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
                 disabled={isCreating}
               >
                 <span className="lobby-game-mode-icon">⚔️</span>
-                <span className="lobby-game-mode-name">Duel (1v1)</span>
+                <span className="lobby-game-mode-name">Duel</span>
               </button>
               <button
                 type="button"
@@ -197,7 +195,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
                 disabled={isCreating}
               >
                 <span className="lobby-game-mode-icon">👥</span>
-                <span className="lobby-game-mode-name">Multiplayer (&gt;2)</span>
+                <span className="lobby-game-mode-name">Multiplayer</span>
               </button>
             </div>
           </div>
@@ -224,7 +222,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
 
           {/* Round Time */}
           <div className="lobby-time-section">
-            <p className="lobby-time-label">Round Time</p>
             <div className="lobby-time-options">
               {TIME_PRESETS.map((preset) => (
                 <button
@@ -262,16 +259,16 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
           </div>
 
           <div className="lobby-time-penalty-section">
-            <p className="lobby-time-label">Time Penalty</p>
+            <span className="lobby-time-penalty-label">Time penalty</span>
             <div className="lobby-time-penalty-toggle">
               <button
-                className={`lobby-vis-btn ${!timePenaltyEnabled ? 'selected' : ''}`}
+                className={`lobby-time-penalty-btn ${!timePenaltyEnabled ? 'selected' : ''}`}
                 onClick={() => setTimePenaltyEnabled(false)}
               >
                 Off
               </button>
               <button
-                className={`lobby-vis-btn ${timePenaltyEnabled ? 'selected' : ''}`}
+                className={`lobby-time-penalty-btn ${timePenaltyEnabled ? 'selected' : ''}`}
                 onClick={() => setTimePenaltyEnabled(true)}
               >
                 On
@@ -331,10 +328,22 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
                   onChange={(e) => setPublicRoundTimeFilter(e.target.value as PublicRoundTimeFilter)}
                 >
                   <option value="any">Any</option>
-                  <option value="10">10s</option>
-                  <option value="20">20s</option>
+                  <option value="15">15s</option>
                   <option value="30">30s</option>
+                  <option value="60">60s</option>
                   <option value="0">No Limit</option>
+                </select>
+              </label>
+              <label className="lobby-public-filter-item">
+                <span>Time Penalty</span>
+                <select
+                  className="lobby-public-filter-select"
+                  value={publicTimePenaltyFilter}
+                  onChange={(e) => setPublicTimePenaltyFilter(e.target.value as PublicTimePenaltyFilter)}
+                >
+                  <option value="any">Any</option>
+                  <option value="on">On</option>
+                  <option value="off">Off</option>
                 </select>
               </label>
             </div>
