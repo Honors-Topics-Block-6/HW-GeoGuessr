@@ -363,8 +363,8 @@ describe('ResultScreen', () => {
       expect(screen.getByText(/\d+ ft away/)).toBeInTheDocument();
     });
 
-    it('should show "Perfect!" for distance within 10 ft', () => {
-      // Distance is 1, * 2 = 2 ft which is <= 10 ft
+    it('should show feet away for small non-zero distance', () => {
+      // Distance is 1, * 2 = 2 ft
       render(
         <ResultScreen
           {...defaultProps}
@@ -373,7 +373,7 @@ describe('ResultScreen', () => {
         />
       );
 
-      expect(screen.getAllByText('Perfect!').length).toBeGreaterThan(0);
+      expect(screen.getByText('2 ft away')).toBeInTheDocument();
     });
   });
 
@@ -486,12 +486,11 @@ describe('ResultScreen', () => {
     it('should observe the details panel with ResizeObserver', () => {
       const { container } = render(<ResultScreen {...defaultProps} />);
 
-      const detailsPanel = container.querySelector('.result-details');
+      const detailsPanel = container.querySelector('.result-details') as HTMLElement;
       const observers = (global as Record<string, unknown>)._resizeObserverInstances as Array<{ observe: ReturnType<typeof vi.fn> }>;
-      const detailsObserver = observers.find(obs => obs.observe.mock.calls.some((call: unknown[]) => call[0] === detailsPanel));
+      const detailsObserver = observers.find((obs) => obs.observe.mock.calls.some(([arg]) => arg === detailsPanel));
 
       expect(detailsObserver).toBeDefined();
-      expect(detailsObserver!.observe).toHaveBeenCalledWith(detailsPanel);
     });
 
     it('should update map height when details panel resizes', () => {
