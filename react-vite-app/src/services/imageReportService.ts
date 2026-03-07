@@ -1,29 +1,42 @@
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
+export type ImageReportCause = 'wrong_location' | 'inappropriate' | 'other';
+
+export interface ImageReportPayload {
+  cause: ImageReportCause;
+  explanation: string;
+  suggestedLocation?: { x: number; y: number } | null;
+}
+
 export interface ImageReportData {
   imageId: string | null;
   imageUrl?: string | null;
   userId: string;
   username: string;
   userEmail?: string;
+  cause: ImageReportCause;
+  explanation: string;
+  suggestedLocation?: { x: number; y: number } | null;
 }
 
 const RATE_LIMIT_MS = 60_000; // 1 minute between reports per user
 const _lastSubmitTimes = new Map<string, number>();
 
 /**
- * Submit a report for an inaccurate image (wrong location, etc.).
+ * Submit a report for an inaccurate image.
  * Stores in Firestore for admin review.
  */
 export async function submitImageReport(reportData: ImageReportData): Promise<string> {
-  const { imageId, imageUrl, userId, username, userEmail } = reportData;
+  const { imageId, imageUrl, userId, username, userEmail, cause, explanation, suggestedLocation } = reportData;
 
   if (!userId) throw new Error('User ID is required.');
   if (!username) throw new Error('Username is required.');
   if (!imageId && !imageUrl) {
     throw new Error('Either image ID or image URL is required to report.');
   }
+  const trimmed = (explanation || '').trim();
+  if (!trimmed) throw new Error('Explanation is required.');
 
   const now = Date.now();
   const lastSubmit = _lastSubmitTimes.get(userId);
@@ -38,6 +51,9 @@ export async function submitImageReport(reportData: ImageReportData): Promise<st
     userId,
     username,
     userEmail: userEmail ?? '',
+    cause,
+    explanation: trimmed,
+    suggestedLocation: suggestedLocation ?? null,
     createdAt: serverTimestamp()
   });
 

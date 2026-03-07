@@ -1,0 +1,198 @@
+.image-report-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(35, 31, 32, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+  animation: imageReportOverlayIn 0.2s ease-out;
+}
+
+@keyframes imageReportOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.image-report-modal {
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  animation: imageReportSlideIn 0.3s ease-out;
+}
+
+@keyframes imageReportSlideIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.image-report-title {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--hw-black, #231f20);
+}
+
+.image-report-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: var(--hw-gray-100, #f3f4f6);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--text-muted, #6b7280);
+  line-height: 1;
+  padding: 4px 10px;
+  border-radius: 0;
+  transition: all 0.2s ease;
+}
+
+.image-report-close:hover {
+  color: var(--hw-red, #c8102e);
+  background: rgba(200, 16, 46, 0.08);
+  border-color: var(--hw-red, #c8102e);
+}
+
+.image-report-field {
+  margin-bottom: 1.25rem;
+}
+
+.image-report-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hw-black, #231f20);
+  margin-bottom: 0.5rem;
+}
+
+.image-report-causes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.image-report-cause-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary, #4b5563);
+}
+
+.image-report-cause-option input {
+  accent-color: var(--hw-red, #c8102e);
+}
+
+.image-report-map {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  cursor: crosshair;
+}
+
+.image-report-map-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.image-report-map-marker {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+
+.image-report-marker-pin {
+  width: 24px;
+  height: 24px;
+  background: var(--hw-red, #c8102e);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.image-report-explanation {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.image-report-explanation:focus {
+  outline: none;
+  border-color: var(--hw-red, #c8102e);
+}
+
+.image-report-explanation::placeholder {
+  color: var(--text-muted, #9ca3af);
+}
+
+.image-report-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 1.5rem;
+}
+
+.image-report-cancel {
+  flex: 1;
+  padding: 10px 16px;
+  background: var(--hw-surface, #ffffff);
+  color: var(--text-secondary, #4b5563);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.image-report-cancel:hover {
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--hw-black, #231f20);
+}
+
+.image-report-submit {
+  flex: 1;
+  padding: 10px 16px;
+  background: #c92a2a;
+  color: #fff;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.image-report-submit:hover:not(:disabled) {
+  background: #a61e1e;
+}
+
+.image-report-submit:disabled {
+  background: var(--hw-gray-300, #d1d5db);
+  color: var(--text-muted, #9ca3af);
+  cursor: not-allowed;
+}

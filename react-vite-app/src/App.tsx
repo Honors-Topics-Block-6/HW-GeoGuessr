@@ -67,7 +67,10 @@ import {
   recordDailyPlay,
   syncDailyStreakRollover,
 } from "./services/streakService";
-import { submitImageReport } from "./services/imageReportService";
+import {
+  submitImageReport,
+  type ImageReportPayload,
+} from "./services/imageReportService";
 import "./App.css";
 
 /** Shape of a friend object used when opening chat */
@@ -293,7 +296,11 @@ function App(): React.ReactElement {
   );
 
   const handleReportInaccurateImage = useCallback(
-    async (imageId: string | null, imageUrl?: string | null): Promise<void> => {
+    async (
+      payload: ImageReportPayload,
+      imageId: string | null,
+      imageUrl?: string | null
+    ): Promise<void> => {
       if (!user?.uid || !userDoc?.username) return;
       const urlToStore =
         imageUrl && imageUrl.length <= 500 ? imageUrl : undefined;
@@ -304,6 +311,9 @@ function App(): React.ReactElement {
           userId: user.uid,
           username: userDoc.username,
           userEmail: user.email ?? undefined,
+          cause: payload.cause,
+          explanation: payload.explanation,
+          suggestedLocation: payload.suggestedLocation ?? null,
         });
         setImageReportToast("Thanks! Your report has been submitted.");
       } catch (err) {
@@ -1018,8 +1028,9 @@ function App(): React.ReactElement {
           onBackToTitle={resetGame}
           onReportInaccurate={
             user && userDoc && !isGuest
-              ? () =>
+              ? (payload) =>
                   handleReportInaccurateImage(
+                    payload,
                     currentResult.imageId ?? null,
                     currentResult.imageUrl,
                   )
@@ -1113,8 +1124,9 @@ function App(): React.ReactElement {
           onLeaveDuel={handleDuelForfeit}
           onReportInaccurate={
             user && userDoc && !isGuest
-              ? () =>
+              ? (payload) =>
                   handleReportInaccurateImage(
+                    payload,
                     duelLatestRound.imageId ?? null,
                     duel.currentImage?.url || duelLatestRound.imageUrl,
                   )

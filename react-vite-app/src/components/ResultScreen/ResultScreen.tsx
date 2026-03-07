@@ -1,7 +1,9 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import { getGuessHeatmapDataForImage, type HeatmapPoint } from '../../services/guessHistoryService';
+import type { ImageReportPayload } from '../../services/imageReportService';
 import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
+import ImageReportModal from '../ImageReportModal/ImageReportModal';
 import './ResultScreen.css';
 
 export interface MapPoint {
@@ -35,7 +37,7 @@ export interface ResultScreenProps {
   currentHp?: number;
   maxHp?: number;
   hpLost?: number;
-  onReportInaccurate?: () => void;
+  onReportInaccurate?: (payload: ImageReportPayload) => void;
 }
 
 /**
@@ -214,6 +216,7 @@ function ResultScreen({
   const [heatmapEnabled, setHeatmapEnabled] = useState<boolean>(true);
   const [imageFit, setImageFit] = useState<ImageFit>({ offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 });
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Sync map container height to match the details panel height
   useEffect(() => {
@@ -580,7 +583,7 @@ function ResultScreen({
               <button
                 type="button"
                 className="report-image-button"
-                onClick={onReportInaccurate}
+                onClick={() => setShowReportModal(true)}
                 aria-label="Report inaccurate image"
               >
                 Report Image
@@ -675,6 +678,16 @@ function ResultScreen({
           }}
           onCancel={() => setShowLeaveConfirm(false)}
           isDuel={false}
+        />
+      )}
+
+      {showReportModal && onReportInaccurate && (
+        <ImageReportModal
+          onClose={() => setShowReportModal(false)}
+          onSubmit={(payload) => {
+            onReportInaccurate(payload);
+            setShowReportModal(false);
+          }}
         />
       )}
 

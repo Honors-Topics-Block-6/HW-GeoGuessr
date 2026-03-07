@@ -1,7 +1,9 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import { STARTING_HEALTH } from '../../services/duelService';
+import type { ImageReportPayload } from '../../services/imageReportService';
 import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
+import ImageReportModal from '../ImageReportModal/ImageReportModal';
 import './DuelResultScreen.css';
 
 interface MapPosition {
@@ -51,7 +53,7 @@ export interface DuelResultScreenProps {
   onViewFinalResults: () => void;
   onLeaveDuel?: () => void;
   isGameOver?: boolean;
-  onReportInaccurate?: () => void;
+  onReportInaccurate?: (payload: ImageReportPayload) => void;
 }
 
 const PLAYER_COLORS: string[] = [
@@ -98,6 +100,7 @@ function DuelResultScreen({
   const mapOuterRef = useRef<HTMLDivElement>(null);
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const sortedByScore = [...players]
     .map(p => ({ ...p, score: roundGuessesByUid[p.uid]?.score ?? 0 }))
@@ -270,7 +273,7 @@ function DuelResultScreen({
               <button
                 type="button"
                 className="report-image-button"
-                onClick={onReportInaccurate}
+                onClick={() => setShowReportModal(true)}
                 aria-label="Report inaccurate image"
               >
                 Report Image
@@ -406,6 +409,16 @@ function DuelResultScreen({
           }}
           onCancel={() => setShowLeaveConfirm(false)}
           isDuel={true}
+        />
+      )}
+
+      {showReportModal && onReportInaccurate && (
+        <ImageReportModal
+          onClose={() => setShowReportModal(false)}
+          onSubmit={(payload) => {
+            onReportInaccurate(payload);
+            setShowReportModal(false);
+          }}
         />
       )}
     </div>
