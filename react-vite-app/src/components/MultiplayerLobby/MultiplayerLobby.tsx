@@ -61,6 +61,11 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
   const [publicRoundTimeFilter, setPublicRoundTimeFilter] = useState<PublicRoundTimeFilter>('any');
   const [publicTimePenaltyFilter, setPublicTimePenaltyFilter] = useState<PublicTimePenaltyFilter>('any');
   const [conflictLobbies, setConflictLobbies] = useState<HostGameExistingResult['existingLobbies'] | null>(null);
+  const [conflictHostParams, setConflictHostParams] = useState<{
+    visibility: GameVisibility;
+    roundTimeSeconds: number;
+    gameMode: 'duel' | 'multiplayer';
+  } | null>(null);
 
   useEffect(() => {
     setSelectedDifficulty(difficulty);
@@ -108,9 +113,25 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
     if (result) {
       if ('existingLobbies' in result) {
         setConflictLobbies(result.existingLobbies);
+        setConflictHostParams({ visibility, roundTimeSeconds: resolvedTime, gameMode });
       } else {
         onJoinedLobby(result.docId);
       }
+    }
+  };
+
+  const handleCloseAndCreateNew = async (docIdToClose: string): Promise<void> => {
+    if (!conflictHostParams) return;
+    await closeHostedLobby(docIdToClose);
+    setConflictLobbies(null);
+    setConflictHostParams(null);
+    const result = await hostGame(
+      conflictHostParams.visibility,
+      conflictHostParams.roundTimeSeconds,
+      conflictHostParams.gameMode
+    );
+    if (result && !('existingLobbies' in result)) {
+      onJoinedLobby(result.docId);
     }
   };
 
@@ -371,9 +392,12 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
       {conflictLobbies && conflictLobbies.length > 0 && (
         <HostedGameConflictModal
           existingLobbies={conflictLobbies}
-          onClose={() => setConflictLobbies(null)}
-          onCloseHostedGame={closeHostedLobby}
-          onGoToLobby={(docId) => onJoinedLobby(docId)}
+          onClose={() => {
+            setConflictLobbies(null);
+            setConflictHostParams(null);
+          }}
+          onJoinHostedGame={(docId) => onJoinedLobby(docId)}
+          onCloseAndCreateNew={handleCloseAndCreateNew}
         />
       )}
     </div>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { LobbyDoc } from '../../services/lobbyService';
 import './HostedGameConflictModal.css';
@@ -5,29 +6,35 @@ import './HostedGameConflictModal.css';
 export interface HostedGameConflictModalProps {
   existingLobbies: LobbyDoc[];
   onClose: () => void;
-  onCloseHostedGame: (docId: string) => Promise<void>;
-  onGoToLobby: (docId: string) => void;
+  onJoinHostedGame: (docId: string) => void;
+  onCloseAndCreateNew: (docIdToClose: string) => Promise<void>;
 }
 
 /**
  * Modal shown when user tries to host a new game but already has an active hosted game.
- * Offers: close the existing game, or go to the existing lobby.
+ * Offers: cancel, join the existing lobby, or close it and create the new game.
  */
 function HostedGameConflictModal({
   existingLobbies,
   onClose,
-  onCloseHostedGame,
-  onGoToLobby
+  onJoinHostedGame,
+  onCloseAndCreateNew
 }: HostedGameConflictModalProps): React.ReactElement {
   const primaryLobby = existingLobbies[0];
+  const [isClosing, setIsClosing] = useState(false);
 
-  const handleCloseGame = async (): Promise<void> => {
-    await onCloseHostedGame(primaryLobby.docId);
-    onClose();
+  const handleCloseAndCreate = async (): Promise<void> => {
+    setIsClosing(true);
+    try {
+      await onCloseAndCreateNew(primaryLobby.docId);
+      onClose();
+    } finally {
+      setIsClosing(false);
+    }
   };
 
-  const handleGoToLobby = (): void => {
-    onGoToLobby(primaryLobby.docId);
+  const handleJoinHosted = (): void => {
+    onJoinHostedGame(primaryLobby.docId);
     onClose();
   };
 
@@ -52,11 +59,15 @@ function HostedGameConflictModal({
             <button className="hosted-conflict-cancel" onClick={onClose}>
               Cancel
             </button>
-            <button className="hosted-conflict-close" onClick={handleCloseGame}>
-              Close hosted game
+            <button className="hosted-conflict-goto" onClick={handleJoinHosted}>
+              Join hosted game
             </button>
-            <button className="hosted-conflict-goto" onClick={handleGoToLobby}>
-              Go to lobby
+            <button
+              className="hosted-conflict-close"
+              onClick={handleCloseAndCreate}
+              disabled={isClosing}
+            >
+              {isClosing ? 'Closing...' : 'Close hosted game'}
             </button>
           </div>
         </div>
