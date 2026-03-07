@@ -130,6 +130,11 @@ function App(): React.ReactElement {
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState<boolean>(false);
   const [duelLobbyDocId, setDuelLobbyDocId] = useState<string | null>(null);
+  const duelLobbyDocIdRef = useRef<string | null>(null);
+  const duelOpponentUidRef = useRef<string | null>(null);
+  const duelMyUidRef = useRef<string | null>(null);
+  const inDuelRef = useRef<boolean>(false);
+  const duelPhaseRef = useRef<string | null>(null);
 
   const {
     screen,
@@ -180,6 +185,15 @@ function App(): React.ReactElement {
     user?.uid as string,
     userDoc?.username as string,
   );
+
+  // Keep duel refs current so unload handlers can forfeit immediately.
+  useEffect(() => {
+    duelLobbyDocIdRef.current = duelLobbyDocId;
+    duelOpponentUidRef.current = duel.opponentUid;
+    duelMyUidRef.current = user?.uid ?? null;
+    inDuelRef.current = inDuel;
+    duelPhaseRef.current = duel.phase;
+  }, [duelLobbyDocId, duel.opponentUid, user?.uid, inDuel, duel.phase]);
 
   // Track user's online presence and current activity
   usePresence(
@@ -401,12 +415,16 @@ function App(): React.ReactElement {
 
   useEffect(() => {
     if (achievementToastQueue.length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
     setAchievementToastFading(false);
     const fadeTimer = window.setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
       setAchievementToastFading(true);
     }, 4200);
     const removeTimer = window.setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
       setAchievementToastQueue((previous) => previous.slice(1));
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Toast timing is driven by timers.
       setAchievementToastFading(false);
     }, 6200);
     return () => {
@@ -518,6 +536,86 @@ function App(): React.ReactElement {
 
     handleDuelBackToTitle();
   }, [duelLobbyDocId, duel.opponentUid, user?.uid, handleDuelBackToTitle]);
+
+  /**
+   * Best-effort unload-safe forfeit write.
+   * Uses Firestore REST commit endpoint + sendBeacon so it can complete during tab close.
+   * Works for guest and non-guest users because lobby update rules are open.
+   */
+  const sendForfeitKeepalive = useCallback((docId: string, winnerUid: string, loserUid: string): void => {
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined;
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY as string | undefined;
+    if (!projectId || !apiKey) return;
+
+    const encodedProject = encodeURIComponent(projectId);
+    const encodedApiKey = encodeURIComponent(apiKey);
+    const commitUrl = `https://firestore.googleapis.com/v1/projects/${encodedProject}/databases/(default)/documents:commit?key=${encodedApiKey}`;
+
+    const nowIso = new Date().toISOString();
+    const docName = `projects/${projectId}/databases/(default)/documents/lobbies/${docId}`;
+    const payload = {
+      writes: [{
+        update: {
+          name: docName,
+          fields: {
+            phase: { stringValue: 'finished' },
+            winner: { stringValue: winnerUid },
+            loser: { stringValue: loserUid },
+            forfeitBy: { stringValue: loserUid },
+            finishedAt: { timestampValue: nowIso },
+            lastActionAt: { timestampValue: nowIso },
+            updatedAt: { timestampValue: nowIso }
+          }
+        },
+        updateMask: {
+          fieldPaths: ['phase', 'winner', 'loser', 'forfeitBy', 'finishedAt', 'lastActionAt', 'updatedAt']
+        },
+        currentDocument: { exists: true }
+      }]
+    };
+
+    try {
+      const body = JSON.stringify(payload);
+      // sendBeacon is the most reliable way to transmit during unload.
+      const sent = navigator.sendBeacon(commitUrl, new Blob([body], { type: 'text/plain;charset=UTF-8' }));
+      if (sent) return;
+
+      // Fallback: keepalive fetch without custom headers to avoid unload preflight delays.
+      fetch(commitUrl, {
+        method: 'POST',
+        body,
+        keepalive: true,
+        mode: 'cors'
+      }).catch(() => { });
+    } catch {
+      // no-op: this is best-effort for unload scenarios
+    }
+  }, []);
+
+  // If a player closes/reloads the tab during an active duel, forfeit immediately.
+  useEffect(() => {
+    const handleUnloadForfeit = (): void => {
+      if (!inDuelRef.current) return;
+      if (duelPhaseRef.current === 'finished') return;
+
+      const docId = duelLobbyDocIdRef.current;
+      const opponentUid = duelOpponentUidRef.current;
+      const myUid = duelMyUidRef.current;
+
+      if (docId && opponentUid && myUid) {
+        // Fire an unload-safe REST update first, then the normal SDK path.
+        sendForfeitKeepalive(docId, opponentUid, myUid);
+        handleOpponentDisconnect(docId, opponentUid, myUid, myUid).catch(() => { });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleUnloadForfeit);
+    window.addEventListener('pagehide', handleUnloadForfeit);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnloadForfeit);
+      window.removeEventListener('pagehide', handleUnloadForfeit);
+    };
+  }, [sendForfeitKeepalive]);
 
   // Show loading spinner while checking auth state
   if (loading) {
@@ -731,23 +829,7 @@ function App(): React.ReactElement {
   // Get my username
   const myUsername: string = userDoc?.username || "You";
 
-  // Compute health before the latest round's damage was applied
-  const uid = user?.uid ?? "";
-  const opUid = duel.opponentUid ?? "";
-
-  const duelMyHealthBefore: number = duelLatestRound
-    ? duel.roundHistory.length > 1
-      ? (duel.roundHistory[duel.roundHistory.length - 2].healthAfter?.[uid] ??
-        STARTING_HEALTH)
-      : STARTING_HEALTH
-    : STARTING_HEALTH;
-
-  const duelOpHealthBefore: number = duelLatestRound
-    ? duel.roundHistory.length > 1
-      ? (duel.roundHistory[duel.roundHistory.length - 2].healthAfter?.[opUid] ??
-        STARTING_HEALTH)
-      : STARTING_HEALTH
-    : STARTING_HEALTH;
+  const uid = user?.uid ?? '';
 
   return (
     <div className="app">
@@ -827,8 +909,6 @@ function App(): React.ReactElement {
             setScreen("waitingRoom");
           }}
           onBack={() => setScreen("modeSelect")}
-          onOpenMyGames={() => setScreen("myGames")}
-          onBack={() => setScreen('modeSelect')}
         />
       )}
 
@@ -953,6 +1033,10 @@ function App(): React.ReactElement {
           opponentUsername={duel.opponentUsername}
           myHealth={duel.myHealth}
           opponentHealth={duel.opponentHealth}
+          activeGuessesCount={duel.activeGuessesCount}
+          activePlayerCount={duel.activePlayerCount}
+          totalPlayerCount={duel.totalPlayerCount}
+          allActiveGuessed={duel.allActiveGuessed}
           myUsername={myUsername}
           myActiveEmote={duel.myActiveEmote}
           opponentActiveEmote={duel.opponentActiveEmote}
@@ -963,25 +1047,23 @@ function App(): React.ReactElement {
       {inDuel && duel.phase === "results" && duelLatestRound && (
         <DuelResultScreen
           roundNumber={duelLatestRound.roundNumber}
-          imageUrl={duelLatestRound.imageUrl}
+          imageUrl={duel.currentImage?.url || duelLatestRound.imageUrl}
           actualLocation={duelLatestRound.actualLocation}
-          myGuess={duelLatestRound.players?.[uid]}
-          opponentGuess={duelLatestRound.players?.[opUid]}
-          myUsername={myUsername}
-          opponentUsername={duel.opponentUsername}
-          myHealth={duel.myHealth}
-          opponentHealth={duel.opponentHealth}
-          myHealthBefore={duelMyHealthBefore}
-          opponentHealthBefore={duelOpHealthBefore}
+          players={duel.players}
+          roundGuessesByUid={duelLatestRound.players || {}}
+          healthAfter={duelLatestRound.healthAfter || {}}
+          healthBefore={
+            duel.roundHistory.length > 1
+              ? (duel.roundHistory[duel.roundHistory.length - 2].healthAfter || {})
+              : Object.fromEntries((duel.players || []).map((p) => [p.uid, STARTING_HEALTH]))
+          }
           damage={duelLatestRound.damage}
           multiplier={duelLatestRound.multiplier}
           damagedPlayer={duelLatestRound.damagedPlayer}
           myUid={uid}
           isHost={duel.isHost}
           onNextRound={duel.nextRound}
-          onViewFinalResults={() => {
-            /* Will auto-transition via phase */
-          }}
+          onViewFinalResults={() => {/* Will auto-transition via phase */ }}
           onLeaveDuel={handleDuelForfeit}
           isGameOver={false}
         />

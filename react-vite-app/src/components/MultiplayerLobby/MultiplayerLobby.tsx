@@ -51,11 +51,16 @@ export interface MultiplayerLobbyProps {
 function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoinedLobby, onBack }: MultiplayerLobbyProps): React.ReactElement {
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(difficulty);
   const [visibility, setVisibility] = useState<GameVisibility>('public');
+  const [gameMode, setGameMode] = useState<'duel' | 'multiplayer'>('duel');
   const [timeSelection, setTimeSelection] = useState<number | 'custom'>(30);
   const [customTime, setCustomTime] = useState<string>('60');
   const [timePenaltyEnabled, setTimePenaltyEnabled] = useState<boolean>(false);
   const [publicDifficultyFilter, setPublicDifficultyFilter] = useState<PublicDifficultyFilter>('any');
   const [publicRoundTimeFilter, setPublicRoundTimeFilter] = useState<PublicRoundTimeFilter>('any');
+
+  useEffect(() => {
+    setSelectedDifficulty(difficulty);
+  }, [difficulty]);
 
   /** Resolve the actual round time in seconds (0 = no limit) */
   const resolvedTime: number =
@@ -76,9 +81,6 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
       setCustomTime(String(CUSTOM_TIME_MAX));
     }
   };
-  useEffect(() => {
-    setSelectedDifficulty(difficulty);
-  }, [difficulty]);
 
   useEffect(() => {
     if (isGuest && visibility === 'public') {
@@ -99,7 +101,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
   const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[selectedDifficulty] || DIFFICULTY_LABELS.all;
 
   const handleHost = async (): Promise<void> => {
-    const result = await hostGame(visibility, resolvedTime);
+    const result = await hostGame(visibility, resolvedTime, gameMode);
     if (result) {
       onJoinedLobby(result.docId);
     }
@@ -173,6 +175,30 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
                   <span className="lobby-host-difficulty-desc">{DIFFICULTY_LABELS[diff].description}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="lobby-game-mode">
+            <p className="lobby-time-label">Game Mode</p>
+            <div className="lobby-game-mode-options">
+              <button
+                type="button"
+                className={`lobby-game-mode-btn ${gameMode === 'duel' ? 'selected' : ''}`}
+                onClick={() => setGameMode('duel')}
+                disabled={isCreating}
+              >
+                <span className="lobby-game-mode-icon">⚔️</span>
+                <span className="lobby-game-mode-name">Duel (1v1)</span>
+              </button>
+              <button
+                type="button"
+                className={`lobby-game-mode-btn ${gameMode === 'multiplayer' ? 'selected' : ''}`}
+                onClick={() => setGameMode('multiplayer')}
+                disabled={isCreating}
+              >
+                <span className="lobby-game-mode-icon">👥</span>
+                <span className="lobby-game-mode-name">Multiplayer (&gt;2)</span>
+              </button>
             </div>
           </div>
 

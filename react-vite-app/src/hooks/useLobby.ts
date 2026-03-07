@@ -5,7 +5,7 @@ import {
   joinLobby,
   leaveLobby,
   subscribeLobby,
-  subscribePublicLobbyHistory,
+  subscribePublicLobbies,
   subscribeUserLobbyHistory,
   sendHeartbeat,
   removeStalePlayersFromLobby,
@@ -24,7 +24,7 @@ export interface LobbyPlayer {
   joinedAt?: string;
 }
 
-export type PublicLobby = UserLobbyHistoryDoc & {
+export type PublicLobby = LobbyDoc & {
   [key: string]: unknown;
 };
 
@@ -50,7 +50,7 @@ export interface UseLobbyReturn {
   isCreating: boolean;
   isJoining: boolean;
   error: string | null;
-  hostGame: (visibility: 'public' | 'private', roundTimeSeconds?: number) => Promise<HostGameResult | null>;
+  hostGame: (visibility: 'public' | 'private', roundTimeSeconds: number, gameMode: 'duel' | 'multiplayer') => Promise<HostGameResult | null>;
   joinByCode: (gameId: string) => Promise<JoinByCodeResult | null>;
   joinPublicGame: (docId: string) => Promise<boolean>;
   clearError: () => void;
@@ -78,13 +78,13 @@ export interface UseMyGamesReturn {
  * Hook for the MultiplayerLobby screen.
  * Manages: public lobby list, hosting flow, join-by-code flow.
  */
-const GUEST_PUBLIC_ERROR = 'Sign in to create public games';
+const GUEST_PUBLIC_HOST_ERROR = 'Guests can only host private games. Sign in to host public games.';
 
 export function useLobby(
   userUid: string,
   userUsername: string,
   selectedDifficulty: string,
-  timePenaltyEnabled: boolean = false
+  timePenaltyEnabled: boolean = false,
   isGuest: boolean
 ): UseLobbyReturn {
   const [publicLobbies, setPublicLobbies] = useState<PublicLobby[]>([]);
@@ -92,9 +92,9 @@ export function useLobby(
   const [isJoining, setIsJoining] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Subscribe to public lobby history in real-time
+  // Subscribe to active public waiting lobbies in real-time.
   useEffect(() => {
-    const unsubscribe = subscribePublicLobbyHistory((lobbies) => {
+    const unsubscribe = subscribePublicLobbies((lobbies) => {
       setPublicLobbies(lobbies as PublicLobby[]);
     });
     return unsubscribe;
@@ -102,17 +102,21 @@ export function useLobby(
 
   /**
    * Host a new game.
-   * Public games are only allowed for non-guest (logged-in) accounts.
+   * Guests may host private games, but not public games.
    */
-  const hostGame = useCallback(async (visibility: 'public' | 'private', roundTimeSeconds?: number): Promise<HostGameResult | null> => {
-    if (visibility === 'public' && isGuest) {
-      setError(GUEST_PUBLIC_ERROR);
+  const hostGame = useCallback(async (
+    visibility: 'public' | 'private',
+    roundTimeSeconds: number,
+    gameMode: 'duel' | 'multiplayer'
+  ): Promise<HostGameResult | null> => {
+    if (isGuest && visibility === 'public') {
+      setError(GUEST_PUBLIC_HOST_ERROR);
       return null;
     }
     setIsCreating(true);
     setError(null);
     try {
-      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, roundTimeSeconds ?? 20, timePenaltyEnabled);
+      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, roundTimeSeconds ?? 20, gameMode, timePenaltyEnabled);
       return result;
     } catch (err) {
       console.error('Failed to create lobby:', err);
@@ -136,7 +140,9 @@ export function useLobby(
         return null;
       }
 
-      await joinLobby(lobby.docId, userUid, userUsername, selectedDifficulty);
+      const joinDifficulty = lobby.difficulty;
+
+      await joinLobby(lobby.docId, userUid, userUsername, joinDifficulty);
       return { docId: lobby.docId };
     } catch (err) {
       console.error('Failed to join lobby:', err);
@@ -154,7 +160,9 @@ export function useLobby(
     setIsJoining(true);
     setError(null);
     try {
-      await joinLobby(docId, userUid, userUsername, selectedDifficulty);
+      const lobby = publicLobbies.find((item) => item.docId === docId);
+      const joinDifficulty = (lobby?.difficulty as string | undefined) || selectedDifficulty;
+      await joinLobby(docId, userUid, userUsername, joinDifficulty);
       return true;
     } catch (err) {
       console.error('Failed to join lobby:', err);
@@ -163,7 +171,7 @@ export function useLobby(
     } finally {
       setIsJoining(false);
     }
-  }, [userUid, userUsername, selectedDifficulty]);
+  }, [publicLobbies, userUid, userUsername, selectedDifficulty]);
 
   const clearError = useCallback((): void => setError(null), []);
 
@@ -188,6 +196,8 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const hasLeft = useRef<boolean>(false);
+  const hadLobbySnapshot = useRef<boolean>(false);
+  const wasHostInLastSnapshot = useRef<boolean>(false);
   const docIdRef = useRef<string>(lobbyDocId);
   const uidRef = useRef<string>(userUid);
 
@@ -202,14 +212,27 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     if (!lobbyDocId) return;
 
     hasLeft.current = false;
+    hadLobbySnapshot.current = false;
+    wasHostInLastSnapshot.current = false;
 
-    const unsubscribe = subscribeLobby(lobbyDocId, (lobbyData) => {
+    const unsubscribe = subscribeLobby(lobbyDocId, (lobbyData, reason) => {
       setLobby(lobbyData as LobbyData | null);
       setIsLoading(false);
 
       if (!lobbyData) {
-        setError('This lobby no longer exists.');
+        // Differentiate user-initiated leave vs inactivity vs host/lobby closure.
+        if (hasLeft.current) {
+          setError('This lobby no longer exists.');
+        } else if (reason === 'inactive') {
+          setError('Lobby closed due to inactivity.');
+        } else if (hadLobbySnapshot.current && !wasHostInLastSnapshot.current) {
+          setError('Host left the lobby. The game was closed.');
+        } else {
+          setError('This lobby no longer exists.');
+        }
       } else {
+        hadLobbySnapshot.current = true;
+        wasHostInLastSnapshot.current = lobbyData.hostUid === userUid;
         setError(null);
       }
     });

@@ -505,9 +505,8 @@
 }
 
 @media (max-width: 768px) {
-  .title-screen {
-    min-height: 100vh;
-    height: auto;
+  .title-content {
+    max-height: calc(100vh - 2rem);
     overflow-y: auto;
   }
 

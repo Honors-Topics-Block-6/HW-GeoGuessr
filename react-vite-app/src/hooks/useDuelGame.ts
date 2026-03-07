@@ -115,12 +115,21 @@ export interface UseDuelGameReturn {
   hasSubmitted: boolean;
   clickRejected: boolean;
 
-  // Opponent
+  // Opponent (legacy 1v1 UI)
   opponentUid: string | null;
   opponentUsername: string;
   opponentHasSubmitted: boolean;
   myActiveEmote: string | null;
   opponentActiveEmote: string | null;
+
+  // Players (multi)
+  activePlayers: DuelPlayer[];
+  activePlayerCount: number;
+  totalPlayerCount: number;
+  guessesByUid: Record<string, DuelGuess>;
+  healthByUid: Record<string, number>;
+  activeGuessesCount: number;
+  allActiveGuessed: boolean;
 
   // Timer
   timeRemaining: number;
@@ -161,6 +170,9 @@ export interface UseDuelGameReturn {
 const EMOTE_DISPLAY_MS = 2200;
 const EMOTE_COOLDOWN_MS = 900;
 const RANDOM_GUESS_MAX_ATTEMPTS = 200;
+const DUEL_HEARTBEAT_INTERVAL_MS = 4_000;
+const DUEL_STALE_CHECK_INTERVAL_MS = 5_000;
+const DUEL_STALE_TIMEOUT_MS = 12_000;
 
 /**
  * Custom hook for managing a duel (1v1 multiplayer) game.
@@ -254,13 +266,13 @@ export function useDuelGame(
   useEffect(() => {
     if (!lobbyDocId || !userUid) return;
 
-    sendHeartbeat(lobbyDocId, userUid).catch(() => {});
+    sendHeartbeat(lobbyDocId, userUid).catch(() => { });
 
     const heartbeatInterval = setInterval(() => {
       if (!hasLeft.current) {
-        sendHeartbeat(lobbyDocId, userUid).catch(() => {});
+        sendHeartbeat(lobbyDocId, userUid).catch(() => { });
       }
-    }, 10_000);
+    }, DUEL_HEARTBEAT_INTERVAL_MS);
 
     return () => clearInterval(heartbeatInterval);
   }, [lobbyDocId, userUid]);
@@ -271,9 +283,9 @@ export function useDuelGame(
 
     const staleCheckInterval = setInterval(() => {
       if (!hasLeft.current) {
-        removeStalePlayersFromLobby(lobbyDocId, userUid).catch(() => {});
+        removeStalePlayersFromLobby(lobbyDocId, userUid, DUEL_STALE_TIMEOUT_MS).catch(() => { });
       }
-    }, 15_000);
+    }, DUEL_STALE_CHECK_INTERVAL_MS);
 
     return () => clearInterval(staleCheckInterval);
   }, [lobbyDocId, userUid]);
@@ -296,7 +308,14 @@ export function useDuelGame(
     ? duelState.roundTimeSeconds
     : DUEL_ROUND_TIME_SECONDS;
 
-  // Find opponent
+  // Active players are those with health > 0 (or missing health, which we treat as alive)
+  const activePlayers = useMemo(() => {
+    const list = players.filter(p => (health?.[p.uid] ?? STARTING_HEALTH) > 0);
+    return list.length >= 1 ? list : players;
+  }, [players, health]);
+  const activeUids = useMemo(() => activePlayers.map(p => p.uid), [activePlayers]);
+
+  // Find a single opponent (kept for backwards compatibility in 1v1 UI)
   const opponent = players.find(p => p.uid !== userUid);
   const opponentUid = opponent?.uid || null;
   const opponentUsername = opponent?.username || 'Opponent';
@@ -309,7 +328,11 @@ export function useDuelGame(
   const myGuess = guesses[userUid] || null;
   const opponentGuess = guesses[opponentUid as string] || null;
   const opponentHasSubmitted = !!opponentGuess;
-  const bothGuessed = !!myGuess && !!opponentGuess;
+  const allActiveGuessed = activeUids.length > 0 && activeUids.every(uid => !!guesses[uid]);
+  const activeGuessesCount = useMemo(
+    () => activeUids.filter(uid => !!guesses[uid]).length,
+    [activeUids, guesses]
+  );
 
   // Current round scores (from guesses)
   const myScore = myGuess?.score ?? null;
@@ -494,12 +517,12 @@ export function useDuelGame(
   useEffect(() => {
     if (!isHost) return;
     if (phase !== 'guessing') return;
-    if (!bothGuessed) return;
+    if (!allActiveGuessed) return;
     if (processedRoundRef.current === currentRound) return;
 
     processedRoundRef.current = currentRound;
     processRound(lobbyDocId).catch((err: unknown) => console.error('Process round failed:', err));
-  }, [isHost, phase, bothGuessed, currentRound, lobbyDocId]);
+  }, [isHost, phase, allActiveGuessed, currentRound, lobbyDocId]);
 
   // --- Actions ---
 
@@ -633,6 +656,15 @@ export function useDuelGame(
     opponentHasSubmitted,
     myActiveEmote,
     opponentActiveEmote,
+
+    // Players (multi)
+    activePlayers,
+    activePlayerCount: activeUids.length,
+    totalPlayerCount: players.length,
+    guessesByUid: guesses,
+    healthByUid: health,
+    activeGuessesCount,
+    allActiveGuessed,
 
     // Timer
     timeRemaining: lobbyRoundTime > 0 ? timeRemaining : 0,

@@ -218,15 +218,10 @@
 }
 
 @media (max-width: 768px) {
-  .my-games-screen {
-    height: auto;
-    min-height: 100vh;
-    overflow: auto;
-  }
-
   .my-games-content {
     height: auto;
-    min-height: 100vh;
+    max-height: calc(100vh - 1rem);
+    overflow-y: auto;
     padding-top: 1.4rem;
   }
 

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import './ImageViewer.css';
 
 export interface ImageViewerProps {
@@ -7,16 +8,28 @@ export interface ImageViewerProps {
 }
 
 function ImageViewer({ imageUrl, alt = "Mystery location", onImageLoad }: ImageViewerProps): React.ReactElement {
+  const [isPortraitImage, setIsPortraitImage] = useState(false);
+
+  useEffect(() => {
+    setIsPortraitImage(false);
+  }, [imageUrl]);
+
+  const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>): void => {
+    const imageElement = event.currentTarget;
+    setIsPortraitImage(imageElement.naturalHeight > imageElement.naturalWidth);
+    onImageLoad?.();
+  };
+
   return (
     <div className="image-viewer">
       <div className="image-container">
         <img
           src={imageUrl}
           alt={alt}
-          className="mystery-image"
+          className={`mystery-image ${isPortraitImage ? 'portrait-image' : ''}`}
           loading="eager"
           decoding="async"
-          onLoad={onImageLoad}
+          onLoad={handleImageLoad}
         />
       </div>
       <div className="image-hint">

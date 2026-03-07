@@ -477,12 +477,10 @@
   .difficulty-footer { margin-top: 1.25rem; }
 }
 @media (max-width: 768px) {
-  .difficulty-screen {
-    min-height: 100vh;
-    height: auto;
+  .difficulty-content {
+    max-height: calc(100vh - 2rem);
     overflow-y: auto;
-    justify-content: flex-start;
-    align-items: stretch;
+    padding: 1rem 1rem 1.5rem;
   }
 
   .difficulty-heading,
@@ -491,8 +489,6 @@
   .rounds-heading {
     font-size: 1.4rem;
   }
-
-  .difficulty-content { padding: 1rem 1rem 1.5rem; }
   .difficulty-subheading { margin-bottom: 1.2rem; }
   .mode-heading { margin-top: 1.6rem; margin-bottom: 0.8rem; }
   .time-heading { margin-top: 1.6rem; }
