@@ -169,6 +169,10 @@ export interface UseDuelGameReturn {
 
 const EMOTE_DISPLAY_MS = 2200;
 const EMOTE_COOLDOWN_MS = 900;
+const RANDOM_GUESS_MAX_ATTEMPTS = 200;
+const DUEL_HEARTBEAT_INTERVAL_MS = 4_000;
+const DUEL_STALE_CHECK_INTERVAL_MS = 5_000;
+const DUEL_STALE_TIMEOUT_MS = 12_000;
 
 /**
  * Custom hook for managing a duel (1v1 multiplayer) game.
@@ -262,13 +266,13 @@ export function useDuelGame(
   useEffect(() => {
     if (!lobbyDocId || !userUid) return;
 
-    sendHeartbeat(lobbyDocId, userUid).catch(() => {});
+    sendHeartbeat(lobbyDocId, userUid).catch(() => { });
 
     const heartbeatInterval = setInterval(() => {
       if (!hasLeft.current) {
-        sendHeartbeat(lobbyDocId, userUid).catch(() => {});
+        sendHeartbeat(lobbyDocId, userUid).catch(() => { });
       }
-    }, 10_000);
+    }, DUEL_HEARTBEAT_INTERVAL_MS);
 
     return () => clearInterval(heartbeatInterval);
   }, [lobbyDocId, userUid]);
@@ -279,9 +283,9 @@ export function useDuelGame(
 
     const staleCheckInterval = setInterval(() => {
       if (!hasLeft.current) {
-        removeStalePlayersFromLobby(lobbyDocId, userUid).catch(() => {});
+        removeStalePlayersFromLobby(lobbyDocId, userUid, DUEL_STALE_TIMEOUT_MS).catch(() => { });
       }
-    }, 15_000);
+    }, DUEL_STALE_CHECK_INTERVAL_MS);
 
     return () => clearInterval(staleCheckInterval);
   }, [lobbyDocId, userUid]);
@@ -344,6 +348,33 @@ export function useDuelGame(
     }
     return 0;
   }, []);
+
+  const generateRandomGuessLocation = useCallback((fallbackLocation: MapCoords): MapCoords => {
+    for (let attempt = 0; attempt < RANDOM_GUESS_MAX_ATTEMPTS; attempt += 1) {
+      const candidate: MapCoords = {
+        x: Math.random() * 100,
+        y: Math.random() * 100
+      };
+      if (isPointInPlayingArea(candidate, playingArea)) {
+        return candidate;
+      }
+    }
+
+    if (isPointInPlayingArea(fallbackLocation, playingArea)) {
+      return fallbackLocation;
+    }
+
+    return { x: 50, y: 50 };
+  }, [playingArea]);
+
+  const pickRandomFloorForLocation = useCallback((location: MapCoords): number | null => {
+    const floors = getFloorsForPoint(location, regions);
+    if (!floors || floors.length === 0) {
+      return null;
+    }
+    const randomFloorIndex = Math.floor(Math.random() * floors.length);
+    return floors[randomFloorIndex] ?? null;
+  }, [regions]);
 
   const showMyEmote = useCallback((emoji: string): void => {
     if (myEmoteTimeoutRef.current !== null) {
@@ -468,16 +499,19 @@ export function useDuelGame(
       }, currentImage).catch((err: unknown) => console.error('Auto-submit failed:', err));
       setHasSubmitted(true); // eslint-disable-line react-hooks/set-state-in-effect -- Intentional: timer expiry auto-submit
     } else {
-      // No guess — submit empty
+      // No guess/incomplete guess — auto-submit a random fallback guess
+      const fallbackLocation = currentImage.correctLocation || { x: 50, y: 50 };
+      const randomLocation = localGuessLocation ?? generateRandomGuessLocation(fallbackLocation);
+      const randomFloor = pickRandomFloorForLocation(randomLocation);
       submitDuelGuess(lobbyDocId, userUid, {
-        location: null,
-        floor: null,
+        location: randomLocation,
+        floor: randomFloor,
         timedOut: true,
-        noGuess: true
+        noGuess: false
       }, currentImage).catch((err: unknown) => console.error('No-guess submit failed:', err));
       setHasSubmitted(true);
     }
-  }, [phase, timeRemaining, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, lobbyRoundTime]);
+  }, [phase, timeRemaining, localGuessLocation, localGuessFloor, localAvailableFloors, currentImage, lobbyDocId, userUid, lobbyRoundTime, generateRandomGuessLocation, pickRandomFloorForLocation]);
 
   // --- Host processes round when both have guessed ---
   useEffect(() => {

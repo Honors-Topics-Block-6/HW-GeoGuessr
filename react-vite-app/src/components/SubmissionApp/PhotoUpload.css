@@ -1,4 +1,4 @@
-/* ===== Photo Upload - Modern Glass Style ===== */
+/* ===== Photo Upload - HW Design System ===== */
 
 .photo-upload {
   margin-bottom: 24px;
@@ -6,7 +6,7 @@
 
 .photo-upload h3 {
   margin-bottom: 12px;
-  color: #c4c9d6;
+  color: var(--text-secondary, #4b5563);
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.2px;
@@ -18,13 +18,13 @@
 
 /* ===== Drop Zone ===== */
 .drop-zone {
-  border: 2px dashed rgba(139, 92, 246, 0.3);
-  border-radius: 20px;
+  border: 2px dashed var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
   padding: 48px 24px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.2s ease;
+  background: var(--hw-surface, #ffffff);
   position: relative;
   overflow: hidden;
 }
@@ -36,17 +36,15 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
+  background: transparent;
   pointer-events: none;
   transition: opacity 0.3s;
   opacity: 0;
 }
 
 .drop-zone:hover {
-  border-color: rgba(139, 92, 246, 0.5);
-  background: rgba(139, 92, 246, 0.04);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.1);
+  border-color: var(--hw-red, #c8102e);
+  background: #fef2f2;
 }
 
 .drop-zone:hover::before {
@@ -54,10 +52,9 @@
 }
 
 .drop-zone.drag-active {
-  border-color: #8b5cf6;
-  background: rgba(139, 92, 246, 0.08);
-  transform: scale(1.01);
-  box-shadow: 0 0 30px rgba(139, 92, 246, 0.2);
+  border-color: var(--hw-red, #c8102e);
+  background: rgba(200, 16, 46, 0.04);
+  border-style: solid;
 }
 
 .drop-zone.drag-active::before {
@@ -83,18 +80,18 @@
 
 .drop-zone p {
   margin: 6px 0;
-  color: #9ca3af;
+  color: var(--text-muted, #6b7280);
   font-size: 14px;
 }
 
 .drop-zone p:first-of-type {
-  color: #c4c9d6;
+  color: var(--text-secondary, #4b5563);
   font-weight: 500;
 }
 
 .file-types {
   font-size: 12px !important;
-  color: #6b7280 !important;
+  color: var(--text-muted, #6b7280) !important;
   margin-top: 8px !important;
 }
 
@@ -103,9 +100,9 @@
   position: relative;
   display: inline-block;
   max-width: 100%;
-  border-radius: 20px;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   animation: scaleIn 0.3s ease-out;
 }
 
@@ -117,7 +114,7 @@
 .preview-image {
   max-width: 100%;
   max-height: 300px;
-  border-radius: 20px;
+  border-radius: 0;
   display: block;
 }
 
@@ -125,21 +122,17 @@
   position: absolute;
   top: 12px;
   right: 12px;
-  background: rgba(239, 68, 68, 0.85);
-  backdrop-filter: blur(8px);
+  background: var(--hw-red, #c8102e);
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 0;
   padding: 8px 18px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 .remove-button:hover {
-  background: rgba(239, 68, 68, 1);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+  background: var(--hw-red-hover, #a50d26);
 }

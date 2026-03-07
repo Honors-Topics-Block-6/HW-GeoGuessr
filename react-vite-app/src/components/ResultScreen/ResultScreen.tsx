@@ -16,6 +16,7 @@ export interface ResultScreenProps {
   imageUrl: string;
   locationScore: number | null;
   floorCorrect: boolean | null;
+  exactSpotBonus?: number;
   totalScore: number;
   timeTakenSeconds: number | null;
   timedOut: boolean;
@@ -26,6 +27,10 @@ export interface ResultScreenProps {
   onViewFinalResults: () => void;
   isLastRound: boolean;
   onBackToTitle?: () => void;
+  isEndlessMode?: boolean;
+  currentHp?: number;
+  maxHp?: number;
+  hpLost?: number;
 }
 
 /**
@@ -112,6 +117,7 @@ function ResultScreen({
   imageUrl,
   locationScore,
   floorCorrect,
+  exactSpotBonus = 0,
   totalScore,
   timeTakenSeconds,
   timedOut,
@@ -121,7 +127,11 @@ function ResultScreen({
   onNextRound,
   onViewFinalResults,
   isLastRound,
-  onBackToTitle
+  onBackToTitle,
+  isEndlessMode = false,
+  currentHp = 6000,
+  maxHp = 6000,
+  hpLost
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
@@ -264,14 +274,31 @@ function ResultScreen({
       {/* Top section - Round info and score */}
       <div className="result-header">
         <div className="round-indicator">
-          Round {roundNumber} of {totalRounds}
+          {isEndlessMode ? `Round ${roundNumber}` : `Round ${roundNumber} of ${totalRounds}`}
         </div>
         <div className={`score-display ${animationPhase >= 3 ? 'visible' : ''}`}>
           <span className="score-label">Score</span>
           <span className="score-value">{displayedScore.toLocaleString()}</span>
-          <span className="score-max">/ 5,000</span>
+          <span className="score-max">/ 5,500</span>
         </div>
       </div>
+
+      {isEndlessMode && (
+        <div className="result-hp-section">
+          <div className="result-hp-bar">
+            <div
+              className={`result-hp-fill ${(currentHp / maxHp) * 100 <= 25 ? 'critical' : ''}`}
+              style={{ width: `${Math.max(0, (currentHp / maxHp) * 100)}%` }}
+            />
+          </div>
+          <div className="result-hp-info">
+            <span className="result-hp-value">{currentHp.toLocaleString()} HP</span>
+            {hpLost !== undefined && hpLost > 0 && (
+              <span className="result-hp-lost">-{hpLost.toLocaleString()} HP</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {noGuess ? (
         <div className="result-banner timeout-banner">
@@ -447,6 +474,12 @@ function ResultScreen({
                   <span>-{floorPenalty.toLocaleString()}</span>
                 </div>
               )}
+              {exactSpotBonus > 0 && (
+                <div className="breakdown-row bonus">
+                  <span>Exact Spot Bonus</span>
+                  <span>+{exactSpotBonus.toLocaleString()}</span>
+                </div>
+              )}
               <div className="breakdown-row total">
                 <span>Total</span>
                 <span>{totalScore.toLocaleString()}</span>
@@ -464,7 +497,7 @@ function ResultScreen({
             </button>
             {onBackToTitle && (
               <button className="leave-game-button" onClick={() => setShowLeaveConfirm(true)}>
-                <span className="button-icon">←</span>
+                <span className="button-icon">⏻</span>
                 Leave Game
               </button>
             )}
@@ -483,15 +516,17 @@ function ResultScreen({
         />
       )}
 
-      {/* Progress bar */}
-      <div className="round-progress">
-        {[...Array(totalRounds)].map((_, i) => (
-          <div
-            key={i}
-            className={`progress-dot ${i < roundNumber ? 'completed' : ''} ${i === roundNumber - 1 ? 'current' : ''}`}
-          />
-        ))}
-      </div>
+      {/* Progress bar - hidden in endless mode */}
+      {!isEndlessMode && (
+        <div className="round-progress">
+          {[...Array(totalRounds)].map((_, i) => (
+            <div
+              key={i}
+              className={`progress-dot ${i < roundNumber ? 'completed' : ''} ${i === roundNumber - 1 ? 'current' : ''}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

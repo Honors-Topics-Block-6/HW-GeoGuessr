@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
   background-color: var(--bg-dark);
 }
 
@@ -12,7 +12,7 @@
   align-items: center;
   gap: 1rem;
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(180deg, rgba(15, 15, 35, 0.95) 0%, rgba(12, 12, 15, 0.9) 100%);
+  background: var(--hw-surface);
   border-bottom: 1px solid var(--border-color);
   z-index: 10;
 }
@@ -54,27 +54,25 @@
 .duel-health-bar {
   flex: 1;
   height: 14px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 7px;
+  background: var(--hw-gray-200, #e5e7eb);
+  border-radius: 0;
   overflow: hidden;
   position: relative;
 }
 
 .duel-health-fill {
   height: 100%;
-  border-radius: 7px;
+  border-radius: 0;
   transition: width 0.8s ease-out;
   position: relative;
 }
 
 .duel-health-fill-green {
-  background: linear-gradient(90deg, #4a9c20 0%, #6cb52d 100%);
-  box-shadow: 0 0 8px rgba(108, 181, 45, 0.4);
+  background: var(--hw-red);
 }
 
 .duel-health-fill-red {
-  background: linear-gradient(90deg, #c0392b 0%, #e74c3c 100%);
-  box-shadow: 0 0 8px rgba(231, 76, 60, 0.4);
+  background: var(--hw-gray-500, #6b7280);
 }
 
 .duel-health-fill.critical {
@@ -87,7 +85,7 @@
 }
 
 .duel-health-value {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--hw-font-sans), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-secondary);
@@ -101,20 +99,20 @@
   justify-content: center;
   min-width: 1.6rem;
   height: 1.6rem;
-  border-radius: 999px;
+  border-radius: 0;
   font-size: 1rem;
   line-height: 1;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--hw-gray-100, #f3f4f6);
+  border: 1px solid var(--border-color);
   animation: duelEmotePop 220ms ease-out, duelEmoteBob 1s ease-in-out infinite;
 }
 
 .duel-active-emote-self {
-  box-shadow: 0 0 12px rgba(108, 181, 45, 0.35);
+  box-shadow: 0 2px 8px rgba(200, 16, 46, 0.15);
 }
 
 .duel-active-emote-opponent {
-  box-shadow: 0 0 12px rgba(231, 76, 60, 0.35);
+  box-shadow: 0 2px 8px rgba(75, 85, 99, 0.15);
 }
 
 @keyframes duelEmotePop {
@@ -133,9 +131,9 @@
   align-items: center;
   gap: 0.1rem;
   padding: 0.3rem 1rem;
-  background: rgba(108, 181, 45, 0.1);
-  border: 1px solid rgba(108, 181, 45, 0.3);
-  border-radius: 12px;
+  background: rgba(200, 16, 46, 0.06);
+  border: 1px solid rgba(200, 16, 46, 0.2);
+  border-radius: 0;
   min-width: 60px;
 }
 
@@ -149,7 +147,7 @@
 .duel-round-number {
   font-size: 1.4rem;
   font-weight: 800;
-  color: var(--accent-green);
+  color: var(--hw-red);
 }
 
 /* ── Multiplayer top-right info ── */
@@ -180,23 +178,47 @@
   display: flex;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .duel-game-main .image-panel {
-  flex: 7;
+  flex: 6.1;
   display: flex;
   background-color: var(--bg-dark);
   border-right: 1px solid var(--border-color);
 }
 
 .duel-game-main .guess-panel {
-  flex: 3;
+  flex: 3.9;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-panel);
-  min-width: 320px;
-  max-width: 400px;
+  background-color: var(--hw-surface);
+  min-width: 360px;
+  max-width: 500px;
   position: relative;
+  min-height: 0;
+}
+
+.duel-game-main .guess-controls {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.duel-game-main .guess-controls .map-picker-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.duel-game-main .guess-controls .map-picker {
+  flex: 1;
+  min-height: 290px;
 }
 
 /* ── Waiting Overlay ── */
@@ -234,7 +256,7 @@
 
 .duel-waiting-sub {
   font-size: 0.85rem;
-  color: var(--accent-green);
+  color: var(--hw-red);
   font-weight: 500;
 }
 
@@ -246,7 +268,7 @@
 .duel-dot {
   width: 8px;
   height: 8px;
-  background: var(--accent-green);
+  background: var(--hw-red);
   border-radius: 50%;
   animation: duelDotBounce 1.4s ease-in-out infinite;
 }
@@ -267,17 +289,17 @@
   gap: 0.45rem;
   margin: 0 1rem 0.9rem;
   padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--hw-gray-100, #f3f4f6);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 0;
 }
 
 .duel-emote-button {
   width: 2.2rem;
   height: 2.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border-color);
+  border-radius: 0;
+  background: var(--hw-surface);
   color: inherit;
   font-size: 1.15rem;
   line-height: 1;
@@ -287,8 +309,8 @@
 
 .duel-emote-button:hover {
   transform: translateY(-1px);
-  background: rgba(108, 181, 45, 0.16);
-  border-color: rgba(108, 181, 45, 0.55);
+  background: rgba(200, 16, 46, 0.06);
+  border-color: rgba(200, 16, 46, 0.4);
 }
 
 .duel-emote-button:active {
@@ -299,10 +321,10 @@
 .duel-opponent-guessed {
   padding: 0.6rem 1rem;
   margin: 0 1rem 1rem;
-  background: rgba(108, 181, 45, 0.1);
-  border: 1px solid rgba(108, 181, 45, 0.3);
-  border-radius: 8px;
-  color: var(--accent-green);
+  background: rgba(200, 16, 46, 0.06);
+  border: 1px solid rgba(200, 16, 46, 0.2);
+  border-radius: 0;
+  color: var(--hw-red);
   font-size: 0.85rem;
   font-weight: 600;
   text-align: center;
@@ -341,6 +363,361 @@
   .duel-health-name {
     font-size: 0.75rem;
     min-width: 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .duel-game-screen {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* Hide desktop elements */
+  .desktop-only {
+    display: none !important;
+  }
+
+  /* Show mobile layout */
+  .mobile-only {
+    display: flex !important;
+  }
+
+  .duel-mobile-layout {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Mobile Timer ── */
+  .duel-game-screen .mobile-timer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--hw-black);
+    flex-shrink: 0;
+  }
+
+  .duel-game-screen .mobile-timer-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .duel-game-screen .mobile-timer-fill {
+    height: 100%;
+    background: var(--hw-red);
+    transition: width 0.1s linear;
+    border-radius: 3px;
+  }
+
+  .duel-game-screen .mobile-timer-fill.warning {
+    background: #f59e0b;
+  }
+
+  .duel-game-screen .mobile-timer-fill.critical {
+    background: #ef4444;
+    animation: timerPulse 0.5s ease-in-out infinite;
+  }
+
+  .duel-game-screen .mobile-timer-value {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    min-width: 50px;
+    text-align: right;
+  }
+
+  .duel-game-screen .mobile-timer-value.warning {
+    color: #f59e0b;
+  }
+
+  .duel-game-screen .mobile-timer-value.critical {
+    color: #ef4444;
+  }
+
+  /* ── Mobile Health Bars ── */
+  .duel-mobile-health {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    background: var(--hw-gray-900);
+    flex-shrink: 0;
+  }
+
+  .duel-mobile-health-player {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .duel-mobile-health-name {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #fff;
+    min-width: 50px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .duel-mobile-health-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .duel-mobile-health-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease-out;
+  }
+
+  .duel-mobile-health-fill.green {
+    background: linear-gradient(90deg, #4a9c20, #6cb52d);
+  }
+
+  .duel-mobile-health-fill.red {
+    background: var(--hw-gray-500);
+  }
+
+  .duel-mobile-health-fill.critical {
+    animation: hpPulse 1s ease-in-out infinite;
+  }
+
+  .duel-mobile-health-value {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.8);
+    min-width: 35px;
+    text-align: right;
+  }
+
+  .duel-mobile-round {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--hw-red);
+    padding: 0.2rem 0.5rem;
+    background: rgba(200, 16, 46, 0.15);
+    border-radius: 4px;
+  }
+
+  /* ── Mobile Image ── */
+  .duel-mobile-image-container {
+    flex: 1;
+    min-height: 25vh;
+    max-height: 40vh;
+    background: var(--hw-gray-900);
+    overflow: hidden;
+    display: flex;
+    position: relative;
+  }
+
+  .duel-mobile-image-container .image-viewer {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .duel-mobile-image-container .image-container {
+    padding: 0;
+  }
+
+  .duel-mobile-image-container .image-hint {
+    display: none;
+  }
+
+  .duel-game-screen .mobile-leave-button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+  }
+
+  /* ── Mobile Map ── */
+  .duel-mobile-map-container {
+    flex: 1;
+    min-height: 0;
+    background: var(--hw-gray-200);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .duel-mobile-map-container .map-picker-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .duel-mobile-map-container .map-header {
+    display: none;
+  }
+
+  .duel-mobile-map-container .map-picker {
+    flex: 1;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  .duel-mobile-map-container .zoom-controls {
+    bottom: 70px;
+    right: 10px;
+  }
+
+  .duel-mobile-map-container .zoom-indicator {
+    top: 10px;
+    right: 10px;
+  }
+
+  .duel-mobile-map-container .playing-regions-overlay {
+    display: none;
+  }
+
+  /* ── Mobile Waiting State ── */
+  .duel-mobile-waiting {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: var(--hw-gray-100);
+  }
+
+  .duel-mobile-waiting-icon {
+    font-size: 3rem;
+    animation: waitingPulse 2s ease-in-out infinite;
+  }
+
+  .duel-mobile-waiting-text {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  /* ── Mobile Floor Overlay ── */
+  .duel-mobile-map-container .mobile-floor-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 0.75rem;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
+    animation: slideDown 0.2s ease-out;
+  }
+
+  .duel-mobile-map-container .mobile-floor-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .duel-mobile-map-container .mobile-floor-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  .duel-mobile-map-container .mobile-floor-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  .duel-mobile-map-container .mobile-floor-btn {
+    width: 44px;
+    height: 44px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .duel-mobile-map-container .mobile-floor-btn.selected {
+    background: var(--hw-red);
+    border-color: var(--hw-red);
+  }
+
+  /* ── Mobile Guess Overlay ── */
+  .duel-mobile-map-container .mobile-guess-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 0.75rem;
+    animation: slideUp 0.2s ease-out;
+  }
+
+  .duel-mobile-map-container .mobile-guess-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 1rem;
+    background: var(--hw-red);
+    border: none;
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .duel-mobile-map-container .mobile-guess-btn:active {
+    transform: scale(0.98);
+    background: var(--hw-red-hover);
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes hpPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  @keyframes timerPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
   }
 }
 

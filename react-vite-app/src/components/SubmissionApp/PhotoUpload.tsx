@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { isHeicFile, normalizeImageFile } from '../../utils/compressImage'
 import './PhotoUpload.css'
 
 export interface PhotoUploadProps {
@@ -9,31 +10,29 @@ export interface PhotoUploadProps {
 function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploadProps): React.JSX.Element {
   const [preview, setPreview] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState<boolean>(false)
+  const [converting, setConverting] = useState<boolean>(false)
+  const [error, setError] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
   const previewUrlRef = useRef<string | null>(null)
 
   // Sync preview state with selectedPhoto prop and handle object URL cleanup
   useEffect(() => {
-    // Clean up previous object URL to prevent memory leaks
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current)
       previewUrlRef.current = null
     }
 
     if (selectedPhoto) {
-      // Create new object URL for the selected photo
       const newUrl = URL.createObjectURL(selectedPhoto)
       previewUrlRef.current = newUrl
       setPreview(newUrl)
     } else {
-      // No photo selected, clear preview
       setPreview(null)
       if (inputRef.current) {
         inputRef.current.value = ''
       }
     }
 
-    // Cleanup on unmount
     return () => {
       if (previewUrlRef.current) {
         URL.revokeObjectURL(previewUrlRef.current)
@@ -42,10 +41,27 @@ function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploadProps): React.
     }
   }, [selectedPhoto])
 
+  const isImageFile = (file: File): boolean =>
+    file.type.startsWith('image/') || isHeicFile(file)
+
+  const processFile = async (file: File): Promise<void> => {
+    setError('')
+    try {
+      setConverting(true)
+      const normalized = await normalizeImageFile(file)
+      onPhotoSelect(normalized)
+    } catch (err) {
+      console.error('[PhotoUpload] HEIC conversion failed:', err)
+      setError('Could not process this image. Please convert it to JPG or PNG first.')
+    } finally {
+      setConverting(false)
+    }
+  }
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0]
-    if (file && file.type.startsWith('image/')) {
-      onPhotoSelect(file)
+    if (file && isImageFile(file)) {
+      processFile(file)
     }
   }
 
@@ -66,8 +82,8 @@ function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploadProps): React.
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0]
-      if (file.type.startsWith('image/')) {
-        onPhotoSelect(file)
+      if (isImageFile(file)) {
+        processFile(file)
       }
     }
   }
@@ -87,12 +103,20 @@ function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploadProps): React.
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         onChange={handleFileChange}
         className="file-input"
       />
 
-      {!preview ? (
+      {error && <p className="photo-upload-error" style={{ color: '#e74c3c', fontSize: '0.9rem' }}>{error}</p>}
+
+      {converting ? (
+        <div className="drop-zone">
+          <div className="drop-zone-content">
+            <p>Converting HEIC image…</p>
+          </div>
+        </div>
+      ) : !preview ? (
         <div
           className={`drop-zone ${dragActive ? 'drag-active' : ''}`}
           onClick={handleClick}
@@ -104,7 +128,7 @@ function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploadProps): React.
           <div className="drop-zone-content">
             <span className="upload-icon">📷</span>
             <p>Click to upload or drag and drop</p>
-            <p className="file-types">PNG, JPG, GIF up to 10MB</p>
+            <p className="file-types">PNG, JPG, GIF, HEIC up to 10MB</p>
           </div>
         </div>
       ) : (

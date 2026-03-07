@@ -10,6 +10,7 @@ import {
 import { db } from '../firebase';
 import { getRandomImage } from './imageService';
 import { calculateDistance, calculateLocationScore } from '../hooks/useGameState';
+import { touchLastActive } from './lastActiveService';
 import { getRegions, getRegionForPoint } from './regionService';
 
 // ────── Types ──────
@@ -71,6 +72,10 @@ export interface RoundPlayerResult {
 export interface RoundHistoryEntry {
   roundNumber: number;
   imageId?: string;
+  /**
+   * Compact, non-essential image reference for history rows.
+   * Avoid storing full image URLs/base64 payloads to keep lobby docs under Firestore 1MB limit.
+   */
   imageUrl: string;
   actualLocation: MapLocation;
   actualFloor: number | null;
@@ -113,7 +118,7 @@ export interface DuelData {
 export const STARTING_HEALTH = 6000;
 
 /** Round time in seconds */
-export const DUEL_ROUND_TIME_SECONDS = 20;
+export const DUEL_ROUND_TIME_SECONDS = 30;
 
 // ────── Functions ──────
 
@@ -170,6 +175,7 @@ export async function startDuel(
     winner: null,
     loser: null,
     finishedAt: null,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -211,20 +217,25 @@ export async function submitDuelGuess(
   }
 
   const lobbyRef = doc(db, 'lobbies', docId);
-  await updateDoc(lobbyRef, {
-    [`guesses.${playerUid}`]: {
-      location: guessData.location,
-      floor: guessData.floor ?? null,
-      score,
-      locationScore,
-      distance,
-      floorCorrect,
-      timedOut: guessData.timedOut || false,
-      noGuess: guessData.noGuess || false,
-      submittedAt: Timestamp.now()
-    },
-    updatedAt: serverTimestamp()
-  });
+  await Promise.all([
+    updateDoc(lobbyRef, {
+      [`guesses.${playerUid}`]: {
+        location: guessData.location,
+        floor: guessData.floor ?? null,
+        score,
+        locationScore,
+        distance,
+        floorCorrect,
+        timedOut: guessData.timedOut || false,
+        noGuess: guessData.noGuess || false,
+        submittedAt: Timestamp.now()
+      },
+      lastActionAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }),
+    // Meaningful activity: user submitted a score/guess (throttled, server time).
+    touchLastActive(playerUid, { minIntervalMs: 2 * 60 * 1000 })
+  ]);
 }
 
 /**
@@ -246,6 +257,7 @@ export async function sendDuelEmote(
       sentAt: Timestamp.now(),
       round
     },
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -312,7 +324,7 @@ export async function processRound(docId: string): Promise<void> {
   const roundEntry: RoundHistoryEntry = {
     roundNumber: currentRound,
     imageId: currentImage.id,
-    imageUrl: currentImage.url,
+    imageUrl: currentImage.id ? `image:${currentImage.id}` : '',
     actualLocation: currentImage.correctLocation,
     actualFloor: currentImage.correctFloor ?? null,
     players: Object.fromEntries(activeUids.map((uid) => {
@@ -414,6 +426,7 @@ export async function advanceToNextRound(docId: string, difficulty: string): Pro
     guesses: {},
     emotes: {},
     phase: 'guessing',
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -461,6 +474,7 @@ export async function handleOpponentDisconnect(
     winner: winnerUid,
     loser: loserUid,
     finishedAt: serverTimestamp(),
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
   if (forfeitBy != null) {
