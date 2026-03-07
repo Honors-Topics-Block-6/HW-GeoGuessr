@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import useMapZoom from '../../hooks/useMapZoom';
 import type { ImageReportDoc } from '../../services/imageReportService';
 import { CAUSE_LABELS } from '../../services/imageReportService';
 import { getImageLocationByPoolId } from '../../services/imageService';
@@ -33,6 +34,23 @@ function formatDate(timestamp: unknown): string {
 
 function ImageReportDetailModal({ report, onClose }: ImageReportDetailModalProps): React.JSX.Element {
   const [isClosing, setIsClosing] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapZoomContentRef = useRef<HTMLDivElement>(null);
+  const zoomControlsRef = useRef<HTMLDivElement>(null);
+
+  const {
+    scale,
+    transformStyle,
+    handlers,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+  } = useMapZoom(mapContainerRef, {
+    zoomContentRef: mapZoomContentRef,
+    zoomControlsRef,
+  });
+
   const imageDisplayUrl =
     report.imageUrl?.startsWith('data:') || report.imageUrl?.startsWith('http')
       ? report.imageUrl
@@ -132,34 +150,86 @@ function ImageReportDetailModal({ report, onClose }: ImageReportDetailModalProps
           {showMap && (
             <div className="img-report-detail-row">
               <span className="img-report-detail-label">Location comparison</span>
-              <div className="img-report-detail-map">
-                <img
-                  className="img-report-detail-map-image"
-                  src="/FINAL_MAP.png"
-                  alt="Campus Map"
-                />
-                {hasSuggested && (
-                  <div
-                    className="img-report-detail-marker img-report-detail-marker--suggested"
-                    style={{
-                      left: `${report.suggestedLocation!.x}%`,
-                      top: `${report.suggestedLocation!.y}%`,
-                    }}
+              <div
+                className={`img-report-detail-map img-report-detail-map-zoomable ${scale > 1 ? 'zoomed' : ''}`}
+                ref={mapContainerRef}
+                {...handlers}
+              >
+                <div
+                  className="img-report-detail-map-zoom-content"
+                  ref={mapZoomContentRef}
+                  style={{ transform: transformStyle }}
+                >
+                  <img
+                    className="img-report-detail-map-image"
+                    src="/FINAL_MAP.png"
+                    alt="Campus Map"
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                  />
+                  {hasSuggested && (
+                    <div
+                      className="img-report-detail-marker img-report-detail-marker--suggested"
+                      style={{
+                        left: `${report.suggestedLocation!.x}%`,
+                        top: `${report.suggestedLocation!.y}%`,
+                        transform: `translate(-50%, -28px) scale(${1 / scale})`,
+                        transformOrigin: '50% 28px',
+                      }}
+                    >
+                      <div className="img-report-detail-pin" />
+                      <span className="img-report-detail-marker-label">Suggested</span>
+                    </div>
+                  )}
+                  {hasActual && (
+                    <div
+                      className="img-report-detail-marker img-report-detail-marker--actual"
+                      style={{
+                        left: `${actualLocation!.correctLocation.x}%`,
+                        top: `${actualLocation!.correctLocation.y}%`,
+                        transform: `translate(-50%, -28px) scale(${1 / scale})`,
+                        transformOrigin: '50% 28px',
+                      }}
+                    >
+                      <div className="img-report-detail-pin" />
+                      <span className="img-report-detail-marker-label">Current</span>
+                    </div>
+                  )}
+                </div>
+                <div className="img-report-detail-zoom-controls" ref={zoomControlsRef}>
+                  <button
+                    type="button"
+                    className="img-report-detail-zoom-btn"
+                    onClick={(e) => { e.stopPropagation(); zoomIn(); }}
+                    title="Zoom in"
+                    aria-label="Zoom in"
                   >
-                    <div className="img-report-detail-pin" />
-                    <span className="img-report-detail-marker-label">Suggested</span>
-                  </div>
-                )}
-                {hasActual && (
-                  <div
-                    className="img-report-detail-marker img-report-detail-marker--actual"
-                    style={{
-                      left: `${actualLocation!.correctLocation.x}%`,
-                      top: `${actualLocation!.correctLocation.y}%`,
-                    }}
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    className="img-report-detail-zoom-btn"
+                    onClick={(e) => { e.stopPropagation(); zoomOut(); }}
+                    title="Zoom out"
+                    aria-label="Zoom out"
+                    disabled={scale <= 1}
                   >
-                    <div className="img-report-detail-pin" />
-                    <span className="img-report-detail-marker-label">Current</span>
+                    -
+                  </button>
+                  <button
+                    type="button"
+                    className="img-report-detail-zoom-btn"
+                    onClick={(e) => { e.stopPropagation(); resetZoom(); }}
+                    title="Reset zoom"
+                    aria-label="Reset zoom"
+                    disabled={scale <= 1}
+                  >
+                    &#x21BA;
+                  </button>
+                </div>
+                {scale > 1 && (
+                  <div className="img-report-detail-zoom-indicator">
+                    {Math.round(scale * 100)}%
                   </div>
                 )}
               </div>
@@ -188,17 +258,15 @@ function ImageReportDetailModal({ report, onClose }: ImageReportDetailModalProps
           <div className="img-report-detail-actions">
             <button
               type="button"
+              className="img-report-detail-cancel-btn"
+              onClick={onClose}
+            >
+              Close
+            </button>
+            <button
+              type="button"
               className="img-report-detail-close-issue-btn"
-              onClick={async () => {
-                if (isClosing) return;
-                setIsClosing(true);
-                try {
-                  await deleteImageReport(report.id);
-                  onClose();
-                } catch {
-                  setIsClosing(false);
-                }
-              }}
+              onClick={() => setShowCloseConfirm(true)}
               disabled={isClosing}
             >
               {isClosing ? 'Closing…' : 'Close issue'}
@@ -206,6 +274,46 @@ function ImageReportDetailModal({ report, onClose }: ImageReportDetailModalProps
           </div>
         </div>
       </div>
+
+      {showCloseConfirm && (
+        <div className="img-report-detail-confirm-overlay" onClick={(e) => { e.stopPropagation(); setShowCloseConfirm(false); }}>
+          <div
+            className="img-report-detail-confirm-dialog"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          >
+            <p className="img-report-detail-confirm-text">
+              Permanently delete this report? This cannot be undone.
+            </p>
+            <div className="img-report-detail-confirm-actions">
+              <button
+                type="button"
+                className="img-report-detail-confirm-cancel"
+                onClick={() => setShowCloseConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="img-report-detail-confirm-delete"
+                onClick={async () => {
+                  if (isClosing) return;
+                  setIsClosing(true);
+                  try {
+                    await deleteImageReport(report.id);
+                    setShowCloseConfirm(false);
+                    onClose();
+                  } catch {
+                    setIsClosing(false);
+                  }
+                }}
+                disabled={isClosing}
+              >
+                {isClosing ? 'Deleting…' : 'Delete report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
