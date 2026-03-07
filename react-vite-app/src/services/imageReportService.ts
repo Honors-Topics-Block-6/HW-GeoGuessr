@@ -1,4 +1,14 @@
-import { addDoc, collection, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
+  type Timestamp as FirestoreTimestamp,
+} from 'firebase/firestore';
 import { db } from '../firebase';
 
 export type ImageReportCause = 'wrong_location' | 'inappropriate' | 'other';
@@ -76,4 +86,61 @@ export async function submitImageReport(reportData: ImageReportData): Promise<st
 
   _lastSubmitTimes.set(userId, Date.now());
   return docRef.id;
+}
+
+export interface ImageReportDoc {
+  id: string;
+  imageId: string | null;
+  imageUrl: string | null;
+  userId: string;
+  username: string;
+  userEmail: string;
+  cause: ImageReportCause;
+  explanation: string;
+  suggestedLocation?: { x: number; y: number } | null;
+  suggestedFloor?: number | null;
+  createdAt: FirestoreTimestamp | null;
+}
+
+const CAUSE_LABELS: Record<ImageReportCause, string> = {
+  wrong_location: 'Wrong location',
+  inappropriate: 'Inappropriate',
+  other: 'Other',
+};
+
+export { CAUSE_LABELS };
+
+/**
+ * Subscribe to all image reports in real-time (admin use).
+ * Returns an unsubscribe function.
+ */
+export function subscribeToImageReports(
+  callback: (reports: ImageReportDoc[]) => void
+): () => void {
+  const reportsRef = collection(db, 'imageReports');
+
+  try {
+    const q = query(reportsRef, orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      const reports = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      })) as ImageReportDoc[];
+      callback(reports);
+    });
+  } catch {
+    const fallbackQ = query(reportsRef);
+    return onSnapshot(fallbackQ, (snapshot) => {
+      const reports = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      })) as ImageReportDoc[];
+      reports.sort((a, b) => {
+        const aTime = (a.createdAt as FirestoreTimestamp | null)?.toMillis?.() ?? 0;
+        const bTime = (b.createdAt as FirestoreTimestamp | null)?.toMillis?.() ?? 0;
+        return bTime - aTime;
+      });
+      callback(reports);
+    });
+  }
 }
