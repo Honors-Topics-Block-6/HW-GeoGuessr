@@ -1,7 +1,9 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
 import { getGuessHeatmapDataForImage, type HeatmapPoint } from '../../services/guessHistoryService';
+import type { ImageReportPayload } from '../../services/imageReportService';
 import LeaveConfirmModal from '../LeaveConfirmModal/LeaveConfirmModal';
+import ImageReportModal from '../ImageReportModal/ImageReportModal';
 import './ResultScreen.css';
 
 export interface MapPoint {
@@ -35,6 +37,9 @@ export interface ResultScreenProps {
   currentHp?: number;
   maxHp?: number;
   hpLost?: number;
+  onReportInaccurate?: (payload: ImageReportPayload) => void;
+  /** When true, the Report Image button is disabled (user already reported this image) */
+  reportDisabled?: boolean;
 }
 
 /**
@@ -197,7 +202,9 @@ function ResultScreen({
   isEndlessMode = false,
   currentHp = 6000,
   maxHp = 6000,
-  hpLost
+  hpLost,
+  onReportInaccurate,
+  reportDisabled = false
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const zoomControlsRef = useRef<HTMLDivElement>(null);
@@ -212,6 +219,7 @@ function ResultScreen({
   const [heatmapEnabled, setHeatmapEnabled] = useState<boolean>(true);
   const [imageFit, setImageFit] = useState<ImageFit>({ offsetXPct: 0, offsetYPct: 0, scaleX: 1, scaleY: 1 });
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Sync map container height to match the details panel height
   useEffect(() => {
@@ -574,6 +582,17 @@ function ResultScreen({
         <div className="result-details" ref={detailsRef}>
           <div className="result-image-preview">
             <img src={imageUrl} alt="Location" />
+            {onReportInaccurate && (
+              <button
+                type="button"
+                className={`report-image-button ${reportDisabled ? "report-image-button--disabled" : ""}`}
+                onClick={() => !reportDisabled && setShowReportModal(true)}
+                disabled={reportDisabled}
+                aria-label={reportDisabled ? "Already reported this image" : "Report inaccurate image"}
+              >
+                {reportDisabled ? "Already Reported" : "Report Image"}
+              </button>
+            )}
           </div>
 
           <div className="result-stats">
@@ -663,6 +682,16 @@ function ResultScreen({
           }}
           onCancel={() => setShowLeaveConfirm(false)}
           isDuel={false}
+        />
+      )}
+
+      {showReportModal && onReportInaccurate && (
+        <ImageReportModal
+          onClose={() => setShowReportModal(false)}
+          onSubmit={(payload) => {
+            onReportInaccurate(payload);
+            setShowReportModal(false);
+          }}
         />
       )}
 

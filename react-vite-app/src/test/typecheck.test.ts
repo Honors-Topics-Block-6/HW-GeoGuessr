@@ -35,7 +35,7 @@ import type {
   UserLookup, FriendRequestStatus, FriendRequestDirection,
   FriendRequestDoc, FriendDoc, FriendshipDoc,
 } from '../services/friendService';
-import type { GameImage, SampleImage } from '../services/imageService';
+import type { GameImage } from '../services/imageService';
 import type { LevelInfo as LeaderboardLevelInfo, LeaderboardEntry } from '../services/leaderboardService';
 import type {
   LobbyStatus, LobbyVisibility, LobbyPlayer as ServiceLobbyPlayer,

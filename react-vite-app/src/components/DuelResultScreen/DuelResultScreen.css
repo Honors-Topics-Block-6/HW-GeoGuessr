@@ -247,12 +247,50 @@
   overflow: hidden;
   border: 1px solid var(--border-color);
   aspect-ratio: 16 / 9;
+  position: relative;
 }
 
 .duel-result-image-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.duel-result-image-preview .report-image-button {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background: #c92a2a;
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, filter 0.15s;
+}
+
+.duel-result-image-preview .report-image-button:hover {
+  background: #a61e1e;
+  filter: brightness(1.05);
+}
+
+.duel-result-image-preview .report-image-button:active {
+  filter: brightness(0.95);
+}
+
+.duel-result-image-preview .report-image-button--disabled,
+.duel-result-image-preview .report-image-button:disabled {
+  background: #868e96;
+  color: #ced4da;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.duel-result-image-preview .report-image-button--disabled:hover,
+.duel-result-image-preview .report-image-button:disabled:hover {
+  background: #868e96;
+  filter: none;
 }
 
 /* ── Score Comparison ── */

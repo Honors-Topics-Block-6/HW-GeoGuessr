@@ -78,6 +78,21 @@
   font-weight: 700;
 }
 
+.image-report-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  padding: 0.6rem 1rem;
+  background: var(--hw-surface, #fff);
+  border: 1px solid var(--border-color, var(--hw-gray-300));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-size: 0.9rem;
+  color: var(--text-primary, var(--hw-black));
+  animation: globalAchievementToastEnter 220ms ease-out forwards;
+}
+
 .loading-container {
   display: flex;
   justify-content: center;
