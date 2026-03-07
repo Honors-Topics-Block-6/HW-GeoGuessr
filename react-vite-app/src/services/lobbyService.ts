@@ -398,8 +398,15 @@ export function subscribePublicLobbies(
     where('visibility', '==', 'public'),
     where('status', '==', 'waiting')
   );
+  // Background cleanup query: include all public lobbies (including in-progress)
+  // so abandoned games can still be closed on inactivity/expiry.
+  const cleanupQuery = query(
+    collection(db, 'lobbies'),
+    where('visibility', '==', 'public')
+  );
 
   let unsubscribe = () => { };
+  let unsubscribeCleanup = () => { };
 
   const startFallback = (): void => {
     unsubscribe = onSnapshot(fallbackQuery, (snapshot) => {
@@ -423,8 +430,25 @@ export function subscribePublicLobbies(
     startFallback();
   });
 
+  unsubscribeCleanup = onSnapshot(cleanupQuery, (snapshot) => {
+    snapshot.docs.forEach((docSnap) => {
+      const lobby = { docId: docSnap.id, ...docSnap.data() } as LobbyDoc;
+      const expired = isLobbyExpired(lobby);
+      const inactive = isLobbyInactive(lobby);
+      if (expired || inactive) {
+        deleteDoc(doc(db, 'lobbies', lobby.docId)).catch((err: unknown) => {
+          console.error('Failed to delete inactive/expired public lobby (cleanup):', err);
+        });
+        markLobbyHistoryDeletedSafe(lobby.docId).catch(() => { });
+      }
+    });
+  }, (error) => {
+    console.error('Error subscribing to public lobby cleanup:', error);
+  });
+
   return () => {
     unsubscribe();
+    unsubscribeCleanup();
   };
 }
 
@@ -687,6 +711,28 @@ export async function removeStalePlayersFromLobby(
     if (!player) continue;
 
     const remaining = fresh.players.filter(p => p.uid !== stalePlayer.uid);
+
+    // Duel forfeit path:
+    // If a duel is already in progress and exactly one player remains,
+    // end the match immediately and award a forfeit win.
+    if (fresh.status === 'in_progress' && remaining.length === 1) {
+      const winnerUid = remaining[0].uid;
+      const loserUid = stalePlayer.uid;
+      const currentHealth = (fresh as unknown as { health?: Record<string, number> }).health || {};
+      const nextHealth: Record<string, number> = { ...currentHealth, [loserUid]: 0 };
+
+      await updateDoc(lobbyRef, {
+        health: nextHealth,
+        phase: 'finished',
+        winner: winnerUid,
+        loser: loserUid,
+        forfeitBy: loserUid,
+        finishedAt: serverTimestamp(),
+        lastActionAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return false;
+    }
 
     // If no one is left or the host has gone stale, delete the lobby (close the game).
     if (remaining.length === 0 || fresh.hostUid === stalePlayer.uid) {

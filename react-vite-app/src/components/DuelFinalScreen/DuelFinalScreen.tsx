@@ -160,6 +160,11 @@ function DuelFinalScreen({
                 ? `You defeated ${loserUsername} in ${totalRounds} rounds!`
                 : `${winnerUsername} won after ${totalRounds} rounds`}
           </p>
+          {isWinner && forfeitBy === loser && (
+            <div className="duel-final-forfeit-banner" role="status" aria-live="polite">
+              Opponent left the duel. Win awarded by forfeit.
+            </div>
+          )}
         </div>
 
         {/* Score Summary */}
