@@ -10,6 +10,7 @@ import {
 import { db } from '../firebase';
 import { getRandomImage } from './imageService';
 import { calculateDistance, calculateLocationScore } from '../hooks/useGameState';
+import { computeTimeMultiplier } from '../utils/timeScoring';
 import { touchLastActive } from './lastActiveService';
 import { getRegions, getRegionForPoint } from './regionService';
 
@@ -43,6 +44,9 @@ export interface DuelGuess {
   timedOut: boolean;
   noGuess: boolean;
   submittedAt: Timestamp;
+  timeTakenSeconds?: number;
+  /** Points deducted due to time */
+  timePenalty?: number;
 }
 
 export interface DuelEmoteEvent {
@@ -67,6 +71,9 @@ export interface RoundPlayerResult {
   floorCorrect: boolean | null;
   timedOut: boolean;
   noGuess: boolean;
+  timeTakenSeconds?: number;
+  /** Points deducted due to time */
+  timePenalty?: number;
 }
 
 export interface RoundHistoryEntry {
@@ -107,6 +114,7 @@ export interface DuelData {
   updatedAt: Timestamp | FieldValue | null;
   players: DuelPlayer[];
   difficulty: string;
+  timePenaltyEnabled?: boolean;
   /** Round time in seconds. 0 = no time limit. Falls back to DUEL_ROUND_TIME_SECONDS if absent. */
   roundTimeSeconds?: number;
   emotes?: Record<string, DuelEmoteEvent>;
@@ -119,6 +127,9 @@ export const STARTING_HEALTH = 6000;
 
 /** Round time in seconds */
 export const DUEL_ROUND_TIME_SECONDS = 30;
+
+/** Minimum score multiplier at round end (0.5 = 50% of accuracy score at 20s) */
+export const DUEL_TIME_MIN_MULTIPLIER = 0.5;
 
 // ────── Functions ──────
 
@@ -180,15 +191,22 @@ export async function startDuel(
   });
 }
 
+/** RoundStartedAt can be a Firestore Timestamp, millisecond number, or object with toMillis */
+export type RoundStartedAt = Timestamp | number | { toMillis?: () => number };
+
 /**
  * Submit a player's guess for the current round.
  * Calculates score client-side using the same formula as singleplayer.
+ * Time decay (points decrease as player takes longer) applies only in hard mode.
  */
 export async function submitDuelGuess(
   docId: string,
   playerUid: string,
   guessData: GuessData,
-  currentImage: DuelImage
+  currentImage: DuelImage,
+  roundStartedAt?: RoundStartedAt | null,
+  timePenaltyEnabled?: boolean,
+  roundTimeSeconds?: number
 ): Promise<void> {
   let score = 0;
   let locationScore = 0;
@@ -216,24 +234,53 @@ export async function submitDuelGuess(
     }
   }
 
+  // Apply time decay when enabled: score decreases as player takes longer
+  let timeTakenSeconds: number | undefined;
+  let timePenalty: number | undefined;
+  const effectiveRoundTime = (roundTimeSeconds ?? DUEL_ROUND_TIME_SECONDS) || DUEL_ROUND_TIME_SECONDS;
+  if (timePenaltyEnabled && roundStartedAt != null && score > 0 && effectiveRoundTime > 0) {
+    const roundStartMs =
+      typeof roundStartedAt === 'object' && roundStartedAt?.toMillis
+        ? roundStartedAt.toMillis()
+        : (roundStartedAt as number);
+    timeTakenSeconds = Math.max(
+      0,
+      Math.min(effectiveRoundTime, (Date.now() - roundStartMs) / 1000)
+    );
+    const timeMultiplier = computeTimeMultiplier(
+      timeTakenSeconds,
+      effectiveRoundTime,
+      DUEL_TIME_MIN_MULTIPLIER
+    );
+    const scoreBeforeTime = score;
+    score = Math.round(score * timeMultiplier);
+    timePenalty = scoreBeforeTime - score;
+  }
+
   const lobbyRef = doc(db, 'lobbies', docId);
+  const guessPayload: Record<string, unknown> = {
+    location: guessData.location,
+    floor: guessData.floor ?? null,
+    score,
+    locationScore,
+    distance,
+    floorCorrect,
+    timedOut: guessData.timedOut || false,
+    noGuess: guessData.noGuess || false,
+    submittedAt: Timestamp.now()
+  };
+  if (timeTakenSeconds !== undefined) {
+    guessPayload.timeTakenSeconds = timeTakenSeconds;
+  }
+  if (timePenalty !== undefined && timePenalty > 0) {
+    guessPayload.timePenalty = timePenalty;
+  }
   await Promise.all([
     updateDoc(lobbyRef, {
-      [`guesses.${playerUid}`]: {
-        location: guessData.location,
-        floor: guessData.floor ?? null,
-        score,
-        locationScore,
-        distance,
-        floorCorrect,
-        timedOut: guessData.timedOut || false,
-        noGuess: guessData.noGuess || false,
-        submittedAt: Timestamp.now()
-      },
+      [`guesses.${playerUid}`]: guessPayload,
       lastActionAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }),
-    // Meaningful activity: user submitted a score/guess (throttled, server time).
     touchLastActive(playerUid, { minIntervalMs: 2 * 60 * 1000 })
   ]);
 }
@@ -337,7 +384,9 @@ export async function processRound(docId: string): Promise<void> {
         distance: g?.distance ?? null,
         floorCorrect: g?.floorCorrect ?? null,
         timedOut: g?.timedOut ?? false,
-        noGuess: g?.noGuess ?? false
+        noGuess: g?.noGuess ?? false,
+        ...(g?.timeTakenSeconds !== undefined && { timeTakenSeconds: g.timeTakenSeconds }),
+        ...(g?.timePenalty !== undefined && g.timePenalty > 0 && { timePenalty: g.timePenalty })
       }];
     })),
     damage: rawDamage,

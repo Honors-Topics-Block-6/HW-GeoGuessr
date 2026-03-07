@@ -26,6 +26,8 @@ export interface ResultScreenProps {
   onNextRound: () => void;
   onViewFinalResults: () => void;
   isLastRound: boolean;
+  /** Points deducted due to time (hard mode) */
+  timePenalty?: number;
   onBackToTitle?: () => void;
   isEndlessMode?: boolean;
   currentHp?: number;
@@ -127,6 +129,7 @@ function ResultScreen({
   onNextRound,
   onViewFinalResults,
   isLastRound,
+  timePenalty,
   onBackToTitle,
   isEndlessMode = false,
   currentHp = 6000,
@@ -468,6 +471,12 @@ function ResultScreen({
                 <span>Location Score</span>
                 <span>{effectiveLocationScore.toLocaleString()}</span>
               </div>
+              {(timePenalty ?? 0) > 0 && (
+                <div className="breakdown-row penalty">
+                  <span>Time Penalty</span>
+                  <span>-{(timePenalty ?? 0).toLocaleString()}</span>
+                </div>
+              )}
               {floorPenalty > 0 && (
                 <div className="breakdown-row penalty">
                   <span>Wrong Floor (-20%)</span>
@@ -481,7 +490,7 @@ function ResultScreen({
                 </div>
               )}
               <div className="breakdown-row total">
-                <span>Total</span>
+                <span>Score</span>
                 <span>{totalScore.toLocaleString()}</span>
               </div>
             </div>

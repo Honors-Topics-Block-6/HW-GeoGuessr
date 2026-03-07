@@ -227,9 +227,9 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         className={`map-picker ${clickRejected ? 'click-rejected' : ''} ${isZoomed ? 'zoomed' : ''} ${isPanning ? 'is-panning' : ''} ${isTouchActive ? 'touch-active' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
         ref={containerRef}
         onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
         onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
         {...mapHandlers}
+        onDoubleClick={handleDoubleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >

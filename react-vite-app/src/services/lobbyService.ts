@@ -49,6 +49,7 @@ export interface LobbyDoc {
   gameMode?: GameMode;
   /** Round time in seconds. 0 = no time limit. */
   roundTimeSeconds: number;
+  timePenaltyEnabled?: boolean;
   /** Last meaningful player action timestamp (join/ready/start/guess/etc.). */
   lastActionAt?: Timestamp | FieldValue | null;
   createdAt: Timestamp | FieldValue | null;
@@ -170,7 +171,8 @@ export async function createLobby(
   difficulty: string,
   visibility: LobbyVisibility,
   roundTimeSeconds: number = 30,
-  gameMode: GameMode = 'duel'
+  gameMode: GameMode = 'duel',
+  timePenaltyEnabled: boolean = false
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
@@ -182,6 +184,8 @@ export async function createLobby(
     hostUsername,
     difficulty,
     visibility,
+    roundTimeSeconds: normalizedRoundTimeSeconds,
+    timePenaltyEnabled,
     status: 'waiting' as LobbyStatus,
     gameId,
     players: [{
@@ -197,7 +201,6 @@ export async function createLobby(
     },
     maxPlayers,
     gameMode,
-    roundTimeSeconds: normalizedRoundTimeSeconds,
     lastActionAt: now,
     createdAt: now,
     updatedAt: now

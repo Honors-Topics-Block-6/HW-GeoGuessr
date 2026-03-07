@@ -165,7 +165,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame('medium', 'singleplayer', 20, 10);
+        await result.current.startGame('medium', 'singleplayer', 'classic', 20, undefined, 10);
       });
 
       expect(result.current.totalRounds).toBe(10);
@@ -732,7 +732,7 @@ describe('useGameState', () => {
       const { result } = renderHook(() => useGameState());
 
       await act(async () => {
-        await result.current.startGame('medium', 'singleplayer', 20, 10);
+        await result.current.startGame('medium', 'singleplayer', 'classic', 20, undefined, 10);
       });
 
       // Play through 10 rounds

@@ -66,6 +66,9 @@ function PublicGameList({ lobbies, selectedDifficulty, onJoin, isJoining }: Publ
                   return gm === 'duel' ? `${count}/2 players` : `${count} players`;
                 })()}
               </span>
+              {lobby.timePenaltyEnabled && (
+                <span className="public-game-time-penalty" title="Time penalty enabled">⚡</span>
+              )}
             </div>
             <button
               className="public-game-join-btn"

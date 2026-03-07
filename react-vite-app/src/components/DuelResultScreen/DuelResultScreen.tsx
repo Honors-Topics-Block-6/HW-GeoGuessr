@@ -12,8 +12,10 @@ interface MapPosition {
 interface RoundGuessData {
   location?: MapPosition | null;
   score?: number;
+  locationScore?: number;
   distance?: number | null;
   noGuess?: boolean;
+  timePenalty?: number;
 }
 
 interface DuelPlayer {
@@ -280,6 +282,9 @@ function DuelResultScreen({
                     <span className="duel-scoreboard-sub">
                       {g.noGuess ? 'No guess' : formatDistance(g.distance)}
                     </span>
+                    {!g.noGuess && (g.timePenalty ?? 0) > 0 && (
+                      <span className="duel-scoreboard-penalty">-{(g.timePenalty ?? 0).toLocaleString()} time</span>
+                    )}
                   </div>
                 );
               })}
