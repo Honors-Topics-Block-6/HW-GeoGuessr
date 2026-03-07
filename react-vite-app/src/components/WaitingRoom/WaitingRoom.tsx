@@ -33,6 +33,7 @@ export interface LobbyData {
   players?: LobbyPlayer[];
   readyStatus?: Record<string, boolean>;
   maxPlayers?: number;
+  gameMode?: 'duel' | 'multiplayer';
   status?: string;
   roundTimeSeconds?: number;
 }
@@ -184,13 +185,17 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
   const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[lobby.difficulty as Difficulty] || DIFFICULTY_LABELS.all;
   const isHost: boolean = lobby.hostUid === userUid;
   const playerCount: number = lobby.players?.length || 0;
-  const maxPlayers: number = Math.max(2, Math.min(10, Math.trunc(lobby.maxPlayers ?? 2)));
-  const isFull: boolean = playerCount >= maxPlayers;
+  const gameMode: 'duel' | 'multiplayer' = lobby.gameMode ?? 'duel';
+  const maxPlayers: number = gameMode === 'duel' ? 2 : Math.max(2, Math.min(50, Math.trunc(lobby.maxPlayers ?? 50)));
+  const isFull: boolean = gameMode === 'duel' ? playerCount >= maxPlayers : true;
 
   const readyStatus = lobby.readyStatus || {};
   const isCurrentUserReady = readyStatus[userUid] || false;
+  const isHostReady = readyStatus[lobby.hostUid] || false;
   const allPlayersReady = lobby.players?.every(p => readyStatus[p.uid]) || false;
-  const canStart: boolean = isHost && isFull && allPlayersReady && !isStarting;
+  const canStart: boolean = gameMode === 'duel'
+    ? (isHost && isFull && allPlayersReady && !isStarting)
+    : (isHost && playerCount >= 2 && isHostReady && !isStarting);
 
   const handleToggleReady = async (): Promise<void> => {
     await toggleReady(!isCurrentUserReady);
@@ -216,7 +221,7 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
           </div>
           {copied && <span className="waiting-copied-toast">Copied!</span>}
           <p className="waiting-code-hint">
-            {maxPlayers === 2 ? 'Share this code with your opponent to invite them' : 'Share this code to invite players'}
+            {gameMode === 'duel' ? 'Share this code with your opponent to invite them' : 'Share this code to invite players'}
           </p>
         </div>
 
@@ -229,11 +234,15 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
             {lobby.visibility === 'public' ? '🌐 Public' : '🔒 Private'}
           </span>
           <span className="waiting-badge waiting-badge-count">
-            {playerCount}/{maxPlayers} Players
+            {gameMode === 'duel' ? `${playerCount}/${maxPlayers} Players` : `${playerCount} Players`}
           </span>
-          {maxPlayers === 2 && (
+          {gameMode === 'duel' ? (
             <span className="waiting-badge waiting-badge-mode">
               ⚔️ Duel
+            </span>
+          ) : (
+            <span className="waiting-badge waiting-badge-mode">
+              👥 Multiplayer
             </span>
           )}
           <span className="waiting-badge waiting-badge-time">
@@ -364,11 +373,13 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
             })}
           </div>
 
-          {/* Waiting animation */}
-          {!isFull && (
+          {/* Waiting for players */}
+          {((gameMode === 'duel' && !isFull) || (gameMode === 'multiplayer' && playerCount < 2)) && (
             <>
               <div className="waiting-dots-container">
-                <span className="waiting-dots-text">Waiting for opponent</span>
+                <span className="waiting-dots-text">
+                  {gameMode === 'duel' ? 'Waiting for opponent' : 'Waiting for at least one more player'}
+                </span>
                 <span className="waiting-dots">
                   <span className="waiting-dot"></span>
                   <span className="waiting-dot"></span>
@@ -384,7 +395,8 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
             </>
           )}
 
-          {isFull && !allPlayersReady && (
+          {/* Ready section: duel = all must ready; multiplayer = host must ready */}
+          {gameMode === 'duel' && isFull && !allPlayersReady && (
             <div className="waiting-ready-section">
               <button
                 className={`waiting-ready-btn ${isCurrentUserReady ? 'ready' : ''}`}
@@ -392,9 +404,34 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
               >
                 {isCurrentUserReady ? '✓ Ready' : 'Ready Up'}
               </button>
-              {!allPlayersReady && (
+              <div className="waiting-dots-container">
+                <span className="waiting-dots-text">Waiting for all players to ready up</span>
+                <span className="waiting-dots">
+                  <span className="waiting-dot"></span>
+                  <span className="waiting-dot"></span>
+                  <span className="waiting-dot"></span>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {gameMode === 'multiplayer' && playerCount >= 2 && !isHostReady && (
+            <div className="waiting-ready-section">
+              {isHost ? (
+                <>
+                  <button
+                    className={`waiting-ready-btn ${isCurrentUserReady ? 'ready' : ''}`}
+                    onClick={handleToggleReady}
+                  >
+                    {isCurrentUserReady ? '✓ Ready' : 'Ready Up to Start'}
+                  </button>
+                  <div className="waiting-dots-container">
+                    <span className="waiting-dots-text">Ready up to start the game</span>
+                  </div>
+                </>
+              ) : (
                 <div className="waiting-dots-container">
-                  <span className="waiting-dots-text">Waiting for all players to ready up</span>
+                  <span className="waiting-dots-text">Waiting for host to ready up and start...</span>
                   <span className="waiting-dots">
                     <span className="waiting-dot"></span>
                     <span className="waiting-dot"></span>
@@ -405,12 +442,18 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
             </div>
           )}
 
-          {isFull && allPlayersReady && (
+          {gameMode === 'duel' && isFull && allPlayersReady && (
             <div className="waiting-ready-container">
               <span className="waiting-ready-text">All players ready!</span>
               {!isHost && (
                 <span className="waiting-ready-subtext">Waiting for host to start...</span>
               )}
+            </div>
+          )}
+
+          {gameMode === 'multiplayer' && playerCount >= 2 && isHostReady && !isHost && (
+            <div className="waiting-ready-container">
+              <span className="waiting-ready-text">Host is ready to start!</span>
             </div>
           )}
         </div>
@@ -423,24 +466,16 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
               disabled={!canStart}
               onClick={handleStartGame}
               title={
-                !isFull
-                  ? 'Waiting for players to join...'
-                  : !allPlayersReady
-                    ? 'Waiting for all players to ready up...'
-                    : maxPlayers === 2
-                      ? 'Start the duel!'
-                      : 'Start the game!'
+                gameMode === 'duel'
+                  ? (!isFull ? 'Waiting for opponent to join...' : !allPlayersReady ? 'Waiting for all players to ready up...' : 'Start the duel!')
+                  : (playerCount < 2 ? 'Waiting for at least one more player...' : !isHostReady ? 'Ready up to start the game!' : 'Start the game!')
               }
             >
               {isStarting
                 ? 'Starting...'
-                : !isFull
-                  ? (maxPlayers === 2 ? 'Waiting for Opponent...' : 'Waiting for Players...')
-                  : !allPlayersReady
-                    ? 'Waiting for Ready...'
-                    : maxPlayers === 2
-                      ? 'Start Duel ⚔️'
-                      : 'Start Game ⚔️'
+                : gameMode === 'duel'
+                  ? (!isFull ? 'Waiting for Opponent...' : !allPlayersReady ? 'Waiting for Ready...' : 'Start Duel ⚔️')
+                  : (playerCount < 2 ? 'Waiting for Players...' : !isHostReady ? 'Ready Up to Start' : 'Start Game ⚔️')
               }
             </button>
           )}

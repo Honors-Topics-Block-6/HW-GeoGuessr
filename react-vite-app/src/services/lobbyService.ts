@@ -25,6 +25,7 @@ import { db } from '../firebase';
 
 export type LobbyStatus = 'waiting' | 'in_progress' | 'finished';
 export type LobbyVisibility = 'public' | 'private';
+export type GameMode = 'duel' | 'multiplayer';
 
 export interface LobbyPlayer {
   uid: string;
@@ -44,6 +45,8 @@ export interface LobbyDoc {
   heartbeats: Record<string, Timestamp>;
   readyStatus: Record<string, boolean>;
   maxPlayers: number;
+  /** 'duel' = 1v1 fixed 2 players; 'multiplayer' = open-ended, host starts when ready */
+  gameMode?: GameMode;
   /** Round time in seconds. 0 = no time limit. */
   roundTimeSeconds: number;
   /** Last meaningful player action timestamp (join/ready/start/guess/etc.). */
@@ -83,6 +86,8 @@ export const LOBBY_EXPIRY_MS = 60 * 60 * 1000;
 
 export const MIN_LOBBY_PLAYERS = 2;
 export const MAX_LOBBY_PLAYERS = 10;
+/** Max players for multiplayer mode (effectively open-ended; host starts when ready) */
+export const MULTIPLAYER_MAX_PLAYERS = 50;
 
 // Characters that avoid ambiguity (no I, O, 0, 1)
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -106,7 +111,7 @@ function normalizeMaxPlayers(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return MIN_LOBBY_PLAYERS;
   const int = Math.trunc(n);
-  return Math.max(MIN_LOBBY_PLAYERS, Math.min(MAX_LOBBY_PLAYERS, int));
+  return Math.max(MIN_LOBBY_PLAYERS, Math.min(MULTIPLAYER_MAX_PLAYERS, int));
 }
 
 function normalizeRoundTimeSeconds(value: unknown): number {
@@ -157,6 +162,7 @@ export function generateGameId(): string {
 
 /**
  * Create a new lobby document.
+ * @param gameMode - 'duel' = 1v1 (2 players); 'multiplayer' = open-ended, host starts when ready
  */
 export async function createLobby(
   hostUid: string,
@@ -164,11 +170,11 @@ export async function createLobby(
   difficulty: string,
   visibility: LobbyVisibility,
   roundTimeSeconds: number = 30,
-  maxPlayers: number = MIN_LOBBY_PLAYERS
+  gameMode: GameMode = 'duel'
 ): Promise<CreateLobbyResult> {
   const gameId = generateGameId();
   const now = serverTimestamp();
-  const normalizedMaxPlayers = normalizeMaxPlayers(maxPlayers);
+  const maxPlayers = gameMode === 'duel' ? MIN_LOBBY_PLAYERS : MULTIPLAYER_MAX_PLAYERS;
   const normalizedRoundTimeSeconds = normalizeRoundTimeSeconds(roundTimeSeconds);
 
   const lobbyData = {
@@ -189,7 +195,8 @@ export async function createLobby(
     readyStatus: {
       [hostUid]: false
     },
-    maxPlayers: normalizedMaxPlayers,
+    maxPlayers,
+    gameMode,
     roundTimeSeconds: normalizedRoundTimeSeconds,
     lastActionAt: now,
     createdAt: now,
