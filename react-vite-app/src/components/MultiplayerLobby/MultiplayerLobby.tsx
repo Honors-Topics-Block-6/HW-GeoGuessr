@@ -237,7 +237,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
           <button
             className="lobby-create-btn"
             onClick={handleHost}
-            disabled={isCreating || isGuest}
+            disabled={isCreating || (isGuest && visibility === 'public')}
           >
             {isCreating ? (
               <>

@@ -78,7 +78,7 @@ export interface UseMyGamesReturn {
  * Hook for the MultiplayerLobby screen.
  * Manages: public lobby list, hosting flow, join-by-code flow.
  */
-const GUEST_HOST_ERROR = 'Guests can only join games. Sign in to host.';
+const GUEST_PUBLIC_HOST_ERROR = 'Guests can only host private games. Sign in to host public games.';
 
 export function useLobby(
   userUid: string,
@@ -101,11 +101,11 @@ export function useLobby(
 
   /**
    * Host a new game.
-   * Hosting is only allowed for non-guest (logged-in) accounts.
+   * Guests may host private games, but not public games.
    */
   const hostGame = useCallback(async (visibility: 'public' | 'private', roundTimeSeconds?: number): Promise<HostGameResult | null> => {
-    if (isGuest) {
-      setError(GUEST_HOST_ERROR);
+    if (isGuest && visibility === 'public') {
+      setError(GUEST_PUBLIC_HOST_ERROR);
       return null;
     }
     setIsCreating(true);
@@ -135,7 +135,9 @@ export function useLobby(
         return null;
       }
 
-      await joinLobby(lobby.docId, userUid, userUsername, selectedDifficulty);
+      const joinDifficulty = lobby.difficulty;
+
+      await joinLobby(lobby.docId, userUid, userUsername, joinDifficulty);
       return { docId: lobby.docId };
     } catch (err) {
       console.error('Failed to join lobby:', err);
@@ -153,7 +155,9 @@ export function useLobby(
     setIsJoining(true);
     setError(null);
     try {
-      await joinLobby(docId, userUid, userUsername, selectedDifficulty);
+      const lobby = publicLobbies.find((item) => item.docId === docId);
+      const joinDifficulty = (lobby?.difficulty as string | undefined) || selectedDifficulty;
+      await joinLobby(docId, userUid, userUsername, joinDifficulty);
       return true;
     } catch (err) {
       console.error('Failed to join lobby:', err);
@@ -162,7 +166,7 @@ export function useLobby(
     } finally {
       setIsJoining(false);
     }
-  }, [userUid, userUsername, selectedDifficulty]);
+  }, [publicLobbies, userUid, userUsername, selectedDifficulty]);
 
   const clearError = useCallback((): void => setError(null), []);
 
