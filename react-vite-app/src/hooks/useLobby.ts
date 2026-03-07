@@ -6,11 +6,16 @@ import {
   leaveLobby,
   subscribeLobby,
   subscribePublicLobbies,
+  subscribeUserLobbyHistory,
   sendHeartbeat,
   removeStalePlayersFromLobby,
   setPlayerReady,
   updateLobbyRoundTime,
-  type LobbyDoc
+  updateLobbyDifficulty,
+  deleteLobby,
+  markUserLobbyDeleted,
+  type LobbyDoc,
+  type UserLobbyHistoryDoc
 } from '../services/lobbyService';
 
 export interface LobbyPlayer {
@@ -24,6 +29,10 @@ export type PublicLobby = LobbyDoc & {
 };
 
 export type LobbyData = LobbyDoc & {
+  [key: string]: unknown;
+};
+
+export type UserLobbyHistory = UserLobbyHistoryDoc & {
   [key: string]: unknown;
 };
 
@@ -41,7 +50,7 @@ export interface UseLobbyReturn {
   isCreating: boolean;
   isJoining: boolean;
   error: string | null;
-  hostGame: (visibility: 'public' | 'private', roundTimeSeconds?: number) => Promise<HostGameResult | null>;
+  hostGame: (visibility: 'public' | 'private', roundTimeSeconds: number, gameMode: 'duel' | 'multiplayer') => Promise<HostGameResult | null>;
   joinByCode: (gameId: string) => Promise<JoinByCodeResult | null>;
   joinPublicGame: (docId: string) => Promise<boolean>;
   clearError: () => void;
@@ -54,23 +63,35 @@ export interface UseWaitingRoomReturn {
   leave: () => Promise<void>;
   toggleReady: (ready: boolean) => Promise<void>;
   updateRoundTime: (roundTimeSeconds: number) => Promise<void>;
+  updateDifficulty: (difficulty: string) => Promise<void>;
+}
+
+export interface UseMyGamesReturn {
+  myLobbies: UserLobbyHistory[];
+  isLoading: boolean;
+  error: string | null;
+  closingGameIds: Set<string>;
+  closeGame: (docId: string) => Promise<void>;
 }
 
 /**
  * Hook for the MultiplayerLobby screen.
  * Manages: public lobby list, hosting flow, join-by-code flow.
  */
+const GUEST_PUBLIC_HOST_ERROR = 'Guests can only host private games. Sign in to host public games.';
+
 export function useLobby(
   userUid: string,
   userUsername: string,
-  selectedDifficulty: string
+  selectedDifficulty: string,
+  isGuest: boolean
 ): UseLobbyReturn {
   const [publicLobbies, setPublicLobbies] = useState<PublicLobby[]>([]);
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [isJoining, setIsJoining] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Subscribe to public lobbies in real-time
+  // Subscribe to active public waiting lobbies in real-time.
   useEffect(() => {
     const unsubscribe = subscribePublicLobbies((lobbies) => {
       setPublicLobbies(lobbies as PublicLobby[]);
@@ -80,12 +101,21 @@ export function useLobby(
 
   /**
    * Host a new game.
+   * Guests may host private games, but not public games.
    */
-  const hostGame = useCallback(async (visibility: 'public' | 'private', roundTimeSeconds?: number): Promise<HostGameResult | null> => {
+  const hostGame = useCallback(async (
+    visibility: 'public' | 'private',
+    roundTimeSeconds: number,
+    gameMode: 'duel' | 'multiplayer'
+  ): Promise<HostGameResult | null> => {
+    if (isGuest && visibility === 'public') {
+      setError(GUEST_PUBLIC_HOST_ERROR);
+      return null;
+    }
     setIsCreating(true);
     setError(null);
     try {
-      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, roundTimeSeconds);
+      const result = await createLobby(userUid, userUsername, selectedDifficulty, visibility, roundTimeSeconds, gameMode);
       return result;
     } catch (err) {
       console.error('Failed to create lobby:', err);
@@ -94,7 +124,7 @@ export function useLobby(
     } finally {
       setIsCreating(false);
     }
-  }, [userUid, userUsername, selectedDifficulty]);
+  }, [userUid, userUsername, selectedDifficulty, isGuest]);
 
   /**
    * Join a game by its 6-character code.
@@ -109,7 +139,9 @@ export function useLobby(
         return null;
       }
 
-      await joinLobby(lobby.docId, userUid, userUsername, selectedDifficulty);
+      const joinDifficulty = lobby.difficulty;
+
+      await joinLobby(lobby.docId, userUid, userUsername, joinDifficulty);
       return { docId: lobby.docId };
     } catch (err) {
       console.error('Failed to join lobby:', err);
@@ -127,7 +159,9 @@ export function useLobby(
     setIsJoining(true);
     setError(null);
     try {
-      await joinLobby(docId, userUid, userUsername, selectedDifficulty);
+      const lobby = publicLobbies.find((item) => item.docId === docId);
+      const joinDifficulty = (lobby?.difficulty as string | undefined) || selectedDifficulty;
+      await joinLobby(docId, userUid, userUsername, joinDifficulty);
       return true;
     } catch (err) {
       console.error('Failed to join lobby:', err);
@@ -136,7 +170,7 @@ export function useLobby(
     } finally {
       setIsJoining(false);
     }
-  }, [userUid, userUsername, selectedDifficulty]);
+  }, [publicLobbies, userUid, userUsername, selectedDifficulty]);
 
   const clearError = useCallback((): void => setError(null), []);
 
@@ -161,6 +195,8 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const hasLeft = useRef<boolean>(false);
+  const hadLobbySnapshot = useRef<boolean>(false);
+  const wasHostInLastSnapshot = useRef<boolean>(false);
   const docIdRef = useRef<string>(lobbyDocId);
   const uidRef = useRef<string>(userUid);
 
@@ -175,14 +211,27 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     if (!lobbyDocId) return;
 
     hasLeft.current = false;
+    hadLobbySnapshot.current = false;
+    wasHostInLastSnapshot.current = false;
 
-    const unsubscribe = subscribeLobby(lobbyDocId, (lobbyData) => {
+    const unsubscribe = subscribeLobby(lobbyDocId, (lobbyData, reason) => {
       setLobby(lobbyData as LobbyData | null);
       setIsLoading(false);
 
       if (!lobbyData) {
-        setError('This lobby no longer exists.');
+        // Differentiate user-initiated leave vs inactivity vs host/lobby closure.
+        if (hasLeft.current) {
+          setError('This lobby no longer exists.');
+        } else if (reason === 'inactive') {
+          setError('Lobby closed due to inactivity.');
+        } else if (hadLobbySnapshot.current && !wasHostInLastSnapshot.current) {
+          setError('Host left the lobby. The game was closed.');
+        } else {
+          setError('This lobby no longer exists.');
+        }
       } else {
+        hadLobbySnapshot.current = true;
+        wasHostInLastSnapshot.current = lobbyData.hostUid === userUid;
         setError(null);
       }
     });
@@ -199,7 +248,7 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
         // Use sendBeacon-style fire-and-forget; leaveLobby is async but
         // we can't await in beforeunload. The call will still reach Firestore
         // in most cases. Stale lobbies are acceptable at this stage.
-        leaveLobby(docIdRef.current, uidRef.current).catch(() => {});
+        leaveLobby(docIdRef.current, uidRef.current).catch(() => { });
       }
     };
 
@@ -214,11 +263,11 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     if (!lobbyDocId || !userUid) return;
 
     // Send an initial heartbeat immediately
-    sendHeartbeat(lobbyDocId, userUid).catch(() => {});
+    sendHeartbeat(lobbyDocId, userUid).catch(() => { });
 
     const heartbeatInterval = setInterval(() => {
       if (!hasLeft.current) {
-        sendHeartbeat(docIdRef.current, uidRef.current).catch(() => {});
+        sendHeartbeat(docIdRef.current, uidRef.current).catch(() => { });
       }
     }, 10_000); // every 10 seconds
 
@@ -231,7 +280,7 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
 
     const staleCheckInterval = setInterval(() => {
       if (!hasLeft.current) {
-        removeStalePlayersFromLobby(docIdRef.current, uidRef.current).catch(() => {});
+        removeStalePlayersFromLobby(docIdRef.current, uidRef.current).catch(() => { });
       }
     }, 15_000); // every 15 seconds
 
@@ -276,12 +325,96 @@ export function useWaitingRoom(lobbyDocId: string, userUid: string): UseWaitingR
     }
   }, [lobbyDocId]);
 
+  /**
+   * Update the difficulty setting on the lobby.
+   * Should only be called by the host.
+   */
+  const updateDifficulty = useCallback(async (difficulty: string): Promise<void> => {
+    if (!lobbyDocId) return;
+    try {
+      await updateLobbyDifficulty(lobbyDocId, difficulty);
+    } catch (err) {
+      console.error('Failed to update difficulty:', err);
+    }
+  }, [lobbyDocId]);
+
   return {
     lobby,
     isLoading,
     error,
     leave,
     toggleReady,
-    updateRoundTime
+    updateRoundTime,
+    updateDifficulty
+  };
+}
+
+/**
+ * Hook for the My Games screen.
+ * Subscribes to lobbies hosted by the current user.
+ */
+export function useMyGames(userUid: string): UseMyGamesReturn {
+  const [myLobbies, setMyLobbies] = useState<UserLobbyHistory[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [closingGameIds, setClosingGameIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!userUid) {
+      setMyLobbies([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const unsubscribe = subscribeUserLobbyHistory(userUid, (lobbies) => {
+      setMyLobbies(lobbies as UserLobbyHistory[]);
+      setIsLoading(false);
+      setError(null);
+    });
+
+    return unsubscribe;
+  }, [userUid]);
+
+  const closeGame = useCallback(async (docId: string): Promise<void> => {
+    if (!docId) return;
+    setClosingGameIds((prev) => {
+      const next = new Set(prev);
+      next.add(docId);
+      return next;
+    });
+    try {
+      let historyUpdated = false;
+      try {
+        await markUserLobbyDeleted(docId);
+        historyUpdated = true;
+      } catch (err) {
+        console.error('Failed to update lobby history:', err);
+      }
+      try {
+        await deleteLobby(docId);
+      } catch (err) {
+        console.error('Failed to delete lobby:', err);
+        if (!historyUpdated) {
+          throw err;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to close lobby:', err);
+      setError('Failed to remove game. Please try again.');
+    } finally {
+      setClosingGameIds((prev) => {
+        const next = new Set(prev);
+        next.delete(docId);
+        return next;
+      });
+    }
+  }, []);
+
+  return {
+    myLobbies,
+    isLoading,
+    error,
+    closingGameIds,
+    closeGame
   };
 }

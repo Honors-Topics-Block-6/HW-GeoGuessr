@@ -5,6 +5,7 @@ import {
   useCallback,
   useState,
   useEffect,
+  useId,
   type Ref
 } from 'react';
 import useMapZoom from '../../hooks/useMapZoom';
@@ -24,25 +25,50 @@ export interface PlayingArea {
   polygon: PolygonPoint[];
 }
 
+export interface BuildingPolygonOverlay {
+  name: string;
+  polygon: { x: number; y: number }[];
+}
+
 export interface MapPickerProps {
   markerPosition: MapCoordinates | null;
   onMapClick: (coords: MapCoordinates) => void;
   clickRejected?: boolean;
   playingArea?: PlayingArea | null;
+  /** When set, these polygons are drawn over the map (e.g. building hitboxes for submission). */
+  buildingPolygons?: BuildingPolygonOverlay[] | null;
 }
 
 export interface MapPickerHandle {
   clickAtCursor: () => boolean;
 }
 
+function getCentroid(points: PolygonPoint[]): PolygonPoint {
+  if (!points || points.length === 0) return { x: 0, y: 0 };
+  let sumX = 0;
+  let sumY = 0;
+  for (const p of points) {
+    sumX += p.x;
+    sumY += p.y;
+  }
+  return {
+    x: sumX / points.length,
+    y: sumY / points.length
+  };
+}
+
 const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker(
-  { markerPosition, onMapClick, clickRejected = false, playingArea = null },
+  { markerPosition, onMapClick, clickRejected = false, playingArea = null, buildingPolygons = null },
   ref: Ref<MapPickerHandle>
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const zoomContentRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Generate unique ID for SVG mask to avoid conflicts when multiple MapPicker instances exist
+  const maskId = useId();
 
   const coordsFromClientPos = useCallback((clientX: number, clientY: number): MapCoordinates | null => {
     if (!imageRef.current) return null;
@@ -61,12 +87,13 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     handlers,
     zoomIn,
     zoomInAtPoint,
-    zoomOut,
+    zoomOutAtPoint,
     resetZoom,
     hasMoved,
     isPanning,
     isTouchActive
-  } = useMapZoom(containerRef);
+  } = useMapZoom(containerRef, { zoomContentRef });
+  const { onDoubleClick: _ignoredOnDoubleClick, ...mapHandlers } = handlers;
 
   const placeMarkerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -113,6 +140,23 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
     lastMousePos.current = null;
     if (handlers.onMouseLeave) handlers.onMouseLeave();
   };
+
+  const getZoomAnchor = useCallback((): { x: number; y: number } | null => {
+    const container = containerRef.current;
+    if (!container) return null;
+
+    const rect = container.getBoundingClientRect();
+    const mouse = lastMousePos.current;
+    if (mouse) {
+      const x = mouse.x - rect.left;
+      const y = mouse.y - rect.top;
+      if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+        return { x, y };
+      }
+    }
+
+    return { x: rect.width / 2, y: rect.height / 2 };
+  }, []);
 
   const toggleFullscreen = (event: React.MouseEvent<HTMLButtonElement>): void => {
     event.stopPropagation();
@@ -185,11 +229,11 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
-        {...handlers}
+        {...mapHandlers}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="map-zoom-content" style={{ transform: transformStyle }}>
+        <div className="map-zoom-content" ref={zoomContentRef} style={{ transform: transformStyle }}>
           <img
             ref={imageRef}
             className="map-image"
@@ -208,7 +252,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
             >
               <defs>
                 {/* Define the playing area as a mask - white = visible, black = hidden */}
-                <mask id="playing-area-mask">
+                <mask id={`playing-area-mask-${maskId}`}>
                   {/* Start with white background (everything visible) */}
                   <rect x="0" y="0" width="100" height="100" fill="white" />
                   {/* Cut out the playing area (make it black = hidden from dark overlay) */}
@@ -226,7 +270,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
                 width="100"
                 height="100"
                 fill="rgba(0, 0, 0, 0.5)"
-                mask="url(#playing-area-mask)"
+                mask={`url(#playing-area-mask-${maskId})`}
               />
 
               {/* Border around the playing area */}
@@ -240,6 +284,38 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
             </svg>
           )}
 
+          {/* Building polygons overlay (e.g. submission form hitboxes) */}
+          {buildingPolygons && buildingPolygons.length > 0 && (
+            <svg
+              className="building-polygons-overlay"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {buildingPolygons.map((building, i) =>
+                building.polygon.length >= 3 ? (
+                  <g key={building.name + i}>
+                    <polygon
+                      points={building.polygon.map((p) => `${p.x},${p.y}`).join(' ')}
+                      fill="rgba(139, 92, 246, 0.25)"
+                      stroke="rgba(139, 92, 246, 0.9)"
+                      strokeWidth="0.35"
+                    />
+                    <text
+                      x={getCentroid(building.polygon as PolygonPoint[]).x}
+                      y={getCentroid(building.polygon as PolygonPoint[]).y}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className="building-polygon-label"
+                    >
+                      {i + 1}
+                    </text>
+                  </g>
+                ) : null
+              )}
+            </svg>
+          )}
+
+          {/* Marker - positioned relative to the container which matches image size */}
           {/* Marker - positioned relative to the container; scale inversely with zoom so pin stays same visual size */}
           {markerPosition && (
             <div
@@ -261,7 +337,15 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
         <div className="zoom-controls">
           <button
             className="zoom-btn zoom-in-btn"
-            onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); zoomIn(); }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              const anchor = getZoomAnchor();
+              if (anchor) {
+                zoomInAtPoint(anchor.x, anchor.y);
+              } else {
+                zoomIn();
+              }
+            }}
             title="Zoom in"
             aria-label="Zoom in"
           >
@@ -269,7 +353,13 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(function MapPicker
           </button>
           <button
             className="zoom-btn zoom-out-btn"
-            onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); zoomOut(); }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              const anchor = getZoomAnchor();
+              if (anchor) {
+                zoomOutAtPoint(anchor.x, anchor.y);
+              }
+            }}
             title="Zoom out"
             aria-label="Zoom out"
             disabled={!isZoomed}

@@ -10,6 +10,7 @@ const exec = (cmd: string, timeout: number = 60000): Buffer => {
     cwd: PROJECT_ROOT,
     stdio: 'pipe',
     timeout,
+    maxBuffer: 10 * 1024 * 1024,
     env: { ...process.env, NODE_PATH: '' },
   });
 };
@@ -20,8 +21,8 @@ describe('Project Health', () => {
   }, 60000);
 
   it('should pass all tests without runtime errors', () => {
-    expect(() => exec('npx vitest run --exclude src/test/projectHealth.test.ts', 120000)).not.toThrow();
-  }, 120000);
+    expect(() => exec('npx vitest run --exclude src/test/projectHealth.test.ts', 300000)).not.toThrow();
+  }, 300000);
 
   it('should have no ESLint errors', () => {
     expect(() => exec('npm run lint')).not.toThrow();

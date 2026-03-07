@@ -33,6 +33,12 @@ function DailyGoalsPanel({ onBack }: DailyGoalsPanelProps): React.ReactElement {
   const confettiIntervalRef = useRef<number | null>(null);
   const confettiTimeoutRef = useRef<number | null>(null);
 
+  // Keep header/profile stats in sync when goals change
+  useEffect(() => {
+    if (!user?.uid) return;
+    void refreshUserDoc();
+  }, [user?.uid, allCompleted, bonusXpAwarded, refreshUserDoc]);
+
   const handleClaimBonus = async (): Promise<void> => {
     setClaiming(true);
     try {

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWaitingRoom } from '../../hooks/useLobby';
-import { startDuel } from '../../services/duelService';
+import { startDuel, DUEL_ROUND_TIME_SECONDS } from '../../services/duelService';
 import InviteFriendsModal from '../InviteFriendsModal/InviteFriendsModal';
 import './WaitingRoom.css';
 
@@ -18,6 +18,8 @@ const DIFFICULTY_LABELS: Record<Difficulty, DifficultyInfo> = {
   hard: { label: 'Hard', icon: '🔴' },
 };
 
+const DIFFICULTY_OPTIONS: Difficulty[] = ['all', 'easy', 'medium', 'hard'];
+
 export interface LobbyPlayer {
   uid: string;
   username: string;
@@ -31,6 +33,7 @@ export interface LobbyData {
   players?: LobbyPlayer[];
   readyStatus?: Record<string, boolean>;
   maxPlayers?: number;
+  gameMode?: 'duel' | 'multiplayer';
   status?: string;
   roundTimeSeconds?: number;
 }
@@ -49,42 +52,41 @@ interface TimePreset {
 }
 
 const TIME_PRESETS: TimePreset[] = [
-  { value: 10, label: '10s' },
-  { value: 20, label: '20s' },
+  { value: 15, label: '15s' },
   { value: 30, label: '30s' },
-  { value: 0, label: '∞' },
+  { value: 60, label: '60s' },
+  { value: 0, label: 'No Limit' },
 ];
 
 const CUSTOM_TIME_MIN = 3;
 const CUSTOM_TIME_MAX = 600;
 
 function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomProps): React.ReactElement {
-  const { lobby, isLoading, error, leave, toggleReady, updateRoundTime } = useWaitingRoom(lobbyDocId, userUid);
+  const { lobby, isLoading, error, leave, toggleReady, updateRoundTime, updateDifficulty } = useWaitingRoom(lobbyDocId, userUid);
   const [copied, setCopied] = useState<boolean>(false);
   const [isStarting, setIsStarting] = useState<boolean>(false);
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
-  const [showTimeEditor, setShowTimeEditor] = useState<boolean>(false);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
   const [customTimeInput, setCustomTimeInput] = useState<string>('');
   const [showCustomInput, setShowCustomInput] = useState<boolean>(false);
-  const timeEditorRef = useRef<HTMLDivElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
 
-  // Close time editor on click-outside
+  // Close settings panel on click-outside
   useEffect(() => {
-    if (!showTimeEditor) return;
+    if (!showSettings) return;
     const handleClickOutside = (e: MouseEvent): void => {
-      if (timeEditorRef.current && !timeEditorRef.current.contains(e.target as Node)) {
-        setShowTimeEditor(false);
+      if (settingsPanelRef.current && !settingsPanelRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
         setShowCustomInput(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showTimeEditor]);
+  }, [showSettings]);
 
   const handleTimePreset = async (value: number): Promise<void> => {
     await updateRoundTime(value);
     setShowCustomInput(false);
-    setShowTimeEditor(false);
   };
 
   const handleCustomTimeSubmit = async (): Promise<void> => {
@@ -97,7 +99,10 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
       await updateRoundTime(parsed);
     }
     setShowCustomInput(false);
-    setShowTimeEditor(false);
+  };
+
+  const handleDifficultyChange = async (diff: Difficulty): Promise<void> => {
+    await updateDifficulty(diff);
   };
 
   const handleCopyCode = async (): Promise<void> => {
@@ -180,13 +185,17 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
   const diffInfo: DifficultyInfo = DIFFICULTY_LABELS[lobby.difficulty as Difficulty] || DIFFICULTY_LABELS.all;
   const isHost: boolean = lobby.hostUid === userUid;
   const playerCount: number = lobby.players?.length || 0;
-  const maxPlayers: number = lobby.maxPlayers || 2;
-  const isFull: boolean = playerCount >= maxPlayers;
-  
+  const gameMode: 'duel' | 'multiplayer' = lobby.gameMode ?? 'duel';
+  const maxPlayers: number = gameMode === 'duel' ? 2 : Math.max(2, Math.min(50, Math.trunc(lobby.maxPlayers ?? 50)));
+  const isFull: boolean = gameMode === 'duel' ? playerCount >= maxPlayers : true;
+
   const readyStatus = lobby.readyStatus || {};
   const isCurrentUserReady = readyStatus[userUid] || false;
+  const isHostReady = readyStatus[lobby.hostUid] || false;
   const allPlayersReady = lobby.players?.every(p => readyStatus[p.uid]) || false;
-  const canStart: boolean = isHost && isFull && allPlayersReady && !isStarting;
+  const canStart: boolean = gameMode === 'duel'
+    ? (isHost && isFull && allPlayersReady && !isStarting)
+    : (isHost && playerCount >= 2 && isHostReady && !isStarting);
 
   const handleToggleReady = async (): Promise<void> => {
     await toggleReady(!isCurrentUserReady);
@@ -211,7 +220,9 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
             </button>
           </div>
           {copied && <span className="waiting-copied-toast">Copied!</span>}
-          <p className="waiting-code-hint">Share this code with your opponent to invite them</p>
+          <p className="waiting-code-hint">
+            {gameMode === 'duel' ? 'Share this code with your opponent to invite them' : 'Share this code to invite players'}
+          </p>
         </div>
 
         {/* Badges */}
@@ -223,72 +234,109 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
             {lobby.visibility === 'public' ? '🌐 Public' : '🔒 Private'}
           </span>
           <span className="waiting-badge waiting-badge-count">
-            {playerCount}/{maxPlayers} Players
+            {gameMode === 'duel' ? `${playerCount}/${maxPlayers} Players` : `${playerCount} Players`}
           </span>
-          <span className="waiting-badge waiting-badge-mode">
-            ⚔️ Duel
-          </span>
-          <span
-            className={`waiting-badge waiting-badge-time ${isHost ? 'editable' : ''}`}
-            onClick={isHost ? () => setShowTimeEditor(!showTimeEditor) : undefined}
-            title={isHost ? 'Click to change round time' : undefined}
-          >
+          {gameMode === 'duel' ? (
+            <span className="waiting-badge waiting-badge-mode">
+              ⚔️ Duel
+            </span>
+          ) : (
+            <span className="waiting-badge waiting-badge-mode">
+              👥 Multiplayer
+            </span>
+          )}
+          <span className="waiting-badge waiting-badge-time">
             ⏱ {lobby.roundTimeSeconds != null && lobby.roundTimeSeconds > 0
               ? `${lobby.roundTimeSeconds}s`
               : lobby.roundTimeSeconds === 0
                 ? 'No Limit'
-                : '20s'}
-            {isHost && <span className="waiting-badge-edit-icon">✎</span>}
+                : `${DUEL_ROUND_TIME_SECONDS}s`}
           </span>
-
-          {/* Time Editor Popover (host only) */}
-          {isHost && showTimeEditor && (
-            <div className="waiting-time-editor" ref={timeEditorRef}>
-              <p className="waiting-time-editor-label">Round Time</p>
-              <div className="waiting-time-editor-presets">
-                {TIME_PRESETS.map((preset) => (
-                  <button
-                    key={preset.value}
-                    className={`waiting-time-preset-btn ${lobby.roundTimeSeconds === preset.value ? 'active' : ''}`}
-                    onClick={() => handleTimePreset(preset.value)}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-                <button
-                  className={`waiting-time-preset-btn ${showCustomInput ? 'active' : ''}`}
-                  onClick={() => {
-                    setShowCustomInput(true);
-                    setCustomTimeInput(
-                      lobby.roundTimeSeconds != null && lobby.roundTimeSeconds > 0
-                        ? String(lobby.roundTimeSeconds)
-                        : ''
-                    );
-                  }}
-                >
-                  ✏️
-                </button>
-              </div>
-              {showCustomInput && (
-                <div className="waiting-time-custom-row">
-                  <input
-                    className="waiting-time-custom-input"
-                    type="text"
-                    inputMode="numeric"
-                    value={customTimeInput}
-                    onChange={(e) => setCustomTimeInput(e.target.value.replace(/\D/g, ''))}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleCustomTimeSubmit(); }}
-                    placeholder={`${CUSTOM_TIME_MIN}–${CUSTOM_TIME_MAX}`}
-                    autoFocus
-                  />
-                  <button className="waiting-time-custom-ok" onClick={handleCustomTimeSubmit}>
-                    Set
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
+
+        {/* Host Settings Panel */}
+        {isHost && (
+          <div className="waiting-settings-wrapper" ref={settingsPanelRef}>
+            <button
+              className={`waiting-settings-toggle ${showSettings ? 'open' : ''}`}
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <span className="waiting-settings-toggle-icon">⚙️</span>
+              Match Settings
+              <span className={`waiting-settings-chevron ${showSettings ? 'open' : ''}`}>▾</span>
+            </button>
+
+            {showSettings && (
+              <div className="waiting-settings-panel">
+                {/* Round Time Setting */}
+                <div className="waiting-setting-group">
+                  <p className="waiting-setting-label">Round Time</p>
+                  <div className="waiting-setting-options">
+                    {TIME_PRESETS.map((preset) => (
+                      <button
+                        key={preset.value}
+                        className={`waiting-setting-btn ${lobby.roundTimeSeconds === preset.value ? 'active' : ''}`}
+                        onClick={() => handleTimePreset(preset.value)}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                    <button
+                      className={`waiting-setting-btn ${showCustomInput ? 'active' : ''}`}
+                      onClick={() => {
+                        setShowCustomInput(true);
+                        setCustomTimeInput(
+                          lobby.roundTimeSeconds != null && lobby.roundTimeSeconds > 0
+                            ? String(lobby.roundTimeSeconds)
+                            : ''
+                        );
+                      }}
+                    >
+                      ✏️
+                    </button>
+                  </div>
+                  {showCustomInput && (
+                    <div className="waiting-setting-custom-row">
+                      <input
+                        className="waiting-setting-custom-input"
+                        type="text"
+                        inputMode="numeric"
+                        value={customTimeInput}
+                        onChange={(e) => setCustomTimeInput(e.target.value.replace(/\D/g, ''))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleCustomTimeSubmit(); }}
+                        placeholder={`${CUSTOM_TIME_MIN}–${CUSTOM_TIME_MAX}`}
+                        autoFocus
+                      />
+                      <button className="waiting-setting-custom-ok" onClick={handleCustomTimeSubmit}>
+                        Set
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Difficulty Setting */}
+                <div className="waiting-setting-group">
+                  <p className="waiting-setting-label">Difficulty</p>
+                  <div className="waiting-setting-options">
+                    {DIFFICULTY_OPTIONS.map((diff) => {
+                      const info = DIFFICULTY_LABELS[diff];
+                      return (
+                        <button
+                          key={diff}
+                          className={`waiting-setting-btn waiting-setting-diff-btn ${lobby.difficulty === diff ? 'active' : ''}`}
+                          onClick={() => handleDifficultyChange(diff)}
+                        >
+                          <span className="waiting-setting-diff-icon">{info.icon}</span>
+                          {info.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Player List */}
         <div className="waiting-players">
@@ -325,11 +373,13 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
             })}
           </div>
 
-          {/* Waiting animation */}
-          {!isFull && (
+          {/* Waiting for players */}
+          {((gameMode === 'duel' && !isFull) || (gameMode === 'multiplayer' && playerCount < 2)) && (
             <>
               <div className="waiting-dots-container">
-                <span className="waiting-dots-text">Waiting for opponent</span>
+                <span className="waiting-dots-text">
+                  {gameMode === 'duel' ? 'Waiting for opponent' : 'Waiting for at least one more player'}
+                </span>
                 <span className="waiting-dots">
                   <span className="waiting-dot"></span>
                   <span className="waiting-dot"></span>
@@ -338,14 +388,15 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
               </div>
               <button
                 className="waiting-invite-btn"
-                onClick={() => setShowInviteModal(true)}
+                onClick={() => lobby?.gameId && setShowInviteModal(true)}
               >
                 👥 Invite Friends
               </button>
             </>
           )}
 
-          {isFull && !allPlayersReady && (
+          {/* Ready section: duel = all must ready; multiplayer = host must ready */}
+          {gameMode === 'duel' && isFull && !allPlayersReady && (
             <div className="waiting-ready-section">
               <button
                 className={`waiting-ready-btn ${isCurrentUserReady ? 'ready' : ''}`}
@@ -353,9 +404,34 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
               >
                 {isCurrentUserReady ? '✓ Ready' : 'Ready Up'}
               </button>
-              {!allPlayersReady && (
+              <div className="waiting-dots-container">
+                <span className="waiting-dots-text">Waiting for all players to ready up</span>
+                <span className="waiting-dots">
+                  <span className="waiting-dot"></span>
+                  <span className="waiting-dot"></span>
+                  <span className="waiting-dot"></span>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {gameMode === 'multiplayer' && playerCount >= 2 && !isHostReady && (
+            <div className="waiting-ready-section">
+              {isHost ? (
+                <>
+                  <button
+                    className={`waiting-ready-btn ${isCurrentUserReady ? 'ready' : ''}`}
+                    onClick={handleToggleReady}
+                  >
+                    {isCurrentUserReady ? '✓ Ready' : 'Ready Up to Start'}
+                  </button>
+                  <div className="waiting-dots-container">
+                    <span className="waiting-dots-text">Ready up to start the game</span>
+                  </div>
+                </>
+              ) : (
                 <div className="waiting-dots-container">
-                  <span className="waiting-dots-text">Waiting for all players to ready up</span>
+                  <span className="waiting-dots-text">Waiting for host to ready up and start...</span>
                   <span className="waiting-dots">
                     <span className="waiting-dot"></span>
                     <span className="waiting-dot"></span>
@@ -366,12 +442,18 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
             </div>
           )}
 
-          {isFull && allPlayersReady && (
+          {gameMode === 'duel' && isFull && allPlayersReady && (
             <div className="waiting-ready-container">
               <span className="waiting-ready-text">All players ready!</span>
               {!isHost && (
                 <span className="waiting-ready-subtext">Waiting for host to start...</span>
               )}
+            </div>
+          )}
+
+          {gameMode === 'multiplayer' && playerCount >= 2 && isHostReady && !isHost && (
+            <div className="waiting-ready-container">
+              <span className="waiting-ready-text">Host is ready to start!</span>
             </div>
           )}
         </div>
@@ -384,20 +466,16 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
               disabled={!canStart}
               onClick={handleStartGame}
               title={
-                !isFull 
-                  ? 'Waiting for opponent to join...' 
-                  : !allPlayersReady 
-                  ? 'Waiting for all players to ready up...' 
-                  : 'Start the duel!'
+                gameMode === 'duel'
+                  ? (!isFull ? 'Waiting for opponent to join...' : !allPlayersReady ? 'Waiting for all players to ready up...' : 'Start the duel!')
+                  : (playerCount < 2 ? 'Waiting for at least one more player...' : !isHostReady ? 'Ready up to start the game!' : 'Start the game!')
               }
             >
-              {isStarting 
-                ? 'Starting...' 
-                : !isFull 
-                ? 'Waiting for Opponent...' 
-                : !allPlayersReady 
-                ? 'Waiting for Ready...' 
-                : 'Start Duel ⚔️'
+              {isStarting
+                ? 'Starting...'
+                : gameMode === 'duel'
+                  ? (!isFull ? 'Waiting for Opponent...' : !allPlayersReady ? 'Waiting for Ready...' : 'Start Duel ⚔️')
+                  : (playerCount < 2 ? 'Waiting for Players...' : !isHostReady ? 'Ready Up to Start' : 'Start Game ⚔️')
               }
             </button>
           )}
@@ -412,6 +490,7 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
         <InviteFriendsModal
           onClose={() => setShowInviteModal(false)}
           lobbyDocId={lobbyDocId}
+          gameId={lobby.gameId}
           difficulty={lobby.difficulty}
         />
       )}

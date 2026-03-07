@@ -10,6 +10,7 @@ import {
 import { db } from '../firebase';
 import { getRandomImage } from './imageService';
 import { calculateDistance, calculateLocationScore } from '../hooks/useGameState';
+import { touchLastActive } from './lastActiveService';
 import { getRegions, getRegionForPoint } from './regionService';
 
 // ────── Types ──────
@@ -44,6 +45,12 @@ export interface DuelGuess {
   submittedAt: Timestamp;
 }
 
+export interface DuelEmoteEvent {
+  emoji: string;
+  sentAt: Timestamp;
+  round: number;
+}
+
 export interface GuessData {
   location: MapLocation | null;
   floor?: number | null;
@@ -65,6 +72,10 @@ export interface RoundPlayerResult {
 export interface RoundHistoryEntry {
   roundNumber: number;
   imageId?: string;
+  /**
+   * Compact, non-essential image reference for history rows.
+   * Avoid storing full image URLs/base64 payloads to keep lobby docs under Firestore 1MB limit.
+   */
   imageUrl: string;
   actualLocation: MapLocation;
   actualFloor: number | null;
@@ -85,7 +96,7 @@ export interface DuelData {
   phase: DuelPhase;
   currentRound: number;
   currentImage: DuelImage;
-  roundStartedAt: Timestamp;
+  roundStartedAt: Timestamp | FieldValue;
   guesses: Record<string, DuelGuess>;
   health: Record<string, number>;
   roundHistory: RoundHistoryEntry[];
@@ -98,6 +109,7 @@ export interface DuelData {
   difficulty: string;
   /** Round time in seconds. 0 = no time limit. Falls back to DUEL_ROUND_TIME_SECONDS if absent. */
   roundTimeSeconds?: number;
+  emotes?: Record<string, DuelEmoteEvent>;
 }
 
 // ────── Constants ──────
@@ -106,7 +118,7 @@ export interface DuelData {
 export const STARTING_HEALTH = 6000;
 
 /** Round time in seconds */
-export const DUEL_ROUND_TIME_SECONDS = 20;
+export const DUEL_ROUND_TIME_SECONDS = 30;
 
 // ────── Functions ──────
 
@@ -155,13 +167,15 @@ export async function startDuel(
       correctFloor: image.correctFloor ?? null,
       difficulty: image.difficulty || difficulty
     },
-    roundStartedAt: Timestamp.now(),
+    roundStartedAt: serverTimestamp(),
     guesses: {},
+    emotes: {},
     health,
     roundHistory: [],
     winner: null,
     loser: null,
     finishedAt: null,
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -203,18 +217,47 @@ export async function submitDuelGuess(
   }
 
   const lobbyRef = doc(db, 'lobbies', docId);
+  await Promise.all([
+    updateDoc(lobbyRef, {
+      [`guesses.${playerUid}`]: {
+        location: guessData.location,
+        floor: guessData.floor ?? null,
+        score,
+        locationScore,
+        distance,
+        floorCorrect,
+        timedOut: guessData.timedOut || false,
+        noGuess: guessData.noGuess || false,
+        submittedAt: Timestamp.now()
+      },
+      lastActionAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }),
+    // Meaningful activity: user submitted a score/guess (throttled, server time).
+    touchLastActive(playerUid, { minIntervalMs: 2 * 60 * 1000 })
+  ]);
+}
+
+/**
+ * Send an emote event for a player in the current duel round.
+ */
+export async function sendDuelEmote(
+  docId: string,
+  playerUid: string,
+  emoji: string,
+  round: number
+): Promise<void> {
+  const sanitized = emoji.trim();
+  if (!sanitized) return;
+
+  const lobbyRef = doc(db, 'lobbies', docId);
   await updateDoc(lobbyRef, {
-    [`guesses.${playerUid}`]: {
-      location: guessData.location,
-      floor: guessData.floor ?? null,
-      score,
-      locationScore,
-      distance,
-      floorCorrect,
-      timedOut: guessData.timedOut || false,
-      noGuess: guessData.noGuess || false,
-      submittedAt: Timestamp.now()
+    [`emotes.${playerUid}`]: {
+      emoji: sanitized,
+      sentAt: Timestamp.now(),
+      round
     },
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -235,64 +278,68 @@ export async function processRound(docId: string): Promise<void> {
   const lobby = lobbySnap.data() as DuelData;
   const { players, guesses, health, currentRound, currentImage, roundHistory = [] } = lobby;
 
-  const playerUids = players.map(p => p.uid);
-  if (playerUids.length !== 2) return;
+  const allUids = players.map(p => p.uid);
+  if (allUids.length < 2) return;
 
-  const [uid1, uid2] = playerUids;
-  const guess1 = guesses[uid1];
-  const guess2 = guesses[uid2];
+  const currentHealth: Record<string, number> = { ...health };
+  for (const uid of allUids) {
+    if (typeof currentHealth[uid] !== 'number') {
+      currentHealth[uid] = STARTING_HEALTH;
+    }
+  }
 
-  if (!guess1 || !guess2) return;
+  // Only require guesses from players who are still alive.
+  const activeUids = allUids.filter(uid => (currentHealth[uid] ?? 0) > 0);
+  if (activeUids.length < 2) return;
 
-  // Calculate damage
-  const score1 = guess1.score || 0;
-  const score2 = guess2.score || 0;
-  const scoreDiff = Math.abs(score1 - score2);
+  const missingGuess = activeUids.some(uid => !guesses?.[uid]);
+  if (missingGuess) return;
+
   const multiplier = getDamageMultiplier(currentRound);
+
+  // Determine best and worst scores among active players.
+  const scored = activeUids.map(uid => ({
+    uid,
+    score: guesses[uid]?.score ?? 0
+  })).sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score; // desc
+    return a.uid.localeCompare(b.uid); // deterministic tie-breaker
+  });
+
+  const best = scored[0];
+  const worst = scored[scored.length - 1];
+
+  const scoreDiff = Math.max(0, (best?.score ?? 0) - (worst?.score ?? 0));
   const rawDamage = Math.round(scoreDiff * multiplier);
 
-  // Determine who takes damage
   let damagedPlayer: string | null = null;
-  const newHealth: Record<string, number> = { ...health };
+  const newHealth: Record<string, number> = { ...currentHealth };
 
-  if (score1 < score2) {
-    damagedPlayer = uid1;
-    newHealth[uid1] = Math.max(0, newHealth[uid1] - rawDamage);
-  } else if (score2 < score1) {
-    damagedPlayer = uid2;
-    newHealth[uid2] = Math.max(0, newHealth[uid2] - rawDamage);
+  if (rawDamage > 0 && worst?.uid) {
+    damagedPlayer = worst.uid;
+    newHealth[damagedPlayer] = Math.max(0, (newHealth[damagedPlayer] ?? STARTING_HEALTH) - rawDamage);
   }
-  // If tied, no damage dealt
 
   // Build round history entry
   const roundEntry: RoundHistoryEntry = {
     roundNumber: currentRound,
     imageId: currentImage.id,
-    imageUrl: currentImage.url,
+    imageUrl: currentImage.id ? `image:${currentImage.id}` : '',
     actualLocation: currentImage.correctLocation,
     actualFloor: currentImage.correctFloor ?? null,
-    players: {
-      [uid1]: {
-        location: guess1.location,
-        floor: guess1.floor,
-        score: score1,
-        locationScore: guess1.locationScore || 0,
-        distance: guess1.distance,
-        floorCorrect: guess1.floorCorrect,
-        timedOut: guess1.timedOut || false,
-        noGuess: guess1.noGuess || false
-      },
-      [uid2]: {
-        location: guess2.location,
-        floor: guess2.floor,
-        score: score2,
-        locationScore: guess2.locationScore || 0,
-        distance: guess2.distance,
-        floorCorrect: guess2.floorCorrect,
-        timedOut: guess2.timedOut || false,
-        noGuess: guess2.noGuess || false
-      }
-    },
+    players: Object.fromEntries(activeUids.map((uid) => {
+      const g = guesses[uid];
+      return [uid, {
+        location: g?.location ?? null,
+        floor: g?.floor ?? null,
+        score: g?.score ?? 0,
+        locationScore: g?.locationScore ?? 0,
+        distance: g?.distance ?? null,
+        floorCorrect: g?.floorCorrect ?? null,
+        timedOut: g?.timedOut ?? false,
+        noGuess: g?.noGuess ?? false
+      }];
+    })),
     damage: rawDamage,
     multiplier,
     damagedPlayer,
@@ -301,12 +348,12 @@ export async function processRound(docId: string): Promise<void> {
 
   const updatedHistory = [...roundHistory, roundEntry];
 
-  // Check if someone died
-  const gameOver = newHealth[uid1] <= 0 || newHealth[uid2] <= 0;
+  const aliveUids = activeUids.filter(uid => (newHealth[uid] ?? 0) > 0);
+  const gameOver = aliveUids.length <= 1;
 
   if (gameOver) {
-    const winner = newHealth[uid1] <= 0 ? uid2 : uid1;
-    const loser = winner === uid1 ? uid2 : uid1;
+    const winner = aliveUids[0] ?? best.uid;
+    const loser = damagedPlayer ?? worst.uid;
 
     await updateDoc(lobbyRef, {
       health: newHealth,
@@ -375,9 +422,11 @@ export async function advanceToNextRound(docId: string, difficulty: string): Pro
       correctFloor: image.correctFloor ?? null,
       difficulty: image.difficulty || difficulty
     },
-    roundStartedAt: Timestamp.now(),
+    roundStartedAt: serverTimestamp(),
     guesses: {},
+    emotes: {},
     phase: 'guessing',
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 }
@@ -425,6 +474,7 @@ export async function handleOpponentDisconnect(
     winner: winnerUid,
     loser: loserUid,
     finishedAt: serverTimestamp(),
+    lastActionAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
   if (forfeitBy != null) {
