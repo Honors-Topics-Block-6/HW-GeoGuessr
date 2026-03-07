@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLobby } from '../../hooks/useLobby';
+import { useLobby, type HostGameExistingResult } from '../../hooks/useLobby';
 import GameCodeInput from './GameCodeInput';
 import PublicGameList from './PublicGameList';
+import HostedGameConflictModal from '../HostedGameConflictModal/HostedGameConflictModal';
 import './MultiplayerLobby.css';
 
 export type Difficulty = 'all' | 'easy' | 'medium' | 'hard';
@@ -59,6 +60,7 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
   const [publicDifficultyFilter, setPublicDifficultyFilter] = useState<PublicDifficultyFilter>('any');
   const [publicRoundTimeFilter, setPublicRoundTimeFilter] = useState<PublicRoundTimeFilter>('any');
   const [publicTimePenaltyFilter, setPublicTimePenaltyFilter] = useState<PublicTimePenaltyFilter>('any');
+  const [conflictLobbies, setConflictLobbies] = useState<HostGameExistingResult['existingLobbies'] | null>(null);
 
   useEffect(() => {
     setSelectedDifficulty(difficulty);
@@ -97,13 +99,18 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
     error,
     hostGame,
     joinByCode,
+    closeHostedLobby,
     clearError
   } = useLobby(userUid, userUsername, selectedDifficulty, timePenaltyEnabled, isGuest);
 
   const handleHost = async (): Promise<void> => {
     const result = await hostGame(visibility, resolvedTime, gameMode);
     if (result) {
-      onJoinedLobby(result.docId);
+      if ('existingLobbies' in result) {
+        setConflictLobbies(result.existingLobbies);
+      } else {
+        onJoinedLobby(result.docId);
+      }
     }
   };
 
@@ -360,6 +367,15 @@ function MultiplayerLobby({ difficulty, userUid, userUsername, isGuest, onJoined
           </div>
         </div>
       </div>
+
+      {conflictLobbies && conflictLobbies.length > 0 && (
+        <HostedGameConflictModal
+          existingLobbies={conflictLobbies}
+          onClose={() => setConflictLobbies(null)}
+          onCloseHostedGame={closeHostedLobby}
+          onGoToLobby={(docId) => onJoinedLobby(docId)}
+        />
+      )}
     </div>
   );
 }

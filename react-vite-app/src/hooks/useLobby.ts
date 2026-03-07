@@ -14,6 +14,8 @@ import {
   updateLobbyDifficulty,
   deleteLobby,
   markUserLobbyDeleted,
+  getActiveHostedLobbies,
+  closeHostedLobby,
   type LobbyDoc,
   type UserLobbyHistoryDoc
 } from '../services/lobbyService';
@@ -41,6 +43,11 @@ export interface HostGameResult {
   gameId: string;
 }
 
+/** Returned when user already has active hosted game(s). */
+export interface HostGameExistingResult {
+  existingLobbies: LobbyDoc[];
+}
+
 export interface JoinByCodeResult {
   docId: string;
 }
@@ -50,9 +57,10 @@ export interface UseLobbyReturn {
   isCreating: boolean;
   isJoining: boolean;
   error: string | null;
-  hostGame: (visibility: 'public' | 'private', roundTimeSeconds: number, gameMode: 'duel' | 'multiplayer') => Promise<HostGameResult | null>;
+  hostGame: (visibility: 'public' | 'private', roundTimeSeconds: number, gameMode: 'duel' | 'multiplayer') => Promise<HostGameResult | HostGameExistingResult | null>;
   joinByCode: (gameId: string) => Promise<JoinByCodeResult | null>;
   joinPublicGame: (docId: string) => Promise<boolean>;
+  closeHostedLobby: (docId: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -103,15 +111,20 @@ export function useLobby(
   /**
    * Host a new game.
    * Guests may host private games, but not public games.
+   * Returns existingLobbies if user already has active hosted game(s).
    */
   const hostGame = useCallback(async (
     visibility: 'public' | 'private',
     roundTimeSeconds: number,
     gameMode: 'duel' | 'multiplayer'
-  ): Promise<HostGameResult | null> => {
+  ): Promise<HostGameResult | HostGameExistingResult | null> => {
     if (isGuest && visibility === 'public') {
       setError(GUEST_PUBLIC_HOST_ERROR);
       return null;
+    }
+    const existing = await getActiveHostedLobbies(userUid);
+    if (existing.length > 0) {
+      return { existingLobbies: existing };
     }
     setIsCreating(true);
     setError(null);
@@ -126,6 +139,10 @@ export function useLobby(
       setIsCreating(false);
     }
   }, [userUid, userUsername, selectedDifficulty, timePenaltyEnabled, isGuest]);
+
+  const closeHostedLobbyFn = useCallback(async (docId: string): Promise<void> => {
+    await closeHostedLobby(docId);
+  }, []);
 
   /**
    * Join a game by its 6-character code.
@@ -183,6 +200,7 @@ export function useLobby(
     hostGame,
     joinByCode,
     joinPublicGame,
+    closeHostedLobby: closeHostedLobbyFn,
     clearError
   };
 }
