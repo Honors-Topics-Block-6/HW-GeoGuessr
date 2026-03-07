@@ -215,7 +215,9 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
             </button>
           </div>
           {copied && <span className="waiting-copied-toast">Copied!</span>}
-          <p className="waiting-code-hint">Share this code with your opponent to invite them</p>
+          <p className="waiting-code-hint">
+            {maxPlayers === 2 ? 'Share this code with your opponent to invite them' : 'Share this code to invite players'}
+          </p>
         </div>
 
         {/* Badges */}
@@ -229,9 +231,11 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
           <span className="waiting-badge waiting-badge-count">
             {playerCount}/{maxPlayers} Players
           </span>
-          <span className="waiting-badge waiting-badge-mode">
-            ⚔️ Duel
-          </span>
+          {maxPlayers === 2 && (
+            <span className="waiting-badge waiting-badge-mode">
+              ⚔️ Duel
+            </span>
+          )}
           <span className="waiting-badge waiting-badge-time">
             ⏱ {lobby.roundTimeSeconds != null && lobby.roundTimeSeconds > 0
               ? `${lobby.roundTimeSeconds}s`
@@ -420,19 +424,23 @@ function WaitingRoom({ lobbyDocId, userUid, onLeave, onGameStart }: WaitingRoomP
               onClick={handleStartGame}
               title={
                 !isFull
-                  ? 'Waiting for opponent to join...'
+                  ? 'Waiting for players to join...'
                   : !allPlayersReady
                     ? 'Waiting for all players to ready up...'
-                    : 'Start the duel!'
+                    : maxPlayers === 2
+                      ? 'Start the duel!'
+                      : 'Start the game!'
               }
             >
               {isStarting
                 ? 'Starting...'
                 : !isFull
-                  ? 'Waiting for Opponent...'
+                  ? (maxPlayers === 2 ? 'Waiting for Opponent...' : 'Waiting for Players...')
                   : !allPlayersReady
                     ? 'Waiting for Ready...'
-                    : 'Start Duel ⚔️'
+                    : maxPlayers === 2
+                      ? 'Start Duel ⚔️'
+                      : 'Start Game ⚔️'
               }
             </button>
           )}
