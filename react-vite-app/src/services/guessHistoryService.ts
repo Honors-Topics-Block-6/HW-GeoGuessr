@@ -105,11 +105,19 @@ function createMockHeatmapPoints(imageId: string, center = { x: 50, y: 50 }): He
   });
 }
 
+/** Exclude points within this distance (map units) of excludePoint from the heatmap. */
+const EXCLUDE_POINT_THRESHOLD = 2;
+
 export async function getGuessHeatmapDataForImage(
   imageId: string | null,
-  options: { fallbackCenter?: { x: number; y: number } } = {}
+  options: {
+    fallbackCenter?: { x: number; y: number };
+    /** Current guess to exclude from display (saved for next time, not shown now) */
+    excludePoint?: { x: number; y: number };
+  } = {}
 ): Promise<HeatmapResponse> {
   const fallbackCenter = options.fallbackCenter ?? { x: 50, y: 50 };
+  const excludePoint = options.excludePoint;
   if (!imageId) {
     return {
       points: createMockHeatmapPoints('no-image-id', fallbackCenter),
@@ -128,9 +136,19 @@ export async function getGuessHeatmapDataForImage(
       };
     }
 
-    const extracted = snapshot.docs
+    let extracted = snapshot.docs
       .map((doc) => extractPointFromDoc(doc.data() as Record<string, unknown>))
       .filter((point): point is HeatmapPoint => Boolean(point));
+
+    if (excludePoint) {
+      const exX = excludePoint.x;
+      const exY = excludePoint.y;
+      extracted = extracted.filter((p) => {
+        const dx = p.x - exX;
+        const dy = p.y - exY;
+        return Math.sqrt(dx * dx + dy * dy) > EXCLUDE_POINT_THRESHOLD;
+      });
+    }
 
     if (extracted.length === 0) {
       return {

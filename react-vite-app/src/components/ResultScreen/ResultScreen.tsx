@@ -344,7 +344,8 @@ function ResultScreen({
 
     async function loadHeatmap(): Promise<void> {
       const { points, source } = await getGuessHeatmapDataForImage(imageId, {
-        fallbackCenter: actualLocation
+        fallbackCenter: actualLocation,
+        excludePoint: guessLocation ?? undefined
       });
       if (!isMounted) return;
       setHeatmapPoints(points);
@@ -355,7 +356,7 @@ function ResultScreen({
     return () => {
       isMounted = false;
     };
-  }, [imageId, actualLocation]);
+  }, [imageId, actualLocation, guessLocation]);
 
   return (
     <div className="result-screen">
