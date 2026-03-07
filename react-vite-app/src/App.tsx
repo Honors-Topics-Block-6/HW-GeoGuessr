@@ -67,6 +67,7 @@ import {
   recordDailyPlay,
   syncDailyStreakRollover,
 } from "./services/streakService";
+import { submitImageReport } from "./services/imageReportService";
 import "./App.css";
 
 /** Shape of a friend object used when opening chat */
@@ -119,6 +120,7 @@ function App(): React.ReactElement {
     useState<boolean>(false);
   const [collectingDailyReward, setCollectingDailyReward] =
     useState<boolean>(false);
+  const [imageReportToast, setImageReportToast] = useState<string | null>(null);
 
   // Ensure the daily streak resets to 0 if a day was missed (once per app load).
   useEffect(() => {
@@ -288,6 +290,30 @@ function App(): React.ReactElement {
       });
     },
     [handleJoinFromInvite],
+  );
+
+  const handleReportInaccurateImage = useCallback(
+    async (imageId: string | null, imageUrl?: string | null): Promise<void> => {
+      if (!user?.uid || !userDoc?.username) return;
+      const urlToStore =
+        imageUrl && imageUrl.length <= 500 ? imageUrl : undefined;
+      try {
+        await submitImageReport({
+          imageId,
+          imageUrl: urlToStore,
+          userId: user.uid,
+          username: userDoc.username,
+          userEmail: user.email ?? undefined,
+        });
+        setImageReportToast("Thanks! Your report has been submitted.");
+      } catch (err) {
+        setImageReportToast(
+          err instanceof Error ? err.message : "Could not submit report. Please try again.",
+        );
+      }
+      setTimeout(() => setImageReportToast(null), 4000);
+    },
+    [user?.uid, user?.email, userDoc?.username],
   );
 
   // Prepare the message banner (uses createPortal, renders at viewport top)
@@ -855,6 +881,15 @@ function App(): React.ReactElement {
           </div>
         </div>
       )}
+      {imageReportToast && (
+        <div
+          className="image-report-toast"
+          role="status"
+          aria-live="polite"
+        >
+          {imageReportToast}
+        </div>
+      )}
       {messageBanner}
       {chatNotificationBanner}
       <EmailVerificationBanner />
@@ -941,6 +976,15 @@ function App(): React.ReactElement {
           onFloorSelect={selectFloor}
           onSubmitGuess={submitGuess}
           onBackToTitle={resetGame}
+          onReportInaccurate={
+            user && userDoc && !isGuest
+              ? () =>
+                  handleReportInaccurateImage(
+                    currentImage?.id ?? null,
+                    currentImage?.url,
+                  )
+              : undefined
+          }
           currentRound={currentRound}
           totalRounds={totalRounds}
           clickRejected={clickRejected}
@@ -1018,6 +1062,15 @@ function App(): React.ReactElement {
           onFloorSelect={duel.selectFloor}
           onSubmitGuess={duel.submitGuess}
           onBackToTitle={handleDuelForfeit}
+          onReportInaccurate={
+            user && userDoc && !isGuest
+              ? () =>
+                  handleReportInaccurateImage(
+                    duel.currentImage?.id ?? null,
+                    duel.currentImage?.url,
+                  )
+              : undefined
+          }
           currentRound={duel.currentRound}
           clickRejected={duel.clickRejected}
           playingArea={

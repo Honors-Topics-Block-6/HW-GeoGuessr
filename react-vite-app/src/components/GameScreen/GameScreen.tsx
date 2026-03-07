@@ -22,6 +22,7 @@ export interface GameScreenProps {
   onSubmitGuess: () => void;
   onBackToTitle: () => void;
   onImageLoad?: () => void;
+  onReportInaccurate?: () => void;
   currentRound?: number;
   totalRounds?: number;
   clickRejected?: boolean;
@@ -43,6 +44,7 @@ function GameScreen({
   onSubmitGuess,
   onBackToTitle,
   onImageLoad,
+  onReportInaccurate,
   currentRound = 1,
   totalRounds = 5,
   clickRejected = false,
@@ -104,7 +106,7 @@ function GameScreen({
       {/* ===== DESKTOP LAYOUT ===== */}
       {/* Left panel - Image */}
       <div className="image-panel desktop-only">
-        <ImageViewer imageUrl={imageUrl} />
+        <ImageViewer imageUrl={imageUrl} onReportInaccurate={onReportInaccurate} />
       </div>
 
       {/* Right panel - Guess controls (desktop) */}
@@ -249,7 +251,7 @@ function GameScreen({
 
         {/* Mobile Image */}
         <div className="mobile-image-container">
-          <ImageViewer imageUrl={imageUrl} />
+          <ImageViewer imageUrl={imageUrl} onReportInaccurate={onReportInaccurate} />
           <button className="mobile-leave-button" onClick={() => setShowLeaveConfirm(true)}>
             Leave Game
           </button>

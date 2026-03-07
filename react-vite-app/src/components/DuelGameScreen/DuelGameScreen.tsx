@@ -42,6 +42,7 @@ export interface DuelGameScreenProps {
   activePlayerCount?: number;
   totalPlayerCount?: number;
   allActiveGuessed?: boolean;
+  onReportInaccurate?: () => void;
 }
 
 function DuelGameScreen({
@@ -70,7 +71,8 @@ function DuelGameScreen({
   activeGuessesCount = 0,
   activePlayerCount = 2,
   totalPlayerCount = 2,
-  allActiveGuessed = false
+  allActiveGuessed = false,
+  onReportInaccurate
 }: DuelGameScreenProps): React.ReactElement {
   const mapPickerRef = useRef<MapPickerHandle>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -174,7 +176,7 @@ function DuelGameScreen({
       <div className="duel-game-main desktop-only">
         {/* Left panel - Image */}
         <div className="image-panel">
-          <ImageViewer imageUrl={imageUrl} />
+          <ImageViewer imageUrl={imageUrl} onReportInaccurate={onReportInaccurate} />
         </div>
 
         {/* Right panel - Guess controls */}
@@ -367,7 +369,7 @@ function DuelGameScreen({
 
         {/* Mobile Image */}
         <div className="duel-mobile-image-container">
-          <ImageViewer imageUrl={imageUrl} />
+          <ImageViewer imageUrl={imageUrl} onReportInaccurate={onReportInaccurate} />
           <button className="mobile-leave-button" onClick={() => setShowLeaveConfirm(true)}>
             Leave Duel
           </button>
