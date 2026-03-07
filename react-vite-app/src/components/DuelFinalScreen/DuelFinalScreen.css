@@ -135,6 +135,18 @@
   font-weight: 500;
 }
 
+.duel-final-forfeit-banner {
+  margin: 0.9rem auto 0;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgba(200, 16, 46, 0.28);
+  background: rgba(200, 16, 46, 0.08);
+  color: var(--hw-red);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
 /* ── Score Summary Cards ── */
 .duel-final-summary {
   display: flex;
