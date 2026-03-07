@@ -106,11 +106,11 @@
   border: 1px solid var(--hw-gray-300, #d1d5db);
 }
 
-/* Location comparison map */
+/* Location comparison map - 16:9 matches FINAL_MAP.png so full height is visible */
 .img-report-detail-map {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 16 / 9;
   max-height: 360px;
   border: 1px solid var(--hw-gray-300, #d1d5db);
   overflow: hidden;
@@ -134,11 +134,14 @@
 .img-report-detail-map-zoom-content {
   position: relative;
   width: 100%;
+  height: 100%;
   will-change: transform;
   transform-origin: 0 0;
 }
 
 .img-report-detail-map-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
