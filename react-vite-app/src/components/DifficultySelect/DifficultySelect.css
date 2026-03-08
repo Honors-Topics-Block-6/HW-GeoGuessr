@@ -152,54 +152,56 @@
   margin-bottom: 0.5rem;
 }
 
-.time-penalty-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.6rem;
-  background: var(--hw-gray-50, #f9fafb);
-  border: 1px solid var(--hw-gray-200, #e5e7eb);
-  border-radius: 8px;
-  margin-top: 0.25rem;
+.time-penalty-heading {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--hw-black);
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
 }
 
-.time-penalty-label {
-  font-size: 0.95rem;
-  font-weight: 700;
+.time-penalty-options {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.time-penalty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.9rem;
+  min-width: 80px;
+  background: #fff;
+  border: 2px solid var(--hw-gray-300);
+  cursor: pointer;
+  transition: all 0.25s ease;
   color: var(--hw-black);
 }
 
-.time-penalty-hint {
-  font-size: 0.8rem;
-  color: var(--hw-gray-600);
-}
-
-.time-penalty-toggle {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.time-penalty-btn {
-  padding: 0.35rem 0.9rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border: 2px solid var(--hw-gray-300);
-  background: #fff;
-  color: var(--hw-gray-600);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.time-penalty-btn:hover {
+.time-penalty-card:hover {
   background: var(--hw-gray-100);
   border-color: var(--hw-gray-400);
-  color: var(--hw-black);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.time-penalty-btn.selected {
-  background: rgba(200, 16, 46, 0.06);
+.time-penalty-card.selected {
   border-color: var(--hw-red);
-  color: var(--hw-red);
+  background: rgba(200, 16, 46, 0.06);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
+}
+
+.time-penalty-card-icon {
+  font-size: 1.1rem;
+}
+
+.time-penalty-card-label {
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .mode-card {
@@ -249,7 +251,7 @@
 .time-heading,
 .rounds-heading,
 .mode-heading {
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: 900;
   color: var(--hw-black);
   margin-top: 1rem;
@@ -420,7 +422,7 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .difficulty-heading, .mode-heading, .time-heading { font-size: 1.7rem; }
+  .difficulty-heading, .mode-heading, .time-heading, .time-penalty-heading { font-size: 1.7rem; }
 
   .difficulty-screen {
     justify-content: flex-start;
@@ -437,11 +439,7 @@
     max-width: 560px;
   }
 
-  .time-penalty-row {
-    flex-direction: column;
-    align-items: stretch;
-    text-align: center;
-  }
+  .time-penalty-options { max-width: 560px; }
 
   .difficulty-options, .mode-options-single {
     display: grid;
@@ -457,7 +455,7 @@
     max-width: 560px;
   }
 
-  .difficulty-card, .mode-card, .time-card {
+  .difficulty-card, .mode-card, .time-card, .time-penalty-card {
     max-width: none;
     width: 100%;
     padding: 0.9rem 0.75rem;
@@ -476,10 +474,10 @@
 }
 
 @media (max-width: 480px) {
-  .difficulty-heading, .mode-heading, .time-heading { font-size: 1.4rem; }
+  .difficulty-heading, .mode-heading, .time-heading, .time-penalty-heading { font-size: 1.4rem; }
   .difficulty-content { padding: 0.9rem 0.9rem 1.25rem; }
   .time-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .difficulty-card, .mode-card, .time-card { padding: 0.75rem 0.6rem; }
+  .difficulty-card, .mode-card, .time-card, .time-penalty-card { padding: 0.75rem 0.6rem; }
   .time-card-label { font-size: 0.9rem; }
   .difficulty-footer { margin-top: 1.25rem; }
 }
@@ -493,7 +491,8 @@
   .difficulty-heading,
   .mode-heading,
   .time-heading,
-  .rounds-heading {
+  .rounds-heading,
+  .time-penalty-heading {
     font-size: 1.4rem;
   }
   .difficulty-subheading { margin-bottom: 1.2rem; }
@@ -505,10 +504,9 @@
     max-width: 560px;
   }
 
-  .time-penalty-row {
-    flex-direction: column;
-    align-items: stretch;
-    text-align: center;
+  .time-penalty-options {
+    max-width: 560px;
+    width: 100%;
   }
 
   .difficulty-options,
@@ -521,7 +519,8 @@
   }
 
   .time-options,
-  .rounds-options {
+  .rounds-options,
+  .time-penalty-options {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.6rem;
@@ -538,7 +537,8 @@
   .difficulty-card,
   .mode-card,
   .time-card,
-  .rounds-card {
+  .rounds-card,
+  .time-penalty-card {
     max-width: none;
     width: 100%;
     padding: 0.9rem 0.75rem;
@@ -561,7 +561,8 @@
   .difficulty-heading,
   .mode-heading,
   .time-heading,
-  .rounds-heading {
+  .rounds-heading,
+  .time-penalty-heading {
     font-size: 1.4rem;
   }
 
@@ -569,14 +570,16 @@
     padding: 0.9rem 0.9rem 1.25rem;
   }
 
-  .time-options {
+  .time-options,
+  .time-penalty-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .difficulty-card,
   .mode-card,
   .time-card,
-  .rounds-card {
+  .rounds-card,
+  .time-penalty-card {
     padding: 0.75rem 0.6rem;
     border-radius: 12px;
   }
@@ -587,5 +590,150 @@
 
   .difficulty-footer {
     margin-top: 1.25rem;
+  }
+}
+
+/* Phone-only compact layout: keep all singleplayer options visible without scrolling. */
+@media (max-width: 600px) {
+  .difficulty-screen {
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .difficulty-content {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    padding: 4.25rem 0.55rem 0.35rem;
+    gap: 0.08rem;
+    justify-content: space-between;
+  }
+
+  .difficulty-back-button {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 0.4rem);
+    left: 0.55rem;
+    z-index: 2;
+    margin-bottom: 0;
+    padding: 8px 15px;
+    font-size: 15px;
+  }
+
+  .difficulty-heading,
+  .time-heading,
+  .mode-heading,
+  .rounds-heading,
+  .time-penalty-heading {
+    margin-top: 0.42rem;
+    margin-bottom: 0.2rem;
+    font-size: 1.2rem;
+    line-height: 1.15;
+  }
+
+  .difficulty-options {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  .time-options {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.3rem;
+    width: 100%;
+  }
+
+  .mode-options-single {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+    width: 100%;
+    margin-bottom: 0.25rem;
+  }
+
+  .rounds-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.3rem;
+    width: 100%;
+  }
+
+  .time-penalty-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem;
+    width: 100%;
+  }
+
+  .difficulty-card,
+  .time-card,
+  .mode-card,
+  .rounds-card,
+  .time-penalty-card {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+    padding: 0.46rem 0.22rem;
+    border-width: 1.5px;
+    gap: 0.16rem;
+    min-height: clamp(46px, 7vh, 62px);
+  }
+
+  .difficulty-card-icon,
+  .time-card-icon,
+  .mode-card-icon,
+  .rounds-card-icon,
+  .time-penalty-card-icon {
+    font-size: 0.98rem;
+  }
+
+  .difficulty-card-label,
+  .time-card-label,
+  .mode-card-label,
+  .rounds-card-label,
+  .time-penalty-card-label {
+    font-size: 0.78rem;
+    line-height: 1.1;
+  }
+
+  .difficulty-card-desc,
+  .mode-card-desc,
+  .rounds-card-suffix {
+    display: none;
+  }
+
+  .time-custom-inline {
+    gap: 0.12rem;
+  }
+
+  .time-custom-input {
+    width: 38px;
+    padding: 0.18rem 0.1rem;
+    font-size: 0.78rem;
+  }
+
+  .time-custom-unit {
+    font-size: 0.72rem;
+  }
+
+  .time-custom-error {
+    margin-top: 0.2rem;
+    font-size: 0.72rem;
+  }
+
+  .difficulty-footer {
+    margin-top: 0.38rem;
+    padding: 0;
+  }
+
+  .play-button {
+    margin-top: 0.65rem;
+    min-width: 0;
+    width: 100%;
+    min-height: 4.1rem;
+    padding: 1.15rem 0.9rem;
+    font-size: 0.98rem;
+    letter-spacing: 0.03em;
   }
 }

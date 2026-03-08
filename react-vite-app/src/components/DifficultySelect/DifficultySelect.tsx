@@ -279,22 +279,22 @@ function DifficultySelect({
               </button>
             </div>
 
-            <div className="time-penalty-row">
-              <span className="time-penalty-label">Time penalty</span>
-              <div className="time-penalty-toggle">
-                <button
-                  className={`time-penalty-btn ${!timePenaltyEnabled ? "selected" : ""}`}
-                  onClick={() => setTimePenaltyEnabled(false)}
-                >
-                  Off
-                </button>
-                <button
-                  className={`time-penalty-btn ${timePenaltyEnabled ? "selected" : ""}`}
-                  onClick={() => setTimePenaltyEnabled(true)}
-                >
-                  On
-                </button>
-              </div>
+            <h2 className="time-penalty-heading">Time Penalty</h2>
+            <div className="time-penalty-options">
+              <button
+                className={`time-penalty-card ${!timePenaltyEnabled ? "selected" : ""}`}
+                onClick={() => setTimePenaltyEnabled(false)}
+              >
+                <span className="time-penalty-card-icon">⏸️</span>
+                <span className="time-penalty-card-label">Off</span>
+              </button>
+              <button
+                className={`time-penalty-card ${timePenaltyEnabled ? "selected" : ""}`}
+                onClick={() => setTimePenaltyEnabled(true)}
+              >
+                <span className="time-penalty-card-icon">⚡</span>
+                <span className="time-penalty-card-label">On</span>
+              </button>
             </div>
           </>
         )}
