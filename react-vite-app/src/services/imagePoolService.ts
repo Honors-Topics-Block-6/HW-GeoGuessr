@@ -25,6 +25,7 @@ export interface ImagePoolEntry {
   active: boolean;
   randomKey: number;
   updatedAtMs: number;
+  tournament: boolean;
 }
 
 export interface BackfillImagePoolOptions {
@@ -82,12 +83,13 @@ function poolDocId(sourceType: ImagePoolSourceType, sourceId: string): string {
 function buildEntry(
   sourceType: ImagePoolSourceType,
   sourceId: string,
-  payload: { difficulty: unknown; active?: unknown; randomKey?: unknown }
+  payload: { difficulty: unknown; active?: unknown; randomKey?: unknown; tournament?: unknown }
 ): ImagePoolEntry {
   const difficultyValue = normalizeString(payload.difficulty);
   const difficulty = difficultyValue === 'all' ? null : difficultyValue;
   const active = typeof payload.active === 'boolean' ? payload.active : true;
   const randomKey = typeof payload.randomKey === 'number' ? payload.randomKey : Math.random();
+  const tournament = typeof payload.tournament === 'boolean' ? payload.tournament : false;
 
   return {
     sourceType,
@@ -95,7 +97,8 @@ function buildEntry(
     difficulty,
     active,
     randomKey,
-    updatedAtMs: Date.now()
+    updatedAtMs: Date.now(),
+    tournament
   };
 }
 
@@ -103,15 +106,20 @@ export function buildImagePoolEntryFromImageDoc(sourceId: string, data: Record<s
   if (!hasPlayableImageFields(data)) return null;
   return buildEntry('image', sourceId, {
     difficulty: data.difficulty,
-    active: true
+    active: true,
+    tournament: false
   });
 }
 
 export function buildImagePoolEntryFromSubmissionDoc(sourceId: string, data: Record<string, unknown>): ImagePoolEntry | null {
   if (!hasPlayableSubmissionFields(data)) return null;
+  const status = normalizeString(data.status) ?? 'approved';
+  const isTournament = status === 'tournament_approved';
+  const isActive = status === 'approved' || status === 'tournament_approved';
   return buildEntry('submission', sourceId, {
     difficulty: data.difficulty,
-    active: (normalizeString(data.status) ?? 'approved') === 'approved'
+    active: isActive,
+    tournament: isTournament
   });
 }
 
@@ -175,14 +183,14 @@ async function fetchSubmissionBatch(cursor: string | null, maxDocsPerSource: num
   const snapshot = cursor
     ? await getDocs(query(
       collection(db, 'submissions'),
-      where('status', '==', 'approved'),
+      where('status', 'in', ['approved', 'tournament_approved']),
       orderBy(documentId()),
       startAfter(cursor),
       limit(maxDocsPerSource)
     ))
     : await getDocs(query(
       collection(db, 'submissions'),
-      where('status', '==', 'approved'),
+      where('status', 'in', ['approved', 'tournament_approved']),
       orderBy(documentId()),
       limit(maxDocsPerSource)
     ));

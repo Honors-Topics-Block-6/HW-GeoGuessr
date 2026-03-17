@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { ImagePoolEntry } from './imagePoolService';
+import { isTournamentModeEnabled } from './appSettingsService';
 
 // ────── Types ──────
 
@@ -161,14 +162,15 @@ function randomKey(): number {
   return Math.random();
 }
 
-async function pickPoolCandidate(difficulty: string | null): Promise<{ id: string; sourceType: 'image' | 'submission'; sourceId: string; difficulty: string | null } | null> {
+async function pickPoolCandidate(difficulty: string | null, tournamentMode: boolean): Promise<{ id: string; sourceType: 'image' | 'submission'; sourceId: string; difficulty: string | null } | null> {
   const pivot = randomKey();
-  const withDifficulty = Boolean(difficulty && difficulty !== 'all');
 
   let snap;
   try {
     const q1 = query(
       collection(db, 'imagePool'),
+      where('active', '==', true),
+      where('tournament', '==', tournamentMode),
       orderBy('randomKey'),
       startAt(pivot),
       limit(1)
@@ -181,6 +183,8 @@ async function pickPoolCandidate(difficulty: string | null): Promise<{ id: strin
     try {
       const q2 = query(
         collection(db, 'imagePool'),
+        where('active', '==', true),
+        where('tournament', '==', tournamentMode),
         orderBy('randomKey'),
         limit(1)
       );
@@ -215,7 +219,8 @@ async function hydrateCandidate(candidate: { id: string; sourceType: 'image' | '
     };
   }
 
-  if ((data.status as string | undefined) !== 'approved') return null;
+  const status = data.status as string | undefined;
+  if (status !== 'approved' && status !== 'tournament_approved') return null;
   if (typeof data.photoURL !== 'string' || !data.photoURL) return null;
   const loc = data.location as { x?: unknown; y?: unknown } | undefined;
   if (!loc || typeof loc.x !== 'number' || typeof loc.y !== 'number') return null;
@@ -234,13 +239,14 @@ async function selectRandomHydratedImage(
   difficulty: string | null,
   excludedIds: Set<string>,
   excludedUrls: Set<string>,
-  allowExclusions: boolean
+  allowExclusions: boolean,
+  tournamentMode: boolean
 ): Promise<GameImage | null> {
   const attemptedCandidateIds = new Set<string>();
   const requiresDifficulty = Boolean(difficulty && difficulty !== 'all');
 
   for (let attempt = 0; attempt < RANDOM_SELECTION_ATTEMPTS; attempt += 1) {
-    const candidate = await pickPoolCandidate(difficulty);
+    const candidate = await pickPoolCandidate(difficulty, tournamentMode);
     if (!candidate) return null;
     if (attemptedCandidateIds.has(candidate.id)) {
       continue;
@@ -282,13 +288,14 @@ export async function getRandomImage(
   try {
     const excludedIds = new Set(options.excludeImageIds || []);
     const excludedUrls = new Set(options.excludeImageUrls || []);
-    const withExclusion = await selectRandomHydratedImage(difficulty, excludedIds, excludedUrls, true);
+    const tournamentMode = await isTournamentModeEnabled();
+    const withExclusion = await selectRandomHydratedImage(difficulty, excludedIds, excludedUrls, true, tournamentMode);
     if (withExclusion) {
-      console.info(`[getRandomImage] selected in ${Date.now() - startMs}ms (with exclusions)`);
+      console.info(`[getRandomImage] selected in ${Date.now() - startMs}ms (with exclusions, tournament=${tournamentMode})`);
       return withExclusion;
     }
-    const fallback = await selectRandomHydratedImage(difficulty, excludedIds, excludedUrls, false);
-    console.info(`[getRandomImage] selected in ${Date.now() - startMs}ms (fallback=${fallback ? 'hit' : 'miss'})`);
+    const fallback = await selectRandomHydratedImage(difficulty, excludedIds, excludedUrls, false, tournamentMode);
+    console.info(`[getRandomImage] selected in ${Date.now() - startMs}ms (fallback=${fallback ? 'hit' : 'miss'}, tournament=${tournamentMode})`);
     return fallback;
   } catch (error) {
     console.error('Error fetching random image:', error);

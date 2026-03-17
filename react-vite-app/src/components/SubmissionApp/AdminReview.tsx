@@ -36,7 +36,7 @@ export interface Location {
 }
 
 type SubmissionSource = 'submission' | 'image'
-type SubmissionStatus = 'pending' | 'approved' | 'denied'
+type SubmissionStatus = 'pending' | 'approved' | 'denied' | 'tournament_approved'
 
 export interface SubmissionItem {
   id: string
@@ -554,7 +554,8 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
           location: target.location,
           floor: target.floor,
           buildingName: target.buildingName,
-          description: target.description
+          description: target.description,
+          status: 'approved'
         })
         if (poolEntry) {
           await upsertImagePoolEntry(poolEntry)
@@ -572,6 +573,42 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     } catch (error) {
       console.error('Error approving submission:', error)
       pushNotification('Approve failed', 'error')
+    }
+  }
+
+  const handleTournamentApprove = async (submissionId: string): Promise<void> => {
+    try {
+      await updateDoc(doc(db, 'submissions', submissionId), {
+        status: 'tournament_approved',
+        reviewedAt: serverTimestamp()
+      })
+      const target = submissions.find((item) => item.id === submissionId)
+      if (target) {
+        const poolEntry = buildImagePoolEntryFromSubmissionDoc(submissionId, {
+          photoURL: target.photoURL,
+          difficulty: target.difficulty,
+          location: target.location,
+          floor: target.floor,
+          buildingName: target.buildingName,
+          description: target.description,
+          status: 'tournament_approved'
+        })
+        if (poolEntry) {
+          await upsertImagePoolEntry(poolEntry)
+        }
+      }
+      setSubmissions(prev => prev.map((item) =>
+        item.id === submissionId
+          ? { ...item, status: 'tournament_approved', reviewedAt: new Date().toISOString() }
+          : item
+      ))
+      if (selectedSubmission?.id === submissionId) {
+        setSelectedSubmission(prev => prev ? { ...prev, status: 'tournament_approved', reviewedAt: new Date().toISOString() } : prev)
+      }
+      pushNotification('Tournament Approved', 'success')
+    } catch (error) {
+      console.error('Error tournament approving submission:', error)
+      pushNotification('Tournament approve failed', 'error')
     }
   }
 
@@ -858,6 +895,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const loadedStatusCounts = useMemo(() => ({
     pending: submissions.filter((item) => item.status === 'pending').length,
     approved: submissions.filter((item) => item.status === 'approved').length + firestoreImages.length,
+    tournament_approved: submissions.filter((item) => item.status === 'tournament_approved').length,
     denied: submissions.filter((item) => item.status === 'denied').length
   }), [firestoreImages.length, submissions])
 
@@ -878,7 +916,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     return `${loaded}/${total}`
   }
 
-  const formatStatusCount = (status: 'all' | 'pending' | 'approved' | 'denied'): string => {
+  const formatStatusCount = (status: 'all' | 'pending' | 'approved' | 'tournament_approved' | 'denied'): string => {
     if (status === 'all') {
       return formatSourceCount('all')
     }
@@ -890,6 +928,9 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     if (status === 'approved') {
       // Approved includes both approved submissions and game images
       total = totalCounts.approved + totalCounts.images
+    } else if (status === 'tournament_approved') {
+      // Tournament approved count comes from loaded data (not stored in totalCounts)
+      return `${loaded}`
     } else {
       total = totalCounts[status]
     }
@@ -908,6 +949,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
   const getStatusBadgeClass = (status: string): string => {
     switch (status) {
       case 'approved': return 'badge-approved'
+      case 'tournament_approved': return 'badge-tournament'
       case 'denied': return 'badge-denied'
       default: return 'badge-pending'
     }
@@ -1015,6 +1057,12 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
               Approved ({formatStatusCount('approved')})
             </button>
             <button
+              className={`filter-tab filter-tab-tournament ${filter === 'tournament_approved' ? 'active' : ''}`}
+              onClick={() => setFilter('tournament_approved')}
+            >
+              Tournament ({formatStatusCount('tournament_approved')})
+            </button>
+            <button
               className={`filter-tab ${filter === 'denied' ? 'active' : ''}`}
               onClick={() => setFilter('denied')}
             >
@@ -1100,6 +1148,12 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                       onClick={() => handleApprove(submission.id)}
                     >
                       Approve
+                    </button>
+                    <button
+                      className="tournament-approve-button"
+                      onClick={() => handleTournamentApprove(submission.id)}
+                    >
+                      Tournament
                     </button>
                     <button
                       className="deny-button"
@@ -1435,6 +1489,15 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
                   }}
                 >
                   Approve
+                </button>
+                <button
+                  className="tournament-approve-button"
+                  onClick={() => {
+                    handleTournamentApprove(selectedSubmission.id)
+                    setSelectedSubmission(null)
+                  }}
+                >
+                  Tournament
                 </button>
                 <button
                   className="deny-button"

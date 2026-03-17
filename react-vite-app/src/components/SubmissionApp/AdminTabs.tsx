@@ -7,6 +7,7 @@ import AccountManagement from './AccountManagement'
 import FriendsManagement from './FriendsManagement'
 import BugReportManagement from './BugReportManagement'
 import ImageReportManagement from './ImageReportManagement'
+import TournamentModeToggle from './TournamentModeToggle'
 
 export type AdminTabKey = 'review' | 'mapEditor' | 'accounts' | 'friends' | 'bugReports' | 'imageReports'
 
@@ -70,10 +71,15 @@ function AdminTabs({ activeTab, onTabChange, onBack }: AdminTabsProps): React.JS
   return (
     <div className="admin-panel">
       <div className="admin-panel-header">
-        <button className="back-button" onClick={onBack}>
-          ← Back to Submission
-        </button>
-        <h2>Admin Panel</h2>
+        <div className="admin-panel-header-left">
+          <button className="back-button" onClick={onBack}>
+            ← Back to Submission
+          </button>
+          <h2>Admin Panel</h2>
+        </div>
+        <div className="admin-panel-header-right">
+          <TournamentModeToggle />
+        </div>
       </div>
 
       <div className="admin-tabs">
