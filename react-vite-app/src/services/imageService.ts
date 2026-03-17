@@ -469,7 +469,7 @@ export async function getAdminSourceCounts(): Promise<AdminSourceCountsResult> {
  * Fetch submissions in pages for admin review.
  */
 export async function getAdminSubmissionsPage(options: {
-  status?: 'pending' | 'approved' | 'denied' | 'all';
+  status?: 'pending' | 'approved' | 'denied' | 'tournament_approved' | 'all';
   pageSize?: number;
   cursor?: string | null;
 } = {}): Promise<AdminPageResult<AdminSubmissionPageItem>> {

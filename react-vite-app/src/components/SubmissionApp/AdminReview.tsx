@@ -182,7 +182,7 @@ function AdminReview({ onBack }: AdminReviewProps): React.JSX.Element {
     const [submissionPage, imagePage] = await Promise.all([
       submissionPageSize > 0
         ? getAdminSubmissionsPage({
-            status: (filterValue === 'pending' || filterValue === 'approved' || filterValue === 'denied') ? filterValue : 'all',
+            status: (filterValue === 'pending' || filterValue === 'approved' || filterValue === 'denied' || filterValue === 'tournament_approved') ? filterValue : 'all',
             pageSize: submissionPageSize,
             cursor: currentSubmissionCursor
           })
