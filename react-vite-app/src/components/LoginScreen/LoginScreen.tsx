@@ -9,6 +9,18 @@ interface FirebaseError extends Error {
   code?: string;
 }
 
+/** HW school emails cannot use Google Sign-In due to admin restrictions */
+const HW_EMAIL_GOOGLE_ERROR =
+  'HW school emails (@hwemail.com, @hw.com) cannot be used with Google Sign-In due to admin restrictions. Please use a personal email or continue as guest.';
+
+/** Firebase errors that often indicate HW email / domain restriction */
+function isHwEmailRelatedError(err: FirebaseError): boolean {
+  const code = err?.code;
+  if (code === 'auth/operation-not-allowed' || code === 'auth/unauthorized-domain') return true;
+  const msg = (err?.message || '').toLowerCase();
+  return msg.includes('domain') || msg.includes('organization') || msg.includes('admin');
+}
+
 function getSuggestionsFromError(err: unknown): string[] | null {
   if (!err || typeof err !== 'object') return null;
   const maybe = err as { suggestions?: unknown };
@@ -33,6 +45,7 @@ function LoginScreen(): React.ReactElement {
   const [showForgotPassword, setShowForgotPassword] = useState<boolean>(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState<string>('');
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState<string>('');
+  const [hwEmailBannerDismissed, setHwEmailBannerDismissed] = useState<boolean>(false);
 
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -86,7 +99,10 @@ function LoginScreen(): React.ReactElement {
     try {
       await loginWithGoogle();
     } catch (err) {
-      setError(getErrorMessage(err as FirebaseError));
+      const msg = getErrorMessage(err as FirebaseError);
+      // If it's a domain/blocked error, show HW email-specific message
+      const isHwEmailError = isHwEmailRelatedError(err as FirebaseError);
+      setError(isHwEmailError ? HW_EMAIL_GOOGLE_ERROR : msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -203,7 +219,12 @@ function LoginScreen(): React.ReactElement {
           <h1 className="login-title">Choose a Username</h1>
           <p className="login-subtitle">One last step to complete your account</p>
 
-          {error && <div className="login-error">{error}</div>}
+          {error && (
+            <div className="login-error login-error-dismissible">
+              <span>{error}</span>
+              <button type="button" className="login-error-close" onClick={() => setError('')} aria-label="Dismiss">×</button>
+            </div>
+          )}
 
           <form onSubmit={handleGoogleUsernameSubmit} className="login-form">
             <div className="form-group">
@@ -277,7 +298,12 @@ function LoginScreen(): React.ReactElement {
           {isSignUp ? 'Create your account' : 'Sign in to play'}
         </p>
 
-        {error && <div className="login-error">{error}</div>}
+        {error && (
+          <div className="login-error login-error-dismissible">
+            <span>{error}</span>
+            <button type="button" className="login-error-close" onClick={() => setError('')} aria-label="Dismiss">×</button>
+          </div>
+        )}
 
         <form onSubmit={handleEmailSubmit} className="login-form">
           {isSignUp && (
@@ -426,6 +452,22 @@ function LoginScreen(): React.ReactElement {
         <div className="login-divider">
           <span>or</span>
         </div>
+
+        {!hwEmailBannerDismissed && (
+          <div className="hw-email-banner" role="alert">
+            <p className="hw-email-banner-text">
+              HW school emails (@hwemail.com, @hw.com) cannot be used with Google Sign-In due to admin restrictions. Use a personal email or continue as guest.
+            </p>
+            <button
+              type="button"
+              className="hw-email-banner-close"
+              onClick={() => setHwEmailBannerDismissed(true)}
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         <button
           className="google-button"
