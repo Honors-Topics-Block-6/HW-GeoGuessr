@@ -177,6 +177,7 @@ async function pickPoolCandidate(difficulty: string | null, tournamentMode: bool
     );
     snap = await getDocs(q1);
   } catch (err) {
+    console.error('[pickPoolCandidate] Query failed (may need composite index):', err);
     throw err;
   }
   if (snap.empty) {
@@ -190,10 +191,14 @@ async function pickPoolCandidate(difficulty: string | null, tournamentMode: bool
       );
       snap = await getDocs(q2);
     } catch (err) {
+      console.error('[pickPoolCandidate] Wrap-around query failed:', err);
       throw err;
     }
   }
-  if (snap.empty) return null;
+  if (snap.empty) {
+    console.warn(`[pickPoolCandidate] No images found for tournament=${tournamentMode}`);
+    return null;
+  }
   const docSnap = snap.docs[0];
   return toPoolCandidate(docSnap.id, docSnap.data() as ImagePoolEntry);
 }
