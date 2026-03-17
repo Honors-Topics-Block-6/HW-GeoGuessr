@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "imagePool",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tournament", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "randomKey", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -164,63 +164,49 @@ function randomKey(): number {
 
 async function pickPoolCandidate(difficulty: string | null, tournamentMode: boolean): Promise<{ id: string; sourceType: 'image' | 'submission'; sourceId: string; difficulty: string | null } | null> {
   const pivot = randomKey();
-  const BATCH_SIZE = 50;
 
-  // Query by randomKey and filter client-side to avoid composite index requirement
+  // Query with composite index: tournament + active + randomKey
+  // Requires firestore.indexes.json to be deployed
   let snap;
   try {
     const q1 = query(
       collection(db, 'imagePool'),
+      where('tournament', '==', tournamentMode),
+      where('active', '==', true),
       orderBy('randomKey'),
       startAt(pivot),
-      limit(BATCH_SIZE)
+      limit(1)
     );
     snap = await getDocs(q1);
   } catch (err) {
-    console.error('[pickPoolCandidate] Query failed:', err);
+    console.error('[pickPoolCandidate] Query failed - ensure Firestore index is deployed:', err);
     throw err;
   }
 
-  // Filter for active and matching tournament mode
-  let candidates = snap.docs
-    .map(doc => ({ id: doc.id, data: doc.data() as ImagePoolEntry }))
-    .filter(({ data }) => {
-      if (!data.active) return false;
-      // Documents without tournament field are treated as non-tournament (false)
-      const docTournament = data.tournament === true;
-      return docTournament === tournamentMode;
-    });
-
-  // If no matches found, wrap around to beginning
-  if (candidates.length === 0) {
+  // Wrap around if we started past all matching entries
+  if (snap.empty) {
     try {
       const q2 = query(
         collection(db, 'imagePool'),
+        where('tournament', '==', tournamentMode),
+        where('active', '==', true),
         orderBy('randomKey'),
-        limit(BATCH_SIZE)
+        limit(1)
       );
       snap = await getDocs(q2);
-      candidates = snap.docs
-        .map(doc => ({ id: doc.id, data: doc.data() as ImagePoolEntry }))
-        .filter(({ data }) => {
-          if (!data.active) return false;
-          const docTournament = data.tournament === true;
-          return docTournament === tournamentMode;
-        });
     } catch (err) {
       console.error('[pickPoolCandidate] Wrap-around query failed:', err);
       throw err;
     }
   }
 
-  if (candidates.length === 0) {
+  if (snap.empty) {
     console.warn(`[pickPoolCandidate] No images found for tournament=${tournamentMode}`);
     return null;
   }
 
-  // Pick a random candidate from the filtered results
-  const selected = candidates[Math.floor(Math.random() * candidates.length)];
-  return toPoolCandidate(selected.id, selected.data);
+  const docSnap = snap.docs[0];
+  return toPoolCandidate(docSnap.id, docSnap.data() as ImagePoolEntry);
 }
 
 async function hydrateCandidate(candidate: { id: string; sourceType: 'image' | 'submission'; sourceId: string }): Promise<GameImage | null> {
