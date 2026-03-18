@@ -322,6 +322,18 @@ export async function joinLobby(
     throw new Error('This lobby has closed due to inactivity.');
   }
 
+  // Check if player is already in lobby first (rejoin case)
+  if (lobby.players.some(p => p.uid === playerUid)) {
+    // Rejoin: user is already in lobby (e.g. host who lost tab, or reconnecting)
+    // Allow rejoin even if game has started (for tournament matches)
+    await updateDoc(lobbyRef, {
+      [`heartbeats.${playerUid}`]: Timestamp.now(),
+      lastActionAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return;
+  }
+
   if (lobby.status !== 'waiting') {
     throw new Error('This game has already started.');
   }
@@ -334,16 +346,6 @@ export async function joinLobby(
 
   if (lobby.players.length >= normalizedMaxPlayers) {
     throw new Error('This lobby is full.');
-  }
-
-  if (lobby.players.some(p => p.uid === playerUid)) {
-    // Rejoin: user is already in lobby (e.g. host who lost tab, or reconnecting)
-    await updateDoc(lobbyRef, {
-      [`heartbeats.${playerUid}`]: Timestamp.now(),
-      lastActionAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    return;
   }
 
   await updateDoc(lobbyRef, {

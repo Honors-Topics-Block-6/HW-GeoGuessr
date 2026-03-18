@@ -21,10 +21,12 @@ import {
   type ChatNotificationItem,
 } from "./hooks/useChatNotifications";
 import { useLobbyInvites, type LobbyInvite } from "./hooks/useLobbyInvites";
+import { useTournamentMatch } from "./hooks/useTournamentMatch";
 import {
   STARTING_HEALTH,
   handleOpponentDisconnect,
 } from "./services/duelService";
+import { recordMatchResult, startMatch } from "./services/tournamentService";
 import { useDailyGoals } from "./hooks/useDailyGoals";
 import { joinLobby } from "./services/lobbyService";
 import { touchLastActive } from "./services/lastActiveService";
@@ -39,6 +41,7 @@ import FinalResultsScreen from "./components/FinalResultsScreen/FinalResultsScre
 import MultiplayerLobby from "./components/MultiplayerLobby/MultiplayerLobby";
 import MyGames from "./components/MyGames/MyGames";
 import WaitingRoom from "./components/WaitingRoom/WaitingRoom";
+import TournamentWaitingRoom from "./components/TournamentWaitingRoom/TournamentWaitingRoom";
 import DuelGameScreen from "./components/DuelGameScreen/DuelGameScreen";
 import DuelResultScreen from "./components/DuelResultScreen/DuelResultScreen";
 import DuelFinalScreen from "./components/DuelFinalScreen/DuelFinalScreen";
@@ -281,6 +284,19 @@ function App(): React.ReactElement {
   );
   const { invites: lobbyInvites, dismissInvite: dismissLobbyInvite } =
     useLobbyInvites(user?.uid ?? null, friendUids);
+
+  // Tournament match tracking
+  const { tournamentMatch } = useTournamentMatch(
+    isGuest ? null : user?.uid ?? null
+  );
+  const [inTournamentMatch, setInTournamentMatch] = useState<boolean>(false);
+  const [tournamentLobbyDocId, setTournamentLobbyDocId] = useState<string | null>(null);
+  const tournamentMatchRef = useRef(tournamentMatch);
+
+  // Keep tournament match ref current
+  useEffect(() => {
+    tournamentMatchRef.current = tournamentMatch;
+  }, [tournamentMatch]);
 
   /**
    * Handle joining a lobby from a chat invite message.
@@ -678,6 +694,83 @@ function App(): React.ReactElement {
     }
   }, []);
 
+  /**
+   * Handle joining a tournament match from the title screen banner
+   */
+  const handleJoinTournamentMatch = useCallback(async (): Promise<void> => {
+    if (!tournamentMatch) return;
+
+    // Close any open panels
+    setShowFriends(false);
+    setShowChat(false);
+    setChatFriend(null);
+    setShowProfile(false);
+    setShowLeaderboard(false);
+    setShowDailyGoals(false);
+    setShowSubmissionApp(false);
+
+    let lobbyId = tournamentMatch.lobbyDocId;
+
+    // If no lobby exists yet, create one by starting the match
+    if (!lobbyId) {
+      try {
+        lobbyId = await startMatch(tournamentMatch.tournamentId, tournamentMatch.matchId);
+      } catch (err) {
+        console.error("Failed to start tournament match:", err);
+        return;
+      }
+    }
+
+    setTournamentLobbyDocId(lobbyId);
+    setInTournamentMatch(true);
+    setScreen("tournamentWaiting");
+  }, [tournamentMatch, setScreen]);
+
+  /**
+   * Handle tournament match game start (transition to duel)
+   */
+  const handleTournamentGameStart = useCallback((): void => {
+    if (!isGuest && user?.uid) {
+      void touchLastActive(user.uid, { minIntervalMs: 2 * 60 * 1000 });
+      recordDailyPlay(user.uid);
+    }
+    setInDuel(true);
+    setDuelLobbyDocId(tournamentLobbyDocId);
+    setInTournamentMatch(false);
+    setScreen("duelGame");
+  }, [isGuest, user?.uid, tournamentLobbyDocId, setScreen]);
+
+  /**
+   * Handle leaving tournament waiting room
+   */
+  const handleTournamentLeave = useCallback((): void => {
+    setInTournamentMatch(false);
+    setTournamentLobbyDocId(null);
+    setScreen("title");
+  }, [setScreen]);
+
+  /**
+   * Handle tournament duel completion - record result in tournament bracket
+   */
+  useEffect(() => {
+    if (!inDuel || duel.phase !== 'finished') return;
+    if (!duel.winner || !duel.loser) return;
+
+    // Check if this was a tournament match
+    const currentTournamentMatch = tournamentMatchRef.current;
+    if (!currentTournamentMatch) return;
+
+    // Record the match result in the tournament
+    recordMatchResult(
+      currentTournamentMatch.tournamentId,
+      currentTournamentMatch.matchId,
+      duel.winner,
+      duel.loser
+    ).catch((err) => {
+      console.error('Failed to record tournament match result:', err);
+    });
+  }, [inDuel, duel.phase, duel.winner, duel.loser]);
+
   // If a player closes/reloads the tab during an active duel, forfeit immediately.
   useEffect(() => {
     const handleUnloadForfeit = (): void => {
@@ -950,7 +1043,7 @@ function App(): React.ReactElement {
 
       {/* --- Single Player Screens --- */}
 
-      {screen === "title" && !inDuel && (
+      {screen === "title" && !inDuel && !inTournamentMatch && (
         <TitleScreen
           onPlay={handlePlay}
           onOpenSubmission={() => setShowSubmissionApp(true)}
@@ -964,6 +1057,14 @@ function App(): React.ReactElement {
           invites={lobbyInvites}
           onJoinInvite={handleJoinLobbyInvite}
           onDismissInvite={dismissLobbyInvite}
+          tournamentMatch={tournamentMatch ? {
+            tournamentId: tournamentMatch.tournamentId,
+            tournamentName: tournamentMatch.tournamentName,
+            matchId: tournamentMatch.matchId,
+            roundName: tournamentMatch.roundName,
+            opponentUsername: tournamentMatch.opponentUsername,
+          } : null}
+          onJoinTournamentMatch={tournamentMatch ? handleJoinTournamentMatch : undefined}
         />
       )}
 
@@ -1017,6 +1118,17 @@ function App(): React.ReactElement {
             setScreen("multiplayerLobby");
           }}
           onGameStart={handleDuelGameStart}
+        />
+      )}
+
+      {screen === "tournamentWaiting" && tournamentLobbyDocId && tournamentMatch && !inDuel && (
+        <TournamentWaitingRoom
+          lobbyDocId={tournamentLobbyDocId}
+          userUid={user.uid}
+          username={userDoc?.username ?? ""}
+          tournamentMatch={tournamentMatch}
+          onLeave={handleTournamentLeave}
+          onGameStart={handleTournamentGameStart}
         />
       )}
 

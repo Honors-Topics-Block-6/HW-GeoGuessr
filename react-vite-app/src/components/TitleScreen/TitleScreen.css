@@ -376,6 +376,112 @@
   transform: translateY(-1px);
 }
 
+/* ===== Tournament Match Banner ===== */
+.title-tournament-banner {
+  position: absolute;
+  left: 24px;
+  top: 90px;
+  z-index: 2;
+  width: 300px;
+  max-width: calc(100% - 48px);
+  background: linear-gradient(135deg, var(--hw-gold) 0%, #d9a01f 100%);
+  border: 2px solid var(--hw-black);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: tournamentPulse 2s ease-in-out infinite;
+}
+
+@keyframes tournamentPulse {
+  0%, 100% { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); }
+  50% { box-shadow: 0 8px 32px rgba(240, 179, 35, 0.5); }
+}
+
+.title-tournament-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-tournament-icon {
+  font-size: 1.5rem;
+  animation: trophyBounce 1s ease-in-out infinite;
+}
+
+@keyframes trophyBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.title-tournament-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--hw-black);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.title-tournament-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title-tournament-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--hw-black);
+}
+
+.title-tournament-round {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(35, 31, 32, 0.8);
+}
+
+.title-tournament-opponent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(35, 31, 32, 0.1);
+  border: 1px solid rgba(35, 31, 32, 0.2);
+}
+
+.title-tournament-opponent span:first-child {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(35, 31, 32, 0.6);
+  text-transform: uppercase;
+}
+
+.title-tournament-opponent-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--hw-black);
+}
+
+.title-tournament-join-button {
+  padding: 12px 20px;
+  background: var(--hw-red);
+  color: #fff;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.title-tournament-join-button:hover {
+  background: var(--hw-red-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(200, 16, 46, 0.3);
+}
+
 .logo-container {
   margin-bottom: 1rem;
   position: relative;
@@ -529,6 +635,12 @@
   }
 
   .title-invitations {
+    position: static;
+    margin: 16px auto 0;
+    width: min(360px, 100%);
+  }
+
+  .title-tournament-banner {
     position: static;
     margin: 16px auto 0;
     width: min(360px, 100%);

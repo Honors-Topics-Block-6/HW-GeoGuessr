@@ -85,6 +85,7 @@ export type ScreenState =
   | "finalResults"
   | "multiplayerLobby"
   | "waitingRoom"
+  | "tournamentWaiting"
   | "difficultySelect"
   | "duelGame"
   | "myGames";

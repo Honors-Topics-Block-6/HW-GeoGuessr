@@ -3,6 +3,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import type { LobbyInvite } from '../../hooks/useLobbyInvites';
 import './TitleScreen.css';
 
+export interface TournamentMatchInfo {
+  tournamentId: string;
+  tournamentName: string;
+  matchId: string;
+  roundName: string;
+  opponentUsername: string;
+}
+
 export interface TitleScreenProps {
   onPlay: () => void;
   onOpenSubmission: () => void;
@@ -16,6 +24,8 @@ export interface TitleScreenProps {
   invites: LobbyInvite[];
   onJoinInvite: (invite: LobbyInvite) => Promise<boolean>;
   onDismissInvite: (inviteId: string) => void;
+  tournamentMatch?: TournamentMatchInfo | null;
+  onJoinTournamentMatch?: () => void;
 }
 
 function TitleScreen({
@@ -30,7 +40,9 @@ function TitleScreen({
   isLoading,
   invites,
   onJoinInvite,
-  onDismissInvite
+  onDismissInvite,
+  tournamentMatch,
+  onJoinTournamentMatch
 }: TitleScreenProps): React.ReactElement {
   const { userDoc, logout, levelInfo, levelTitle: _levelTitle } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -126,6 +138,28 @@ function TitleScreen({
       <div className="title-background">
         <div className="title-overlay"></div>
       </div>
+      {tournamentMatch && onJoinTournamentMatch && (
+        <div className="title-tournament-banner" role="region" aria-label="Tournament match">
+          <div className="title-tournament-header">
+            <span className="title-tournament-icon">🏆</span>
+            <span className="title-tournament-title">TOURNAMENT MATCH READY!</span>
+          </div>
+          <div className="title-tournament-info">
+            <span className="title-tournament-name">{tournamentMatch.tournamentName}</span>
+            <span className="title-tournament-round">{tournamentMatch.roundName}</span>
+          </div>
+          <div className="title-tournament-opponent">
+            <span>vs</span>
+            <span className="title-tournament-opponent-name">@{tournamentMatch.opponentUsername}</span>
+          </div>
+          <button
+            className="title-tournament-join-button"
+            onClick={onJoinTournamentMatch}
+          >
+            Join Match
+          </button>
+        </div>
+      )}
       {invites.length > 0 && (
         <div className="title-invitations" role="region" aria-label="Game invitations">
           <div className="title-invitations-header">

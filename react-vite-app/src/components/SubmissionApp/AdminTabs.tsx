@@ -8,8 +8,9 @@ import FriendsManagement from './FriendsManagement'
 import BugReportManagement from './BugReportManagement'
 import ImageReportManagement from './ImageReportManagement'
 import TournamentModeToggle from './TournamentModeToggle'
+import TournamentManagement from './TournamentManagement'
 
-export type AdminTabKey = 'review' | 'mapEditor' | 'accounts' | 'friends' | 'bugReports' | 'imageReports'
+export type AdminTabKey = 'review' | 'mapEditor' | 'accounts' | 'friends' | 'bugReports' | 'imageReports' | 'tournaments'
 
 interface TabDefinition {
   key: AdminTabKey
@@ -64,6 +65,11 @@ function AdminTabs({ activeTab, onTabChange, onBack }: AdminTabsProps): React.JS
       label: 'Image Reports',
       visible: hasPermission(ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS),
     },
+    {
+      key: 'tournaments',
+      label: 'Tournaments',
+      visible: hasPermission(ADMIN_PERMISSIONS.MANAGE_TOURNAMENT),
+    },
   ]
 
   const visibleTabs: TabDefinition[] = tabs.filter(t => t.visible)
@@ -101,6 +107,7 @@ function AdminTabs({ activeTab, onTabChange, onBack }: AdminTabsProps): React.JS
         {activeTab === 'friends' && hasPermission(ADMIN_PERMISSIONS.MANAGE_FRIENDS_CHATS) && <FriendsManagement />}
         {activeTab === 'bugReports' && hasPermission(ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS) && <BugReportManagement />}
         {activeTab === 'imageReports' && hasPermission(ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS) && <ImageReportManagement />}
+        {activeTab === 'tournaments' && hasPermission(ADMIN_PERMISSIONS.MANAGE_TOURNAMENT) && <TournamentManagement />}
       </div>
     </div>
   )
