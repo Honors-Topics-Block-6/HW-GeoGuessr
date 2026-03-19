@@ -1292,7 +1292,7 @@ function App(): React.ReactElement {
       {inDuel &&
         duelReportModalOpen &&
         duelLatestRound &&
-        (duel.phase === "guessing" || duel.phase === "finished") && (
+        (duel.phase === "guessing" || duel.phase === "results" || duel.phase === "finished") && (
           <DuelResultScreen
             roundNumber={duelLatestRound.roundNumber}
             imageUrl={duelPinnedImageUrl || duel.currentImage?.url || duelLatestRound.imageUrl}
