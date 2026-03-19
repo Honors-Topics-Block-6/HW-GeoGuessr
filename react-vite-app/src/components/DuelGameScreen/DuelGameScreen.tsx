@@ -73,7 +73,10 @@ function DuelGameScreen({
   allActiveGuessed = false
 }: DuelGameScreenProps): React.ReactElement {
   const mapPickerRef = useRef<MapPickerHandle>(null);
+  const mobileGuessToastTimeoutRef = useRef<number | null>(null);
+  const lastMobileGuessSignalRef = useRef<string>('');
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showMobileOpponentGuessedToast, setShowMobileOpponentGuessedToast] = useState(false);
 
   const isInRegion = availableFloors !== null && availableFloors.length > 0;
   const canSubmit = !hasSubmitted && guessLocation !== null && (!isInRegion || guessFloor !== null);
@@ -115,6 +118,44 @@ function DuelGameScreen({
   const showMobileFloorOverlay = guessLocation !== null && isInRegion;
   // Mobile: show guess button when ready to submit
   const showMobileGuessOverlay = canSubmit;
+  const mobileOpponentGuessSignal = !hasSubmitted
+    ? (isTwoPlayer ? (opponentHasSubmitted ? '1' : '0') : `${activeGuessesCount}`)
+    : 'submitted';
+
+  useEffect(() => {
+    const hadPreviousSignal = lastMobileGuessSignalRef.current !== '';
+    const signalChanged = mobileOpponentGuessSignal !== lastMobileGuessSignalRef.current;
+    const shouldShowToast = !hasSubmitted && (isTwoPlayer ? opponentHasSubmitted : activeGuessesCount > 0);
+
+    if (hadPreviousSignal && signalChanged && shouldShowToast) {
+      setShowMobileOpponentGuessedToast(true);
+      if (mobileGuessToastTimeoutRef.current !== null) {
+        window.clearTimeout(mobileGuessToastTimeoutRef.current);
+      }
+      mobileGuessToastTimeoutRef.current = window.setTimeout(() => {
+        setShowMobileOpponentGuessedToast(false);
+        mobileGuessToastTimeoutRef.current = null;
+      }, 2400);
+    }
+
+    if (!shouldShowToast) {
+      setShowMobileOpponentGuessedToast(false);
+      if (mobileGuessToastTimeoutRef.current !== null) {
+        window.clearTimeout(mobileGuessToastTimeoutRef.current);
+        mobileGuessToastTimeoutRef.current = null;
+      }
+    }
+
+    lastMobileGuessSignalRef.current = mobileOpponentGuessSignal;
+  }, [mobileOpponentGuessSignal, hasSubmitted, isTwoPlayer, opponentHasSubmitted, activeGuessesCount]);
+
+  useEffect(() => {
+    return () => {
+      if (mobileGuessToastTimeoutRef.current !== null) {
+        window.clearTimeout(mobileGuessToastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="duel-game-screen">
@@ -368,7 +409,7 @@ function DuelGameScreen({
           </div>
         )}
 
-        {!hasSubmitted && (isTwoPlayer ? opponentHasSubmitted : activeGuessesCount > 0) && (
+        {showMobileOpponentGuessedToast && (
           <div className="duel-mobile-opponent-guessed">
             {isTwoPlayer ? `${opponentUsername} has made their guess!` : `${activeGuessesCount} player${activeGuessesCount !== 1 ? 's have' : ' has'} guessed!`}
           </div>

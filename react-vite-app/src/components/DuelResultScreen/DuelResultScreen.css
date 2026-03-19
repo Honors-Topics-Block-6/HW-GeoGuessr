@@ -311,7 +311,7 @@
   gap: 0.75rem;
   background-color: var(--bg-card);
   border-radius: 0;
-  padding: 1rem;
+  padding: 0.8rem;
   border: 1px solid var(--border-color);
   opacity: 0;
   transform: translateY(-10px);
@@ -412,7 +412,7 @@
 }
 
 .duel-scoreboard-title {
-  font-size: 0.85rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: var(--text-secondary);
 }
@@ -420,7 +420,7 @@
 .duel-scoreboard-list {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.24rem;
 }
 
 .duel-scoreboard-row {
@@ -429,8 +429,8 @@
   grid-template-areas:
     "rank name score"
     "rank sub  score";
-  gap: 0.1rem 0.6rem;
-  padding: 0.5rem 0.6rem;
+  gap: 0.06rem 0.44rem;
+  padding: 0.36rem 0.46rem;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -444,7 +444,7 @@
 .duel-scoreboard-rank {
   grid-area: rank;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.75rem;
+  font-size: 0.66rem;
   font-weight: 800;
   color: var(--text-muted);
   align-self: center;
@@ -452,12 +452,12 @@
 
 .duel-scoreboard-name {
   grid-area: name;
-  font-size: 0.85rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: var(--text-primary);
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
   min-width: 0;
 }
 
@@ -473,14 +473,14 @@
   grid-area: score;
   justify-self: end;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 900;
   color: var(--text-primary);
 }
 
 .duel-scoreboard-sub {
   grid-area: sub;
-  font-size: 0.75rem;
+  font-size: 0.66rem;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -488,11 +488,22 @@
 }
 
 /* ── Damage Display ── */
+.duel-result-health-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  margin-top: -0.08rem;
+}
+
+.duel-damage-slot {
+  min-height: 1.94rem;
+}
+
 .duel-damage-display {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: 0.34rem;
+  padding: 0.22rem 0.41rem;
   border-radius: 0;
   background: rgba(200, 16, 46, 0.06);
   border: 1px solid rgba(200, 16, 46, 0.2);
@@ -517,7 +528,7 @@
 }
 
 .duel-damage-icon {
-  font-size: 1.5rem;
+  font-size: 0.85rem;
 }
 
 .duel-damage-info {
@@ -527,7 +538,7 @@
 }
 
 .duel-damage-value {
-  font-size: 1.1rem;
+  font-size: 0.74rem;
   font-weight: 700;
   color: var(--hw-red);
 }
@@ -537,12 +548,12 @@
 }
 
 .duel-damage-target {
-  font-size: 0.8rem;
+  font-size: 0.58rem;
   color: var(--text-secondary);
 }
 
 .duel-damage-mult {
-  font-size: 0.75rem;
+  font-size: 0.54rem;
   color: var(--hw-gold, #f0b323);
   font-weight: 600;
 }
@@ -816,7 +827,7 @@
   }
 
   .duel-result-map .zoom-controls {
-    bottom: 6px;
+    bottom: 20px;
     right: 6px;
   }
 
@@ -834,10 +845,10 @@
   }
 
   .duel-result-details {
-    gap: 0.4rem;
+    gap: 0.34rem;
     min-height: 0;
     overflow: visible;
-    padding-top: 0.6rem;
+    padding-top: 0.5rem;
     padding-bottom: calc(5.6rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -861,7 +872,7 @@
   .duel-score-comparison {
     padding: 0.45rem;
     gap: 0.35rem;
-    margin-top: 0.42rem;
+    margin-top: 0.32rem;
   }
 
   .duel-scoreboard-title {
@@ -902,8 +913,12 @@
   }
 
   .duel-damage-display {
-    gap: 0.4rem;
-    padding: 0.4rem 0.45rem;
+    gap: 0.16rem;
+    padding: 0.18rem 0.27rem;
+  }
+
+  .duel-damage-slot {
+    min-height: 1.58rem;
   }
 
   .duel-damage-icon {

@@ -312,59 +312,62 @@ function DuelResultScreen({
             </div>
           </div>
 
-          {/* Damage display */}
-          {animationPhase >= 4 && damage > 0 && (
-            <div className="duel-damage-display">
-              <div className="duel-damage-icon">
-                {iTookDamage ? '💔' : '⚔️'}
-              </div>
-              <div className="duel-damage-info">
-                <span className="duel-damage-value">-{damage.toLocaleString()} HP</span>
-                <span className="duel-damage-target">
-                  {damageTargetName ? `${damageTargetName} takes damage` : 'Damage dealt'}
-                </span>
-                {multiplier > 1 && (
-                  <span className="duel-damage-mult">{multiplier}x multiplier</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {animationPhase >= 4 && damage === 0 && (
-            <div className="duel-damage-display duel-damage-tie">
-              <div className="duel-damage-icon">🤝</div>
-              <div className="duel-damage-info">
-                <span className="duel-damage-value">Tie!</span>
-                <span className="duel-damage-target">No damage dealt</span>
-              </div>
-            </div>
-          )}
-
-          {/* Health bars */}
-          <div className="duel-result-health">
-            {players.map((p) => {
-              const after = healthAfter?.[p.uid] ?? STARTING_HEALTH;
-              const before = healthBefore?.[p.uid] ?? after;
-              const pctAfter = Math.max(0, (after / STARTING_HEALTH) * 100);
-              const pctBefore = Math.max(0, (before / STARTING_HEALTH) * 100);
-              const color = colorForUid(p.uid);
-              return (
-                <div key={p.uid} className="duel-result-health-row">
-                  <span className="duel-rh-name">{p.username}{p.uid === myUid ? ' (You)' : ''}</span>
-                  <div className="duel-rh-bar">
-                    <div
-                      className={`duel-rh-fill ${animationPhase >= 4 ? 'animated' : ''}`}
-                      style={{
-                        width: `${animationPhase >= 4 ? pctAfter : pctBefore}%`,
-                        background: `linear-gradient(90deg, ${hexToRgba(color, 0.85)} 0%, ${color} 100%)`,
-                        boxShadow: `0 0 6px ${hexToRgba(color, 0.25)}`
-                      }}
-                    />
+          <div className="duel-result-health-wrap">
+            <div className="duel-damage-slot">
+              {animationPhase >= 4 && damage > 0 && (
+                <div className="duel-damage-display">
+                  <div className="duel-damage-icon">
+                    {iTookDamage ? '💔' : '⚔️'}
                   </div>
-                  <span className="duel-rh-value">{(animationPhase >= 4 ? after : before).toLocaleString()}</span>
+                  <div className="duel-damage-info">
+                    <span className="duel-damage-value">-{damage.toLocaleString()} HP</span>
+                    <span className="duel-damage-target">
+                      {damageTargetName ? `${damageTargetName} takes damage` : 'Damage dealt'}
+                    </span>
+                    {multiplier > 1 && (
+                      <span className="duel-damage-mult">{multiplier}x multiplier</span>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
+              )}
+
+              {animationPhase >= 4 && damage === 0 && (
+                <div className="duel-damage-display duel-damage-tie">
+                  <div className="duel-damage-icon">🤝</div>
+                  <div className="duel-damage-info">
+                    <span className="duel-damage-value">Tie!</span>
+                    <span className="duel-damage-target">No damage dealt</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Health bars */}
+            <div className="duel-result-health">
+              {players.map((p) => {
+                const after = healthAfter?.[p.uid] ?? STARTING_HEALTH;
+                const before = healthBefore?.[p.uid] ?? after;
+                const pctAfter = Math.max(0, (after / STARTING_HEALTH) * 100);
+                const pctBefore = Math.max(0, (before / STARTING_HEALTH) * 100);
+                const color = colorForUid(p.uid);
+                return (
+                  <div key={p.uid} className="duel-result-health-row">
+                    <span className="duel-rh-name">{p.username}{p.uid === myUid ? ' (You)' : ''}</span>
+                    <div className="duel-rh-bar">
+                      <div
+                        className={`duel-rh-fill ${animationPhase >= 4 ? 'animated' : ''}`}
+                        style={{
+                          width: `${animationPhase >= 4 ? pctAfter : pctBefore}%`,
+                          background: `linear-gradient(90deg, ${hexToRgba(color, 0.85)} 0%, ${color} 100%)`,
+                          boxShadow: `0 0 6px ${hexToRgba(color, 0.25)}`
+                        }}
+                      />
+                    </div>
+                    <span className="duel-rh-value">{(animationPhase >= 4 ? after : before).toLocaleString()}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* KO indicator */}
