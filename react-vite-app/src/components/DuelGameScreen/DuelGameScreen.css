@@ -80,8 +80,15 @@
 }
 
 @keyframes healthPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .duel-health-value {
@@ -116,13 +123,27 @@
 }
 
 @keyframes duelEmotePop {
-  from { transform: scale(0.55); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes duelEmoteBob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-2px);
+  }
 }
 
 .duel-round-badge-center {
@@ -244,8 +265,17 @@
 }
 
 @keyframes waitingPulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.1); opacity: 0.7; }
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
 }
 
 .duel-waiting-text {
@@ -273,13 +303,31 @@
   animation: duelDotBounce 1.4s ease-in-out infinite;
 }
 
-.duel-dot:nth-child(1) { animation-delay: 0s; }
-.duel-dot:nth-child(2) { animation-delay: 0.2s; }
-.duel-dot:nth-child(3) { animation-delay: 0.4s; }
+.duel-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.duel-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.duel-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes duelDotBounce {
-  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
-  40% { opacity: 1; transform: translateY(-6px); }
+
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: translateY(-6px);
+  }
 }
 
 .duel-emote-bar {
@@ -332,8 +380,15 @@
 }
 
 @keyframes slideIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Responsive ── */
@@ -449,7 +504,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.4rem 0.75rem;
+    padding: 0.35rem 0.65rem;
     background: var(--hw-gray-900);
     flex-shrink: 0;
   }
@@ -515,11 +570,46 @@
     border-radius: 4px;
   }
 
+  .duel-mobile-top-stats {
+    display: flex;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    background: var(--hw-black);
+    flex-shrink: 0;
+  }
+
+  .duel-mobile-top-pill {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.28rem 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+  }
+
+  .duel-mobile-opponent-guessed {
+    margin: 0.25rem 0.65rem 0;
+    padding: 0.32rem 0.45rem;
+    background: rgba(200, 16, 46, 0.12);
+    border: 1px solid rgba(200, 16, 46, 0.3);
+    color: var(--hw-red);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
   /* ── Mobile Image ── */
   .duel-mobile-image-container {
-    flex: 1;
-    min-height: 25vh;
-    max-height: 40vh;
+    flex: 0 0 34%;
+    min-height: 20vh;
+    max-height: 37vh;
     background: var(--hw-gray-900);
     overflow: hidden;
     display: flex;
@@ -556,13 +646,38 @@
 
   /* ── Mobile Map ── */
   .duel-mobile-map-container {
-    flex: 1;
+    flex: 1 1 auto;
     min-height: 0;
     background: var(--hw-gray-200);
     position: relative;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .duel-mobile-map-container .duel-mobile-emote-overlay {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    pointer-events: none;
+  }
+
+  .duel-mobile-map-container .duel-mobile-emote-button {
+    width: 1.9rem;
+    height: 1.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(0, 0, 0, 0.56);
+    color: #fff;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;
+    backdrop-filter: blur(2px);
   }
 
   .duel-mobile-map-container .map-picker-container {
@@ -624,17 +739,17 @@
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
+    right: 42px;
     z-index: 100;
     padding: 0.75rem;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.7) 100%);
     animation: slideDown 0.2s ease-out;
   }
 
   .duel-mobile-map-container .mobile-floor-content {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.45rem;
   }
 
   .duel-mobile-map-container .mobile-floor-label {
@@ -652,12 +767,12 @@
   }
 
   .duel-mobile-map-container .mobile-floor-btn {
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
     border: 2px solid rgba(255, 255, 255, 0.3);
     background: rgba(255, 255, 255, 0.1);
     color: #fff;
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -673,7 +788,7 @@
     position: absolute;
     bottom: 0;
     left: 0;
-    right: 0;
+    right: 42px;
     z-index: 100;
     padding: 0.75rem;
     animation: slideUp 0.2s ease-out;
@@ -685,11 +800,11 @@
     justify-content: center;
     gap: 0.5rem;
     width: 100%;
-    padding: 1rem;
+    padding: 0.72rem;
     background: var(--hw-red);
     border: none;
     color: #fff;
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -701,23 +816,51 @@
   }
 
   @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   @keyframes slideUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   @keyframes hpPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.6;
+    }
   }
 
   @keyframes timerPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.5;
+    }
   }
 }
 

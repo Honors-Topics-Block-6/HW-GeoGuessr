@@ -200,7 +200,7 @@ export function useDuelGame(
   // --- Timer state ---
   const [timeRemaining, setTimeRemaining] = useState<number>(DUEL_ROUND_TIME_SECONDS);
   const timedOutRef = useRef<boolean>(false);
-  const roundKeyRef = useRef<number>(0); // Track round changes to reset timer
+  const roundKeyRef = useRef<string>(''); // Track lobby+round changes to reset local guess state
 
   // --- Map/region data ---
   const [regions, setRegions] = useState<Region[]>([]);
@@ -401,7 +401,7 @@ export function useDuelGame(
   // Reset local state when round changes (new round starts)
   useEffect(() => {
     if (phase === 'guessing' && currentRound > 0) {
-      const roundKey = currentRound;
+      const roundKey = `${lobbyDocId}:${currentRound}`;
       if (roundKeyRef.current !== roundKey) {
         roundKeyRef.current = roundKey;
         setLocalGuessLocation(null); // eslint-disable-line react-hooks/set-state-in-effect -- Intentional: syncing local state from Firestore round changes
@@ -415,7 +415,7 @@ export function useDuelGame(
         setOpponentActiveEmote(null);
       }
     }
-  }, [phase, currentRound, lobbyRoundTime]);
+  }, [phase, currentRound, lobbyRoundTime, lobbyDocId]);
 
   // Consume emote events from Firestore and animate them locally.
   useEffect(() => {

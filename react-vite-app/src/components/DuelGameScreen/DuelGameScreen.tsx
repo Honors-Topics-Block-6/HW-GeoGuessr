@@ -195,12 +195,11 @@ function DuelGameScreen({
                 </span>
                 <span
                   className={
-                    `timer-value${
-                      timeRemaining <= 5
-                        ? ' critical'
-                        : timeRemaining <= 10
-                          ? ' warning'
-                          : ''
+                    `timer-value${timeRemaining <= 5
+                      ? ' critical'
+                      : timeRemaining <= 10
+                        ? ' warning'
+                        : ''
                     }`
                   }
                 >
@@ -210,12 +209,11 @@ function DuelGameScreen({
               <div className="timer-bar">
                 <div
                   className={
-                    `timer-bar-fill${
-                      timeRemaining <= 5
-                        ? ' critical'
-                        : timeRemaining <= 10
-                          ? ' warning'
-                          : ''
+                    `timer-bar-fill${timeRemaining <= 5
+                      ? ' critical'
+                      : timeRemaining <= 10
+                        ? ' warning'
+                        : ''
                     }`
                   }
                   style={{
@@ -324,17 +322,15 @@ function DuelGameScreen({
           <div className="mobile-timer">
             <div className="mobile-timer-bar">
               <div
-                className={`mobile-timer-fill${
-                  timeRemaining <= 5 ? ' critical' : timeRemaining <= 10 ? ' warning' : ''
-                }`}
+                className={`mobile-timer-fill${timeRemaining <= 5 ? ' critical' : timeRemaining <= 10 ? ' warning' : ''
+                  }`}
                 style={{
                   width: `${Math.max(0, Math.min(1, timeRemaining / timeLimitSeconds)) * 100}%`
                 }}
               />
             </div>
-            <span className={`mobile-timer-value${
-              timeRemaining <= 5 ? ' critical' : timeRemaining <= 10 ? ' warning' : ''
-            }`}>
+            <span className={`mobile-timer-value${timeRemaining <= 5 ? ' critical' : timeRemaining <= 10 ? ' warning' : ''
+              }`}>
               {timeRemaining.toFixed(1)}s
             </span>
           </div>
@@ -365,6 +361,19 @@ function DuelGameScreen({
           </div>
         </div>
 
+        {!isTwoPlayer && (
+          <div className="duel-mobile-top-stats">
+            <span className="duel-mobile-top-pill">👥 {activePlayerCount}/{totalPlayerCount} Alive</span>
+            <span className="duel-mobile-top-pill">✅ {activeGuessesCount}/{Math.max(1, activePlayerCount)} Guessed</span>
+          </div>
+        )}
+
+        {!hasSubmitted && (isTwoPlayer ? opponentHasSubmitted : activeGuessesCount > 0) && (
+          <div className="duel-mobile-opponent-guessed">
+            {isTwoPlayer ? `${opponentUsername} has made their guess!` : `${activeGuessesCount} player${activeGuessesCount !== 1 ? 's have' : ' has'} guessed!`}
+          </div>
+        )}
+
         {/* Mobile Image */}
         <div className="duel-mobile-image-container">
           <ImageViewer imageUrl={imageUrl} />
@@ -392,6 +401,24 @@ function DuelGameScreen({
                 clickRejected={clickRejected}
                 playingArea={playingArea}
               />
+
+              {/* Mobile Emote Overlay */}
+              {onSendEmote && (
+                <div className="duel-mobile-emote-overlay" aria-label="Quick emotes">
+                  {QUICK_EMOTES.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className="duel-mobile-emote-button"
+                      onClick={() => { void onSendEmote(emoji); }}
+                      aria-label={`Send emote ${emoji}`}
+                      title={`Send ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Mobile Floor Selector Overlay */}
               {showMobileFloorOverlay && (
