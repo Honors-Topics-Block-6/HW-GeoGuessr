@@ -223,7 +223,7 @@ function App(): React.ReactElement {
       : null;
 
   useEffect(() => {
-    if (!user?.uid || isGuest) {
+    if (!user?.uid) {
       setHasReportedThisImage(false);
       return;
     }
@@ -252,7 +252,6 @@ function App(): React.ReactElement {
     };
   }, [
     user?.uid,
-    isGuest,
     screen,
     currentResult?.imageId,
     currentResult?.imageUrl,
@@ -1211,7 +1210,7 @@ function App(): React.ReactElement {
           }
           onBackToTitle={resetGame}
           onReportInaccurate={
-            user && userDoc && !isGuest
+            user && userDoc
               ? (payload) =>
                   handleReportInaccurateImage(
                     payload,
@@ -1316,7 +1315,7 @@ function App(): React.ReactElement {
             onViewFinalResults={() => {}}
             onLeaveDuel={handleDuelForfeit}
             onReportInaccurate={
-              user && userDoc && !isGuest
+              user && userDoc
                 ? (payload) =>
                     handleReportInaccurateImage(
                       payload,
@@ -1361,7 +1360,7 @@ function App(): React.ReactElement {
           onViewFinalResults={() => {/* Will auto-transition via phase */ }}
           onLeaveDuel={handleDuelForfeit}
           onReportInaccurate={
-            user && userDoc && !isGuest
+            user && userDoc
               ? (payload) =>
                   handleReportInaccurateImage(
                     payload,
