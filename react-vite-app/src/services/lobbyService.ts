@@ -465,8 +465,7 @@ export function subscribePublicLobbies(
   const orderedQuery = query(
     collection(db, 'lobbies'),
     where('visibility', '==', 'public'),
-    where('status', '==', 'waiting'),
-    orderBy('createdAt', 'desc')
+    where('status', '==', 'waiting')
   );
 
   const fallbackQuery = query(
@@ -499,7 +498,13 @@ export function subscribePublicLobbies(
   };
 
   unsubscribe = onSnapshot(orderedQuery, (snapshot) => {
-    callback(buildLobbies(snapshot));
+    const lobbies = buildLobbies(snapshot);
+    lobbies.sort((a, b) => {
+      const aTime = (a.createdAt as Timestamp | null)?.toMillis?.() || 0;
+      const bTime = (b.createdAt as Timestamp | null)?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
+    callback(lobbies);
   }, (error) => {
     console.error('Error subscribing to public lobbies:', error);
     unsubscribe();
