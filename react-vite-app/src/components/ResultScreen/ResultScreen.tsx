@@ -40,6 +40,8 @@ export interface ResultScreenProps {
   onReportInaccurate?: (payload: ImageReportPayload) => void;
   /** When true, the Report Image button is disabled (user already reported this image) */
   reportDisabled?: boolean;
+  /** Called when the report modal opens or closes (so parent can defer transitions) */
+  onReportModalOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -204,7 +206,8 @@ function ResultScreen({
   maxHp = 6000,
   hpLost,
   onReportInaccurate,
-  reportDisabled = false
+  reportDisabled = false,
+  onReportModalOpenChange
 }: ResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const zoomControlsRef = useRef<HTMLDivElement>(null);
@@ -586,7 +589,12 @@ function ResultScreen({
               <button
                 type="button"
                 className={`report-image-button ${reportDisabled ? "report-image-button--disabled" : ""}`}
-                onClick={() => !reportDisabled && setShowReportModal(true)}
+                onClick={() => {
+                if (!reportDisabled) {
+                  setShowReportModal(true);
+                  onReportModalOpenChange?.(true);
+                }
+              }}
                 disabled={reportDisabled}
                 aria-label={reportDisabled ? "Already reported this image" : "Report inaccurate image"}
               >
@@ -687,10 +695,14 @@ function ResultScreen({
 
       {showReportModal && onReportInaccurate && (
         <ImageReportModal
-          onClose={() => setShowReportModal(false)}
+          onClose={() => {
+            setShowReportModal(false);
+            onReportModalOpenChange?.(false);
+          }}
           onSubmit={(payload) => {
             onReportInaccurate(payload);
             setShowReportModal(false);
+            onReportModalOpenChange?.(false);
           }}
         />
       )}

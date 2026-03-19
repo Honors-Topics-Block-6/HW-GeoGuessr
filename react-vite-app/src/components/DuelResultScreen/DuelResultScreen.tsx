@@ -56,6 +56,12 @@ export interface DuelResultScreenProps {
   onReportInaccurate?: (payload: ImageReportPayload) => void;
   /** When true, the Report Image button is disabled (user already reported this image) */
   reportDisabled?: boolean;
+  /** Called when the report modal opens or closes. Pass imageUrl when opening so parent can pin display. */
+  onReportModalOpenChange?: (open: boolean, imageUrl?: string) => void;
+  /** When true, the game has advanced in the background; keep modal open and hide Next Round button until user closes. */
+  isPinnedBehind?: boolean;
+  /** When true, the report modal is controlled by the parent (e.g. when pinned). */
+  reportModalOpen?: boolean;
 }
 
 const PLAYER_COLORS: string[] = [
@@ -96,7 +102,10 @@ function DuelResultScreen({
   onLeaveDuel,
   isGameOver = false,
   onReportInaccurate,
-  reportDisabled = false
+  reportDisabled = false,
+  onReportModalOpenChange,
+  isPinnedBehind = false,
+  reportModalOpen
 }: DuelResultScreenProps): React.ReactElement {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const zoomControlsRef = useRef<HTMLDivElement>(null);
@@ -104,7 +113,16 @@ function DuelResultScreen({
   const mapOuterRef = useRef<HTMLDivElement>(null);
   const [animationPhase, setAnimationPhase] = useState<number>(0);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
+  const [internalReportModal, setInternalReportModal] = useState(false);
+  const showReportModal = reportModalOpen ?? internalReportModal;
+  const handleReportModalChange = (open: boolean): void => {
+    if (reportModalOpen !== undefined) {
+      onReportModalOpenChange?.(open);
+    } else {
+      setInternalReportModal(open);
+      onReportModalOpenChange?.(open, open ? imageUrl : undefined);
+    }
+  };
 
   const sortedByScore = [...players]
     .map(p => ({ ...p, score: roundGuessesByUid[p.uid]?.score ?? 0 }))
@@ -277,7 +295,7 @@ function DuelResultScreen({
               <button
                 type="button"
                 className={`report-image-button ${reportDisabled ? "report-image-button--disabled" : ""}`}
-                onClick={() => !reportDisabled && setShowReportModal(true)}
+                onClick={() => !reportDisabled && handleReportModalChange(true)}
                 disabled={reportDisabled}
                 aria-label={reportDisabled ? "Already reported this image" : "Report inaccurate image"}
               >
@@ -376,7 +394,11 @@ function DuelResultScreen({
 
           {/* Action buttons */}
           <div className="duel-result-actions">
-            {isGameOver ? (
+            {isPinnedBehind ? (
+              <div className="duel-result-pinned-message">
+                <span>Close report to continue to the current round</span>
+              </div>
+            ) : isGameOver ? (
               <button className="duel-result-action-btn" onClick={onViewFinalResults}>
                 View Final Results
                 <span className="button-arrow">&rarr;</span>
@@ -419,10 +441,10 @@ function DuelResultScreen({
 
       {showReportModal && onReportInaccurate && (
         <ImageReportModal
-          onClose={() => setShowReportModal(false)}
+          onClose={() => handleReportModalChange(false)}
           onSubmit={(payload) => {
             onReportInaccurate(payload);
-            setShowReportModal(false);
+            handleReportModalChange(false);
           }}
         />
       )}

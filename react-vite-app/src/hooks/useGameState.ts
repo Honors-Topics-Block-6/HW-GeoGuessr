@@ -130,8 +130,10 @@ export interface UseGameStateReturn {
   placeMarker: (coords: MapCoords) => boolean;
   selectFloor: (floor: number) => void;
   submitGuess: () => void;
-  nextRound: () => Promise<void>;
-  viewFinalResults: () => void;
+  nextRound: (opts?: { skipScreenTransition?: boolean }) => Promise<void>;
+  viewFinalResults: (opts?: { skipScreenTransition?: boolean }) => void;
+  /** Complete a deferred transition after report modal closes (when game advanced in background). */
+  catchUpFromReportModal: () => void;
   resetGame: () => void;
   setMode: React.Dispatch<React.SetStateAction<GameMode>>;
   setLobbyDocId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -233,6 +235,7 @@ export function useGameState(): UseGameStateReturn {
     useState<number>(ROUND_TIME_SECONDS);
   const [roundStartTime, setRoundStartTime] = useState<number | null>(null);
   const timedOutRef = useRef<boolean>(false);
+  const pendingTransitionRef = useRef<"game" | "finalResults" | null>(null);
 
   // Track when a click is rejected (outside playing area)
   const [clickRejected, setClickRejected] = useState<boolean>(false);
@@ -1000,16 +1003,21 @@ export function useGameState(): UseGameStateReturn {
 
   /**
    * Proceed to the next round
+   * @param opts.skipScreenTransition - When true, advance game state but keep result screen (e.g. report modal open). Call catchUpFromReportModal when modal closes.
    */
-  const nextRound = useCallback(async (): Promise<void> => {
+  const nextRound = useCallback(async (opts?: { skipScreenTransition?: boolean }): Promise<void> => {
+    const skipScreen = opts?.skipScreenTransition ?? false;
+
     // Endless mode: game over when HP reaches 0
     if (isEndlessMode) {
       if (currentHp <= 0) {
-        setScreen("finalResults");
+        if (!skipScreen) setScreen("finalResults");
+        else pendingTransitionRef.current = "finalResults";
         return;
       }
     } else if (currentRound >= totalRounds) {
-      setScreen("finalResults");
+      if (!skipScreen) setScreen("finalResults");
+      else pendingTransitionRef.current = "finalResults";
       return;
     }
 
@@ -1031,10 +1039,14 @@ export function useGameState(): UseGameStateReturn {
     if (!didLoad) return;
 
     setCurrentRound((prev) => prev + 1);
-    setCurrentResult(null);
+    if (!skipScreen) setCurrentResult(null);
     setTimeRemaining(roundTimeSetting > 0 ? roundTimeSetting : 0);
     setRoundStartTime(roundTimeSetting > 0 ? performance.now() : null);
-    setScreen("game");
+    if (skipScreen) {
+      pendingTransitionRef.current = "game";
+    } else {
+      setScreen("game");
+    }
   }, [
     currentRound,
     totalRounds,
@@ -1050,15 +1062,35 @@ export function useGameState(): UseGameStateReturn {
 
   /**
    * View final results (called from last round's result screen)
+   * @param opts.skipScreenTransition - When true, defer transition until catchUpFromReportModal.
    */
-  const viewFinalResults = useCallback((): void => {
-    setScreen("finalResults");
+  const viewFinalResults = useCallback((opts?: { skipScreenTransition?: boolean }): void => {
+    if (opts?.skipScreenTransition) {
+      pendingTransitionRef.current = "finalResults";
+    } else {
+      setScreen("finalResults");
+    }
+  }, []);
+
+  /**
+   * Complete a deferred transition after report modal closes (when game advanced in background).
+   */
+  const catchUpFromReportModal = useCallback((): void => {
+    const pending = pendingTransitionRef.current;
+    pendingTransitionRef.current = null;
+    if (pending === "game") {
+      setCurrentResult(null);
+      setScreen("game");
+    } else if (pending === "finalResults") {
+      setScreen("finalResults");
+    }
   }, []);
 
   /**
    * Reset game and return to title screen
    */
   const resetGame = useCallback((): void => {
+    pendingTransitionRef.current = null;
     setScreen("title");
     setCurrentRound(1);
     setTotalRounds(DEFAULT_TOTAL_ROUNDS);
@@ -1115,6 +1147,7 @@ export function useGameState(): UseGameStateReturn {
     submitGuess,
     nextRound,
     viewFinalResults,
+    catchUpFromReportModal,
     resetGame,
     setMode,
     setLobbyDocId,

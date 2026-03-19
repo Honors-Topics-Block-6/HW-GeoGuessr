@@ -129,6 +129,10 @@ function App(): React.ReactElement {
     useState<boolean>(false);
   const [imageReportToast, setImageReportToast] = useState<string | null>(null);
   const [hasReportedThisImage, setHasReportedThisImage] = useState<boolean>(false);
+  const [duelReportModalOpen, setDuelReportModalOpen] = useState<boolean>(false);
+  const [duelPinnedImageUrl, setDuelPinnedImageUrl] = useState<string | null>(null);
+  const [singlePlayerReportModalOpen, setSinglePlayerReportModalOpen] =
+    useState<boolean>(false);
 
   // Ensure the daily streak resets to 0 if a day was missed (once per app load).
   useEffect(() => {
@@ -136,6 +140,13 @@ function App(): React.ReactElement {
     if (!user?.uid) return;
     syncDailyStreakRollover(user.uid);
   }, [isGuest, user?.uid]);
+
+  // Clear single-player report modal state when leaving result screen
+  useEffect(() => {
+    if (screen !== "result" && !inDuel) {
+      setSinglePlayerReportModalOpen(false);
+    }
+  }, [screen, inDuel]);
 
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState<boolean>(false);
@@ -176,6 +187,7 @@ function App(): React.ReactElement {
     submitGuess,
     nextRound,
     viewFinalResults,
+    catchUpFromReportModal,
     resetGame,
     setMode,
     setLobbyDocId,
@@ -606,6 +618,8 @@ function App(): React.ReactElement {
     setInDuel(false);
     setDuelLobbyDocId(null);
     setLobbyDocId(null);
+    setDuelReportModalOpen(false);
+    setDuelPinnedImageUrl(null);
     setScreen("multiplayerLobby");
   }, [setLobbyDocId, setScreen]);
 
@@ -616,6 +630,8 @@ function App(): React.ReactElement {
     setInDuel(false);
     setDuelLobbyDocId(null);
     setLobbyDocId(null);
+    setDuelReportModalOpen(false);
+    setDuelPinnedImageUrl(null);
     resetGame();
   }, [setLobbyDocId, resetGame]);
 
@@ -1176,8 +1192,20 @@ function App(): React.ReactElement {
           timePenalty={currentResult.timePenalty}
           roundNumber={currentRound}
           totalRounds={totalRounds}
-          onNextRound={nextRound}
-          onViewFinalResults={viewFinalResults}
+          onNextRound={() => {
+            if (singlePlayerReportModalOpen) {
+              nextRound({ skipScreenTransition: true });
+            } else {
+              nextRound();
+            }
+          }}
+          onViewFinalResults={() => {
+            if (singlePlayerReportModalOpen) {
+              viewFinalResults({ skipScreenTransition: true });
+            } else {
+              viewFinalResults();
+            }
+          }}
           isLastRound={
             isEndlessMode ? currentHp <= 0 : currentRound >= totalRounds
           }
@@ -1193,6 +1221,10 @@ function App(): React.ReactElement {
               : undefined
           }
           reportDisabled={hasReportedThisImage}
+          onReportModalOpenChange={(open) => {
+            setSinglePlayerReportModalOpen(open);
+            if (!open) catchUpFromReportModal();
+          }}
           isEndlessMode={isEndlessMode}
           currentHp={currentHp}
           maxHp={startingHp}
@@ -1220,7 +1252,7 @@ function App(): React.ReactElement {
 
       {/* --- Duel (Multiplayer) Screens --- */}
 
-      {inDuel && duel.phase === "guessing" && duel.currentImage && (
+      {inDuel && duel.phase === "guessing" && duel.currentImage && !duelReportModalOpen && (
         <DuelGameScreen
           imageUrl={duel.currentImage.url}
           guessLocation={duel.localGuessLocation}
@@ -1257,7 +1289,56 @@ function App(): React.ReactElement {
         />
       )}
 
-      {inDuel && duel.phase === "results" && duelLatestRound && (
+      {/* Pinned: report modal open while game advanced in background — keep showing result until user closes */}
+      {inDuel &&
+        duelReportModalOpen &&
+        duelLatestRound &&
+        (duel.phase === "guessing" || duel.phase === "finished") && (
+          <DuelResultScreen
+            roundNumber={duelLatestRound.roundNumber}
+            imageUrl={duelPinnedImageUrl || duel.currentImage?.url || duelLatestRound.imageUrl}
+            imageId={duelLatestRound.imageId}
+            actualLocation={duelLatestRound.actualLocation}
+            players={duel.players}
+            roundGuessesByUid={duelLatestRound.players || {}}
+            healthAfter={duelLatestRound.healthAfter || {}}
+            healthBefore={
+              duel.roundHistory.length > 1
+                ? (duel.roundHistory[duel.roundHistory.length - 2].healthAfter || {})
+                : Object.fromEntries((duel.players || []).map((p) => [p.uid, STARTING_HEALTH]))
+            }
+            damage={duelLatestRound.damage}
+            multiplier={duelLatestRound.multiplier}
+            damagedPlayer={duelLatestRound.damagedPlayer}
+            myUid={uid}
+            isHost={duel.isHost}
+            onNextRound={() => {}}
+            onViewFinalResults={() => {}}
+            onLeaveDuel={handleDuelForfeit}
+            onReportInaccurate={
+              user && userDoc && !isGuest
+                ? (payload) =>
+                    handleReportInaccurateImage(
+                      payload,
+                      duelLatestRound.imageId ?? null,
+                      duelPinnedImageUrl || duel.currentImage?.url || duelLatestRound.imageUrl,
+                    )
+                : undefined
+            }
+            reportDisabled={hasReportedThisImage}
+            isGameOver={duel.phase === "finished"}
+            onReportModalOpenChange={(open) => {
+              if (!open) {
+                setDuelReportModalOpen(false);
+                setDuelPinnedImageUrl(null);
+              }
+            }}
+            isPinnedBehind={true}
+            reportModalOpen={true}
+          />
+        )}
+
+      {inDuel && duel.phase === "results" && duelLatestRound && !duelReportModalOpen && (
         <DuelResultScreen
           roundNumber={duelLatestRound.roundNumber}
           imageUrl={duel.currentImage?.url || duelLatestRound.imageUrl}
@@ -1291,10 +1372,19 @@ function App(): React.ReactElement {
           }
           reportDisabled={hasReportedThisImage}
           isGameOver={false}
+          onReportModalOpenChange={(open, imageUrl) => {
+            setDuelReportModalOpen(open);
+            if (open && imageUrl) setDuelPinnedImageUrl(imageUrl);
+            else if (!open) setDuelPinnedImageUrl(null);
+          }}
         />
       )}
 
-      {inDuel && duel.phase === "finished" && duel.winner && duel.loser && (
+      {inDuel &&
+        duel.phase === "finished" &&
+        duel.winner &&
+        duel.loser &&
+        !duelReportModalOpen && (
         <DuelFinalScreen
           winner={duel.winner}
           loser={duel.loser}
