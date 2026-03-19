@@ -429,6 +429,65 @@
   text-align: center;
 }
 
+/* ===== Round Difficulty Config ===== */
+.round-difficulty-config {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--hw-gray-100, #f3f4f6);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+}
+
+.round-difficulty-config h5 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--hw-black, #231f20);
+}
+
+.round-difficulty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.round-difficulty-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+}
+
+.round-difficulty-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hw-black, #231f20);
+}
+
+.round-difficulty-select {
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  background: #fff;
+  cursor: pointer;
+  min-width: 100px;
+}
+
+.round-difficulty-select:disabled {
+  background: var(--hw-gray-100, #f3f4f6);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.round-difficulty-locked {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hw-gray-500, #6b7280);
+  text-transform: uppercase;
+}
+
 /* ===== Controls Tab ===== */
 .controls-tab h4 {
   margin: 0 0 20px 0;

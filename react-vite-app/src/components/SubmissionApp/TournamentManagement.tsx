@@ -14,12 +14,14 @@ import {
   cancelTournament,
   searchUsersForTournament,
   regenerateBracketPreview,
+  updateRoundDifficulty,
   DEFAULT_TOURNAMENT_SETTINGS,
   type TournamentDoc,
   type TournamentParticipant,
   type TournamentSettings,
   type BracketType,
-  type SeedingType
+  type SeedingType,
+  type RoundDifficulty
 } from '../../services/tournamentService'
 import TournamentBracket from './TournamentBracket'
 import './TournamentManagement.css'
@@ -316,6 +318,19 @@ function TournamentManagement(): React.JSX.Element {
     }
   }
 
+  // Update round difficulty
+  const handleRoundDifficultyChange = async (roundNumber: number, difficulty: RoundDifficulty): Promise<void> => {
+    if (!selectedTournamentId) return
+
+    setActionError(null)
+
+    try {
+      await updateRoundDifficulty(selectedTournamentId, roundNumber, difficulty)
+    } catch (err) {
+      setActionError((err as Error).message || 'Failed to update round difficulty')
+    }
+  }
+
   const getStatusBadgeClass = (status: string): string => {
     switch (status) {
       case 'setup': return 'status-setup'
@@ -603,6 +618,26 @@ function TournamentManagement(): React.JSX.Element {
               <p className="bracket-preview-note">
                 This is a preview. The bracket will be finalized when you start the tournament.
               </p>
+              <div className="round-difficulty-config">
+                <h5>Round Difficulties</h5>
+                <div className="round-difficulty-list">
+                  {selectedTournament.bracketPreview.rounds.map(round => (
+                    <div key={round.roundNumber} className="round-difficulty-row">
+                      <span className="round-difficulty-name">{round.roundName}</span>
+                      <select
+                        className="round-difficulty-select"
+                        value={round.difficulty}
+                        onChange={(e) => handleRoundDifficultyChange(round.roundNumber, e.target.value as RoundDifficulty)}
+                      >
+                        <option value="all">All</option>
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <TournamentBracket
                 bracket={selectedTournament.bracketPreview}
                 onStartMatch={handleStartMatch}
@@ -626,6 +661,30 @@ function TournamentManagement(): React.JSX.Element {
 
     return (
       <div className="bracket-tab">
+        <div className="round-difficulty-config">
+          <h5>Round Difficulties</h5>
+          <div className="round-difficulty-list">
+            {selectedTournament.bracket.rounds.map(round => (
+              <div key={round.roundNumber} className="round-difficulty-row">
+                <span className="round-difficulty-name">{round.roundName}</span>
+                <select
+                  className="round-difficulty-select"
+                  value={round.difficulty}
+                  onChange={(e) => handleRoundDifficultyChange(round.roundNumber, e.target.value as RoundDifficulty)}
+                  disabled={round.status === 'active' || round.status === 'completed'}
+                >
+                  <option value="all">All</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+                {(round.status === 'active' || round.status === 'completed') && (
+                  <span className="round-difficulty-locked">Locked</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
         <TournamentBracket
           bracket={selectedTournament.bracket}
           onStartMatch={handleStartMatch}

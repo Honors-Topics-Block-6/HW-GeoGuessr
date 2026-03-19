@@ -56,11 +56,14 @@ export interface BracketMatch {
   slotInNextMatch?: 1 | 2;
 }
 
+export type RoundDifficulty = 'all' | 'easy' | 'medium' | 'hard';
+
 export interface BracketRound {
   roundNumber: number;
   roundName: string;
   matches: BracketMatch[];
   status: RoundStatus;
+  difficulty: RoundDifficulty;
 }
 
 export interface BracketStructure {
@@ -273,7 +276,8 @@ function generateBracket(
       roundNumber: roundNum,
       roundName: getRoundName(roundNum, totalRounds),
       matches,
-      status: 'pending'
+      status: 'pending',
+      difficulty: 'all'
     });
 
     previousRoundMatches = matches;
@@ -535,6 +539,54 @@ export async function updateSeeding(
   });
 }
 
+/**
+ * Update difficulty for a specific round (in preview or active bracket)
+ */
+export async function updateRoundDifficulty(
+  tournamentId: string,
+  roundNumber: number,
+  difficulty: RoundDifficulty
+): Promise<void> {
+  const tournament = await getTournament(tournamentId);
+
+  if (!tournament) throw new Error('Tournament not found');
+
+  // Can update preview in setup mode, or active bracket if round hasn't started
+  const isSetup = tournament.status === 'setup';
+  const bracket = isSetup ? tournament.bracketPreview : tournament.bracket;
+
+  if (!bracket) throw new Error('Bracket not generated');
+
+  const roundIndex = roundNumber - 1;
+  if (roundIndex < 0 || roundIndex >= bracket.rounds.length) {
+    throw new Error('Invalid round number');
+  }
+
+  const round = bracket.rounds[roundIndex];
+
+  // Don't allow changing difficulty for completed or active rounds
+  if (!isSetup && (round.status === 'active' || round.status === 'completed')) {
+    throw new Error('Cannot change difficulty for active or completed rounds');
+  }
+
+  // Update the round difficulty
+  const updatedRounds = bracket.rounds.map((r, idx) => {
+    if (idx === roundIndex) {
+      return { ...r, difficulty };
+    }
+    return r;
+  });
+
+  const docRef = doc(db, 'tournaments', tournamentId);
+  const updateField = isSetup ? 'bracketPreview' : 'bracket';
+  await updateDoc(docRef, {
+    [updateField]: {
+      ...bracket,
+      rounds: updatedRounds
+    }
+  });
+}
+
 // ────── Bracket Preview ──────
 
 /**
@@ -681,8 +733,9 @@ export async function startMatch(
   if (tournament.status !== 'active') throw new Error('Tournament is not active');
   if (!tournament.bracket) throw new Error('Bracket not generated');
 
-  // Find the match
+  // Find the match and its round
   let targetMatch: BracketMatch | null = null;
+  let targetRound: BracketRound | null = null;
   let targetRoundIndex = -1;
   let targetMatchIndex = -1;
 
@@ -691,6 +744,7 @@ export async function startMatch(
     for (let mi = 0; mi < round.matches.length; mi++) {
       if (round.matches[mi].matchId === matchId) {
         targetMatch = round.matches[mi];
+        targetRound = round;
         targetRoundIndex = ri;
         targetMatchIndex = mi;
         break;
@@ -699,17 +753,17 @@ export async function startMatch(
     if (targetMatch) break;
   }
 
-  if (!targetMatch) throw new Error('Match not found');
+  if (!targetMatch || !targetRound) throw new Error('Match not found');
   if (targetMatch.status !== 'ready') throw new Error('Match is not ready to start');
   if (!targetMatch.participant1 || !targetMatch.participant2) {
     throw new Error('Match is missing participants');
   }
 
-  // Create lobby for the match
+  // Create lobby for the match using the round's difficulty
   const lobbyResult = await createLobby(
     targetMatch.participant1.uid,
     targetMatch.participant1.username,
-    tournament.settings.difficulty,
+    targetRound.difficulty,
     'private',
     tournament.settings.roundTimeSeconds,
     'duel',
