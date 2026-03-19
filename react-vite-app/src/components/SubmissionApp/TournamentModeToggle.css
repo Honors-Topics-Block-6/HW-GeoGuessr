@@ -1,0 +1,180 @@
+/* ===== Tournament Mode Toggle ===== */
+
+.tournament-toggle-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
+}
+
+.tournament-toggle-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary, #4b5563);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tournament-toggle-loading {
+  font-size: 12px;
+  color: var(--text-muted, #6b7280);
+}
+
+.tournament-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--hw-gray-200, #e5e7eb);
+  border: 1px solid var(--hw-gray-300, #d1d5db);
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted, #6b7280);
+  transition: all 0.2s ease;
+}
+
+.tournament-toggle-button:hover:not(:disabled) {
+  background: var(--hw-gray-300, #d1d5db);
+  color: var(--hw-black, #231f20);
+}
+
+.tournament-toggle-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tournament-toggle-button.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: #d97706;
+  color: #ffffff;
+}
+
+.tournament-toggle-button.active:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.tournament-toggle-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--hw-gray-400, #9ca3af);
+  transition: all 0.2s ease;
+}
+
+.tournament-toggle-button.active .tournament-toggle-indicator {
+  background: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.tournament-toggle-status {
+  min-width: 28px;
+  text-align: center;
+}
+
+/* ===== Confirmation Modal ===== */
+
+.tournament-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+  animation: tournamentOverlayIn 0.2s ease-out;
+}
+
+@keyframes tournamentOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.tournament-confirm-modal {
+  background: var(--hw-surface, #ffffff);
+  border: 1px solid #f59e0b;
+  border-radius: 0;
+  max-width: 420px;
+  width: 100%;
+  padding: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  animation: tournamentModalIn 0.3s ease-out;
+}
+
+@keyframes tournamentModalIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tournament-confirm-title {
+  margin: 0 0 12px 0;
+  color: #d97706;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tournament-confirm-message {
+  margin: 0 0 20px 0;
+  color: var(--text-secondary, #4b5563);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.tournament-confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.tournament-confirm-button {
+  flex: 1;
+  padding: 12px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.tournament-confirm-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.tournament-confirm-button:disabled {
+  background: var(--hw-gray-300, #e5e7eb);
+  color: var(--text-muted, #6b7280);
+  cursor: not-allowed;
+}
+
+.tournament-cancel-button {
+  flex: 1;
+  padding: 12px;
+  background: var(--hw-surface, #ffffff);
+  color: var(--text-secondary, #4b5563);
+  border: 1px solid var(--hw-gray-300, #e5e7eb);
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.tournament-cancel-button:hover:not(:disabled) {
+  background: var(--hw-gray-100, #f3f4f6);
+  color: var(--hw-black, #231f20);
+}
+
+.tournament-cancel-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

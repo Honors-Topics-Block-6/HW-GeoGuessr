@@ -34,7 +34,8 @@ export type AdminPermissionKey =
   | 'messageAccounts'
   | 'manageAdmins'
   | 'manageFriendsChats'
-  | 'manageBugReports';
+  | 'manageBugReports'
+  | 'manageTournament';
 
 export type PermissionsMap = Record<AdminPermissionKey, boolean>;
 
@@ -172,6 +173,7 @@ export const ADMIN_PERMISSIONS = {
   MANAGE_ADMINS: 'manageAdmins' as const,
   MANAGE_FRIENDS_CHATS: 'manageFriendsChats' as const,
   MANAGE_BUG_REPORTS: 'manageBugReports' as const,
+  MANAGE_TOURNAMENT: 'manageTournament' as const,
 } as const;
 
 /**
@@ -187,6 +189,7 @@ export const PERMISSION_LABELS: Record<AdminPermissionKey, string> = {
   [ADMIN_PERMISSIONS.MANAGE_ADMINS]: 'Manage Admins & Permissions',
   [ADMIN_PERMISSIONS.MANAGE_FRIENDS_CHATS]: 'Manage Friends & Chats',
   [ADMIN_PERMISSIONS.MANAGE_BUG_REPORTS]: 'Manage Bug Reports',
+  [ADMIN_PERMISSIONS.MANAGE_TOURNAMENT]: 'Manage Tournament Mode',
 };
 
 // ────── Username helpers ──────
