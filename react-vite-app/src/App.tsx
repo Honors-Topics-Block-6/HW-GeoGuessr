@@ -141,13 +141,6 @@ function App(): React.ReactElement {
     syncDailyStreakRollover(user.uid);
   }, [isGuest, user?.uid]);
 
-  // Clear single-player report modal state when leaving result screen
-  useEffect(() => {
-    if (screen !== "result" && !inDuel) {
-      setSinglePlayerReportModalOpen(false);
-    }
-  }, [screen, inDuel]);
-
   // Track whether we're in a duel (multiplayer) game
   const [inDuel, setInDuel] = useState<boolean>(false);
   const [duelLobbyDocId, setDuelLobbyDocId] = useState<string | null>(null);
@@ -193,6 +186,13 @@ function App(): React.ReactElement {
     setLobbyDocId,
     setDifficulty,
   } = useGameState();
+
+  // Clear single-player report modal state when leaving result screen
+  useEffect(() => {
+    if (screen !== "result" && !inDuel) {
+      setSinglePlayerReportModalOpen(false);
+    }
+  }, [screen, inDuel]);
 
   const {
     allCompleted: dailyGoalsAllCompleted,
